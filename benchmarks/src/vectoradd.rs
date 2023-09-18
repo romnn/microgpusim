@@ -144,8 +144,10 @@ where
 mod tests {
     use color_eyre::eyre;
     use gpucachesim::exec::tracegen::testing::{self, SimplifiedTraceInstruction};
-
+    use ndarray::Array1;
     use utils::diff;
+
+    const EPSILON: f32 = 0.0001;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_correctness() -> eyre::Result<()> {
@@ -163,9 +165,25 @@ mod tests {
             b[i] = angle.cos() * angle.cos();
         }
 
+        let ndarray_result = {
+            let ref_a = Array1::from_shape_vec(n, a.clone())?;
+            let ref_b = Array1::from_shape_vec(n, b.clone())?;
+            ref_a + ref_b
+        };
         let (_launch_config, trace) = super::vectoradd(&a, &b, &mut result).await?;
         super::reference(&a, &b, &mut ref_result);
-        diff::assert_eq!(have: result, want: ref_result);
+
+        let ref_result = Array1::from_shape_vec(n, ref_result)?;
+        let result = Array1::from_shape_vec(n, result)?;
+        dbg!(&ref_result);
+        dbg!(&result);
+
+        if !approx::abs_diff_eq!(ref_result, ndarray_result, epsilon = EPSILON) {
+            diff::assert_eq!(have: ref_result, want: ndarray_result);
+        }
+        if !approx::abs_diff_eq!(result, ndarray_result, epsilon = EPSILON) {
+            diff::assert_eq!(have: result, want: ndarray_result);
+        }
 
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];

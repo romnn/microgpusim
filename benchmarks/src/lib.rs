@@ -8,4 +8,5 @@
 // #![allow(warnings)]
 
 pub mod matrixmul;
+pub mod simple_matrixmul;
 pub mod vectoradd;

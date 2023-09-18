@@ -258,12 +258,14 @@ mod tests {
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
         let result = Array2::from_shape_vec(matrix_shape, result)?;
+        dbg!(&ref_result);
+        dbg!(&result);
 
         if !approx::abs_diff_eq!(ref_result, ndarray_result, epsilon = EPSILON) {
-            diff::diff!(have: ref_result, want: ndarray_result);
+            diff::assert_eq!(have: ref_result, want: ndarray_result);
         }
-        if !approx::abs_diff_eq!(result, ref_result, epsilon = EPSILON) {
-            diff::diff!(have: ref_result, want: ndarray_result);
+        if !approx::abs_diff_eq!(result, ndarray_result, epsilon = EPSILON) {
+            diff::assert_eq!(have: result, want: ndarray_result);
         }
 
         let warp_traces = trace.clone().to_warp_traces();
