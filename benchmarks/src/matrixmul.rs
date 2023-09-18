@@ -249,8 +249,8 @@ mod tests {
         }
 
         let ndarray_result = {
-            let ref_a: Array2<f32> = Array2::from_shape_vec(matrix_shape, a.clone())?;
-            let ref_b: Array2<f32> = Array2::from_shape_vec(matrix_shape, b.clone())?;
+            let ref_a = Array2::from_shape_vec(matrix_shape, a.clone())?;
+            let ref_b = Array2::from_shape_vec(matrix_shape, b.clone())?;
             ref_a.dot(&ref_b)
         };
         let (_launch_config, trace) = super::matrixmul(&a, &b, &mut result, size).await?;
@@ -258,6 +258,7 @@ mod tests {
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
         let result = Array2::from_shape_vec(matrix_shape, result)?;
+        dbg!(&ndarray_result);
         dbg!(&ref_result);
         dbg!(&result);
 

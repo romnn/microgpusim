@@ -9,4 +9,5 @@
 
 pub mod matrixmul;
 pub mod simple_matrixmul;
+pub mod transpose;
 pub mod vectoradd;

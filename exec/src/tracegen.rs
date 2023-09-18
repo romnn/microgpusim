@@ -195,7 +195,7 @@ impl Tracer {
                 let block_id = block_id.clone();
                 let kernel = kernel.clone();
                 async move {
-                    // println!("block {block_id}");
+                    println!("block {block_id}");
 
                     // loop over the block size and form warps
                     let thread_ids = block_size.clone().into_iter();
