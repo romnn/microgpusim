@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import json
 from os import PathLike
 from pathlib import Path
@@ -232,6 +233,12 @@ class Stats(common.Stats):
         # self._compute_l2_write_hit_rate()
         # self._compute_l2_read_miss_rate()
         # self._compute_l2_write_miss_rate()
+
+        # fix the index
+        self.result_df = self.result_df.reset_index()
+        self.result_df["stream_id"] = np.nan
+        self.result_df["context_id"] = np.nan
+        self.result_df["device"] = np.nan
 
     def _compute_is_release_build(self):
         grouped = self.sim_df.groupby(INDEX_COLS, dropna=False)

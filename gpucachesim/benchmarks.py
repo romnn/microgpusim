@@ -52,6 +52,7 @@ class GPUConfig:
 class Target(Enum):
     Profile = "Profile"
     Simulate = "Simulate"
+    ExecDrivenSimulate = "ExecDrivenSimulate"
     AccelsimSimulate = "AccelsimSimulate"
     AccelsimTrace = "AccelsimTrace"
     PlaygroundSimulate = "PlaygroundSimulate"
@@ -165,6 +166,10 @@ def construct_simulate_target_config(self, node):
     return SimulateTargetConfig(self.construct_mapping(node))
 
 
+def construct_exec_driven_simulate_target_config(self, node):
+    return SimulateTargetConfig(self.construct_mapping(node))
+
+
 def construct_accelsim_simulate_target_config(self, node):
     return AccelsimSimulateTargetConfig(self.construct_mapping(node))
 
@@ -180,6 +185,7 @@ def construct_playground_simulate_target_config(self, node):
 BenchmarkLoader.add_constructor("!Profile", construct_profile_target_config)
 BenchmarkLoader.add_constructor("!Trace", construct_trace_target_config)
 BenchmarkLoader.add_constructor("!Simulate", construct_simulate_target_config)
+BenchmarkLoader.add_constructor("!ExecDrivenSimulate", construct_exec_driven_simulate_target_config)
 BenchmarkLoader.add_constructor("!AccelsimSimulate", construct_accelsim_simulate_target_config)
 BenchmarkLoader.add_constructor("!AccelsimTrace", construct_accelsim_trace_target_config)
 BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simulate_target_config)

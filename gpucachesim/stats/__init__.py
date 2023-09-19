@@ -196,7 +196,10 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
         values["benchmark"] = name
         values["input_id"] = input_idx
 
+        # print(bench_stats.result_df)
+        # assert "run" in bench_stats.result_df.columns
         values = bench_stats.result_df.merge(values, how="cross")
+        assert "run" in values.columns
 
         if verbose:
             print(values.T)

@@ -250,6 +250,24 @@ class Stats(common.Stats):
         self._compute_l2_hits()
         self._compute_l2_misses()
 
+        # fix the index
+        self.result_df = self.result_df.reset_index()
+        self.result_df = self.result_df.rename(
+            columns={
+                "Stream": "stream_id",
+                "Context": "context_id",
+                "Device": "device",
+                "Kernel": "kernel_name_mangled",
+                "Correlation_ID": "kernel_launch_id",
+            }
+        )
+        self.result_df["kernel_name"] = np.nan
+
+        # map sorted correlation ids to increasing launch ids
+        launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())
+        new_launch_ids = {old: new for new, old in enumerate(launch_ids)}
+        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
+
     def _compute_exec_time_sec(self):
         # print(self._kernel_durations_us())
         # print(self.result_df)
