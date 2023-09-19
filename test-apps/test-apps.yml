@@ -131,6 +131,8 @@ benchmarks:
     inputs:
       size: [1024, 10240, 102400]
     args: "--arraysize {{ input.size }} --numtimes 1"
+    exec_driven_simulate:
+      enabled: false
     simulate:
       traces_dir: "babelstream/babelstream-size-{{ input.size }}/trace"
       accelsim_traces_dir: "babelstream/babelstream-size-{{ input.size }}/accelsim-trace"

@@ -21,6 +21,9 @@ pub struct AccelsimTrace {}
 pub struct Sim {}
 
 #[derive(Parser, Debug, Default, Clone)]
+pub struct ExecDrivenSim {}
+
+#[derive(Parser, Debug, Default, Clone)]
 pub struct AccelsimSim {}
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -44,6 +47,8 @@ pub enum Command {
     Trace(Trace),
     AccelsimTrace(AccelsimTrace),
     Simulate(Sim),
+    /// Exec driven simulation.
+    ExecSimulate(Sim),
     AccelsimSimulate(AccelsimSim),
     PlaygroundSimulate(PlaygroundSim),
     Build(Build),
@@ -59,6 +64,7 @@ impl Command {
         match self {
             Command::Full(_) => Box::new(Target::iter()), // all
             Command::Simulate(_) => Box::new([Target::Simulate].into_iter()),
+            Command::ExecSimulate(_) => Box::new([Target::ExecDrivenSimulate].into_iter()),
             Command::Trace(_) => Box::new([Target::Trace].into_iter()),
             Command::AccelsimTrace(_) => Box::new([Target::AccelsimTrace].into_iter()),
             Command::AccelsimSimulate(_) => Box::new([Target::AccelsimSimulate].into_iter()),

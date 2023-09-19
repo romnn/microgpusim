@@ -234,7 +234,8 @@ where
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Variant {
     Naive,
     Coalesced,

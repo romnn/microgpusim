@@ -54,7 +54,12 @@ where
 }
 
 /// Vectoradd benchmark application.
-pub async fn benchmark<T>(n: usize) -> eyre::Result<()>
+pub async fn benchmark<T>(
+    n: usize,
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + Send + Sync,
 {
@@ -71,8 +76,7 @@ where
         result[i] = T::zero();
     }
 
-    vectoradd(&a, &b, &mut result).await?;
-    Ok(())
+    vectoradd(&a, &b, &mut result).await
 }
 
 pub async fn vectoradd<T>(
@@ -88,7 +92,6 @@ where
 {
     let tracer = Tracer::new();
 
-    // let sim = exec::Simulation::new();
     assert_eq!(a.len(), b.len());
     assert_eq!(b.len(), result.len());
     let n = a.len();
@@ -108,36 +111,7 @@ where
     };
     let trace = tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
     Ok(trace)
-    // *result = tracer.kernel.dev_result.into_inner();
-
-    // let kernel: VecAdd<T> = VecAdd {
-    //     d_a: &mut d_a,
-    //     d_b: &mut d_b,
-    //     d_c: &mut d_c,
-    //     n,
-    // };
-    // sim.launch_kernel(grid_size, BLOCK_SIZE, kernel)?;
-    // let stats = sim.run_to_completion()?;
-    //
-    // // sum up vector c and print result divided by n.
-    // // this should equal 1 within
-    // let total_sum: T = c.iter().copied().sum();
-    // println!(
-    //     "Final sum = {total_sum}; sum/n = {:.2} (should be ~1)\n",
-    //     total_sum / T::from(n).unwrap()
-    // );
-    //
-    // eprintln!("STATS:\n");
-    // eprintln!("DRAM: total reads: {}", &stats.dram.total_reads());
-    // eprintln!("DRAM: total writes: {}", &stats.dram.total_writes());
-    // eprintln!("SIM: {:#?}", &stats.sim);
-    // eprintln!("INSTRUCTIONS: {:#?}", &stats.instructions);
-    // eprintln!("ACCESSES: {:#?}", &stats.accesses);
-    // eprintln!("L1I: {:#?}", &stats.l1i_stats.reduce());
-    // eprintln!("L1D: {:#?}", &stats.l1d_stats.reduce());
-    // eprintln!("L2D: {:#?}", &stats.l2d_stats.reduce());
-    // eprintln!("completed in {:?}", start.elapsed());
-    // Ok(())
+    
 }
 
 #[cfg(test)]

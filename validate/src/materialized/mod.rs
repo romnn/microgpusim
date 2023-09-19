@@ -154,6 +154,18 @@ pub fn bench_config_name(name: &str, input: &super::matrix::Input, sort: bool) -
 }
 
 impl crate::Benchmark {
+    pub fn enabled(&self, target: Target) -> Option<bool> {
+        match target {
+            Target::Profile => self.profile.enabled,
+            Target::Trace => self.profile.enabled,
+            Target::AccelsimTrace => self.accelsim_trace.enabled,
+            Target::Simulate => self.simulate.enabled,
+            Target::ExecDrivenSimulate => self.exec_driven_simulate.enabled,
+            Target::AccelsimSimulate => self.accelsim_simulate.enabled,
+            Target::PlaygroundSimulate => self.playground_simulate.enabled,
+        }
+    }
+
     #[allow(clippy::too_many_lines)]
     pub fn materialize_input(
         &self,
@@ -188,10 +200,12 @@ impl crate::Benchmark {
             Target::AccelsimSimulate => &top_level_config.accelsim_simulate.common,
             Target::PlaygroundSimulate => &top_level_config.playground_simulate.common,
         };
-        let common_config =
+        let mut common_config =
             self.config
                 .clone()
                 .materialize(base, Some(target), Some(top_level_common_config))?;
+
+        common_config.enabled = common_config.enabled.or(self.enabled(target));
 
         let trace_config = self.config.clone().materialize(
             base,
@@ -511,7 +525,7 @@ mod tests {
             repetitions: 5,
             concurrency: Some(1),
             timeout: None,
-            enabled: true,
+            enabled: Some(true),
             results_dir: PathBuf::from("results/"),
         };
         diff::assert_eq!(
@@ -527,7 +541,7 @@ mod tests {
                 concurrency: Some(2),
                 repetitions: 5,
                 timeout: None,
-                enabled: true,
+                enabled: Some(true),
                 results_dir: PathBuf::from("/base/results"),
             }
         );

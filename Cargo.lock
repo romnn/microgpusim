@@ -365,22 +365,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
 
 [[package]]
-name = "benchmarks"
-version = "0.1.0"
-dependencies = [
- "approx",
- "async-trait",
- "color-eyre",
- "gpucachesim",
- "ndarray",
- "num-traits",
- "rand",
- "tokio",
- "trace-model",
- "utils",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1637,6 +1621,23 @@ dependencies = [
  "tracing-subscriber",
  "utils",
  "validate",
+]
+
+[[package]]
+name = "gpucachesim-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "async-trait",
+ "color-eyre",
+ "gpucachesim",
+ "ndarray",
+ "num-traits",
+ "rand",
+ "serde",
+ "tokio",
+ "trace-model",
+ "utils",
 ]
 
 [[package]]
@@ -4233,7 +4234,6 @@ dependencies = [
  "accelsim-sim",
  "accelsim-trace",
  "async-process",
- "benchmarks",
  "chrono",
  "clap",
  "color-eyre",
@@ -4244,6 +4244,7 @@ dependencies = [
  "env_logger",
  "futures",
  "gpucachesim",
+ "gpucachesim-benchmarks",
  "handlebars",
  "indexmap 2.0.0",
  "indicatif",

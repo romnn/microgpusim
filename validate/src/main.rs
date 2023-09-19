@@ -88,7 +88,7 @@ async fn run_benchmark(
     match command {
         Command::Full(ref _opts) => unreachable!(),
         Command::Expand(ref _opts) => {
-            println!("{:#?}", &bench);
+            // println!("{:#?}", &bench);
             Ok(())
         }
         Command::Profile(ref opts) => {
@@ -101,6 +101,10 @@ async fn run_benchmark(
         }
         Command::Trace(ref opts) => {
             validate::trace::trace(&bench, options, opts, bar).await
+            // Ok(())
+        }
+        Command::ExecSimulate(ref opts) => {
+            validate::simulate::exec::simulate(bench, options, opts, bar).await
             // Ok(())
         }
         Command::Simulate(ref opts) => {
@@ -191,9 +195,10 @@ fn print_benchmark_result(
 ) {
     let op = match command {
         Command::Profile(_) => "profiling",
-        Command::Trace(_) => "tracing [box]",
+        Command::Trace(_) => "tracing [gpucachesim]",
         Command::AccelsimTrace(_) => "tracing [accelsim]",
-        Command::Simulate(_) => "simulating [box]",
+        Command::Simulate(_) => "simulating [gpucachesim]",
+        Command::ExecSimulate(_) => "simulating [gpucachesim]",
         Command::AccelsimSimulate(_) => "simulating [accelsim]",
         Command::PlaygroundSimulate(_) => "simulating [playground]",
         Command::Build(_) => "building",
@@ -228,7 +233,7 @@ fn print_benchmark_result(
     match command {
         Command::Build(_) | Command::Clean(_) => {
             bar.println(format!(
-                "{:<25} {:<20} [ {} ] {}",
+                "{} {:<20} [ {} ] {}",
                 op,
                 color.apply_to(&bench_config.name),
                 executable.display(),
@@ -239,7 +244,7 @@ fn print_benchmark_result(
             let benchmark_config_id =
                 format!("{}@{:<3}", &bench_config.name, bench_config.input_idx);
             bar.println(format!(
-                "{:<25} {:<20} [ {} ][ {} {} ] {}",
+                "{} {:<20} [ {} ][ {} {} ] {}",
                 op,
                 color.apply_to(benchmark_config_id),
                 materialized::bench_config_name(&bench_config.name, &bench_config.values, true),
@@ -256,6 +261,7 @@ fn available_concurrency(options: &Options, config: &materialized::Config) -> us
         Command::Profile(_) => config.profile.common.concurrency,
         Command::Trace(_) => config.trace.common.concurrency,
         Command::AccelsimTrace(_) => config.accelsim_trace.common.concurrency,
+        Command::ExecSimulate(_) => config.exec_driven_simulate.common.concurrency,
         Command::Simulate(_) => config.simulate.common.concurrency,
         Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
         Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
@@ -306,6 +312,10 @@ fn compute_per_command_bench_configs<'a>(
                 .benchmark_configs()
                 .filter(|bench_config| {
                     if !targets.contains(&bench_config.target) {
+                        return false;
+                    }
+
+                    if !bench_config.common.enabled.unwrap_or(true) {
                         return false;
                     }
 
@@ -391,6 +401,7 @@ async fn main() -> eyre::Result<()> {
             Command::Profile(options::Profile::default()),
             Command::Trace(options::Trace::default()),
             Command::AccelsimTrace(options::AccelsimTrace::default()),
+            Command::ExecSimulate(options::Sim::default()),
             Command::Simulate(options::Sim::default()),
             Command::AccelsimSimulate(options::AccelsimSim::default()),
             Command::PlaygroundSimulate(options::PlaygroundSim::default()),

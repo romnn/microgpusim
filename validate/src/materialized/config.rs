@@ -10,7 +10,7 @@ pub struct GenericBenchmark {
     pub timeout: Option<duration_string::DurationString>,
     /// None means unlimited concurrency
     pub concurrency: Option<usize>,
-    pub enabled: bool,
+    pub enabled: Option<bool>,
     pub results_dir: PathBuf,
 }
 
@@ -46,10 +46,7 @@ impl crate::GenericBenchmarkConfig {
             .concurrency
             .or(parent_config.and_then(|c| c.concurrency));
 
-        let enabled = self
-            .enabled
-            .or(parent_config.map(|c| c.enabled))
-            .unwrap_or(true);
+        let enabled = self.enabled.or(parent_config.and_then(|c| c.enabled));
 
         Ok(GenericBenchmark {
             repetitions,
@@ -252,7 +249,7 @@ impl crate::Config {
             ExecDrivenSimConfig {
                 common: self.exec_driven_simulate.common.materialize(
                     base,
-                    Some(Target::Simulate),
+                    Some(Target::ExecDrivenSimulate),
                     Some(&common),
                 )?,
                 parallel: self.exec_driven_simulate.parallel,

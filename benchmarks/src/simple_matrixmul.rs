@@ -85,7 +85,14 @@ where
 }
 
 /// Simple matrixmul benchmark application.
-pub async fn benchmark<T>(m: usize, n: usize, p: usize) -> eyre::Result<()>
+pub async fn benchmark<T>(
+    m: usize,
+    n: usize,
+    p: usize,
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     distributions::Open01: Distribution<T>,
@@ -105,8 +112,7 @@ where
         *bv = NumCast::from(rng.gen_range(-256.0..256.0)).unwrap();
     }
 
-    simple_matrixmul(&matrix_a, &matrix_b, &mut result, m, n, p).await?;
-    Ok(())
+    simple_matrixmul(&matrix_a, &matrix_b, &mut result, m, n, p).await
 }
 
 pub async fn simple_matrixmul<T>(

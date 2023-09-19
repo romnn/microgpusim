@@ -1,11 +1,15 @@
-use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
-use super::{
+use crate::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
+use crate::{
     options::{self, Options},
     RunError,
 };
 use color_eyre::{eyre, Help};
-use gpucachesim::{config::Parallelization, interconn as ic, mem_fetch, MockSimulator};
+use gpucachesim::{
+    config::{self, Parallelization},
+    interconn as ic, mem_fetch, MockSimulator,
+};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Instant;
 use utils::fs::create_dirs;
 
@@ -21,28 +25,8 @@ struct Input {
     memory_only: Option<bool>,
 }
 
-#[allow(clippy::module_name_repetitions)]
-pub fn simulate_bench_config(
-    bench: &BenchmarkConfig,
-) -> Result<MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>, RunError> {
-    let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench.target_config else {
-        unreachable!();
-    };
-
-    let commandlist = traces_dir.join("commands.json");
-    if !commandlist.is_file() {
-        return Err(RunError::Failed(
-            eyre::eyre!("missing {}", commandlist.display()).with_suggestion(|| {
-                let trace_cmd = format!(
-                    "cargo validate -b {}@{} trace",
-                    bench.name,
-                    bench.input_idx + 1
-                );
-                format!("generate traces first using: `{trace_cmd}`")
-            }),
-        ));
-    }
-
+// MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>
+pub fn configure_simulator(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
     let err = |err: serde_json::Error| {
         RunError::Failed(
             eyre::Report::from(err).wrap_err(
@@ -99,7 +83,48 @@ pub fn simulate_bench_config(
         ..gpucachesim::config::GPU::default()
     };
 
-    let sim = gpucachesim::accelmain(traces_dir, config)?;
+    let sim = config::GTX1080::new(Arc::new(config));
+    // let sim = gpucachesim::accelmain(traces_dir, config)?;
+    Ok(sim)
+}
+
+// MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>
+#[allow(clippy::module_name_repetitions)]
+pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
+    let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench.target_config else {
+        unreachable!();
+    };
+
+    let commandlist = traces_dir.join("commands.json");
+    if !commandlist.is_file() {
+        return Err(RunError::Failed(
+            eyre::eyre!("missing {}", commandlist.display()).with_suggestion(|| {
+                let trace_cmd = format!(
+                    "cargo validate -b {}@{} trace",
+                    bench.name,
+                    bench.input_idx + 1
+                );
+                format!("generate traces first using: `{trace_cmd}`")
+            }),
+        ));
+    }
+
+    let mut sim = configure_simulator(bench)?;
+    let (traces_dir, commands_path) = if traces_dir.is_dir() {
+        (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
+    } else {
+        (
+            traces_dir.parent().map(Path::to_path_buf).ok_or_else(|| {
+                eyre::eyre!(
+                    "could not determine trace dir from file {}",
+                    traces_dir.display()
+                )
+            })?,
+            traces_dir.to_path_buf(),
+        )
+    };
+    sim.add_commands(commands_path, traces_dir)?;
+
     let stats = sim.stats();
     let mut wip_stats = gpucachesim::WIP_STATS.lock();
     dbg!(&wip_stats);
@@ -112,6 +137,17 @@ pub fn simulate_bench_config(
     *wip_stats = gpucachesim::WIPStats::default();
 
     Ok(sim)
+}
+
+pub fn process_stats(
+    stats: &[stats::Stats],
+    _dur: &std::time::Duration,
+    stats_dir: &Path,
+    repetition: usize,
+) -> Result<(), RunError> {
+    create_dirs(stats_dir).map_err(eyre::Report::from)?;
+    crate::stats::write_stats_as_csv(stats_dir, stats, repetition)?;
+    Ok(())
 }
 
 pub async fn simulate(
@@ -150,14 +186,139 @@ pub async fn simulate(
     Ok(())
 }
 
-#[inline]
-pub fn process_stats(
-    stats: &[stats::Stats],
-    _dur: &std::time::Duration,
-    stats_dir: &Path,
-    repetition: usize,
-) -> Result<(), RunError> {
-    create_dirs(stats_dir).map_err(eyre::Report::from)?;
-    crate::stats::write_stats_as_csv(stats_dir, stats, repetition)?;
-    Ok(())
+pub mod exec {
+    use crate::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
+    use crate::{
+        options::{self, Options},
+        RunError,
+    };
+    use color_eyre::{eyre, Help};
+    use gpucachesim::kernel::Kernel;
+    use gpucachesim_benchmarks as benchmarks;
+    use utils::fs::create_dirs;
+
+    pub async fn simulate(
+        bench: BenchmarkConfig,
+        options: &Options,
+        _sim_options: &options::Sim,
+        _bar: &indicatif::ProgressBar,
+    ) -> Result<(), RunError> {
+        let (TargetBenchmarkConfig::Simulate { ref stats_dir, .. } | TargetBenchmarkConfig::ExecDrivenSimulate { ref stats_dir, .. }) = bench.target_config else {
+            unreachable!();
+        };
+        let stats_dir = stats_dir.join("exec-driven");
+        if options.clean {
+            utils::fs::remove_dir(&stats_dir).map_err(eyre::Report::from)?;
+        }
+
+        create_dirs(&stats_dir).map_err(eyre::Report::from)?;
+        if !options.force && crate::stats::already_exist(&bench.common, &stats_dir) {
+            return Err(RunError::Skipped);
+        }
+
+        let parse_err = |err: serde_json::Error| {
+            RunError::Failed(
+                eyre::Report::from(err).wrap_err(
+                    eyre::eyre!(
+                        "failed to parse input values for bench config {}@{}",
+                        bench.name,
+                        bench.input_idx
+                    )
+                    .with_section(|| format!("{:#?}", bench.values)),
+                ),
+            )
+        };
+        let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(parse_err)?;
+
+        let (launch_config, trace) = match bench.name.to_lowercase().as_str() {
+            "vectoradd" => {
+                #[derive(Debug, serde::Deserialize)]
+                struct VectoraddInput {
+                    dtype: usize,
+                    length: usize,
+                }
+                let VectoraddInput { dtype, length } =
+                    serde_json::from_value(values.clone()).map_err(parse_err)?;
+
+                match dtype {
+                    32 => benchmarks::vectoradd::benchmark::<f32>(length).await,
+                    64 => benchmarks::vectoradd::benchmark::<f64>(length).await,
+                    other => return Err(RunError::Failed(eyre::eyre!("invalid dtype {other:?}"))),
+                }
+            }
+            "simple_matrixmul" => {
+                #[derive(Debug, serde::Deserialize)]
+                struct SimpleMatrixmulInput {
+                    dtype: usize,
+                    m: usize,
+                    n: usize,
+                    p: usize,
+                }
+                let SimpleMatrixmulInput { dtype, m, n, p } =
+                    serde_json::from_value(values.clone()).map_err(parse_err)?;
+
+                match dtype {
+                    32 => benchmarks::simple_matrixmul::benchmark::<f32>(m, n, p).await,
+                    64 => benchmarks::simple_matrixmul::benchmark::<f64>(m, n, p).await,
+                    other => return Err(RunError::Failed(eyre::eyre!("invalid dtype {other:?}"))),
+                }
+            }
+            "matrixmul" => {
+                #[derive(Debug, serde::Deserialize)]
+                struct MatrixmulInput {
+                    dtype: usize,
+                    rows: usize,
+                }
+                let MatrixmulInput { dtype, rows } =
+                    serde_json::from_value(values.clone()).map_err(parse_err)?;
+
+                match dtype {
+                    32 => benchmarks::matrixmul::benchmark::<f32>(rows).await,
+                    64 => benchmarks::matrixmul::benchmark::<f64>(rows).await,
+                    other => return Err(RunError::Failed(eyre::eyre!("invalid dtype {other:?}"))),
+                }
+            }
+            "transpose" => {
+                #[derive(Debug, serde::Deserialize)]
+                struct TransposeInput {
+                    dim: usize,
+                    variant: benchmarks::transpose::Variant,
+                }
+                let TransposeInput { dim, variant } =
+                    serde_json::from_value(values.clone()).map_err(parse_err)?;
+
+                benchmarks::transpose::benchmark::<f32>(dim, variant).await
+            }
+            "babelstream" => return Err(RunError::Skipped),
+            other => {
+                return Err(RunError::Failed(eyre::eyre!(
+                    "unknown benchmark: {}",
+                    other
+                )))
+            }
+        }?;
+
+        for repetition in 0..bench.common.repetitions {
+            let launch_config = launch_config.clone();
+            let trace = trace.clone();
+
+            let mut sim = super::configure_simulator(&bench)?;
+
+            let (sim, dur) = tokio::task::spawn_blocking(move || {
+                let start = std::time::Instant::now();
+                let kernel = Kernel::new(launch_config, trace);
+                sim.add_kernel(kernel);
+                sim.launch_kernels(0);
+                sim.run()?;
+                Ok::<_, eyre::Report>((sim, start.elapsed()))
+            })
+            .await
+            .map_err(eyre::Report::from)??;
+
+            let stats = sim.stats();
+            dbg!(&stats.clone().reduce().sim);
+            super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition)?;
+        }
+        Ok(())
+    }
 }

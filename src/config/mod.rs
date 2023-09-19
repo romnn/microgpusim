@@ -1,4 +1,5 @@
 pub mod accelsim;
+pub mod gtx1080;
 
 use crate::{
     address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
@@ -7,6 +8,8 @@ use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+pub use gtx1080::GTX1080;
 
 /// Memory addressing mask
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -495,9 +498,9 @@ pub struct GPU {
     //
     pub pipeline_widths: HashMap<PipelineStage, usize>, // 4,0,0,1,1,4,0,0,1,1,6
     /// Number of SP units
-    pub num_sp_units: usize,  //
+    pub num_sp_units: usize, //
     /// Number of DP units
-    pub num_dp_units: usize,  // 0
+    pub num_dp_units: usize, // 0
     /// Number of INT units
     pub num_int_units: usize, // 0
 

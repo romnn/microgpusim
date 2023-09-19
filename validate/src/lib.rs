@@ -128,36 +128,32 @@ pub enum Error {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct ProfileOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct TraceOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct AccelsimTraceOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct SimOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
     #[serde(default)]
@@ -176,9 +172,8 @@ pub struct AccelsimSimOptionsFiles {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct AccelsimSimOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(flatten)]
     pub configs: AccelsimSimOptionsFiles,
     #[serde(default)]
@@ -187,9 +182,8 @@ pub struct AccelsimSimOptions {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
 pub struct PlaygroundSimOptions {
-    #[default = true]
-    #[serde(default = "bool_true")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
     #[serde(flatten)]
     pub configs: AccelsimSimOptionsFiles,
     #[serde(default)]

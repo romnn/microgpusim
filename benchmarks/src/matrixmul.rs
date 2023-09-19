@@ -142,7 +142,12 @@ where
 }
 
 /// Matrixmul benchmark application.
-pub async fn benchmark<T>(num_rows: usize) -> eyre::Result<()>
+pub async fn benchmark<T>(
+    num_rows: usize,
+) -> eyre::Result<(
+    trace_model::command::KernelLaunch,
+    trace_model::MemAccessTrace,
+)>
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     distributions::Open01: Distribution<T>,
@@ -161,8 +166,7 @@ where
         b[i] = T::one() + rng.sample(distributions::Open01);
     }
 
-    matrixmul(&a, &b, &mut result, num_rows).await?;
-    Ok(())
+    matrixmul(&a, &b, &mut result, num_rows).await
 }
 
 pub async fn matrixmul<T>(
