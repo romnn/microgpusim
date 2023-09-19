@@ -263,7 +263,6 @@ where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     pub fn new(interconn: Arc<I>, config: Arc<config::GPU>) -> Self {
-        // let stats = Arc::new(Mutex::new(stats::Stats::from_config(&config)));
         let stats = Arc::new(Mutex::new(stats::PerKernel::new(
             stats::Config::from_config(&config),
         )));
@@ -894,6 +893,7 @@ where
         );
     }
 
+    /// Simulate memory copy to simulated device.
     #[allow(clippy::needless_pass_by_value)]
     pub fn memcopy_to_gpu(
         &mut self,
@@ -921,6 +921,7 @@ where
         }
     }
 
+    /// Allocate memory on simulated device.
     pub fn gpu_mem_alloc(
         &mut self,
         addr: address,
@@ -940,6 +941,7 @@ where
         self.allocations.write().insert(alloc_range, name);
     }
 
+    /// Collect simulation statistics.
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats: stats::PerKernel = self.stats.lock().clone();
 

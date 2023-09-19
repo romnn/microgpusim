@@ -186,7 +186,7 @@ impl Tracer {
         let kernel = Arc::new(kernel);
 
         let block_ids: Vec<_> = grid.clone().into_iter().collect();
-        println!("launching {} blocks", block_ids.len());
+        log::debug!("launching {} blocks", block_ids.len());
 
         // loop over the grid
         futures::stream::iter(block_ids)
@@ -195,7 +195,7 @@ impl Tracer {
                 let block_id = block_id.clone();
                 let kernel = kernel.clone();
                 async move {
-                    println!("block {block_id}");
+                    log::trace!("block {block_id}");
 
                     // loop over the block size and form warps
                     let thread_ids = block_size.clone().into_iter();
@@ -224,7 +224,7 @@ impl Tracer {
                             let block_size = block_size.clone();
                             let block_id = block_id.clone();
                             async move {
-                                // println!(
+                                // log::trace!(
                                 //     "block {} warp #{warp_id_in_block} thread {:?}",
                                 //     block.id(),
                                 //     trace_model::Dim::from(warp_thread_idx.clone())
@@ -313,8 +313,7 @@ impl TraceGenerator for Tracer {
         let mut trace = Vec::new();
         let mut traced_instructions = self.traced_instructions.lock().unwrap();
 
-        dbg!(&traced_instructions.keys().collect::<Vec<_>>());
-        // dbg!(&traced_instructions);
+        // dbg!(&traced_instructions.keys().collect::<Vec<_>>());
 
         // check for reconvergence points
         if !traced_instructions.values().all(|warp_instructions| {
@@ -338,6 +337,8 @@ impl TraceGenerator for Tracer {
             warp_instructions,
         ) in traced_instructions.drain()
         {
+            log::debug!("==> block {:?} warp {:<3}", block_id, warp_id_in_block);
+
             let mut super_cfg = cfg::CFG::new();
             let super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch(0));
 
@@ -356,7 +357,7 @@ impl TraceGenerator for Tracer {
                 // each edge connects two distinct nodes, resulting in a
                 // single control flow path each thread takes
                 assert_eq!(paths.len(), 1);
-                println!(
+                log::debug!(
                     "thread[{:2}] = {:?}",
                     ti,
                     cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
@@ -367,13 +368,6 @@ impl TraceGenerator for Tracer {
 
             // fill remaining edges (this should be optional step)
             cfg::add_missing_control_flow_edges(&mut super_cfg);
-
-            println!(
-                "super cfg: {} nodes, {} edges, {} edge weights",
-                super_cfg.node_count(),
-                super_cfg.edge_count(),
-                super_cfg.edge_weights().count(),
-            );
 
             let super_cfg_final_reconvergence_id = super_cfg
                 .node_indices()
@@ -387,13 +381,20 @@ impl TraceGenerator for Tracer {
                 .find_node(&cfg::Node::Reconverge(super_cfg_final_reconvergence_id))
                 .unwrap();
 
-            let ways = super::cfg::all_simple_paths::<Vec<_>, _>(
+            let unique_control_flow_paths = super::cfg::all_simple_paths::<Vec<_>, _>(
                 &super_cfg,
                 super_cfg_root_node_idx,
                 super_cfg_sink_node_idx,
             )
             .collect::<Vec<_>>();
-            dbg!(ways.len());
+
+            log::debug!(
+                "super CFG: {} nodes, {} edges, {} edge weights, {} unique control flow paths",
+                super_cfg.node_count(),
+                super_cfg.edge_count(),
+                super_cfg.edge_weights().count(),
+                unique_control_flow_paths.len(),
+            );
 
             let warp_instruction = trace_model::MemAccessTraceEntry {
                 cuda_ctx: 0,
@@ -422,7 +423,7 @@ impl TraceGenerator for Tracer {
                 addrs: [0; 32],
             };
 
-            let iter = cfg::visit::DominatedBfs::new(&super_cfg, super_cfg_root_node_idx);
+            let iter = cfg::visit::DominatedDfs::new(&super_cfg, super_cfg_root_node_idx);
 
             for (edge_idx, node_idx) in iter {
                 let took_branch = super_cfg[edge_idx];
@@ -439,7 +440,7 @@ impl TraceGenerator for Tracer {
                     .copied()
                     .unwrap_or_default();
 
-                println!(
+                log::trace!(
                     "node {:?} has {} instructions",
                     super_cfg[node_idx],
                     longest_thread_trace.len()
@@ -462,7 +463,7 @@ impl TraceGenerator for Tracer {
                             model::MemorySpace::Shared if is_store => "STS".to_string(),
                             // MemorySpace::Texture if is_store => "LDG".to_string(),
                             model::MemorySpace::Constant if is_store => {
-                                panic!("constant store")
+                                todo!("constant store")
                             }
                             other => panic!("unknown memory space {other:?}"),
                         };
@@ -489,7 +490,6 @@ impl TraceGenerator for Tracer {
                 }
 
                 // here we have the warp_trace ready to be added into the global trace
-                // dbg!(branch_trace.len());
                 trace.extend(branch_trace.into_iter());
 
                 let mut active_mask = trace_model::ActiveMask::ZERO;

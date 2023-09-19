@@ -356,7 +356,7 @@ pub mod visit {
     use std::collections::{HashSet, VecDeque};
 
     #[derive(Debug)]
-    pub struct DominatedBfs<'a> {
+    pub struct DominatedDfs<'a> {
         dominator_stack: VecDeque<NodeIndex>,
         visited: HashSet<(EdgeIndex, NodeIndex)>,
         stack: VecDeque<(EdgeIndex, NodeIndex)>,
@@ -366,8 +366,9 @@ pub mod visit {
         graph: &'a CFG,
     }
 
-    impl<'a> DominatedBfs<'a> {
-        #[must_use] pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
+    impl<'a> DominatedDfs<'a> {
+        #[must_use]
+        pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
             let mut dominator_stack = VecDeque::new();
             assert!(matches!(graph[root_node_idx], Node::Branch(0)));
             dominator_stack.push_front(root_node_idx);
@@ -383,14 +384,14 @@ pub mod visit {
         }
     }
 
-    impl<'a> Iterator for DominatedBfs<'a> {
+    impl<'a> Iterator for DominatedDfs<'a> {
         type Item = (EdgeIndex, NodeIndex);
         fn next(&mut self) -> Option<Self::Item> {
             // if let Some((edge_idx, node_idx)) = self.stack.pop_front() {
             if let Some((edge_idx, node_idx)) = self.stack.pop_back() {
                 // add to path
                 self.path.push_back((Some(edge_idx), node_idx));
-                println!(
+                log::trace!(
                     "current path: {} stack: {:?}",
                     super::format_control_flow_path(self.graph, self.path.make_contiguous())
                         .collect::<String>(),
@@ -406,7 +407,7 @@ pub mod visit {
                     Node::Reconverge(..) => {
                         if self.dominator_stack.contains(&node_idx) {
                             // stop here, never go beyond the domninators reconvergence point
-                            // println!(
+                            // log::trace!(
                             //     "current: dominator={:?} \t taken={} --> {:?} \t STOP: found reconvergence point",
                             //     self.graph[reconvergence_node_idx],
                             //     self.graph[edge_idx],
@@ -430,7 +431,7 @@ pub mod visit {
                 // let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
                 //     self.dominator_stack.front().copied();
 
-                // println!(
+                // log::trace!(
                 //     "current: dominator={:?} \t taken={} --> {:?}",
                 //     reconvergence_node_idx.map(|idx| &self.graph[idx]),
                 //     self.graph[edge_idx],
@@ -459,7 +460,7 @@ pub mod visit {
                 //
                 // // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
                 // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
-                //     // println!(
+                //     // log::trace!(
                 //     //     "pushing branch \t {:?} --> taken={} --> {:?}",
                 //     //     self.graph[node_idx],
                 //     //     self.graph[outgoing_edge_idx],
@@ -483,7 +484,7 @@ pub mod visit {
                 // stack is empty, proceed with parent denominator
                 // if let Some(reconvergence_node_idx) = self.dominator_stack.pop_front() {
                 if let Some(reconvergence_node_idx) = self.dominator_stack.pop_back() {
-                    println!("all reconverged {:?}", self.graph[reconvergence_node_idx]);
+                    log::trace!("all reconverged {:?}", self.graph[reconvergence_node_idx]);
 
                     let mut outgoing_neigbors =
                         self.graph.outgoing_neigbors(reconvergence_node_idx);
@@ -521,13 +522,13 @@ pub mod visit {
 
                 if self.stack.is_empty() {
                     // done
-                    println!("done");
+                    log::trace!("done");
                     return None;
                 }
 
                 if let Some(ref mut limit) = self.limit {
                     *limit = limit.checked_sub(1).unwrap_or(0);
-                    assert!(*limit != 0, "WARNING: limit reached");
+                    assert!(*limit != 0, "limit reached");
                 }
 
                 self.next()
