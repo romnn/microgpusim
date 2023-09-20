@@ -71,6 +71,8 @@ template <typename T> int vectoradd(int n) {
 
   // Number of thread blocks in grid
   gridSize = (int)ceil((float)n / blockSize);
+  printf("grid: (%d,1,1)\n", gridSize);
+  printf("threads: (%d,1,1)\n", blockSize);
 
   // Execute the kernel
   CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));

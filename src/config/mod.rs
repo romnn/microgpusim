@@ -375,7 +375,7 @@ pub struct GPU {
     pub max_sfu_latency: usize,
     /// DP unit max latency
     pub max_dp_latency: usize,
-    /// implements -Xptxas -dlcm=cg, default=no skip
+    /// implements -Xptxas -dlcm=cg (cache global, skipping l1 data cache), default=no skip
     pub global_mem_skip_l1_data_cache: bool,
     /// enable perfect memory mode (no cache miss)
     pub perfect_mem: bool,
@@ -1071,7 +1071,7 @@ impl Default for GPU {
             max_int_latency: 4,
             max_dp_latency: 19,
             max_sfu_latency: 8.max(330),
-            global_mem_skip_l1_data_cache: true,
+            global_mem_skip_l1_data_cache: false,
             perfect_mem: false,
             shader_registers: 65536,
             registers_per_block: 8192,

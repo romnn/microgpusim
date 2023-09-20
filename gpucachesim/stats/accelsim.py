@@ -39,10 +39,34 @@ class Stats(stats.Stats):
         assert self.raw_stats_df["total_dram_reads"].sum() == self.dram_reads()
         assert self.raw_stats_df["total_dram_writes"].sum() == self.dram_writes()
         assert self.raw_stats_df[["total_dram_writes", "total_dram_reads"]].sum().sum() == self.dram_accesses()
+
+        # l2_cache_global_write_total == l2_cache_GLOBAL_ACC_W_TOTAL_ACCESS
+        # l2_cache_global_read_total == l2_cache_GLOBAL_ACC_R_TOTAL_ACCESS
+        assert (
+            self._get_raw_l2_stats(["GLOBAL_ACC_W"], ["HIT", "MISS"]).sum().sum()
+            == self.raw_stats_df["l2_cache_global_write_total"].sum()
+        )
+        assert (
+            self._get_raw_l2_stats(["GLOBAL_ACC_R"], ["HIT", "MISS"]).sum().sum()
+            == self.raw_stats_df["l2_cache_global_read_total"].sum()
+        )
+        assert self.raw_stats_df["l2_cache_global_write_total"].sum() == self.l2_writes()
+        assert self.raw_stats_df["l2_cache_global_read_total"].sum() == self.l2_reads()
+
         assert self._get_raw_l2_read_stats(["HIT"]).sum().sum() == self.l2_read_hits()
         assert self._get_raw_l2_write_stats(["HIT"]).sum().sum() == self.l2_write_hits()
         assert self._get_raw_l2_read_stats(["MISS"]).sum().sum() == self.l2_read_misses()
         assert self._get_raw_l2_write_stats(["MISS"]).sum().sum() == self.l2_write_misses()
+
+        assert (
+            self.raw_stats_df["l2_cache_GLOBAL_ACC_W_HIT"] / self.raw_stats_df["l2_cache_global_write_total"]
+        ).sum() == self.l2_write_hit_rate()
+        assert (
+            self.raw_stats_df["l2_cache_GLOBAL_ACC_R_HIT"] / self.raw_stats_df["l2_cache_global_read_total"]
+        ).sum() == self.l2_read_hit_rate()
+
+        # print(self.raw_stats_df[[c for c in self.raw_stats_df if "l1_data_cache" in c]])
+        assert self.raw_stats_df["l1_data_cache_global_read_total"].sum() == self.l1_reads()
 
     def load_raw_stats(self) -> None:
         raw_stats_dfs = []

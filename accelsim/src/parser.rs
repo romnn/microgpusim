@@ -183,6 +183,19 @@ pub fn parse_stats(
         ("SECTOR_MISS", "sector_miss"),
         ("MSHR_HIT", "mshr_hit"),
     ];
+    // let total_access_mappings = [
+    //     ("inst_read_total", "INST_ACC_R"),
+    //     ("global_read_total", "GLOBAL_ACC_R"),
+    //     ("global_write_total", "GLOBAL_ACC_W"),
+    //     ("local_read_total", "LOCAL_ACC_R"),
+    //     ("local_write_total", "LOCAL_ACC_W"),
+    //     ("const_read_total", "CONST_ACC_R"),
+    //     ("const_write_total", "CONST_ACC_W"),
+    //     ("tex_read_total", "TEXTURE_ACC_R"),
+    //     ("l1_writeback", "L1_WRBK_ACC"),
+    //     ("l2_write_allocate_read_total", "L1_WR_ALLOC_R"),
+    // ];
+
     let mut l2_cache_stats: Vec<_> = mem_space
         .iter()
         .cartesian_product(outcome.iter())
@@ -201,22 +214,31 @@ pub fn parse_stats(
             )
         })
         .collect();
+
+    l2_cache_stats.extend(mem_space.iter().map(|(space, space_name)| {
+        stat!(
+            format!("l2_cache_{space_name}_total"),
+            StatKind::Aggregate,
+            format!(r"\s+L2_cache_stats_breakdown\[{space}\]\[TOTAL_ACCESS\]\s*=\s*(.*)")
+        )
+    }));
+
     l2_cache_stats.extend([
-        stat!(
-            "l2_cache_global_read_total",
-            StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "l2_cache_global_write_total",
-            StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
-        ),
-        stat!(
-            "l2_cache_inst_read_total",
-            StatKind::Aggregate,
-            r"\s+L2_cache_stats_breakdown\[INST_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
-        ),
+        // stat!(
+        //     "l2_cache_global_read_total",
+        //     StatKind::Aggregate,
+        //     r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+        // ),
+        // stat!(
+        //     "l2_cache_global_write_total",
+        //     StatKind::Aggregate,
+        //     r"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+        // ),
+        // stat!(
+        //     "l2_cache_inst_read_total",
+        //     StatKind::Aggregate,
+        //     r"\s+L2_cache_stats_breakdown\[INST_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
+        // ),
         stat!(
             "l2_cache_total_accesses",
             StatKind::Aggregate,
@@ -234,19 +256,12 @@ pub fn parse_stats(
         ),
     ]);
 
-    // Total_core_cache_stats_breakdown[INST_ACC_R][HIT] = 152
-    // Total_core_cache_stats_breakdown[INST_ACC_R][HIT_RESERVED] = 0
-    // Total_core_cache_stats_breakdown[INST_ACC_R][MISS] = 36
-    // Total_core_cache_stats_breakdown[INST_ACC_R][RESERVATION_FAIL] = 0
-    // Total_core_cache_stats_breakdown[INST_ACC_R][SECTOR_MISS] = 0
-    // Total_core_cache_stats_breakdown[INST_ACC_R][MSHR_HIT] = 34
-
-    let mut total_core_cache_stats: Vec<_> = mem_space
+    let mut l1_data_cache_stats: Vec<_> = mem_space
         .iter()
         .cartesian_product(outcome.iter())
         .map(|((space, _space_name), (outcome, _outcome_name))| {
             stat!(
-                format!("total_core_cache_{space}_{outcome}"),
+                format!("l1_data_cache_{space}_{outcome}"),
                 StatKind::Aggregate,
                 [
                     r"\s+Total_core_cache_stats_breakdown\[",
@@ -259,11 +274,47 @@ pub fn parse_stats(
             )
         })
         .collect();
-    total_core_cache_stats.extend([stat!(
-        "total_core_cache_inst_read_total",
-        StatKind::Aggregate,
-        r"\s+Total_core_cache_stats_breakdown\[INST_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)"
-    )]);
+
+    l1_data_cache_stats.extend(mem_space.iter().map(|(space, space_name)| {
+        stat!(
+            format!("l1_data_cache_{space_name}_total"),
+            StatKind::Aggregate,
+            format!(r"\s+Total_core_cache_stats_breakdown\[{space}\]\[TOTAL_ACCESS\]\s*=\s*(.*)")
+        )
+    }));
+
+    l1_data_cache_stats.extend([
+        stat!(
+            "l1_data_cache_total_accesses",
+            StatKind::Aggregate,
+            r"L1D_total_cache_accesses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_misses",
+            StatKind::Aggregate,
+            r"L1D_total_cache_misses\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_pending_hits",
+            StatKind::Aggregate,
+            r"L1D_total_cache_pending_hits\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_total_reservation_fails",
+            StatKind::Aggregate,
+            r"L1D_total_cache_reservation_fails\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_data_port_utilization",
+            StatKind::Aggregate,
+            r"L1D_cache_data_port_util\s*=\s*(.*)"
+        ),
+        stat!(
+            "l1_data_cache_fill_port_utilization",
+            StatKind::Aggregate,
+            r"L1D_cache_fill_port_util\s*=\s*(.*)"
+        ),
+    ]);
 
     let dram_stats = vec![
         stat!(
@@ -450,39 +501,6 @@ pub fn parse_stats(
         ),
     ];
 
-    let l1_data_cache_stats = vec![
-        stat!(
-            "l1_data_cache_total_accesses",
-            StatKind::Aggregate,
-            r"L1D_total_cache_accesses\s*=\s*(.*)"
-        ),
-        stat!(
-            "l1_data_cache_total_misses",
-            StatKind::Aggregate,
-            r"L1D_total_cache_misses\s*=\s*(.*)"
-        ),
-        stat!(
-            "l1_data_cache_total_pending_hits",
-            StatKind::Aggregate,
-            r"L1D_total_cache_pending_hits\s*=\s*(.*)"
-        ),
-        stat!(
-            "l1_data_cache_total_reservation_fails",
-            StatKind::Aggregate,
-            r"L1D_total_cache_reservation_fails\s*=\s*(.*)"
-        ),
-        stat!(
-            "l1_data_cache_data_port_utilization",
-            StatKind::Aggregate,
-            r"L1D_cache_data_port_util\s*=\s*(.*)"
-        ),
-        stat!(
-            "l1_data_cache_fill_port_utilization",
-            StatKind::Aggregate,
-            r"L1D_cache_fill_port_util\s*=\s*(.*)"
-        ),
-    ];
-
     let l1_const_cache_stats = vec![
         stat!(
             "l1_const_cache_total_accesses",
@@ -533,11 +551,10 @@ pub fn parse_stats(
         general_stats,
         mem_stats,
         l2_cache_stats,
-        l1_inst_cache_stats,
         l1_data_cache_stats,
+        l1_inst_cache_stats,
         l1_const_cache_stats,
         l1_tex_cache_stats,
-        total_core_cache_stats,
         dram_stats,
         inst_stats,
         stall_stats,
@@ -718,6 +735,13 @@ pub fn parse_stats(
                 }
             }
         }
+    }
+
+    // fill in missing values
+    for (stat_name, _) in &stats {
+        stat_map
+            .entry(("final_kernel".to_string(), 0, stat_name.to_string()))
+            .or_insert(0.0);
     }
 
     stat_map.sort_keys();

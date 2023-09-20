@@ -1,21 +1,48 @@
 #### TODO
 
+About caches:
+L1 transactions are 128 bytes, and L2 and texture transactions are 32 bytes. An important strategy for optimizing memory usage is to group loads and stores in order to access the necessary data in as few cache transactions as possible. For memory cached in both L1 and L2, if every thread in a warp loads a 4-byte value from sparse locations which miss in L1 cache, each thread will incur one 128-byte L1 transaction and four 32-byte L2 transactions. This will cause the load instruction to reissue 32 times more than if the values would be adjacent and cache-aligned. [source](https://docs.nvidia.com/gameworks/content/developertools/desktop/analysis/report/cudaexperiments/kernellevel/memorystatisticscaches.htm)
+
+=> cuda programming guide G.4.2 section:
+
+Global memory accesses are cached. Using the –dlcm compilation flag, they can be configured at compile time to be cached in both L1 and L2 (-Xptxas -dlcm=ca) (this is the default setting) or in L2 only (-Xptxas -dlcm=cg). A cache line is 128 bytes and maps to a 128-byte aligned segment in device memory. Memory accesses that are cached in both L1 and L2 are serviced with 128-byte memory transactions whereas memory accesses that are cached in L2 only are serviced with 32-byte memory transactions. Caching in L2 only can therefore reduce over-fetch, for example, in the case of scattered memory accesses.
+
+L1/TEX and L2 have 128B cache lines. Cache lines consist of 4 32B sectors.
+The tag lookup is at 128B granularity.
+A miss does not imply that all sectors in the cache line will be filled.
+
+- Q: one cacheline, 128 bytes long, may contain only data from one 128-byte memory line.
+  A: yes
+- Q: it’s split into 4 sectors and each sectore may be filled or not.
+  A: yes
+- Q: memory transactions are 32-byte long and only actually requested 32-byte sectors are read from
+  the memory.
+  A: yes
+- Q: write transactions are also 32-byte granular, so it doesn’t update entire 128-byte line ewhen only
+  single byte changed.
+  A: Kepler - Pascal L1/TEX is write-through. There are byte masks. The granularity of the write is 32B and contains a 32b byte mask.
+- Q: this holds for all pascal SMs - 6.0, 6.1 and 6.2.
+  A: yes
+
+[source](https://forums.developer.nvidia.com/t/pascal-l1-cache/49571)
+
 - today:
-
-  - DONE: write more execution driven examples (especially the different transpose variants)
-
-    - add them to the stats (as a new target?)
 
   - NOTE: change playground back to correct accelsim compat
 
+  - understand the role of the l1 data cache, when is it used?
+  - compute the expected values manually for vectoradd
+    - add warning prints to trace the coalescing
+  - investigate the l1 cache (e.g. disable in profiling)
+
   - investigate the effect that the dram model has
-  - investigate the l1 cache
 
   - implement per kernel and allocation stats
   - implement stall stats
 
   - add to simulate benchmark configs:
 
+    - interleave nondeterministic
     - l2 partition addr option
     - DONE: mem only option
     - DONE: number of threads
@@ -42,6 +69,10 @@
     - how well does it scale for 20 instead of 80 cores
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
+
+  - DONE: write more execution driven examples (especially the different transpose variants)
+
+    - DONE: add them to the stats (as a new target?)
 
   - DONE: proc macro for addign reconvergence points (building a dominator tree)
     - DONE cargo expand -p exec --lib --profile=test tracegen::tests

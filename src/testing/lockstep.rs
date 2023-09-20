@@ -87,6 +87,15 @@ fn gather_simulation_state(
             // core: l2 cache
             let ldst_unit = core.load_store_unit.lock();
 
+            // box_sim_state.l1_latency_queue[bank_id].extend(
+            //     ldst_unit
+            //         .l1_latency_queue
+            //         .iter()
+            //         .map(|(_, fetch)| fetch)
+            //         .cloned()
+            //         .map(Into::into),
+            // );
+
             // core: pending register writes
             box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
                 .pending_writes
@@ -763,6 +772,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     box_stats.l1t_stats = box_stats.l1t_stats.merge_allocations();
     box_stats.l2d_stats = box_stats.l2d_stats.merge_allocations();
 
+    // dbg!(&box_stats.l1d_stats);
     // dbg!(&play_stats);
     // dbg!(&box_stats);
 

@@ -29,7 +29,7 @@ pub struct MemorySubPartition {
     pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
-    pub l2_cache: Option<Box<dyn cache::Cache>>,
+    pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
     request_tracker: HashSet<mem_fetch::MemFetch>,
 
@@ -79,27 +79,28 @@ impl MemorySubPartition {
             Some(config.dram_partition_queue_l2_to_interconn),
         );
 
-        let l2_cache: Option<Box<dyn cache::Cache>> = match &config.data_cache_l2 {
-            Some(l2_config) => {
-                // let l2_mem_port = Arc::new(ic::L2Interface {
-                //     l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
-                // });
+        let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
+            match &config.data_cache_l2 {
+                Some(l2_config) => {
+                    // let l2_mem_port = Arc::new(ic::L2Interface {
+                    //     l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
+                    // });
 
-                let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
-                let mut data_l2 = cache::DataL2::new(
-                    format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
-                    0, // core_id,
-                    0, // cluster_id,
-                    // Arc::clone(&l2_to_dram_queue),
-                    cache_stats,
-                    config.clone(),
-                    l2_config.clone(),
-                );
-                data_l2.set_top_port(l2_to_dram_queue.clone());
-                Some(Box::new(data_l2))
-            }
-            None => None,
-        };
+                    let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
+                    let mut data_l2 = cache::DataL2::new(
+                        format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
+                        0, // core_id,
+                        0, // cluster_id,
+                        // Arc::clone(&l2_to_dram_queue),
+                        cache_stats,
+                        config.clone(),
+                        l2_config.clone(),
+                    );
+                    data_l2.set_top_port(l2_to_dram_queue.clone());
+                    Some(Box::new(data_l2))
+                }
+                None => None,
+            };
 
         Self {
             id,

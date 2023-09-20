@@ -79,7 +79,7 @@ uint32_t next_powerOf2(uint32_t n) {
   n = n - 1;
 
   // do till only one bit is left
-  while (n & n - 1) n = n & (n - 1);  // unset rightmost bit
+  while (n & (n - 1)) n = n & (n - 1);  // unset rightmost bit
 
   // n is now a power of two (less than n)
 

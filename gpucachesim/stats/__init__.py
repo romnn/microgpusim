@@ -14,7 +14,8 @@ from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
 # suppress scientific notation by setting float_format
-pd.options.display.float_format = "{:.3f}".format
+# pd.options.display.float_format = "{:.3f}".format
+pd.options.display.float_format = "{:.1f}".format
 np.seterr(all="raise")
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
@@ -26,6 +27,14 @@ def main():
     # ctx.ensure_object(dict)
     pass
 
+
+SIMULATE_INPUT_COLS = [
+    "input_mode",
+    "input_threads",
+    "input_run_ahead",
+    "input_memory_only",
+    "input_cores_per_cluster",
+]
 
 BENCHMARK_INPUT_COLS = {
     "vectorAdd": ["input_dtype", "input_length"],
@@ -41,8 +50,10 @@ STAT_COLS = [
     "num_blocks",
     "instructions",
     "warp_inst",
+    # dram stats
     "dram_reads",
     "dram_writes",
+    # l2 stats
     "l2_accesses",
     "l2_read_hit_rate",
     "l2_write_hit_rate",
@@ -54,6 +65,15 @@ STAT_COLS = [
     "l2_write_misses",
     "l2_hits",
     "l2_misses",
+    # l1 rates
+    "l1_hit_rate",
+    "l1_miss_rate",
+    # l1 accesses
+    "l1_reads",
+    "l1_writes",
+    "l1_hits",
+    "l1_misses",
+    "l1_accesses",
 ]
 
 INDEX_COLS = ["target", "benchmark", "input_id"]
@@ -64,14 +84,26 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 
     selected_df = sim_df.copy()
     selected_df = selected_df[selected_df["benchmark"] == bench_name]
-    print(selected_df)
+    # print(selected_df)
     # only compare serial gpucachesim
     # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
+
+    for col in SIMULATE_INPUT_COLS:
+        if col not in selected_df:
+            selected_df[col] = np.nan
+
     non_gpucachesim = selected_df["input_mode"].isnull()
+
     serial_gpucachesim = selected_df["input_mode"] == "serial"
     compute_gpucachesim = selected_df["input_memory_only"] == False
     gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == 1
     gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
+    print(
+        "gpucachesim gold input ids:",
+        sorted(selected_df.loc[gold_gpucachesim, "input_id"].unique().tolist()),
+    )
+
+    # only keep gold gpucachesim and other targets
     selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
 
     if isinstance(targets, list):
@@ -82,8 +114,6 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     input_cols = BENCHMARK_INPUT_COLS[bench_name]
     grouped = selected_df.groupby(INDEX_COLS, dropna=False)
     averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
-    # test = test.drop(columns="input_id")
-    # print(test)
 
     per_target = averaged.pivot(index=["benchmark"] + input_cols, columns="target", values=STAT_COLS)
     return per_target
@@ -103,7 +133,7 @@ def view(path, bench_name):
         stats_file = REPO_ROOT_DIR / f"results/combined.stats.{bench_name}.csv"
 
     sim_df = pd.read_csv(stats_file, header=0)
-    assert (sim_df["input_mode"] == "serial").sum() > 0
+    # assert (sim_df["input_mode"] == "serial").sum() > 0
 
     # print(sim_df)
 
@@ -116,11 +146,17 @@ def view(path, bench_name):
             "instructions",
             "dram_reads",
             "dram_writes",
+            # l2 stats
             "l2_accesses",
-            # "l2_read_hits",
-            # "l2_write_hits",
+            "l2_read_hits",
+            "l2_write_hits",
             "l2_hits",
             "l2_misses",
+            # l1 stats
+            "l1_accesses",
+            "l1_reads",
+            "l1_hits",
+            "l1_misses",
         ]
     ]
     print(per_target.T.to_string())
@@ -173,11 +209,12 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
         input_idx = bench_config["input_idx"]
         input_values = bench_config["values"]
 
-        print(f" ===> [{target}] \t\t {name}@{input_idx} \t\t {input_values}")
         match target.lower():
             case "profile":
                 bench_stats = native.Stats(config, bench_config)
             case "simulate":
+                if bench_config["values"]["mode"] != "serial":
+                    continue
                 bench_stats = stats.Stats(config, bench_config)
             case "accelsimsimulate":
                 bench_stats = accelsim.Stats(config, bench_config)
@@ -186,6 +223,8 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
             case other:
                 print(f"WARNING: {name} has unknown target {other}")
                 continue
+
+        print(f" ===> [{target}] \t\t {name}@{input_idx} \t\t {input_values}")
 
         values = pd.DataFrame.from_records([bench_config["values"]])
         values.columns = ["input_" + c for c in values.columns]

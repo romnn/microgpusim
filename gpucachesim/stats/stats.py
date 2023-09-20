@@ -214,10 +214,12 @@ class Stats(common.Stats):
         self._compute_exec_time_sec()
         self._compute_is_release_build()
 
+        # DRAM
         self._compute_dram_reads()
         self._compute_dram_writes()
         self._compute_dram_accesses()
 
+        # L2 accesses
         self._compute_l2_reads()
         self._compute_l2_writes()
         self._compute_l2_accesses()
@@ -228,17 +230,122 @@ class Stats(common.Stats):
         self._compute_l2_hits()
         self._compute_l2_misses()
 
-        # if False:
-        # self._compute_l2_read_hit_rate()
-        # self._compute_l2_write_hit_rate()
-        # self._compute_l2_read_miss_rate()
-        # self._compute_l2_write_miss_rate()
+        # L2 rates
+        self._compute_l2_read_hit_rate()
+        self._compute_l2_write_hit_rate()
+        self._compute_l2_read_miss_rate()
+        self._compute_l2_write_miss_rate()
+
+        # L1 accesses
+        self._compute_l1_accesses()
+        self._compute_l1_reads()
+        self._compute_l1_writes()
+        self._compute_l1_hits()
+        self._compute_l1_misses()
+
+        # L1 rates
+        self._compute_l1_hit_rate()
+        self._compute_l1_miss_rate()
 
         # fix the index
         self.result_df = self.result_df.reset_index()
         self.result_df["stream_id"] = np.nan
         self.result_df["context_id"] = np.nan
         self.result_df["device"] = np.nan
+
+    def _compute_l2_read_hit_rate(self):
+        # df = self.l2_data_stats_df
+        # hit_mask = df["access_status"] == "HIT"
+        # miss_mask = df["access_status"] == "MISS"
+        # write_mask = df["is_write"] == False
+        # write_hits = df[hit_mask & write_mask]
+        # grouped = write_hits.groupby(INDEX_COLS, dropna=False)
+        #
+        # total_writes = df[(hit_mask ^ miss_mask) & write_mask].groupby(INDEX_COLS, dropna=False)
+        # self.result_df["l2_read_hit_rate"] = grouped["num_accesses"].sum() / total_writes["num_accesses"].sum()
+        self.result_df["l2_read_hit_rate"] = self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
+
+    def _compute_l2_read_miss_rate(self):
+        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"]
+
+    def _compute_l2_write_hit_rate(self):
+        # df = self.l2_data_stats_df
+        # hit_mask = df["access_status"] == "HIT"
+        # miss_mask = df["access_status"] == "MISS"
+        # write_mask = df["is_write"] == True
+        # write_hits = df[hit_mask & write_mask]
+        # grouped = write_hits.groupby(INDEX_COLS, dropna=False)
+        #
+        # total_writes = df[(hit_mask ^ miss_mask) & write_mask].groupby(INDEX_COLS, dropna=False)
+        # self.result_df["l2_write_hit_rate"] = grouped["num_accesses"].sum() / total_writes["num_accesses"].sum()
+        self.result_df["l2_write_hit_rate"] = self.result_df["l2_write_hits"] / self.result_df["l2_writes"]
+
+        # "100*float(sim[\"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)\"])/"+\
+        #     "float(sim[\"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])",
+        # grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        # self.result_df["l2_write_hit_rate"] = grouped["l2_tex_write_hit_rate"].mean()
+        # self.result_df["l2_write_hit_rate"] /= 100.0
+        # self.result_df["is_release_build"] = grouped["is_release_build"].first()
+
+    def _compute_l2_write_miss_rate(self):
+        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"]
+
+    def _compute_l1_reads(self):
+        df = self.l1_data_stats_df
+        global_mask = df["access_kind"] == "GLOBAL_ACC_R"
+        hit_mask = df["access_status"] == "HIT"
+        miss_mask = df["access_status"] == "MISS"
+        read_mask = df["is_write"] == False
+        reads = df[(hit_mask ^ miss_mask) & read_mask & global_mask]
+        grouped = reads.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_reads"] = grouped["num_accesses"].sum()
+
+    def _compute_l1_writes(self):
+        df = self.l1_data_stats_df
+        global_mask = df["access_kind"] == "GLOBAL_ACC_W"
+        hit_mask = df["access_status"] == "HIT"
+        miss_mask = df["access_status"] == "MISS"
+        write_mask = df["is_write"] == True
+        reads = df[(hit_mask ^ miss_mask) & write_mask & global_mask]
+        grouped = reads.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_writes"] = grouped["num_accesses"].sum()
+
+    def _compute_l1_accesses(self):
+        df = self.l1_data_stats_df
+        global_write = df["access_kind"] == "GLOBAL_ACC_W"
+        global_read = df["access_kind"] == "GLOBAL_ACC_R"
+        hit_mask = df["access_status"] == "HIT"
+        miss_mask = df["access_status"] == "MISS"
+        accesses = df[(hit_mask ^ miss_mask) & (global_write ^ global_read)]
+        # print(accesses)
+        grouped = accesses.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_accesses"] = grouped["num_accesses"].sum()
+
+    def _compute_l1_hits(self):
+        df = self.l1_data_stats_df
+        hit_mask = df["access_status"] == "HIT"
+        hits = df[hit_mask]
+        grouped = hits.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_hits"] = grouped["num_accesses"].sum()
+
+    def _compute_l1_misses(self):
+        df = self.l1_data_stats_df
+        hit_mask = df["access_status"] == "MISS"
+        hits = df[hit_mask]
+        grouped = hits.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_misses"] = grouped["num_accesses"].sum()
+
+    def _compute_l1_hit_rate(self):
+        # read_hits = self.result_df["l1_data_cache_GLOBAL_ACC_R_HIT"]
+        # write_hits = self.result_df["l1_data_cache_GLOBAL_ACC_W_HIT"]
+        # total_writes = self.result_df["l1_data_cache_global_write_total"]
+        # total_reads = self.result_df["l1_data_cache_global_read_total"]
+        # self.result_df["l1_hit_rate"] = (read_hits + write_hits) / (total_writes + total_reads)
+        self.result_df["l1_hit_rate"] = self.result_df["l1_hits"] / self.result_df["l1_accesses"]
+        # raise NotImplemented
+
+    def _compute_l1_miss_rate(self):
+        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
 
     def _compute_is_release_build(self):
         grouped = self.sim_df.groupby(INDEX_COLS, dropna=False)
@@ -303,10 +410,11 @@ class Stats(common.Stats):
 
     def _compute_l2_reads(self):
         df = self.l2_data_stats_df
+        global_mask = df["access_kind"] == "GLOBAL_ACC_R"
         hit_mask = df["access_status"] == "HIT"
         miss_mask = df["access_status"] == "MISS"
         read_mask = df["is_write"] == False
-        reads = df[(hit_mask ^ miss_mask) & read_mask]
+        reads = df[(hit_mask ^ miss_mask) & read_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
         self.result_df["l2_reads"] = grouped["num_accesses"].sum()
 
@@ -320,10 +428,11 @@ class Stats(common.Stats):
 
     def _compute_l2_writes(self):
         df = self.l2_data_stats_df
+        global_mask = df["access_kind"] == "GLOBAL_ACC_W"
         hit_mask = df["access_status"] == "HIT"
         miss_mask = df["access_status"] == "MISS"
         write_mask = df["is_write"] == True
-        reads = df[(hit_mask ^ miss_mask) & write_mask]
+        reads = df[(hit_mask ^ miss_mask) & write_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
         self.result_df["l2_writes"] = grouped["num_accesses"].sum()
 

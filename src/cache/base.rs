@@ -30,12 +30,12 @@ impl PendingRequest {}
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Base<CC> {
+pub struct Base<CC, S> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
 
-    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
+    pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
 
@@ -49,21 +49,21 @@ pub struct Base<CC> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Builder<CC> {
+pub struct Builder<CC, S> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
+    pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
 }
 
-impl<CC> Builder<CC>
+impl<CC, S> Builder<CC, S>
 where
     CC: Clone,
 {
     #[must_use]
-    pub fn build(self) -> Base<CC> {
+    pub fn build(self) -> Base<CC, S> {
         let cache_config = self.cache_config;
         let tag_array = tag_array::TagArray::new(&cache_config, self.cache_controller.clone());
 
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<CC> Base<CC>
+impl<CC> Base<CC, stats::cache::PerKernel>
 where
     CC: cache::CacheController,
 {
@@ -222,7 +222,7 @@ where
     }
 }
 
-impl<CC> crate::engine::cycle::Component for Base<CC> {
+impl<CC, S> crate::engine::cycle::Component for Base<CC, S> {
     /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
         let Some(ref top_level_memory_port) = self.top_port else {
@@ -270,7 +270,7 @@ impl<CC> crate::engine::cycle::Component for Base<CC> {
     }
 }
 
-impl<CC> Base<CC> {
+impl<CC, S> Base<CC, S> {
     /// Checks whether this request can be handled in this cycle.
     ///
     /// `n` equals the number of misses to be handled in this cycle.
@@ -319,7 +319,7 @@ impl<CC> Base<CC> {
     }
 }
 
-impl<CC> Base<CC>
+impl<CC, S> Base<CC, S>
 where
     CC: cache::CacheController,
 {
@@ -400,7 +400,7 @@ where
     }
 }
 
-impl<CC> super::Bandwidth for Base<CC> {
+impl<CC, S> super::Bandwidth for Base<CC, S> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }

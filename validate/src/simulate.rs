@@ -4,10 +4,7 @@ use crate::{
     RunError,
 };
 use color_eyre::{eyre, Help};
-use gpucachesim::{
-    config::{self, Parallelization},
-    interconn as ic, mem_fetch, MockSimulator,
-};
+use gpucachesim::config::{self, Parallelization};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
@@ -124,15 +121,19 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         )
     };
     sim.add_commands(commands_path, traces_dir)?;
+    sim.run()?;
 
     let stats = sim.stats();
     let mut wip_stats = gpucachesim::WIP_STATS.lock();
-    dbg!(&wip_stats);
-    dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
+    // dbg!(&wip_stats);
+    // dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
+    // dbg!(&stats.inner.len());
     for kernel_stats in &stats.inner {
-        dbg!(&kernel_stats.sim);
+        // dbg!(&kernel_stats.sim);
+        // dbg!(&kernel_stats.l1i_stats);
+        dbg!(&kernel_stats.l1d_stats);
     }
-    dbg!(gpucachesim::is_debug());
+    // dbg!(gpucachesim::is_debug());
 
     *wip_stats = gpucachesim::WIPStats::default();
 

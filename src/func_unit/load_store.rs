@@ -20,7 +20,7 @@ pub struct LoadStoreUnit {
     next_writeback: Option<WarpInstruction>,
     response_fifo: VecDeque<MemFetch>,
     warps: Vec<warp::Ref>,
-    pub data_l1: Option<Box<dyn cache::Cache>>,
+    pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
@@ -106,7 +106,7 @@ impl LoadStoreUnit {
         debug_assert!(config.shared_memory_latency > 1);
 
         let mut l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>> = Vec::new();
-        let data_l1: Option<Box<dyn cache::Cache + 'static>> =
+        let data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             if let Some(l1_config) = &config.data_cache_l1 {
                 // initialize latency queue
                 debug_assert!(l1_config.l1_latency > 0);
@@ -117,9 +117,12 @@ impl LoadStoreUnit {
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                 let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
-                let cache_controller = cache::controller::pascal::CacheControllerUnit::new(
+
+                let cache_controller = cache::controller::pascal::L1DataCacheController::new(
                     cache::Config::from(l1_config.inner.as_ref()),
+                    l1_config,
                 );
+
                 let mut data_cache = cache::data::Builder {
                     name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     core_id,
@@ -139,6 +142,8 @@ impl LoadStoreUnit {
                 None
             };
 
+        assert!(data_l1.is_some());
+
         Self {
             core_id,
             cluster_id,
@@ -148,8 +153,6 @@ impl LoadStoreUnit {
             next_global: None,
             pending_writes: HashMap::new(),
             response_fifo: VecDeque::new(),
-            // interconn,
-            // fetch_interconn,
             mem_port,
             inner,
             config,
@@ -168,9 +171,8 @@ impl LoadStoreUnit {
     }
 
     pub fn flush(&mut self) {
-        if let Some(_l1) = &mut self.data_l1 {
-            todo!("flush data l1");
-            // l1.flush();
+        if let Some(l1) = &mut self.data_l1 {
+            l1.flush();
         }
     }
 
@@ -317,8 +319,10 @@ impl LoadStoreUnit {
                     }
                 }
                 WritebackClient::L1D => {
+                    assert!(self.data_l1.is_some());
                     if let Some(ref mut data_l1) = self.data_l1 {
                         if let Some(fetch) = data_l1.next_access() {
+                            log::warn!("l1 cache got ready access {} cycle={}", &fetch, cycle);
                             self.next_writeback = fetch.instr;
                             serviced_client = Some(next_client_id);
                         }
@@ -366,17 +370,24 @@ impl LoadStoreUnit {
         }
 
         if dispatch_instr.dispatch_delay_cycles > 0 {
-            let _stats = self.stats.lock();
-            // stats.num_shared_mem_bank_access[self.core_id] += 1;
+            if let Some(ref l1_cache) = self.data_l1 {
+                let mut stats = l1_cache.per_kernel_stats().lock();
+                let kernel_stats = stats.get_mut(0);
+                kernel_stats.num_shared_mem_bank_accesses += 1;
+            }
         }
 
-        // dispatch_instr.dec_dispatch_delay();
         dispatch_instr.dispatch_delay_cycles =
             dispatch_instr.dispatch_delay_cycles.saturating_sub(1);
         let has_stall = dispatch_instr.dispatch_delay_cycles > 0;
         if has_stall {
             *kind = MemStageAccessKind::S_MEM;
             *stall_kind = MemStageStallKind::BK_CONF;
+            if let Some(ref l1_cache) = self.data_l1 {
+                let mut stats = l1_cache.per_kernel_stats().lock();
+                let kernel_stats = stats.get_mut(0);
+                kernel_stats.num_shared_mem_bank_conflicts += 1;
+            }
         } else {
             *stall_kind = MemStageStallKind::NO_RC_FAIL;
         }
@@ -547,6 +558,8 @@ impl LoadStoreUnit {
             }
         }
 
+        log::warn!("bypass l1={}", bypass_l1);
+
         let Some(access) = dispatch_instr.mem_access_queue.back() else {
             return true;
         };
@@ -688,26 +701,30 @@ impl LoadStoreUnit {
             // We can handle at max l1_banks reqs per cycle
             for _bank in 0..l1d_config.l1_banks {
                 let Some(access) = instr.mem_access_queue.back() else {
-                    break;
+                    return stall_cond;
+                    // break;
                 };
 
                 let bank_id = l1d_config.compute_set_bank(access.addr) as usize;
                 debug_assert!(bank_id < l1d_config.l1_banks);
 
                 log::trace!(
-                    "computed bank id {} for access {} (access queue={:?})",
+                    "computed bank id {} for access {} (access queue={:?} l1 latency queue={:?})",
                     bank_id,
                     access,
                     &instr
                         .mem_access_queue
                         .iter()
                         .map(ToString::to_string)
-                        .collect::<Vec<_>>()
+                        .collect::<Vec<_>>(),
+                    self.l1_latency_queue[bank_id]
+                        .iter()
+                        .map(Option::as_ref)
+                        .map(crate::Optional)
+                        .collect::<Vec<_>>(),
                 );
 
-                let slot = self.l1_latency_queue[bank_id]
-                    .get_mut(l1d_config.l1_latency - 1)
-                    .unwrap();
+                let slot = &mut self.l1_latency_queue[bank_id][l1d_config.l1_latency - 1];
                 if slot.is_none() {
                     let is_store = instr.is_store();
                     let access = instr.mem_access_queue.pop_back().unwrap();
@@ -749,6 +766,12 @@ impl LoadStoreUnit {
                     }
                 } else {
                     stall_cond = MemStageStallKind::BK_CONF;
+                    if let Some(ref l1_cache) = self.data_l1 {
+                        let mut stats = l1_cache.per_kernel_stats().lock();
+                        let kernel_stats = stats.get_mut(0);
+                        kernel_stats.num_l1_cache_bank_conflicts += 1;
+                    }
+
                     // do not try again, just break from the loop and try the next cycle
                     break;
                 }
@@ -868,6 +891,7 @@ impl LoadStoreUnit {
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
 
+                log::warn!("l1 cache access {} cycle={}", &next_fetch, cycle);
                 let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
                     l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, cycle);
@@ -903,7 +927,7 @@ impl LoadStoreUnit {
                                 *still_pending
                             );
 
-                            if *still_pending > 0 {
+                            if *still_pending == 0 {
                                 pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
                                 self.scoreboard.try_write().release(instr.warp_id, *out_reg);

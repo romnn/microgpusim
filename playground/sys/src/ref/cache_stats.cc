@@ -195,10 +195,11 @@ void cache_stats::print_stats(FILE *fout, const char *cache_name) const {
     }
   }
   for (unsigned type = 0; type < NUM_MEM_ACCESS_TYPE; ++type) {
-    if (total_access[type] > 0)
+    if (total_access[type] > 0) {
       fprintf(fout, "\t%s[%s][%s] = %u\n", m_cache_name.c_str(),
               get_mem_access_type_str((enum mem_access_type)type),
               "TOTAL_ACCESS", total_access[type]);
+    }
   }
 }
 

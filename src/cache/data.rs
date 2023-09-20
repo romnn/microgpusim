@@ -9,11 +9,11 @@ use tag_array::Access;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
-pub struct Builder<MC, CC> {
+pub struct Builder<MC, CC, S> {
     pub name: String,
     pub core_id: usize,
     pub cluster_id: usize,
-    pub stats: Arc<Mutex<stats::cache::PerKernel>>,
+    pub stats: Arc<Mutex<S>>,
     pub mem_controller: MC,
     pub cache_controller: CC,
     pub config: Arc<config::GPU>,
@@ -27,8 +27,8 @@ pub struct Builder<MC, CC> {
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
-pub struct Data<MC, CC> {
-    pub inner: cache::base::Base<CC>,
+pub struct Data<MC, CC, S> {
+    pub inner: cache::base::Base<CC, S>,
 
     /// Memory controller
     pub mem_controller: MC,
@@ -39,11 +39,11 @@ pub struct Data<MC, CC> {
     write_back_type: AccessKind,
 }
 
-impl<MC, CC> Builder<MC, CC>
+impl<MC, CC, S> Builder<MC, CC, S>
 where
     CC: Clone,
 {
-    pub fn build(self) -> Data<MC, CC> {
+    pub fn build(self) -> Data<MC, CC, S> {
         let inner = super::base::Builder {
             name: self.name,
             core_id: self.core_id,
@@ -62,14 +62,14 @@ where
     }
 }
 
-impl<MC, CC> Data<MC, CC> {
+impl<MC, CC, S> Data<MC, CC, S> {
     #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
 }
 
-impl<MC, CC> Data<MC, CC>
+impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
 where
     MC: MemoryController,
     CC: cache::CacheController,
@@ -645,13 +645,13 @@ where
     }
 }
 
-impl<MC, CC> crate::engine::cycle::Component for Data<MC, CC> {
+impl<MC, CC, S> crate::engine::cycle::Component for Data<MC, CC, S> {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl<MC, CC> cache::Cache for Data<MC, CC>
+impl<MC, CC> cache::Cache<stats::cache::PerKernel> for Data<MC, CC, stats::cache::PerKernel>
 where
     MC: MemoryController,
     CC: cache::CacheController,
@@ -764,7 +764,7 @@ where
     }
 }
 
-impl<MC, CC> cache::Bandwidth for Data<MC, CC> {
+impl<MC, CC, S> cache::Bandwidth for Data<MC, CC, S> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

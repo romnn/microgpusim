@@ -7,7 +7,8 @@ use cache::CacheController;
 use std::collections::VecDeque;
 
 pub struct ReadOnly {
-    inner: cache::base::Base<cache::controller::pascal::CacheControllerUnit>,
+    inner:
+        cache::base::Base<cache::controller::pascal::DataCacheController, stats::cache::PerKernel>,
 }
 
 impl ReadOnly {
@@ -18,7 +19,7 @@ impl ReadOnly {
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
-        let cache_controller = cache::controller::pascal::CacheControllerUnit::new(
+        let cache_controller = cache::controller::pascal::DataCacheController::new(
             cache::config::Config::from(&*cache_config),
         );
         let inner = cache::base::Builder {
@@ -57,7 +58,7 @@ impl cache::Bandwidth for ReadOnly {
     }
 }
 
-impl cache::Cache for ReadOnly {
+impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
     #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self

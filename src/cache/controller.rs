@@ -31,6 +31,12 @@ pub trait CacheController: Sync + Send + 'static {
     #[must_use]
     fn set_index(&self, addr: address) -> u64;
 
+    /// Compute set bank for banked caches for an address.
+    ///
+    /// TODO: we could make something like a BankedCache trait?
+    #[must_use]
+    fn set_bank(&self, addr: address) -> u64;
+
     /// Compute miss status handling register address.
     ///
     /// The default implementation uses the block address.
@@ -41,15 +47,15 @@ pub trait CacheController: Sync + Send + 'static {
 }
 
 pub mod pascal {
-    use crate::{address, cache};
+    use crate::{address, cache, mcu::logb2};
 
     #[derive(Debug, Clone)]
-    pub struct CacheControllerUnit {
+    pub struct DataCacheController {
         set_index_function: cache::set_index::linear::SetIndex,
         config: cache::Config,
     }
 
-    impl CacheControllerUnit {
+    impl DataCacheController {
         #[must_use]
         pub fn new(config: cache::Config) -> Self {
             Self {
@@ -59,7 +65,7 @@ pub mod pascal {
         }
     }
 
-    impl super::CacheController for CacheControllerUnit {
+    impl super::CacheController for DataCacheController {
         #[inline]
         fn tag(&self, addr: address) -> address {
             // For generality, the tag includes both index and tag.
@@ -90,8 +96,91 @@ pub mod pascal {
         }
 
         #[inline]
+        fn set_bank(&self, _addr: address) -> u64 {
+            // not banked by default
+            0
+        }
+
+        #[inline]
         fn mshr_addr(&self, addr: address) -> address {
             addr & !u64::from(self.config.line_size - 1)
+        }
+    }
+
+    /// This is mostly the same as the L2 cache controller.
+    ///
+    /// The difference is that the set_index calculation is based on the number of l1 banks.
+    #[derive(Debug, Clone)]
+    pub struct L1DataCacheController {
+        inner: DataCacheController,
+        set_index_function: cache::set_index::fermi::SetIndex,
+        banks_set_index_function: cache::set_index::linear::SetIndex,
+
+        #[allow(dead_code)]
+        l1_latency: usize,
+        #[allow(dead_code)]
+        banks_byte_interleaving: usize,
+        banks_byte_interleaving_log2: u32,
+        num_banks: usize,
+        num_banks_log2: u32,
+    }
+
+    impl L1DataCacheController {
+        #[must_use]
+        pub fn new(config: cache::Config, l1_config: &crate::config::L1DCache) -> Self {
+            Self {
+                inner: DataCacheController::new(config),
+                set_index_function: cache::set_index::fermi::SetIndex::default(),
+                banks_set_index_function: cache::set_index::linear::SetIndex::default(),
+                l1_latency: l1_config.l1_latency,
+                banks_byte_interleaving: l1_config.l1_banks_byte_interleaving,
+                banks_byte_interleaving_log2: logb2(l1_config.l1_banks_byte_interleaving as u32),
+                num_banks: l1_config.l1_banks,
+                num_banks_log2: logb2(l1_config.l1_banks as u32),
+            }
+        }
+    }
+
+    impl super::CacheController for L1DataCacheController {
+        #[inline]
+        fn tag(&self, addr: address) -> address {
+            self.inner.tag(addr)
+        }
+
+        #[inline]
+        fn block_addr(&self, addr: address) -> address {
+            self.inner.block_addr(addr)
+        }
+
+        #[inline]
+        fn set_index(&self, addr: address) -> u64 {
+            use cache::set_index::SetIndexer;
+            self.set_index_function.compute_set_index(
+                addr,
+                self.inner.config.num_sets,
+                self.inner.config.line_size_log2,
+                self.inner.config.num_sets_log2,
+            )
+        }
+
+        #[inline]
+        fn mshr_addr(&self, addr: address) -> address {
+            self.inner.mshr_addr(addr)
+        }
+
+        #[inline]
+        fn set_bank(&self, addr: address) -> address {
+            use cache::set_index::SetIndexer;
+
+            // For sector cache, we select one sector per bank (sector interleaving)
+            // This is what was found in Volta (one sector per bank, sector
+            // interleaving) otherwise, line interleaving
+            self.banks_set_index_function.compute_set_index(
+                addr,
+                self.num_banks,
+                self.banks_byte_interleaving_log2,
+                self.num_banks_log2,
+            )
         }
     }
 }

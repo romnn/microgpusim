@@ -231,17 +231,22 @@ class Stats(common.Stats):
         self._compute_exec_time_sec()
         self._compute_instructions()
         self._compute_warp_instructions()
+
+        # DRAM
         self._compute_dram_reads()
         self._compute_dram_writes()
         self._compute_dram_accesses()
-        self._compute_l2_reads()
-        self._compute_l2_writes()
-        self._compute_l2_accesses()
 
+        # L2 rates
         self._compute_l2_read_hit_rate()
         self._compute_l2_write_hit_rate()
         self._compute_l2_read_miss_rate()
         self._compute_l2_write_miss_rate()
+
+        # L2 accesses
+        self._compute_l2_reads()
+        self._compute_l2_writes()
+        self._compute_l2_accesses()
 
         self._compute_l2_read_hits()
         self._compute_l2_write_hits()
@@ -249,6 +254,32 @@ class Stats(common.Stats):
         self._compute_l2_write_misses()
         self._compute_l2_hits()
         self._compute_l2_misses()
+
+        # L1 accesses
+        self._compute_l1_accesses()
+        self._compute_l1_reads()
+        self._compute_l1_writes()
+
+        # L1 rates
+        self._compute_l1_hit_rate()
+        self._compute_l1_miss_rate()
+
+        # chart_name="L1D Hit Rate",
+        # plotfile="l1hitrate",
+        # hw_eval="np.average(hw[\"tex_cache_hit_rate\"])",
+        # hw_error=None,
+        # sim_eval="float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)\"])" +\
+        #          "/(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])" +\
+        #          "+float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"]) + 1) * 100",
+
+        # CorrelStat(chart_name="L1D Hit Rate (global_hit_rate match)",
+        # plotfile="l1hitrate.global",
+        # hw_eval="np.average(hw[\"global_hit_rate\"])",
+        # hw_error=None,
+        # sim_eval="(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)\"])" +\
+        #         " + float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)\"]))" +\
+        #          "/(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])" +\
+        #          "+float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"]) + 1) * 100",
 
         # fix the index
         self.result_df = self.result_df.reset_index()
@@ -666,6 +697,27 @@ class Stats(common.Stats):
     # def l2_misses(self) -> float:
     #     return self.result_df["l2_misses"].sum()
     #     # return self.l2_read_misses() + self.l2_write_misses()
+
+    def _compute_l1_accesses(self):
+        grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_accesses"] = grouped["tex_cache_transactions"].sum()
+
+    def _compute_l1_reads(self):
+        grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_reads"] = grouped["gld_transactions"].sum()
+
+    def _compute_l1_writes(self):
+        self.result_df["l1_writes"] = np.nan
+
+    def _compute_l1_hit_rate(self):
+        # global_hit_rate: (GLOBAL_ACC_R[HIT]+GLOBAL_ACC_W[HIT]) / (GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        self.result_df["l1_hit_rate"] = grouped["global_hit_rate"].mean()
+        self.result_df["l1_hit_rate"] /= 100.0
+
+    def _compute_l1_miss_rate(self):
+        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
 
     def _kernel_launches_df(self) -> pd.DataFrame:
         # print(self.commands_df.index)

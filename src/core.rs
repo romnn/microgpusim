@@ -462,7 +462,7 @@ pub struct Core<I> {
     pub block_status: [usize; MAX_CTA_PER_SHADER],
 
     pub allocations: super::allocation::Ref,
-    pub instr_l1_cache: Box<dyn cache::Cache>,
+    pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<warp::Ref>,
@@ -1512,7 +1512,7 @@ where
         let mut warp = warp.try_lock();
         debug_assert_eq!(warp.warp_id, warp_id);
 
-        let already_issued_trace_pc = warp.trace_pc;
+        let _already_issued_trace_pc = warp.trace_pc;
         let instr1 = warp.next_trace_inst().cloned();
         let instr2 = if instr1.is_some() {
             warp.next_trace_inst().cloned()
@@ -1521,27 +1521,8 @@ where
         };
 
         // debug: print all instructions in this warp
-        log::debug!(
-            "====> instruction at trace pc < {:<4} already issued ...",
-            already_issued_trace_pc
-        );
-
-        for (trace_pc, trace_instr) in warp
-            .trace_instructions
-            .iter()
-            .enumerate()
-            .skip(already_issued_trace_pc)
-        {
-            log::debug!(
-                "====> warp[{:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
-                warp_id,
-                trace_pc,
-                trace_instr,
-                trace_instr.active_mask.to_bit_string(),
-                trace_instr.pc,
-                trace_instr.trace_idx
-            );
-        }
+        assert_eq!(warp.warp_id, warp_id);
+        // print_trace_instructions(&warp, already_issued_trace_pc);
         drop(warp);
 
         if let Some(instr1) = instr1 {
@@ -1946,4 +1927,29 @@ pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerK
     let kernel_stats = stats.get_mut(0);
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
     crate::WIP_STATS.lock().warp_instructions += 1;
+}
+
+#[allow(dead_code)]
+fn print_trace_instructions(warp: &warp::Warp, already_issued_trace_pc: usize) {
+    log::debug!(
+        "====> instruction at trace pc < {:<4} already issued ...",
+        already_issued_trace_pc
+    );
+
+    for (trace_pc, trace_instr) in warp
+        .trace_instructions
+        .iter()
+        .enumerate()
+        .skip(already_issued_trace_pc)
+    {
+        log::debug!(
+            "====> warp[{:03}][trace_pc={:03}]:\t {}\t\t active={} \tpc={} idx={}",
+            warp.warp_id,
+            trace_pc,
+            trace_instr,
+            trace_instr.active_mask.to_bit_string(),
+            trace_instr.pc,
+            trace_instr.trace_idx
+        );
+    }
 }

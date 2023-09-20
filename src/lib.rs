@@ -86,8 +86,11 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 }
 
 pub struct Optional<T>(Option<T>);
+// pub struct Optional<'a, T>(Option<&'a T>);
+// pub struct Optional<'a, T>(Option<&'a T>);
 
-impl<T> std::fmt::Display for Optional<T>
+// impl<T> std::fmt::Display for Optional<T>
+impl<'a, T> std::fmt::Display for Optional<&'a T>
 where
     T: std::fmt::Display,
 {
@@ -99,15 +102,16 @@ where
     }
 }
 
-impl<T> std::fmt::Debug for Optional<T>
+impl<'a, T> std::fmt::Debug for Optional<&'a T>
 where
-    T: std::fmt::Debug,
+    T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            Some(ref value) => write!(f, "Some({value:?})"),
-            None => write!(f, "None"),
-        }
+        std::fmt::Display::fmt(self, f)
+        // match self.0 {
+        //     Some(ref value) => write!(f, "Some({value})"),
+        //     None => write!(f, "None"),
+        // }
     }
 }
 
@@ -1168,6 +1172,7 @@ where
     }
 
     pub fn run(&mut self) -> eyre::Result<()> {
+        dbg!(&self.config.parallelization);
         match self.config.parallelization {
             config::Parallelization::Serial => {
                 self.run_to_completion()?;
@@ -1301,6 +1306,11 @@ where
                 self.commands_left(),
                 self.kernels_left()
             );
+        }
+        if let Some(log_after_cycle) = self.log_after_cycle {
+            if log_after_cycle >= cycle {
+                eprintln!("WARNING: log after {log_after_cycle} cycles but simulation ended after {cycle} cycles");
+            }
         }
         log::info!("exit after {cycle} cycles");
         Ok(())
@@ -1457,10 +1467,6 @@ pub fn accelmain(
     // ));
     // let mut sim = MockSimulator::new(interconn, Arc::clone(&config));
 
-    //
-    // sim.log_after_cycle = config.log_after_cycle;
-    // sim.parallel_simulation = config.parallelization != config::Parallelization::Serial;
-
     // match config.parallelization {
     //     config::Parallelization::Serial => {
     //         sim.run_to_completion()?;
@@ -1473,6 +1479,7 @@ pub fn accelmain(
     //     }
     // }
     let mut sim = config::GTX1080::new(config);
+
     sim.add_commands(commands_path, traces_dir)?;
     sim.run()?;
     Ok(sim)

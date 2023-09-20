@@ -18,6 +18,10 @@ impl From<Cache> for stats::Cache {
                     )
                 })
                 .collect(),
+            // TODO
+            num_shared_mem_bank_accesses: 0,
+            num_shared_mem_bank_conflicts: 0,
+            num_l1_cache_bank_conflicts: 0,
         }
     }
 }

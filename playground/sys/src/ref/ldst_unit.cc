@@ -141,9 +141,11 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
           m_config->m_L1D_config.set_bank(mf->get_addr(), logger);
       assert(bank_id < m_config->m_L1D_config.l1_banks);
 
-      logger->trace("computed bank id {} for address {} (access queue=[{}])",
-                    bank_id, mf->get_addr(),
-                    fmt::join(inst.mem_access_queue(), ", "));
+      logger->trace(
+          "computed bank id {} for address {} (access queue=[{}], l1 latency "
+          "queue=[{}])",
+          bank_id, mf->get_addr(), fmt::join(inst.mem_access_queue(), ", "),
+          fmt::join(l1_latency_queue[bank_id], ", "));
 
       if ((l1_latency_queue[bank_id][m_config->m_L1D_config.l1_latency - 1]) ==
           NULL) {
@@ -223,7 +225,6 @@ void ldst_unit::L1_latency_queue_cycle() {
                             m_pending_writes[inst.warp_id()][inst.out[r]]);
 
               if (!still_pending) {
-                throw std::runtime_error("must model the l1 latency queue");
                 m_pending_writes[inst.warp_id()].erase(inst.out[r]);
 
                 logger->trace("l1 latency queue release registers");
@@ -602,6 +603,7 @@ void ldst_unit::writeback() {
         }
         break;
       case 4:
+        assert("have l1d" && m_L1D != NULL);
         if (m_L1D && m_L1D->access_ready()) {
           mem_fetch *mf = m_L1D->next_access();
           m_next_wb = mf->get_inst();

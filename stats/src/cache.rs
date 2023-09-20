@@ -126,6 +126,9 @@ pub struct CsvRow {
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
     pub inner: HashMap<(Option<usize>, Access), usize>,
+    pub num_l1_cache_bank_conflicts: u64,
+    pub num_shared_mem_bank_accesses: u64,
+    pub num_shared_mem_bank_conflicts: u64,
 }
 
 impl Default for Cache {
@@ -146,7 +149,12 @@ impl Default for Cache {
                 );
             }
         }
-        Self { inner }
+        Self {
+            inner,
+            num_shared_mem_bank_accesses: 0,
+            num_shared_mem_bank_conflicts: 0,
+            num_l1_cache_bank_conflicts: 0,
+        }
     }
 }
 
@@ -219,7 +227,10 @@ impl std::fmt::Debug for Cache {
 impl Cache {
     #[must_use]
     pub fn new(inner: HashMap<(Option<usize>, Access), usize>) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            ..Self::default()
+        }
     }
 
     pub fn shave(&mut self) {
@@ -232,7 +243,10 @@ impl Cache {
         for ((_, access), count) in self.inner {
             *inner.entry((None, access)).or_insert(0) += count;
         }
-        Cache { inner }
+        Cache {
+            inner,
+            ..Self::default()
+        }
     }
 
     #[must_use]

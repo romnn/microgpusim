@@ -5,12 +5,12 @@ use std::collections::VecDeque;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
-pub struct L2CacheController<MC, CC> {
+pub struct L2DataCacheController<MC, CC> {
     memory_controller: MC,
     cache_controller: CC,
 }
 
-impl<MC, CC> cache::CacheController for L2CacheController<MC, CC>
+impl<MC, CC> cache::CacheController for L2DataCacheController<MC, CC>
 where
     MC: mcu::MemoryController,
     CC: cache::CacheController,
@@ -27,11 +27,16 @@ where
 
     #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        #[allow(unused_mut)]
-        let mut partition_addr = addr;
-        partition_addr = self.memory_controller.memory_partition_address(addr);
+        #[allow(unused_variables)]
+        let partition_addr = addr;
+        let partition_addr = self.memory_controller.memory_partition_address(addr);
         // println!("partition address for addr {} is {}", addr, partition_addr);
         self.cache_controller.set_index(partition_addr)
+    }
+
+    #[inline]
+    fn set_bank(&self, addr: address) -> u64 {
+        self.cache_controller.set_bank(addr)
     }
 
     #[inline]
@@ -45,11 +50,11 @@ where
 pub struct DataL2 {
     pub inner: super::data::Data<
         mcu::MemoryControllerUnit,
-        // cache::controller::pascal::CacheControllerUnit,
-        L2CacheController<
+        L2DataCacheController<
             mcu::MemoryControllerUnit,
-            cache::controller::pascal::CacheControllerUnit,
+            cache::controller::pascal::DataCacheController,
         >,
+        stats::cache::PerKernel,
     >,
     pub cache_config: Arc<config::L2DCache>,
 }
@@ -64,11 +69,11 @@ impl DataL2 {
         cache_config: Arc<config::L2DCache>,
     ) -> Self {
         let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
-        let default_cache_controller = cache::controller::pascal::CacheControllerUnit::new(
+        let default_cache_controller = cache::controller::pascal::DataCacheController::new(
             cache::Config::from(cache_config.inner.as_ref()),
         );
         // let cache_controller = default_cache_controller;
-        let cache_controller = L2CacheController {
+        let cache_controller = L2DataCacheController {
             memory_controller: mem_controller.clone(),
             cache_controller: default_cache_controller,
         };
@@ -103,7 +108,7 @@ impl crate::engine::cycle::Component for DataL2 {
     }
 }
 
-impl super::Cache for DataL2 {
+impl super::Cache<stats::cache::PerKernel> for DataL2 {
     #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self

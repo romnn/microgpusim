@@ -40,6 +40,9 @@ class Stats:
     def l2_reads(self) -> float:
         return float(self.result_df["l2_reads"].mean())
 
+    def l1_reads(self) -> float:
+        return float(self.result_df["l1_reads"].mean())
+
     def l2_writes(self) -> float:
         return float(self.result_df["l2_writes"].mean())
 

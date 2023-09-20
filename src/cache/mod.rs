@@ -82,14 +82,12 @@ impl From<AccessStat> for stats::cache::AccessStat {
     }
 }
 
-pub trait Cache: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
+pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
     /// TODO: shoud this be removed?
     fn as_any(&self) -> &dyn std::any::Any;
 
-    /// Get cache statistics.
-    // fn stats(&self) -> &Arc<Mutex<stats::Cache>>;
-
-    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>>;
+    /// Per-kenrel cache statistics.
+    fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
 
     /// Access the cache.
     fn access(
