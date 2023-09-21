@@ -4,4 +4,5 @@
 build.log*
 accel-sim-framework-dev-*/
 upstream/
+upstream-*/
 gtx1080/checkpoint_files
