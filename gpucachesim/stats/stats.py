@@ -292,9 +292,9 @@ class Stats(common.Stats):
 
     def _compute_l1_reads(self):
         df = self.l1_data_stats_df
-        global_mask = df["access_kind"] == "GLOBAL_ACC_R"
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         read_mask = df["is_write"] == False
         reads = df[(hit_mask ^ miss_mask) & read_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
@@ -302,9 +302,9 @@ class Stats(common.Stats):
 
     def _compute_l1_writes(self):
         df = self.l1_data_stats_df
-        global_mask = df["access_kind"] == "GLOBAL_ACC_W"
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_W"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         write_mask = df["is_write"] == True
         reads = df[(hit_mask ^ miss_mask) & write_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
@@ -313,9 +313,9 @@ class Stats(common.Stats):
     def _compute_l1_accesses(self):
         df = self.l1_data_stats_df
         # global_write = df["access_kind"] == "GLOBAL_ACC_W"
-        global_read = df["access_kind"] == "GLOBAL_ACC_R"
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
+        global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         accesses = df[(hit_mask ^ miss_mask) & (global_read)]
         # print(accesses)
         grouped = accesses.groupby(INDEX_COLS, dropna=False)
@@ -330,9 +330,9 @@ class Stats(common.Stats):
 
     def _compute_l1_misses(self):
         df = self.l1_data_stats_df
-        hit_mask = df["access_status"] == "MISS"
-        hits = df[hit_mask]
-        grouped = hits.groupby(INDEX_COLS, dropna=False)
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        misses = df[miss_mask]
+        grouped = misses.groupby(INDEX_COLS, dropna=False)
         self.result_df["l1_misses"] = grouped["num_accesses"].sum()
 
     def _compute_l1_hit_rate(self):
@@ -410,9 +410,9 @@ class Stats(common.Stats):
 
     def _compute_l2_reads(self):
         df = self.l2_data_stats_df
-        global_mask = df["access_kind"] == "GLOBAL_ACC_R"
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         read_mask = df["is_write"] == False
         reads = df[(hit_mask ^ miss_mask) & read_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
@@ -428,9 +428,9 @@ class Stats(common.Stats):
 
     def _compute_l2_writes(self):
         df = self.l2_data_stats_df
-        global_mask = df["access_kind"] == "GLOBAL_ACC_W"
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_W"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["SECTOR_MISS", "MISS"])
         write_mask = df["is_write"] == True
         reads = df[(hit_mask ^ miss_mask) & write_mask & global_mask]
         grouped = reads.groupby(INDEX_COLS, dropna=False)
@@ -446,9 +446,8 @@ class Stats(common.Stats):
 
     def _compute_l2_accesses(self):
         df = self.l2_data_stats_df
-        hit_mask = df["access_status"] == "HIT"
-        miss_mask = df["access_status"] == "MISS"
-        accesses = df[hit_mask ^ miss_mask]
+        mask = df["access_status"].isin(["MISS", "SECTOR_MISS", "HIT"])
+        accesses = df[mask]
         grouped = accesses.groupby(INDEX_COLS, dropna=False)
         self.result_df["l2_accesses"] = grouped["num_accesses"].sum()
 
@@ -491,7 +490,7 @@ class Stats(common.Stats):
 
     def _compute_l2_read_misses(self):
         df = self.l2_data_stats_df
-        miss_mask = df["access_status"] == "MISS"
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         read_mask = df["is_write"] == False
         read_misses = df[miss_mask & read_mask]
         grouped = read_misses.groupby(INDEX_COLS, dropna=False)
@@ -506,7 +505,7 @@ class Stats(common.Stats):
 
     def _compute_l2_write_misses(self):
         df = self.l2_data_stats_df
-        miss_mask = df["access_status"] == "MISS"
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         write_mask = df["is_write"] == True
         write_misses = df[miss_mask & write_mask]
         grouped = write_misses.groupby(INDEX_COLS, dropna=False)
@@ -530,9 +529,9 @@ class Stats(common.Stats):
 
     def _compute_l2_misses(self):
         df = self.l2_data_stats_df
-        hit_mask = df["access_status"] == "MISS"
-        hits = df[hit_mask]
-        grouped = hits.groupby(INDEX_COLS, dropna=False)
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        misses = df[miss_mask]
+        grouped = misses.groupby(INDEX_COLS, dropna=False)
         self.result_df["l2_misses"] = grouped["num_accesses"].sum()
 
         # for s in STAT_SUFFIXES:
