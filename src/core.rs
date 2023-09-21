@@ -223,6 +223,15 @@ where
                     pipe_reg_mut.mem_access_queue.push_back(access);
                 }
             }
+
+            log::trace!(
+                "generated mem accesses: {:?}",
+                pipe_reg_mut
+                    .mem_access_queue
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
         }
 
         let pipe_reg_ref = pipe_reg_mut;

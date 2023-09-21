@@ -84,7 +84,7 @@ where
         _events: &mut [cache::Event],
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
-        debug_assert_eq!(addr, fetch.addr());
+        assert_eq!(addr, fetch.addr());
 
         let block_addr = self.inner.cache_controller.block_addr(addr);
         log::debug!(
@@ -296,7 +296,7 @@ where
         events: &mut Vec<cache::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
-        debug_assert_eq!(addr, fetch.addr());
+        assert_eq!(addr, fetch.addr());
         log::debug!(
             "handling WRITE MISS NO WRITE ALLOCATE for {} (miss_queue_full={})",
             fetch,
@@ -332,8 +332,7 @@ where
         events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
-        // what exactly is the difference between the addr and the fetch addr?
-        debug_assert_eq!(addr, fetch.addr());
+        assert_eq!(addr, fetch.addr());
 
         let block_addr = self.inner.cache_controller.block_addr(addr);
         let mshr_addr = self.inner.cache_controller.mshr_addr(fetch.addr());
@@ -457,7 +456,6 @@ where
                     // the evicted block may have wrong chip id when advanced L2 hashing
                     // is used, so set the right chip address from the original mf
                     let mut tlx_addr = self
-                        // .inner
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
                     tlx_addr.chip = fetch.physical_addr.chip;
@@ -709,23 +707,23 @@ where
             access_status
         );
 
-        let stat_cache_request_status = match probe_status {
-            cache::RequestStatus::HIT_RESERVED
-                if access_status != cache::RequestStatus::RESERVATION_FAIL =>
-            {
-                probe_status
-            }
-            cache::RequestStatus::SECTOR_MISS if access_status != cache::RequestStatus::MISS => {
-                probe_status
-            }
-            _ => access_status,
-        };
+        // let stat_cache_request_status = match probe_status {
+        //     cache::RequestStatus::HIT_RESERVED
+        //         if access_status != cache::RequestStatus::RESERVATION_FAIL =>
+        //     {
+        //         probe_status
+        //     }
+        //     cache::RequestStatus::SECTOR_MISS if access_status != cache::RequestStatus::MISS => {
+        //         probe_status
+        //     }
+        //     _ => access_status,
+        // };
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(0);
         kernel_stats.inc(
             allocation_id,
             access_kind,
-            cache::AccessStat::Status(stat_cache_request_status),
+            cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
             1,
         );
         access_status

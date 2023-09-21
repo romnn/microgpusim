@@ -9,6 +9,7 @@ where
     type Item = &'a T;
     type IntoIter = cxx::vector::Iter<'a, T>;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }

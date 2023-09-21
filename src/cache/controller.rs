@@ -76,12 +76,16 @@ pub mod pascal {
 
             // return addr >> (m_line_sz_log2+m_nset_log2);
             // return addr & ~(new_addr_type)(m_line_sz - 1);
-            addr & !u64::from(self.config.line_size - 1)
+
+            // The tag lookup is at line size (128B) granularity.
+            // clear the last log2(line_size = 128) bits
+            addr & !address::from(self.config.line_size - 1)
         }
 
         #[inline]
         fn block_addr(&self, addr: address) -> address {
-            addr & !u64::from(self.config.line_size - 1)
+            self.tag(addr)
+            // addr & !address::from(self.config.line_size - 1)
         }
 
         #[inline]
@@ -103,7 +107,7 @@ pub mod pascal {
 
         #[inline]
         fn mshr_addr(&self, addr: address) -> address {
-            addr & !u64::from(self.config.line_size - 1)
+            addr & !address::from(self.config.atom_size - 1)
         }
     }
 
@@ -165,6 +169,11 @@ pub mod pascal {
 
         #[inline]
         fn mshr_addr(&self, addr: address) -> address {
+            log::trace!(
+                "computing mshr addr for {}: atom size={}",
+                addr,
+                self.inner.config.atom_size
+            );
             self.inner.mshr_addr(addr)
         }
 

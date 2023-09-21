@@ -111,7 +111,7 @@ impl Kernel {
 
     pub fn from_trace(config: model::command::KernelLaunch, traces_dir: impl AsRef<Path>) -> Self {
         log::info!(
-            "parsing kernel for launch {:?} from {}",
+            "parsing kernel for launch {:#?} from {}",
             &config,
             &config.trace_file
         );

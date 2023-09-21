@@ -260,6 +260,11 @@ void trace_shader_core_ctx::func_exec_inst(warp_inst_t &inst) {
     }
   }
 
+  if (inst.is_load() || inst.is_store()) {
+    logger->trace("generated mem accesses: [{}]",
+                  fmt::join(inst.m_accessq, ","));
+  }
+
   trace_shd_warp_t *m_trace_warp =
       static_cast<trace_shd_warp_t *>(m_warp[inst.warp_id()]);
   assert(inst.warp_id() == m_trace_warp->get_warp_id());

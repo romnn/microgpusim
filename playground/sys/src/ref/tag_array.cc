@@ -251,7 +251,6 @@ enum cache_request_status tag_array::access(new_addr_type addr, unsigned time,
       }
       break;
     case SECTOR_MISS:
-      assert(0 && "no sector cache");
       assert(m_config.m_cache_type == SECTOR);
       m_sector_miss++;
       // shader_cache_access_log(m_core_id, m_type_id, 1);  // log cache

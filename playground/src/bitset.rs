@@ -22,28 +22,34 @@ impl std::fmt::Display for Bitset {
 }
 
 impl Bitset {
+    #[inline]
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[inline]
     #[must_use]
     pub fn size(&self) -> usize {
         self.0.size()
     }
 
+    #[inline]
     pub fn reset(&mut self) {
         self.0.pin_mut().reset();
     }
 
+    #[inline]
     pub fn shift_right(&mut self, n: usize) {
         self.0.pin_mut().shift_right(n);
     }
 
+    #[inline]
     pub fn shift_left(&mut self, n: usize) {
         self.0.pin_mut().shift_left(n);
     }
 
+    #[inline]
     pub fn set(&mut self, pos: usize, set: bool) {
         self.0.pin_mut().set(pos, set);
     }

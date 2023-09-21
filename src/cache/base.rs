@@ -23,7 +23,7 @@ struct PendingRequest {
     pending_reads: usize,
 }
 
-impl PendingRequest {}
+use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
 
 /// Base cache
 ///
@@ -42,7 +42,8 @@ pub struct Base<CC, S> {
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
-    pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
+    // pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
+    pub tag_array: tag_array::TagArray<cache::block::sector::Block<SECTOR_CHUNCK_SIZE>, CC>,
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
     pub bandwidth: super::bandwidth::Manager,
@@ -106,7 +107,7 @@ where
     /// Check MSHR hit or MSHR available
     pub fn send_read_request(
         &mut self,
-        addr: address,
+        unused_addr: address,
         block_addr: u64,
         cache_index: usize,
         mut fetch: mem_fetch::MemFetch,
@@ -123,9 +124,11 @@ where
         let mshr_hit = self.mshrs.get(mshr_addr).is_some();
         let mshr_full = self.mshrs.full(mshr_addr);
 
+        assert_eq!(unused_addr, fetch.addr());
+
         log::debug!(
-            "{}::baseline_cache::send_read_request({}) (addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
-            &self.name, fetch, addr, block_addr, &mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
+            "{}::baseline_cache::send_read_request({}) (addr={}, fetch addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
+            &self.name, fetch, unused_addr, fetch.addr(), block_addr, mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
         );
 
         if mshr_hit && !mshr_full {
@@ -161,6 +164,8 @@ where
                 } = self.tag_array.access(block_addr, &fetch, time);
             }
 
+            self.mshrs.add(mshr_addr, fetch.clone());
+
             let is_sector_cache = self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC;
             self.pending.insert(
                 fetch.clone(),
@@ -178,13 +183,20 @@ where
                 },
             );
 
-            // change address to mshr block address
+            // repalace address with mshr block address
+            let original_fetch = fetch.clone();
             fetch.access.req_size_bytes = self.cache_config.atom_size;
             fetch.access.addr = mshr_addr;
-
-            self.mshrs.add(mshr_addr, fetch.clone());
-            self.miss_queue.push_back(fetch.clone());
             fetch.set_status(self.miss_queue_status, time);
+
+            log::trace!(
+                "{}::baseline_cache::send_read_request({}) adding {} to miss queue",
+                self.name,
+                original_fetch,
+                fetch
+            );
+            self.miss_queue.push_back(fetch);
+
             if !write_allocate {
                 events.push(super::event::Event::ReadRequestSent);
             }
@@ -337,11 +349,20 @@ where
     ///
     /// bandwidth restictions should be modeled in the caller.
     pub fn fill(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
-        if self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-            let original_fetch = fetch.original_fetch.as_ref().unwrap();
-            let pending = self.pending.get_mut(original_fetch).unwrap();
-            pending.pending_reads -= 1;
+        let is_sector_cache = self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC;
+        log::debug!(
+            "{}::baseline_cache::fill({}, addr={}) (is sector={})",
+            self.name,
+            fetch,
+            fetch.addr(),
+            is_sector_cache
+        );
+
+        if is_sector_cache {
             todo!("sector assoc cache");
+            // let original_fetch = fetch.original_fetch.as_ref().unwrap();
+            // let pending = self.pending.get_mut(original_fetch).unwrap();
+            // pending.pending_reads -= 1;
         }
 
         let pending = self.pending.remove(&fetch).unwrap();

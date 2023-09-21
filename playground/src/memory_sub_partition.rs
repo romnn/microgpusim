@@ -26,7 +26,19 @@ impl<'a> MemorySubPartition<'a> {
     }
 
     #[must_use]
-    pub fn l2_cache(&self) -> super::cache::L2<'a> {
-        super::cache::L2::new(self.0.get_l2_cache())
+    pub fn rop_delay_queue(&self) -> Vec<(u64, MemFetch<'a>)> {
+        self.0
+            .get_rop_delay_queue()
+            .into_iter()
+            .map(|delay| {
+                let fetch = unsafe { MemFetch::wrap_ptr(delay.get_fetch()) };
+                (delay.get_ready(), fetch)
+            })
+            .collect()
+    }
+
+    #[must_use]
+    pub fn l2_data_cache(&self) -> super::cache::Cache<'a> {
+        super::cache::Cache::new(self.0.get_l2_data_cache())
     }
 }

@@ -7,6 +7,7 @@ use crate::{
     scoreboard::{Access, Scoreboard},
     warp,
 };
+use utils::box_slice;
 
 use console::style;
 use mem_fetch::{access::Kind as AccessKind, MemFetch};
@@ -26,7 +27,8 @@ pub struct LoadStoreUnit {
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
-    l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>>,
+    // pub l1_latency_queue: Box<[VecDeque<Option<mem_fetch::MemFetch>>]>,
+    pub l1_latency_queue: Box<[Box<[Option<mem_fetch::MemFetch>]>]>,
     pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
 
@@ -105,14 +107,14 @@ impl LoadStoreUnit {
         );
         debug_assert!(config.shared_memory_latency > 1);
 
-        let mut l1_latency_queue: Vec<Vec<Option<mem_fetch::MemFetch>>> = Vec::new();
+        let mut l1_latency_queue = box_slice![box_slice![None; 0]; 0];
+
         let data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             if let Some(l1_config) = &config.data_cache_l1 {
                 // initialize latency queue
                 debug_assert!(l1_config.l1_latency > 0);
-                l1_latency_queue = (0..l1_config.l1_banks)
-                    .map(|_bank| vec![None; l1_config.l1_latency])
-                    .collect();
+                l1_latency_queue =
+                    box_slice![box_slice![None; l1_config.l1_latency]; l1_config.l1_banks];
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
@@ -418,107 +420,6 @@ impl LoadStoreUnit {
         true
     }
 
-    // fn interconn_full(&self) -> bool {
-    //     let size = self
-    //         .interconn_port
-    //         .iter()
-    //         // .map(|(_dest, _fetch, _packet_size, size)| {
-    //         .map(|(_dest, _fetch, size)| {
-    //             // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
-    //             *size
-    //         })
-    //         .sum();
-    //     // let size: u32 = self
-    //     //     .interconn_port
-    //     //     .iter()
-    //     //     .filter_map(|fetch| fetch.instr)
-    //     //     .map(|instr| {
-    //     //         let control_size = if instr.is_store() {
-    //     //             mem_fetch::WRITE_PACKET_SIZE
-    //     //         } else {
-    //     //             mem_fetch::READ_PACKET_SIZE
-    //     //         };
-    //     //         let size = access.req_size_bytes + u32::from(control_size);
-    //     //
-    //     //         let is_write = instr.is_store() || instr.is_atomic();
-    //     //         let request_size = if is_write {
-    //     //             size
-    //     //         } else {
-    //     //             u32::from(mem_fetch::READ_PACKET_SIZE)
-    //     //         };
-    //     //         request_size
-    //     //     })
-    //     //     .sum();
-    //     // false
-    //     !self.interconn.has_buffer(self.cluster_id, size)
-    // }
-    //
-    // fn interconn_push(&mut self, mut fetch: mem_fetch::MemFetch, time: u64) {
-    //     {
-    //         let mut stats = self.statslock();
-    //         let access_kind = *fetch.access_kind();
-    //         debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-    //         stats.accesses.inc(access_kind, 1);
-    //     }
-    //
-    //     let dest_sub_partition_id = fetch.sub_partition_id();
-    //     let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
-    //
-    //     log::debug!(
-    //         "cluster {} icnt_inject_request_packet({}) dest sub partition id={} dest mem node={}",
-    //         self.cluster_id,
-    //         fetch,
-    //         dest_sub_partition_id,
-    //         mem_dest
-    //     );
-    //
-    //     // The packet size varies depending on the type of request:
-    //     // - For write request and atomic request, packet contains the data
-    //     // - For read request (i.e. not write nor atomic), packet only has control metadata
-    //     let packet_size = if !fetch.is_write() && !fetch.is_atomic() {
-    //         fetch.control_size()
-    //     } else {
-    //         // todo: is that correct now?
-    //         fetch.size()
-    //         // fetch.data_size
-    //     };
-    //
-    //     // let instr = fetch.instr.as_ref().unwrap();
-    //     // let request_size = if instr.is_store() || instr.is_atomic() {
-    //     //     packet_size
-    //     // } else {
-    //     //     u32::from(mem_fetch::READ_PACKET_SIZE)
-    //     // };
-    //
-    //     // {
-    //     //     let control_size = if instr.is_store() {
-    //     //         mem_fetch::WRITE_PACKET_SIZE
-    //     //     } else {
-    //     //         mem_fetch::READ_PACKET_SIZE
-    //     //     };
-    //     //     let size = fetch.access.req_size_bytes + u32::from(control_size);
-    //     //     // debug_assert_eq!(fetch.access.size(), size);
-    //     //     assert_eq!(packet_size, size);
-    //     // }
-    //
-    //     // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
-    //     fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
-    //
-    //     // if let Packet::Fetch(fetch) = packet {
-    //     fetch.pushed_cycle = Some(time);
-    //
-    //     // self.interconn_queue
-    //     //     .push_back((mem_dest, fetch, packet_size));
-    //     self.interconn.push(
-    //         self.cluster_id,
-    //         mem_dest,
-    //         super::Packet::Fetch(fetch),
-    //         packet_size,
-    //     );
-    //     // self.interconn_port
-    //     //     .push_back((mem_dest, fetch, packet_size));
-    // }
-
     #[inline]
     fn memory_cycle(
         &mut self,
@@ -558,17 +459,21 @@ impl LoadStoreUnit {
             }
         }
 
-        log::warn!("bypass l1={}", bypass_l1);
-
+        // log::warn!("bypass l1={}", bypass_l1);
         let Some(access) = dispatch_instr.mem_access_queue.back() else {
             return true;
         };
 
         log::debug!(
-            "memory cycle for instruction {} => access: {} (bypass l1={})",
+            "memory cycle for instruction Some({}) => access: {} (bypass l1={}, queue={:?})",
             &dispatch_instr,
             access,
-            bypass_l1
+            bypass_l1,
+            dispatch_instr
+                .mem_access_queue
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
         );
 
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
@@ -636,6 +541,8 @@ impl LoadStoreUnit {
                 }
                 .build();
 
+                log::debug!("memory cycle for instruction {} => send {}", &instr, fetch);
+
                 mem_port.send(ic::Packet {
                     data: fetch,
                     time: cycle,
@@ -687,11 +594,11 @@ impl LoadStoreUnit {
     fn process_memory_access_queue_l1cache(&mut self, cycle: u64) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let Some(instr) = &mut self.inner.dispatch_reg else {
-            return stall_cond;
+            return MemStageStallKind::NO_RC_FAIL;
         };
 
         let Some(access) = instr.mem_access_queue.back() else {
-            return stall_cond;
+            return MemStageStallKind::NO_RC_FAIL;
         };
         let dbg_access = access.clone();
 
@@ -701,8 +608,7 @@ impl LoadStoreUnit {
             // We can handle at max l1_banks reqs per cycle
             for _bank in 0..l1d_config.l1_banks {
                 let Some(access) = instr.mem_access_queue.back() else {
-                    return stall_cond;
-                    // break;
+                    return MemStageStallKind::NO_RC_FAIL;
                 };
 
                 let bank_id = l1d_config.compute_set_bank(access.addr) as usize;
@@ -891,7 +797,6 @@ impl LoadStoreUnit {
             if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
 
-                log::warn!("l1 cache access {} cycle={}", &next_fetch, cycle);
                 let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
                     l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, cycle);
@@ -899,6 +804,7 @@ impl LoadStoreUnit {
                 let write_sent = cache::event::was_write_sent(&events);
                 let read_sent = cache::event::was_read_sent(&events);
                 let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
+                log::warn!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", next_fetch.warp_id, &next_fetch, cycle);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
                     next_fetch.data_size() / mem_sub_partition::SECTOR_SIZE

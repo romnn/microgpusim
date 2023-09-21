@@ -563,8 +563,7 @@ class Stats(common.Stats):
     #     #     return self.df[nsight_key].sum()
 
     def _compute_l2_accesses(self):
-        nvprof_key = "l2_write_transactions"
-        if nvprof_key in self.df:
+        if "l2_write_transactions" in self.df:
             grouped = self.df.groupby(INDEX_COLS, dropna=False)
             reads_and_writes = grouped[["l2_read_transactions", "l2_write_transactions"]]
             self.result_df["l2_accesses"] = reads_and_writes.sum().astype(float).sum(axis=1)
@@ -700,6 +699,7 @@ class Stats(common.Stats):
 
     def _compute_l1_accesses(self):
         grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        # note: tex_cache_transaction are only READ transactions
         self.result_df["l1_accesses"] = grouped["tex_cache_transactions"].sum()
 
     def _compute_l1_reads(self):

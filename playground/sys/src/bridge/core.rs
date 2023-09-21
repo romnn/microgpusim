@@ -7,6 +7,10 @@ mod ffi {
     unsafe extern "C++" {
         include!("playground-sys/src/ref/bridge/core.hpp");
 
+        type cache_bridge = crate::bridge::cache::cache_bridge;
+
+        type mem_fetch_ptr_shim = crate::bridge::mem_fetch::mem_fetch_ptr_shim;
+
         type register_set = crate::bridge::types::register_set::register_set;
         type register_set_ptr = crate::bridge::register_set::register_set_ptr;
         type register_set_bridge = crate::bridge::register_set::register_set_bridge;
@@ -42,6 +46,18 @@ mod ffi {
         fn get_pending_register_writes(
             self: &core_bridge,
         ) -> UniquePtr<CxxVector<pending_register_writes>>;
+
+        type bank_latency_queue;
+        #[must_use]
+        fn get(self: &bank_latency_queue) -> &CxxVector<mem_fetch_ptr_shim>;
+
+        #[must_use]
+        fn get_l1_bank_latency_queue(
+            self: &core_bridge,
+        ) -> UniquePtr<CxxVector<bank_latency_queue>>;
+
+        #[must_use]
+        fn get_l1_data_cache(self: &core_bridge) -> SharedPtr<cache_bridge>;
     }
 
     // explicit instantiation for core_bridge to implement VecElement

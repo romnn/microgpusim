@@ -38,7 +38,6 @@ pub struct Options {
 
     #[clap(
         long = "upstream",
-        action = clap::ArgAction::SetTrue,
         help = "use upstream accelsim implementation (unmodified)"
     )]
     pub use_upstream: Option<bool>,

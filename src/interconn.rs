@@ -133,10 +133,14 @@ where
 
         let mut lock = self.round_robin_turn[subnet][icnt_id].lock();
         let mut turn = *lock;
-        log::debug!(
-            "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet}, turn={turn})",
-            style("INTERCONN POP").bold()
-        );
+        {
+            let queue = self.output_queue[subnet][icnt_id][turn].lock();
+            log::debug!(
+                "{}: from device {device} (device={device}, id={icnt_id}, subnet={subnet}, turn={turn}, buffer={:?})",
+                style("INTERCONN POP").bold(),
+                queue.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            );
+        }
 
         for _ in 0..self.num_classes {
             let mut queue = self.output_queue[subnet][icnt_id][turn].lock();

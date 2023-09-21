@@ -8,6 +8,8 @@
 struct sector_cache_block : public cache_block_t {
   sector_cache_block() { init(); }
 
+  friend class cache_block_bridge;
+
   void init() {
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
       m_sector_alloc_time[i] = 0;
@@ -125,7 +127,7 @@ struct sector_cache_block : public cache_block_t {
   }
 
   virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) override {
+      mem_access_sector_mask_t sector_mask) const override {
     unsigned sidx = get_sector_index(sector_mask);
 
     return m_status[sidx];
@@ -143,10 +145,10 @@ struct sector_cache_block : public cache_block_t {
   virtual void set_byte_mask(mem_access_byte_mask_t byte_mask) override {
     m_dirty_byte_mask = m_dirty_byte_mask | byte_mask;
   }
-  virtual mem_access_byte_mask_t get_dirty_byte_mask() override {
+  virtual mem_access_byte_mask_t get_dirty_byte_mask() const override {
     return m_dirty_byte_mask;
   }
-  virtual mem_access_sector_mask_t get_dirty_sector_mask() override {
+  virtual mem_access_sector_mask_t get_dirty_sector_mask() const override {
     mem_access_sector_mask_t sector_mask;
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; i++) {
       if (m_status[i] == MODIFIED) sector_mask.set(i);
@@ -165,7 +167,7 @@ struct sector_cache_block : public cache_block_t {
     m_line_last_access_time = time;
   }
 
-  virtual unsigned long long get_alloc_time() override {
+  virtual unsigned long long get_alloc_time() const override {
     return m_line_alloc_time;
   }
 
@@ -200,7 +202,7 @@ struct sector_cache_block : public cache_block_t {
     return m_readable[sidx];
   }
 
-  virtual unsigned get_modified_size() override {
+  virtual unsigned get_modified_size() const override {
     unsigned modified = 0;
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
       if (m_status[i] == MODIFIED) modified++;
@@ -228,7 +230,7 @@ struct sector_cache_block : public cache_block_t {
   bool m_readable[SECTOR_CHUNCK_SIZE];
   mem_access_byte_mask_t m_dirty_byte_mask;
 
-  unsigned get_sector_index(mem_access_sector_mask_t sector_mask) {
+  unsigned get_sector_index(mem_access_sector_mask_t sector_mask) const {
     assert(sector_mask.count() == 1);
     for (unsigned i = 0; i < SECTOR_CHUNCK_SIZE; ++i) {
       if (sector_mask.to_ulong() & (1 << i)) return i;

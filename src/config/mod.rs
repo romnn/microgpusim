@@ -897,6 +897,7 @@ pub enum CoreSchedulerKind {
 pub enum Architecture {
     GT200 = 13,
     Fermi = 20,
+    Pascal = 61,
 }
 
 /// Scheduling order.
@@ -1018,7 +1019,8 @@ impl Default for GPU {
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
                 inner: Arc::new(Cache {
-                    kind: CacheKind::Normal,
+                    kind: CacheKind::Sector,
+                    // kind: CacheKind::Normal,
                     num_sets: 64,
                     line_size: 128,
                     associativity: 6,
@@ -1029,6 +1031,7 @@ impl Default for GPU {
                     // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
                     set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
+                    // mshr_kind: mshr::Kind::SECTOR_ASSOC,
                     mshr_entries: 128,
                     mshr_max_merge: 8,
                     miss_queue_size: 4,
@@ -1041,7 +1044,8 @@ impl Default for GPU {
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
             data_cache_l2: Some(Arc::new(L2DCache {
                 inner: Arc::new(Cache {
-                    kind: CacheKind::Normal,
+                    kind: CacheKind::Sector,
+                    // kind: CacheKind::Normal,
                     num_sets: 64,
                     line_size: 128,
                     associativity: 16,
@@ -1122,7 +1126,7 @@ impl Default for GPU {
             operand_collector_num_out_ports_tensor_core: 1,
             operand_collector_num_out_ports_mem: 1,
             operand_collector_num_out_ports_gen: 0,
-            coalescing_arch: Architecture::GT200,
+            coalescing_arch: Architecture::Pascal,
             num_schedulers_per_core: 2,
             max_instruction_issue_per_warp: 2,
             dual_issue_only_to_different_exec_units: true,
@@ -1151,7 +1155,8 @@ impl Default for GPU {
             num_tensor_core_units: 0,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
-            perfect_inst_const_cache: false,
+            perfect_inst_const_cache: true,
+            // perfect_inst_const_cache: false,
             inst_fetch_throughput: 1,
             reg_file_port_throughput: 1,
             fill_l2_on_memcopy: true,

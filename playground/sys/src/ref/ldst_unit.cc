@@ -206,6 +206,15 @@ void ldst_unit::L1_latency_queue_cycle() {
       bool write_sent = was_write_sent(events);
       bool read_sent = was_read_sent(events);
 
+      logger->warn(
+          "l1 cache access for warp={:<2} {} => {} cycle={} [write sent={}, "
+          "read sent={}, wr allocate sent={}]",
+          mf_next->get_wid(), mem_fetch_ptr(mf_next),
+          cache_request_status_str[status],
+          m_core->get_gpu()->gpu_sim_cycle +
+              m_core->get_gpu()->gpu_tot_sim_cycle,
+          write_sent, read_sent, was_writeallocate_sent(events));
+
       if (status == HIT) {
         assert(!read_sent);
         l1_latency_queue[j][0] = NULL;
@@ -357,8 +366,10 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
     if (m_core->get_config()->gmem_skip_L1D && (CACHE_L1 != inst.cache_op))
       bypassL1D = true;
   }
-  logger->debug("memory cycle for instruction: {} => access: {} (bypass l1={})",
-                inst, access, bypassL1D);
+  logger->debug(
+      "memory cycle for instruction: {} => access: {} (bypass l1={}, "
+      "queue=[{}])",
+      inst, access, bypassL1D, fmt::join(inst.mem_access_queue(), ","));
 
   if (bypassL1D) {
     // bypass L1 cache
@@ -374,6 +385,8 @@ bool ldst_unit::memory_cycle(warp_inst_t &inst,
                                 m_core->get_gpu()->gpu_sim_cycle +
                                     m_core->get_gpu()->gpu_tot_sim_cycle);
 
+      logger->debug("memory cycle for instruction {} => send {}", inst,
+                    mem_fetch_ptr(mf));
       m_icnt->push(mf);
       inst.accessq_pop_back();
       // inst.clear_active( access.get_warp_mask() );
@@ -455,20 +468,6 @@ ldst_unit::ldst_unit(mem_fetch_interface *icnt,
   }
   m_name = "LdstUnit";
 }
-
-// ldst_unit::ldst_unit(mem_fetch_interface *icnt,
-//                      shader_core_mem_fetch_allocator *mf_allocator,
-//                      trace_shader_core_ctx *core,
-//                      opndcoll_rfu_t *operand_collector, Scoreboard
-//                      *scoreboard, const shader_core_config *config, const
-//                      memory_config *mem_config, shader_core_stats *stats,
-//                      unsigned sid, unsigned tpc, l1_cache *new_l1d_cache)
-//     : pipelined_simd_unit(NULL, config, 3, core, 0),
-//       m_L1D(new_l1d_cache),
-//       m_next_wb(config) {
-//   init(icnt, mf_allocator, core, operand_collector, scoreboard, config,
-//        mem_config, stats, sid, tpc);
-// }
 
 void ldst_unit::issue(register_set &reg_set) {
   warp_inst_t *inst = *(reg_set.get_ready());

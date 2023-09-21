@@ -312,11 +312,11 @@ class Stats(common.Stats):
 
     def _compute_l1_accesses(self):
         df = self.l1_data_stats_df
-        global_write = df["access_kind"] == "GLOBAL_ACC_W"
+        # global_write = df["access_kind"] == "GLOBAL_ACC_W"
         global_read = df["access_kind"] == "GLOBAL_ACC_R"
         hit_mask = df["access_status"] == "HIT"
         miss_mask = df["access_status"] == "MISS"
-        accesses = df[(hit_mask ^ miss_mask) & (global_write ^ global_read)]
+        accesses = df[(hit_mask ^ miss_mask) & (global_read)]
         # print(accesses)
         grouped = accesses.groupby(INDEX_COLS, dropna=False)
         self.result_df["l1_accesses"] = grouped["num_accesses"].sum()

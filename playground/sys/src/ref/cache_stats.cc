@@ -1,4 +1,5 @@
 #include "cache_stats.hpp"
+#include <fmt/format.h>
 
 #include <assert.h>
 #include <string>
@@ -51,7 +52,8 @@ void cache_stats::inc_stats(int access_type, int access_outcome) {
   ///
   if (!check_valid(access_type, access_outcome))
     assert(0 && "Unknown cache access type or access outcome");
-
+  // fmt::println("inc access stat: {} {}", mem_access_type_str[access_type],
+  //              cache_request_status_str[access_outcome]);
   m_stats[access_type][access_outcome]++;
 }
 

@@ -190,7 +190,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         kernel_stats.inc(
             fetch.allocation_id(),
             fetch.access_kind(),
-            cache::AccessStat::Status(select_status(probe_status, access_status)),
+            cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
             1,
         );
         access_status
@@ -215,23 +215,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
 
     fn flush(&mut self) -> usize {
         self.inner.flush()
-    }
-}
-
-/// This function selects how the cache access outcome should be counted.
-///
-/// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
-/// counted as a `HIT_RESERVED` in the caches.
-#[inline]
-fn select_status(
-    probe: cache::RequestStatus,
-    access: cache::RequestStatus,
-) -> cache::RequestStatus {
-    use cache::RequestStatus;
-    match probe {
-        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => probe,
-        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => probe,
-        _ => access,
     }
 }
 

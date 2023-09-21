@@ -1,14 +1,13 @@
+use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, fifo::Fifo, interconn::Packet, mem_fetch};
 use console::style;
-
 use std::collections::{HashSet, VecDeque};
-
-use crate::sync::{Arc, Mutex};
+use trace_model::ToBitString;
 
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
 
 /// four sectors
-pub const SECTOR_CHUNCK_SIZE: u32 = 4;
+pub const SECTOR_CHUNCK_SIZE: usize = 4;
 
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
@@ -27,7 +26,7 @@ pub struct MemorySubPartition {
     pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     /// L2 cache hit response queue
     pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
-    rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
+    pub rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
     pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
@@ -132,13 +131,183 @@ impl MemorySubPartition {
         }
     }
 
+    fn breakdown_request_to_sector_requests(
+        &self,
+        fetch: mem_fetch::MemFetch,
+    ) -> Vec<mem_fetch::MemFetch> {
+        let mut sector_requests = Vec::new();
+        log::trace!(
+            "breakdown to sector requests for {fetch} with data size {} sector mask={}",
+            fetch.data_size(),
+            fetch.access.sector_mask.to_bit_string()
+        );
+
+        struct SectorFetch<'c> {
+            addr: address,
+            sector: usize,
+            byte_mask: mem_fetch::ByteMask,
+            original_fetch: mem_fetch::MemFetch,
+            config: &'c config::GPU,
+        }
+
+        impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
+            fn into(self) -> mem_fetch::MemFetch {
+                let physical_addr = self.config.address_mapping().to_physical_address(self.addr);
+                let partition_addr = self
+                    .config
+                    .address_mapping()
+                    .memory_partition_address(self.addr);
+
+                let mut sector_mask = mem_fetch::SectorMask::ZERO;
+                sector_mask.set(self.sector, true);
+
+                let access = mem_fetch::access::MemAccess {
+                    addr: self.addr,
+                    req_size_bytes: SECTOR_SIZE,
+                    byte_mask: self.byte_mask,
+                    sector_mask,
+                    ..self.original_fetch.access.clone()
+                };
+
+                mem_fetch::MemFetch {
+                    uid: mem_fetch::generate_uid(),
+                    original_fetch: Some(Box::new(self.original_fetch.clone())),
+                    access,
+                    physical_addr,
+                    partition_addr,
+                    ..self.original_fetch
+                }
+            }
+        }
+
+        let num_sectors = SECTOR_CHUNCK_SIZE as usize;
+        let sector_size = SECTOR_SIZE as usize;
+
+        if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
+            sector_requests.push(fetch.clone());
+        } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
+            // break down every sector
+            let mut byte_mask = mem_fetch::ByteMask::ZERO;
+            // todo: rename sector_chunk_size to num_sectors
+            for sector in 0..num_sectors {
+                byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+                // for k in (i * SECTOR_SIZE)..((i + 1) * SECTOR_SIZE) {
+                //     byte_mask.set(k as usize, true);
+                // }
+                let sector_fetch = SectorFetch {
+                    sector,
+                    addr: fetch.addr() + (sector_size * sector) as u64,
+                    byte_mask: fetch.access.byte_mask & byte_mask,
+                    original_fetch: fetch.clone(),
+                    config: &*self.config,
+                };
+
+                // let mut new_fetch = fetch.clone();
+                // new_fetch.access.addr += SECTOR_SIZE as u64 * sector as u64;
+                // new_fetch.access.byte_mask &= byte_mask;
+                // new_fetch.access.sector_mask.set(sector as usize, true);
+
+                // new_fetch.access.addr = fetch.addr() + SECTOR_SIZE as u64 * i as u64;
+                // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
+                // mf->get_addr() + SECTOR_SIZE * i, mf->get_access_type(),
+                // mf->get_access_warp_mask(), mf->get_access_byte_mask() & mask,
+                // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE, mf->is_write(),
+                // m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
+                // mf->get_sid(), mf->get_tpc(), mf);
+
+                sector_requests.push(sector_fetch.into());
+            }
+            // This is for constant cache
+        } else if fetch.data_size() == 64
+            && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
+        {
+            let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
+            let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
+
+            let mut byte_mask = mem_fetch::ByteMask::ZERO;
+            for sector in sector_start..(sector_start + 2) {
+                byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+                // for k in i * SECTOR_SIZE..((i + 1) * SECTOR_SIZE) {
+                //     byte_mask.set(k as usize, true);
+                // }
+
+                // let mut new_fetch = fetch.clone();
+                // // address is the same
+                // // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
+                // new_fetch.access.byte_mask &= byte_mask;
+                // new_fetch.access.sector_mask.set(i as usize, true);
+
+                // mf->get_addr(), mf->get_access_type(), mf->get_access_warp_mask(),
+                // mf->get_access_byte_mask() & mask,
+                // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE, mf->is_write(),
+                // m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
+                // mf->get_sid(), mf->get_tpc(), mf);
+
+                let sector_fetch = SectorFetch {
+                    sector,
+                    addr: fetch.addr(),
+                    byte_mask: fetch.access.byte_mask & byte_mask,
+                    original_fetch: fetch.clone(),
+                    config: &*self.config,
+                };
+
+                sector_requests.push(sector_fetch.into());
+            }
+        } else {
+            // access sectors individually
+            for sector in 0..num_sectors {
+                if fetch.access.sector_mask[sector as usize] {
+                    let mut byte_mask = mem_fetch::ByteMask::ZERO;
+                    byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+
+                    // for k in (i * SECTOR_SIZE)..((i + 1) * SECTOR_SIZE) {
+                    //     byte_mask.set(k as usize, true);
+                    // }
+
+                    let sector_fetch = SectorFetch {
+                        sector,
+                        addr: fetch.addr() + (sector_size * sector) as u64,
+                        byte_mask: fetch.access.byte_mask & byte_mask,
+                        original_fetch: fetch.clone(),
+                        config: &*self.config,
+                    };
+
+                    // let mut new_fetch = fetch.clone();
+                    // new_fetch.access.addr += SECTOR_SIZE as u64 * i as u64;
+                    // new_fetch.access.byte_mask &= byte_mask;
+                    // new_fetch.access.sector_mask.set(i as usize, true);
+
+                    // new_fetch.access.addr = fetch.addr() + SECTOR_SIZE as u64 * i as u64;
+                    // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
+                    //
+                    // different addr
+                    // mf->get_addr() + SECTOR_SIZE * i, mf->get_access_type(),
+                    // mf->get_access_warp_mask(), mf->get_access_byte_mask() & mask,
+                    // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE,
+                    // mf->is_write(), m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
+                    // mf->get_wid(), mf->get_sid(), mf->get_tpc(), mf);
+
+                    sector_requests.push(sector_fetch.into());
+                }
+            }
+        }
+        log::trace!(
+            "sector requests for {fetch}: {:?}",
+            sector_requests
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+        );
+        debug_assert!(!sector_requests.is_empty(), "no fetch sent");
+        sector_requests
+    }
+
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         // m_stats->memlatstat_icnt2mem_pop(m_req);
         let mut requests = Vec::new();
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
         if l2_config.inner.kind == config::CacheKind::Sector {
-            // requests.extend(self.breakdown_request_to_sector_requests(&fetch));
-            unimplemented!("sector cache");
+            requests.extend(self.breakdown_request_to_sector_requests(fetch));
         } else {
             requests.push(fetch);
         }
@@ -147,9 +316,6 @@ impl MemorySubPartition {
             // self.request_tracker.insert(fetch);
             assert!(!self.interconn_to_l2_queue.full());
             fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
-
-            // EDIT: we could skip the rop queue here, but then its harder to debug
-            // self.interconn_to_l2_queue.enqueue(fetch);
 
             if fetch.is_texture() {
                 fetch.status = mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE;
@@ -223,17 +389,17 @@ impl MemorySubPartition {
         ))
         .blue();
 
-        // log::debug!(
-        //     "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
-        //     log_line,
-        //     self.rop_queue
-        //         .iter()
-        //         .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
-        //         .collect::<Vec<_>>(),
-        //     self.interconn_to_l2_queue,
-        //     self.l2_to_interconn_queue,
-        //     self.l2_to_dram_queue.try_lock(),
-        // );
+        log::debug!(
+            "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
+            log_line,
+            self.rop_queue
+                .iter()
+                .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
+                .collect::<Vec<_>>(),
+            self.interconn_to_l2_queue,
+            self.l2_to_interconn_queue,
+            self.l2_to_dram_queue.try_lock(),
+        );
 
         // L2 fill responses
         if let Some(ref mut l2_cache) = self.l2_cache {

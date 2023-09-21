@@ -117,10 +117,22 @@ void baseline_cache::cycle() {
 /// in caller)
 void baseline_cache::fill(mem_fetch *mf, unsigned time) {
   bool is_sector_cache = m_config.m_mshr_type == SECTOR_ASSOC;
-  logger->debug("{}::baseline_cache::fill({}) (is sector={})", name(),
-                mf->get_addr(), is_sector_cache);
+  logger->debug("{}::baseline_cache::fill({}, addr={}) (is sector={})", name(),
+                mem_fetch_ptr(mf), mf->get_addr(), is_sector_cache);
 
   if (is_sector_cache) {
+    fmt::println("{}::baseline_cache::fill({}) got a sector fill back", name(),
+                 mem_fetch_ptr(mf));
+
+    // extra_mf_fields_lookup::iterator e = m_extra_mf_fields.find(mf);
+    // assert(e != m_extra_mf_fields.end());
+    // e->second.pending_read--;
+    //
+    // if (e->second.pending_read > 0) {
+    //   // wait for the other requests to come back
+    //   return;
+    // }
+
     assert(mf->get_original_mf());
     extra_mf_fields_lookup::iterator e =
         m_extra_mf_fields.find(mf->get_original_mf());
@@ -200,7 +212,7 @@ void baseline_cache::send_read_request(new_addr_type addr,
 }
 
 /// Read miss handler. Check MSHR hit or MSHR available
-void baseline_cache::send_read_request(new_addr_type addr,
+void baseline_cache::send_read_request(new_addr_type unused_addr,
                                        new_addr_type block_addr,
                                        unsigned cache_index, mem_fetch *mf,
                                        unsigned time, bool &do_miss, bool &wb,
@@ -212,10 +224,12 @@ void baseline_cache::send_read_request(new_addr_type addr,
   bool mshr_avail = !m_mshrs.full(mshr_addr);
 
   logger->debug(
-      "{}::baseline_cache::send_read_request({}) (addr={}, block={}, "
-      "mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
-      name(), mem_fetch_ptr(mf), addr, block_addr, mshr_addr, mshr_hit,
-      !mshr_avail, m_miss_queue.size() >= m_config.m_miss_queue_size);
+      "{}::baseline_cache::send_read_request({}) (addr={}, fetch addr={}, "
+      "block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={}, "
+      "atom size={})",
+      name(), mem_fetch_ptr(mf), unused_addr, mf->get_addr(), block_addr,
+      mshr_addr, mshr_hit, !mshr_avail,
+      m_miss_queue.size() >= m_config.m_miss_queue_size, m_config.m_atom_sz);
 
   if (mshr_hit && mshr_avail) {
     if (read_only) {
@@ -239,17 +253,20 @@ void baseline_cache::send_read_request(new_addr_type addr,
     m_mshrs.add(mshr_addr, mf);
     m_extra_mf_fields[mf] = extra_mf_fields(
         mshr_addr, mf->get_addr(), cache_index, mf->get_data_size(), m_config);
+
     mf->set_data_size(m_config.get_atom_sz());
     mf->set_addr(mshr_addr);
     m_miss_queue.push_back(mf);
     mf->set_status(m_miss_queue_status, time);
+
     if (!wa) events.push_back(cache_event(READ_REQUEST_SENT));
 
     do_miss = true;
-  } else if (mshr_hit && !mshr_avail)
+  } else if (mshr_hit && !mshr_avail) {
     m_stats.inc_fail_stats(mf->get_access_type(), MSHR_MERGE_ENRTY_FAIL);
-  else if (!mshr_hit && !mshr_avail)
+  } else if (!mshr_hit && !mshr_avail) {
     m_stats.inc_fail_stats(mf->get_access_type(), MSHR_ENRTY_FAIL);
-  else
+  } else {
     assert(0);
+  }
 }

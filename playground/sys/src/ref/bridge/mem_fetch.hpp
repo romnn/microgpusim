@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../mem_fetch.hpp"
+#include <memory>
 
 struct mem_fetch_ptr_shim {
-  const mem_fetch *ptr;
-  const mem_fetch *get() const { return ptr; }
+  const class mem_fetch *get() const { return ptr; }
+  const class mem_fetch *ptr;
 };
 
 class mem_fetch_bridge {
@@ -17,4 +17,5 @@ class mem_fetch_bridge {
   const class mem_fetch *ptr;
 };
 
-std::shared_ptr<mem_fetch_bridge> new_mem_fetch_bridge(const mem_fetch *ptr);
+std::shared_ptr<mem_fetch_bridge> new_mem_fetch_bridge(
+    const class mem_fetch *ptr);

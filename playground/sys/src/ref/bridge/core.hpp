@@ -4,7 +4,10 @@
 #include "../simd_function_unit.hpp"
 #include "../pipelined_simd_unit.hpp"
 #include "../ldst_unit.hpp"
+#include "../l1_cache.hpp"
+#include "cache.hpp"
 #include "register_set.hpp"
+#include "mem_fetch.hpp"
 #include "scheduler_unit.hpp"
 #include "operand_collector.hpp"
 
@@ -12,6 +15,11 @@ struct pending_register_writes {
   unsigned warp_id;
   unsigned reg_num;
   unsigned pending;
+};
+
+struct bank_latency_queue {
+  const std::vector<mem_fetch_ptr_shim> &get() const { return queue; };
+  const std::vector<mem_fetch_ptr_shim> queue;
 };
 
 class core_bridge {
@@ -114,6 +122,29 @@ class core_bridge {
     }
 
     return std::make_unique<std::vector<pending_register_writes>>(out);
+  }
+
+  std::unique_ptr<std::vector<bank_latency_queue>> get_l1_bank_latency_queue()
+      const {
+    std::vector<bank_latency_queue> out;
+    std::vector<std::deque<mem_fetch *>> queue =
+        (ptr->m_ldst_unit)->l1_latency_queue;
+    std::vector<std::deque<mem_fetch *>>::const_iterator iter;
+    for (iter = queue.begin(); iter != queue.end(); iter++) {
+      std::deque<mem_fetch *>::const_iterator bank_iter;
+
+      std::vector<mem_fetch_ptr_shim> bank_queue_shim;
+      for (bank_iter = (*iter).begin(); bank_iter != (*iter).end();
+           bank_iter++) {
+        bank_queue_shim.push_back(mem_fetch_ptr_shim{*bank_iter});
+      }
+      out.push_back(bank_latency_queue{bank_queue_shim});
+    }
+    return std::make_unique<std::vector<bank_latency_queue>>(out);
+  }
+
+  std::shared_ptr<cache_bridge> get_l1_data_cache() const {
+    return new_cache_bridge(ptr->m_ldst_unit->m_L1D);
   }
 
  private:

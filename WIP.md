@@ -1,5 +1,33 @@
 #### TODO
 
+- TODO:
+
+  - should really also compare the l1 cache in lockstep so we can quickly find the issues
+  - compare the rop queue
+
+GTX1080 has `20 SM * 4 SIMD unit * 32 lanes = 2560 "CUDA cores"`
+https://www.es.ele.tue.nl/~heco/courses/ECA/GPU-papers/GeForce_GTX_1080_Whitepaper_FINAL.pdf
+
+- 4 GPC
+- 20 TPC (5 TPC per GPC
+- 20 SM (1 SM per TPC)
+- 4 warp schedulers
+- 2 dispatch units per scheduler
+
+- per TPC:
+
+  - 8 32-bit memory controllers (256-bit total).
+  - Tied to each 32-bit memory controller are eight ROP units and 256 KB of L2 cache.
+
+- per SM:
+  - 1 \* 32 SFU (1 SFU SIMD unit per SM)
+  - 4 \* 32 CORE (4 SP SIMD unit per SM)
+  - 1 \* 32 LDST (1 LDST SIMD unit per SM)
+  - 256 KB of register file capacity
+  - 96 KB shared memory unit
+  - 48 KB of total L1 cache storage
+  - and eight texture units
+
 About caches:
 L1 transactions are 128 bytes, and L2 and texture transactions are 32 bytes. An important strategy for optimizing memory usage is to group loads and stores in order to access the necessary data in as few cache transactions as possible. For memory cached in both L1 and L2, if every thread in a warp loads a 4-byte value from sparse locations which miss in L1 cache, each thread will incur one 128-byte L1 transaction and four 32-byte L2 transactions. This will cause the load instruction to reissue 32 times more than if the values would be adjacent and cache-aligned. [source](https://docs.nvidia.com/gameworks/content/developertools/desktop/analysis/report/cudaexperiments/kernellevel/memorystatisticscaches.htm)
 
@@ -29,6 +57,13 @@ A miss does not imply that all sectors in the cache line will be filled.
 - today:
 
   - NOTE: change playground back to correct accelsim compat
+
+  - exec driven: ensure allocations are aligned! (otherwise that can negatively impact access performance)
+  - investigate (in this order)
+
+    - l1 accesses (transactions?)
+    - l1 reads
+    - l1 writes
 
   - understand the role of the l1 data cache, when is it used?
   - compute the expected values manually for vectoradd

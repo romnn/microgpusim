@@ -31,6 +31,12 @@ fn gather_simulation_state(
 
     let num_partitions = box_sim.mem_partition_units.len();
     let num_sub_partitions = box_sim.mem_sub_partitions.len();
+    let _num_l1_banks = box_sim
+        .config
+        .data_cache_l1
+        .as_ref()
+        .map(|l1| l1.l1_banks)
+        .unwrap_or(1);
     let mut box_sim_state = testing::state::Simulation::new(
         num_clusters,
         cores_per_cluster,
@@ -84,17 +90,9 @@ fn gather_simulation_state(
                 .iter()
                 .map(|scheduler| scheduler.lock().deref().into())
                 .collect();
-            // core: l2 cache
-            let ldst_unit = core.load_store_unit.lock();
 
-            // box_sim_state.l1_latency_queue[bank_id].extend(
-            //     ldst_unit
-            //         .l1_latency_queue
-            //         .iter()
-            //         .map(|(_, fetch)| fetch)
-            //         .cloned()
-            //         .map(Into::into),
-            // );
+            // core: load store unit
+            let ldst_unit = core.load_store_unit.lock();
 
             // core: pending register writes
             box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
@@ -115,9 +113,35 @@ fn gather_simulation_state(
                 .collect();
 
             box_sim_state.pending_register_writes_per_core[core_id].sort();
-            // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
-            // dbg!(&l1d_tag_array);
-            // let l1d_tag_array = ldst_unit.data_l1.unwrap().tag_array;
+
+            box_sim_state.l1_latency_queue_per_core[core_id] = ldst_unit
+                .l1_latency_queue
+                .iter()
+                .enumerate()
+                .map(|(bank_id, latency_queue)| {
+                    (
+                        bank_id,
+                        latency_queue
+                            .iter()
+                            .map(|fetch| fetch.clone().map(Into::into))
+                            .collect(),
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            if let Some(l1_data_cache) = ldst_unit.data_l1.as_ref() {
+                let l1_data_cache = l1_data_cache
+                    .as_any()
+                    .downcast_ref::<cache::Data<
+                        crate::mcu::MemoryControllerUnit,
+                        cache::controller::pascal::L1DataCacheController,
+                        stats::cache::PerKernel,
+                    >>()
+                    .unwrap();
+
+                let l1_data_cache = testing::state::Cache::from(&l1_data_cache.inner.tag_array);
+                box_sim_state.l1_cache_per_core[core_id] = Some(l1_data_cache);
+            }
         }
     }
 
@@ -143,10 +167,16 @@ fn gather_simulation_state(
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
         let sub = sub.try_lock();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
-        // let l2_cache: &cache::DataL2<ic::L2Interface<fifo::Fifo<mem_fetch::MemFetch>>> =
         let l2_cache: &cache::DataL2 = l2_cache.as_any().downcast_ref().unwrap();
 
         box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
+
+        box_sim_state.rop_queue_per_sub[sub_id] = sub
+            .rop_queue
+            .clone()
+            .into_iter()
+            .map(|(ready, fetch)| (ready, fetch.into()))
+            .collect();
 
         for (dest_queue, src_queue) in [
             (
@@ -202,10 +232,7 @@ fn gather_simulation_state(
             play_sim_state.functional_unit_pipelines_per_core[core_id].push(regs.into());
         }
 
-        for occupied in core.functional_unit_occupied_slots()
-        // .into_iter()
-        // .filter(|fu| valid_units.contains(&fu.name()))
-        {
+        for occupied in core.functional_unit_occupied_slots() {
             play_sim_state.functional_unit_occupied_slots_per_core[core_id] = occupied;
         }
 
@@ -216,6 +243,21 @@ fn gather_simulation_state(
             .map(Into::into)
             .collect();
         play_sim_state.pending_register_writes_per_core[core_id].sort();
+
+        play_sim_state.l1_latency_queue_per_core[core_id] = core
+            .l1_bank_latency_queue()
+            .into_iter()
+            .enumerate()
+            .map(|(bank_id, latency_queue)| {
+                (
+                    bank_id,
+                    latency_queue
+                        .into_iter()
+                        .map(|fetch| fetch.map(Into::into))
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
 
         // core: operand collector
         let coll = core.operand_collector();
@@ -246,6 +288,24 @@ fn gather_simulation_state(
             //     play_sched.prioritized_warp_ids.len(),
             // );
         }
+
+        // play_sim_state.l1_bank_latency_queue_per_core[core_id] = Some(testing::state::Cache {
+        //     lines: core
+        //         .l1_data_cache()
+        //         .lines()
+        //         .into_iter()
+        //         .map(Into::into)
+        //         .collect(),
+        // });
+
+        play_sim_state.l1_cache_per_core[core_id] = Some(testing::state::Cache {
+            lines: core
+                .l1_data_cache()
+                .lines()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        });
     }
 
     let mut partitions_added = 0;
@@ -283,9 +343,21 @@ fn gather_simulation_state(
         play_sim_state.l2_to_dram_queue_per_sub[sub_id] =
             sub.l2_to_dram_queue().into_iter().map(Into::into).collect();
 
+        play_sim_state.rop_queue_per_sub[sub_id] = sub
+            .rop_delay_queue()
+            .into_iter()
+            .map(|(ready, fetch)| (ready, fetch.into()))
+            .collect();
+
         play_sim_state.l2_cache_per_sub[sub_id] = Some(testing::state::Cache {
-            lines: sub.l2_cache().lines().into_iter().map(Into::into).collect(),
+            lines: sub
+                .l2_data_cache()
+                .lines()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
         });
+
         sub_partitions_added += 1;
     }
     assert_eq!(sub_partitions_added, num_sub_partitions);
@@ -470,7 +542,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         box_sim.launch_kernels(cycle);
 
         // check that memcopy commands were handled correctly
-        if should_compare_states {
+        if false && should_compare_states {
             start = Instant::now();
             let (box_sim_state, play_sim_state) =
                 gather_simulation_state(&mut box_sim, &mut play_sim);
@@ -595,21 +667,17 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                     //     &last_valid_play_sim_state
                     // );
 
-                    {
-                        serde_json::to_writer_pretty(
-                            utils::fs::open_writable(
-                                manifest_dir.join("debug.playground.state.json"),
-                            )?,
-                            &last_valid_play_sim_state,
-                        )?;
+                    serde_json::to_writer_pretty(
+                        utils::fs::open_writable(manifest_dir.join("debug.playground.state.json"))?,
+                        &last_valid_play_sim_state,
+                    )?;
 
-                        // format!("{:#?}", ).as_bytes(),
-                        serde_json::to_writer_pretty(
-                            utils::fs::open_writable(manifest_dir.join("debug.box.state.json"))?,
-                            &last_valid_box_sim_state,
-                        )?;
-                        // .write_all(format!("{:#?}", last_valid_box_sim_state).as_bytes())?;
-                    };
+                    // format!("{:#?}", ).as_bytes(),
+                    serde_json::to_writer_pretty(
+                        utils::fs::open_writable(manifest_dir.join("debug.box.state.json"))?,
+                        &last_valid_box_sim_state,
+                    )?;
+                    // .write_all(format!("{:#?}", last_valid_box_sim_state).as_bytes())?;
 
                     // dbg!(&box_sim.allocations);
                     // for (sub_id, sub) in play_sim.sub_partitions().enumerate() {

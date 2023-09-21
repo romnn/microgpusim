@@ -4,6 +4,8 @@
 #include "hal.hpp"
 
 struct line_cache_block : public cache_block_t {
+  friend class cache_block_bridge;
+
   line_cache_block() {
     m_alloc_time = 0;
     m_fill_time = 0;
@@ -49,7 +51,7 @@ struct line_cache_block : public cache_block_t {
   }
 
   virtual enum cache_block_state get_status(
-      mem_access_sector_mask_t sector_mask) override {
+      mem_access_sector_mask_t sector_mask) const override {
     return m_status;
   }
   virtual void set_status(enum cache_block_state status,
@@ -62,10 +64,10 @@ struct line_cache_block : public cache_block_t {
   virtual void set_byte_mask(mem_access_byte_mask_t byte_mask) override {
     m_dirty_byte_mask = m_dirty_byte_mask | byte_mask;
   }
-  virtual mem_access_byte_mask_t get_dirty_byte_mask() override {
+  virtual mem_access_byte_mask_t get_dirty_byte_mask() const override {
     return m_dirty_byte_mask;
   }
-  virtual mem_access_sector_mask_t get_dirty_sector_mask() override {
+  virtual mem_access_sector_mask_t get_dirty_sector_mask() const override {
     mem_access_sector_mask_t sector_mask;
     if (m_status == MODIFIED) sector_mask.set();
     return sector_mask;
@@ -77,7 +79,9 @@ struct line_cache_block : public cache_block_t {
       unsigned long long time, mem_access_sector_mask_t sector_mask) override {
     m_last_access_time = time;
   }
-  virtual unsigned long long get_alloc_time() override { return m_alloc_time; }
+  virtual unsigned long long get_alloc_time() const override {
+    return m_alloc_time;
+  }
   virtual void set_ignore_on_fill(
       bool m_ignore, mem_access_sector_mask_t sector_mask) override {
     m_ignore_on_fill_status = m_ignore;
@@ -93,7 +97,7 @@ struct line_cache_block : public cache_block_t {
   virtual void set_byte_mask_on_fill(bool m_modified) override {
     m_set_byte_mask_on_fill = m_modified;
   }
-  virtual unsigned get_modified_size() override {
+  virtual unsigned get_modified_size() const override {
     return SECTOR_CHUNCK_SIZE * SECTOR_SIZE;  // i.e. cache line size
   }
   virtual void set_m_readable(bool readable,

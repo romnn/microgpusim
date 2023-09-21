@@ -13,6 +13,12 @@
 class memory_config;
 class partition_mf_allocator;
 
+// model delay of ROP units with a fixed latency
+struct rop_delay_t {
+  unsigned long long ready_cycle;
+  class mem_fetch *req;
+};
+
 class memory_sub_partition {
  public:
   memory_sub_partition(unsigned sub_partition_id, const memory_config *config,
@@ -61,12 +67,6 @@ class memory_sub_partition {
     m_memcpy_cycle_offset += 1;
   }
 
-  // model delay of ROP units with a fixed latency
-  struct rop_delay_t {
-    unsigned long long ready_cycle;
-    class mem_fetch *req;
-  };
-
   std::shared_ptr<spdlog::logger> logger;
 
   friend class memory_sub_partition_bridge;
@@ -112,20 +112,19 @@ class memory_sub_partition {
   unsigned m_memcpy_cycle_offset;
 };
 
-std::ostream &operator<<(std::ostream &os,
-                         const memory_sub_partition::rop_delay_t &delay);
+std::ostream &operator<<(std::ostream &os, const rop_delay_t &delay);
 
 #include "fmt/core.h"
 
 template <>
-struct fmt::formatter<memory_sub_partition::rop_delay_t> {
+struct fmt::formatter<rop_delay_t> {
   constexpr auto parse(format_parse_context &ctx)
       -> format_parse_context::iterator {
     return ctx.end();
   }
 
-  auto format(const memory_sub_partition::rop_delay_t &delay,
-              format_context &ctx) const -> format_context::iterator {
+  auto format(const rop_delay_t &delay, format_context &ctx) const
+      -> format_context::iterator {
     return fmt::format_to(ctx.out(), "(ready at {})({})", delay.ready_cycle,
                           mem_fetch_ptr(delay.req));
   }

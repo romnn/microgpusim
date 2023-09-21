@@ -3,7 +3,6 @@ use crate::config;
 
 use std::collections::HashMap;
 
-
 pub type LineTable = HashMap<address, u64>;
 
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
@@ -191,18 +190,16 @@ where
                 }
             }
             cache::RequestStatus::SECTOR_MISS => {
-                // debug_assert!(self.config.kind == config::CacheKind::Sector);
+                // debug_assert_eq!(self.cache_config.kind, config::CacheKind::Sector);
                 // self.num_sector_miss += 1;
-                // if self.config.allocate_policy == config::CacheAllocatePolicy::ON_MISS {
-                //     let index = index.expect("hit has idx");
-                //     let line = &mut self.lines[index];
-                //     let was_modified_before = line.is_modified();
-                //     line.allocate_sector(fetch.access_sector_mask(), time);
-                //     if was_modified_before && !line.is_modified() {
-                //         self.num_dirty -= 1;
-                //     }
-                // }
-                unimplemented!("sector miss");
+                if self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS {
+                    let line = &mut self.lines[cache_index];
+                    let was_modified_before = line.is_modified();
+                    line.allocate_sector(&fetch.access.sector_mask, time);
+                    if was_modified_before && !line.is_modified() {
+                        self.num_dirty -= 1;
+                    }
+                }
             }
             cache::RequestStatus::MSHR_HIT => {
                 panic!("tag_array access: status {status:?} should never be returned");
@@ -307,7 +304,7 @@ where
     pub fn probe_masked(
         &self,
         block_addr: address,
-        mask: &mem_fetch::SectorMask,
+        sector_mask: &mem_fetch::SectorMask,
         is_write: bool,
         _is_probe: bool,
         fetch: Option<&mem_fetch::MemFetch>,
@@ -344,11 +341,32 @@ where
                 crate::Optional(fetch),
                 idx,
                 line.tag(),
-                line.status(mask),
+                line.status(sector_mask),
                 line.last_access_time()
             );
             if line.tag() == tag {
-                match line.status(mask) {
+                // if (line->get_status(mask) == RESERVED) {
+                //     idx = index;
+                //     return HIT_RESERVED;
+                //   } else if (line->get_status(mask) == VALID) {
+                //     idx = index;
+                //     return HIT;
+                //   } else if (line->get_status(mask) == MODIFIED) {
+                //     if ((!is_write && line->is_readable(mask)) || is_write) {
+                //       idx = index;
+                //       return HIT;
+                //     } else {
+                //       idx = index;
+                //       return SECTOR_MISS;
+                //     }
+                //
+                //   } else if (line->is_valid_line() && line->get_status(mask) == INVALID) {
+                //     idx = index;
+                //     return SECTOR_MISS;
+                //   } else {
+                //     assert(line->get_status(mask) == INVALID);
+                //   }
+                match line.status(sector_mask) {
                     cache::block::Status::RESERVED => {
                         return Some((idx, cache::RequestStatus::HIT_RESERVED));
                     }
@@ -356,22 +374,18 @@ where
                         return Some((idx, cache::RequestStatus::HIT));
                     }
                     cache::block::Status::MODIFIED => {
-                        let status = if is_write || line.is_readable(mask) {
+                        let status = if is_write || (!is_write && line.is_readable(sector_mask)) {
                             cache::RequestStatus::HIT
                         } else {
                             cache::RequestStatus::SECTOR_MISS
                         };
-                        // let status = match is_write {
-                        //     true => cache::RequestStatus::HIT,
-                        //     false if line.is_readable(mask) => cache::RequestStatus::HIT,
-                        //     _ => cache::RequestStatus::SECTOR_MISS,
-                        // };
                         return Some((idx, status));
                     }
-                    cache::block::Status::INVALID if line.is_valid() => {
-                        return Some((idx, cache::RequestStatus::SECTOR_MISS));
+                    cache::block::Status::INVALID => {
+                        if line.is_valid() {
+                            return Some((idx, cache::RequestStatus::SECTOR_MISS));
+                        }
                     }
-                    cache::block::Status::INVALID => {}
                 }
             }
             if !line.is_reserved() {

@@ -40,6 +40,7 @@ class l1d_cache_config : public cache_config {
   virtual unsigned get_max_cache_multiplier() const {
     // set * assoc * cacheline size. Then convert Byte to KB
     // gpgpu_unified_cache_size is in KB while original_sz is in B
+    assert(m_unified_cache_size == 0 && "no unified cache");
     if (m_unified_cache_size > 0) {
       unsigned original_size = m_nset * original_m_assoc * m_line_sz / 1024;
       assert(m_unified_cache_size % original_size == 0);

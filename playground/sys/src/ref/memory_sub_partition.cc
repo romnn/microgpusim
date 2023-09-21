@@ -57,8 +57,7 @@ memory_sub_partition::~memory_sub_partition() {
   delete m_L2interface;
 }
 
-std::ostream &operator<<(std::ostream &os,
-                         const memory_sub_partition::rop_delay_t &delay) {
+std::ostream &operator<<(std::ostream &os, const rop_delay_t &delay) {
   os << delay.req;
   return os;
 }
@@ -66,9 +65,9 @@ std::ostream &operator<<(std::ostream &os,
 void memory_sub_partition::cache_cycle(unsigned cycle) {
   unsigned before = m_rop.size();
   logger->debug(
-      "memory sub partition cache cycle {} rop queue=[{}] icnt to l2 "
+      "=> memory sub partition[{}] cache cycle {} rop queue=[{}] icnt to l2 "
       "queue=[{}] l2 to icnt queue=[{}] l2 to dram queue=[{}]",
-      cycle, fmt::join(queue_to_vector(m_rop), ", "),
+      m_id, cycle, fmt::join(queue_to_vector(m_rop), ", "),
       fmt::join(m_icnt_L2_queue->to_vector(), ", "),
       fmt::join(m_L2_icnt_queue->to_vector(), ", "),
       fmt::join(m_L2_dram_queue->to_vector(), ", "));
@@ -79,10 +78,9 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   // L2 fill responses
   if (!m_config->m_L2_config.disabled()) {
     logger->debug(
-        "memory sub partition cache cycle {} l2 cache ready accesses=[{}] l2 "
-        "to "
-        "icnt queue full={}",
-        cycle, fmt::join(m_L2cache->ready_accesses(), ", "),
+        "=> memory sub partition[{}] cache cycle {} l2 cache ready "
+        "accesses=[{}] l2 to icnt queue full={}",
+        m_id, cycle, fmt::join(m_L2cache->ready_accesses(), ", "),
         m_L2_icnt_queue->full());
     if (m_L2cache->access_ready() && !m_L2_icnt_queue->full()) {
       mem_fetch *mf = m_L2cache->next_access();
@@ -311,6 +309,12 @@ bool memory_sub_partition::busy() const { return !m_request_tracker.empty(); }
 
 std::vector<mem_fetch *>
 memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
+  logger->trace(
+      "breakdown to sector requests for {} with data size {} sector "
+      "mask={}",
+      mem_fetch_ptr(mf), mf->get_data_size(),
+      mask_to_string(mf->get_access_sector_mask()));
+
   std::vector<mem_fetch *> result;
   mem_access_sector_mask_t sector_mask = mf->get_access_sector_mask();
   if (mf->get_data_size() == SECTOR_SIZE &&
@@ -382,17 +386,17 @@ memory_sub_partition::breakdown_request_to_sector_requests(mem_fetch *mf) {
       }
     }
   }
+  logger->trace("sector requests for {}: [{}]", mem_fetch_ptr(mf),
+                fmt::join(result, ","));
   if (result.size() == 0) assert(0 && "no mf sent");
   return result;
 }
 
 void memory_sub_partition::push(mem_fetch *m_req, unsigned long long cycle) {
   if (m_req) {
-    // throw std::runtime_error("sub partition push");
     m_stats->memlatstat_icnt2mem_pop(m_req);
     std::vector<mem_fetch *> reqs;
     if (m_config->m_L2_config.m_cache_type == SECTOR) {
-      throw std::runtime_error("todo");
       reqs = breakdown_request_to_sector_requests(m_req);
     } else {
       reqs.push_back(m_req);

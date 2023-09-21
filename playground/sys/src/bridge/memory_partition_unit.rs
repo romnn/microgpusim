@@ -4,7 +4,7 @@ mod ffi {
         include!("playground-sys/src/ref/bridge/memory_partition_unit.hpp");
 
         type cache_bridge = crate::bridge::cache::cache_bridge;
-
+        type mem_fetch = crate::bridge::mem_fetch::mem_fetch;
         type mem_fetch_ptr_shim = crate::bridge::mem_fetch::mem_fetch_ptr_shim;
 
         type memory_partition_unit_bridge;
@@ -39,8 +39,20 @@ mod ffi {
         fn get_L2_icnt_queue(
             self: &memory_sub_partition_bridge,
         ) -> UniquePtr<CxxVector<mem_fetch_ptr_shim>>;
+
+        type rop_delay_shim;
         #[must_use]
-        fn get_l2_cache(self: &memory_sub_partition_bridge) -> SharedPtr<cache_bridge>;
+        fn get_ready(self: &rop_delay_shim) -> u64;
+        #[must_use]
+        fn get_fetch(self: &rop_delay_shim) -> *const mem_fetch;
+
+        #[must_use]
+        fn get_rop_delay_queue(
+            self: &memory_sub_partition_bridge,
+        ) -> UniquePtr<CxxVector<rop_delay_shim>>;
+
+        #[must_use]
+        fn get_l2_data_cache(self: &memory_sub_partition_bridge) -> SharedPtr<cache_bridge>;
 
     }
 

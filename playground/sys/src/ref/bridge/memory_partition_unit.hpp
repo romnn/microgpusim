@@ -2,6 +2,7 @@
 
 #include "../memory_partition_unit.hpp"
 #include "../memory_sub_partition.hpp"
+#include "../io.hpp"
 #include "mem_fetch.hpp"
 #include "cache.hpp"
 
@@ -36,11 +37,23 @@ class memory_partition_unit_bridge {
   class memory_partition_unit *ptr;
 };
 
+class rop_delay_shim {
+ public:
+  rop_delay_shim(uint64_t ready, const mem_fetch *fetch)
+      : ready_cycle(ready), req(fetch) {}
+  uint64_t get_ready() const { return ready_cycle; }
+  const mem_fetch *get_fetch() const { return req; }
+
+ private:
+  uint64_t ready_cycle;
+  const mem_fetch *req;
+};
+
 class memory_sub_partition_bridge {
  public:
   memory_sub_partition_bridge(const memory_sub_partition *ptr) : ptr(ptr) {}
 
-  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_queue(
+  std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_fifo_queue(
       fifo_pipeline<mem_fetch> *fifo) const {
     std::vector<mem_fetch_ptr_shim> q;
     if (fifo != NULL) {
@@ -54,18 +67,28 @@ class memory_sub_partition_bridge {
   }
 
   std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_icnt_L2_queue() const {
-    return get_queue(ptr->m_icnt_L2_queue);
+    return get_fifo_queue(ptr->m_icnt_L2_queue);
   }
   std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_L2_dram_queue() const {
-    return get_queue(ptr->m_L2_dram_queue);
+    return get_fifo_queue(ptr->m_L2_dram_queue);
   }
   std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_dram_L2_queue() const {
-    return get_queue(ptr->m_dram_L2_queue);
+    return get_fifo_queue(ptr->m_dram_L2_queue);
   }
   std::unique_ptr<std::vector<mem_fetch_ptr_shim>> get_L2_icnt_queue() const {
-    return get_queue(ptr->m_L2_icnt_queue);
+    return get_fifo_queue(ptr->m_L2_icnt_queue);
   }
-  std::shared_ptr<cache_bridge> get_l2_cache() const {
+  std::unique_ptr<std::vector<rop_delay_shim>> get_rop_delay_queue() const {
+    std::vector<rop_delay_shim> out;
+    std::vector<rop_delay_t> rop = queue_to_vector(ptr->m_rop);
+    std::vector<rop_delay_t>::const_iterator iter;
+    for (iter = rop.begin(); iter != rop.end(); iter++) {
+      out.push_back(rop_delay_shim(iter->ready_cycle, iter->req));
+    }
+
+    return std::make_unique<std::vector<rop_delay_shim>>(out);
+  }
+  std::shared_ptr<cache_bridge> get_l2_data_cache() const {
     return new_cache_bridge(ptr->m_L2cache);
   }
 

@@ -249,15 +249,25 @@ where
     let dur = start.elapsed();
 
     if !result.status.success() {
-        use color_eyre::Section;
-        return Err(utils::CommandError::new(&cmd, result)
-            .into_eyre()
+        use color_eyre::{Section, SectionExt};
+        let err = utils::CommandError::new(&cmd, result);
+        let command_section = err.command.clone().header("command:");
+        let stdout_section = utils::decode_utf8!(&err.output.stdout).header("stdout:");
+        let stderr_section = utils::decode_utf8!(&err.output.stderr).header("stderr:");
+        let mut err = eyre::Report::from(err)
+            .with_section(|| command_section)
             .with_suggestion(|| {
                 format!(
                     "to debug, use: `gdb --args bash {}`",
                     tmp_sim_sh_path.display(),
                 )
-            }));
+            });
+        if !stream_output {
+            err = err
+                .with_section(|| stdout_section)
+                .with_section(|| stderr_section);
+        }
+        return Err(err);
     }
 
     // for now, we want to keep the file

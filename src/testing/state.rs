@@ -3,6 +3,7 @@ use serde::Serialize;
 use utils::box_slice;
 
 impl From<types::mem_fetch::mf_type> for crate::mem_fetch::Kind {
+    #[inline]
     fn from(kind: types::mem_fetch::mf_type) -> Self {
         use types::mem_fetch::mf_type;
         match kind {
@@ -15,6 +16,7 @@ impl From<types::mem_fetch::mf_type> for crate::mem_fetch::Kind {
 }
 
 impl From<types::mem_fetch::mem_access_type> for crate::mem_fetch::access::Kind {
+    #[inline]
     fn from(kind: types::mem_fetch::mem_access_type) -> Self {
         use crate::mem_fetch::access::Kind as AccessKind;
         use types::mem_fetch::mem_access_type;
@@ -43,6 +45,7 @@ pub struct Cache {
 }
 
 impl std::fmt::Debug for Cache {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_list()
             .entries(
@@ -54,7 +57,21 @@ impl std::fmt::Debug for Cache {
 }
 
 impl<T> From<&crate::tag_array::TagArray<crate::cache::block::Line, T>> for Cache {
+    #[inline]
     fn from(tag_array: &crate::tag_array::TagArray<crate::cache::block::Line, T>) -> Self {
+        Self {
+            lines: tag_array.lines.iter().cloned().map(Into::into).collect(),
+        }
+    }
+}
+
+impl<T, const N: usize> From<&crate::tag_array::TagArray<crate::cache::block::sector::Block<N>, T>>
+    for Cache
+{
+    #[inline]
+    fn from(
+        tag_array: &crate::tag_array::TagArray<crate::cache::block::sector::Block<N>, T>,
+    ) -> Self {
         Self {
             lines: tag_array.lines.iter().cloned().map(Into::into).collect(),
         }
@@ -70,6 +87,7 @@ pub enum CacheBlockStatus {
 }
 
 impl From<crate::cache::block::Status> for CacheBlockStatus {
+    #[inline]
     fn from(status: crate::cache::block::Status) -> Self {
         match status {
             crate::cache::block::Status::INVALID => Self::INVALID,
@@ -82,52 +100,94 @@ impl From<crate::cache::block::Status> for CacheBlockStatus {
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct CacheBlock {
+    /// Cache block tag
     pub tag: u64,
+    /// Cache block address
     pub block_addr: u64,
-    pub status: CacheBlockStatus,
+    /// Sector status
+    pub sector_status: Vec<CacheBlockStatus>,
+    /// Last access time per sector
+    pub sector_last_accessed: Vec<u64>,
+    /// Last access time of the cache block
     pub last_accessed: u64,
 }
 
 impl From<crate::cache::block::Line> for CacheBlock {
+    #[inline]
     fn from(block: crate::cache::block::Line) -> Self {
         Self {
             tag: block.tag,
             block_addr: block.block_addr,
-            status: block.status.into(),
+            sector_status: vec![block.status.into()],
+            sector_last_accessed: vec![block.last_access_time],
             last_accessed: block.last_access_time,
         }
     }
 }
 
-impl From<&playground::cache::cache_block_t> for CacheBlock {
-    fn from(block: &playground::cache::cache_block_t) -> Self {
-        let status = if block.is_valid_line() {
-            CacheBlockStatus::VALID
-        } else if block.is_invalid_line() {
-            CacheBlockStatus::INVALID
-        } else if block.is_reserved_line() {
-            CacheBlockStatus::RESERVED
-        } else if block.is_modified_line() {
-            CacheBlockStatus::MODIFIED
-        } else {
-            unreachable!()
-        };
+impl<const N: usize> From<crate::cache::block::sector::Block<N>> for CacheBlock {
+    #[inline]
+    fn from(block: crate::cache::block::sector::Block<N>) -> Self {
         Self {
-            status,
-            tag: block.get_tag(),
-            block_addr: block.get_block_addr(),
-            last_accessed: block.get_last_access_time(),
+            tag: block.tag,
+            block_addr: block.block_addr,
+            sector_status: block.status.into_iter().map(Into::into).collect(),
+            sector_last_accessed: block.last_sector_access_time.to_vec(),
+            last_accessed: block.last_access_time,
         }
     }
 }
 
+impl From<playground::cache::cache_block_state> for CacheBlockStatus {
+    #[inline]
+    fn from(state: playground::cache::cache_block_state) -> Self {
+        use playground::cache::cache_block_state;
+        match state {
+            cache_block_state::MODIFIED => CacheBlockStatus::MODIFIED,
+            cache_block_state::INVALID => CacheBlockStatus::INVALID,
+            cache_block_state::RESERVED => CacheBlockStatus::RESERVED,
+            cache_block_state::VALID => CacheBlockStatus::VALID,
+        }
+    }
+}
+
+impl<'a> From<playground::cache::CacheBlock<'a>> for CacheBlock {
+    #[inline]
+    fn from(block: playground::cache::CacheBlock<'a>) -> Self {
+        Self {
+            tag: block.get_tag(),
+            block_addr: block.get_block_addr(),
+            sector_status: block.sector_status().into_iter().map(Into::into).collect(),
+            last_accessed: block.get_last_access_time(),
+            sector_last_accessed: block.last_sector_access_time(),
+        }
+    }
+}
+
+impl CacheBlock {
+    #[inline]
+    pub fn sectored(&self) -> bool {
+        assert!(self.sector_status.len() > 0);
+        self.sector_status.len() > 1
+    }
+}
+
 impl std::fmt::Debug for CacheBlock {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?}(tag={}, block={}, accessed={})",
-            self.status, self.tag, self.block_addr, self.last_accessed
-        )
+        if self.sectored() {
+            write!(
+                f,
+                "(sectors={:?}, tag={}, block={}, accessed={})",
+                self.sector_status, self.tag, self.block_addr, self.last_accessed
+            )
+        } else {
+            write!(
+                f,
+                "{:?}(tag={}, block={}, accessed={})",
+                self.sector_status[0], self.tag, self.block_addr, self.last_accessed
+            )
+        }
     }
 }
 
@@ -142,12 +202,14 @@ pub struct WarpInstruction {
 }
 
 impl std::fmt::Debug for WarpInstruction {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
     }
 }
 
 impl From<crate::instruction::WarpInstruction> for WarpInstruction {
+    #[inline]
     fn from(instr: crate::instruction::WarpInstruction) -> Self {
         WarpInstruction {
             opcode: instr.opcode.to_string(),
@@ -167,11 +229,13 @@ pub struct RegisterSet {
 }
 
 impl RegisterSet {
+    #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.num_instructions_in_pipeline() == 0
     }
 
+    #[inline]
     #[must_use]
     pub fn num_instructions_in_pipeline(&self) -> usize {
         self.pipeline
@@ -182,12 +246,14 @@ impl RegisterSet {
 }
 
 impl std::fmt::Debug for RegisterSet {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}={:?}", self.name, self.pipeline)
     }
 }
 
 impl From<crate::register_set::RegisterSet> for RegisterSet {
+    #[inline]
     fn from(reg: crate::register_set::RegisterSet) -> Self {
         let pipeline = reg
             .regs
@@ -202,6 +268,7 @@ impl From<crate::register_set::RegisterSet> for RegisterSet {
 }
 
 impl<'a> From<playground::warp_inst::WarpInstr<'a>> for WarpInstruction {
+    #[inline]
     fn from(instr: playground::warp_inst::WarpInstr<'a>) -> Self {
         let opcode = instr.opcode_str().trim_start_matches("OP_").to_string();
         Self {
@@ -216,6 +283,7 @@ impl<'a> From<playground::warp_inst::WarpInstr<'a>> for WarpInstruction {
 }
 
 impl<'a> From<playground::register_set::RegisterSet<'a>> for RegisterSet {
+    #[inline]
     fn from(reg: playground::register_set::RegisterSet<'a>) -> Self {
         Self {
             name: reg.name(),
@@ -264,6 +332,7 @@ pub struct DispatchUnit {
 }
 
 impl From<&playground::operand_collector::dispatch_unit_t> for DispatchUnit {
+    #[inline]
     fn from(unit: &playground::operand_collector::dispatch_unit_t) -> Self {
         Self {
             last_cu: unit.get_last_cu() as usize,
@@ -281,6 +350,7 @@ pub struct Port {
 }
 
 impl Port {
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.in_ports.iter().all(RegisterSet::is_empty)
             && self.in_ports.iter().all(RegisterSet::is_empty)
@@ -301,6 +371,7 @@ pub struct OperandCollector {
 }
 
 impl<'a> From<playground::port::Port<'a>> for Port {
+    #[inline]
     fn from(port: playground::port::Port<'a>) -> Self {
         let in_ports = port.in_ports().into_iter();
         let out_ports = port.out_ports().into_iter();
@@ -317,6 +388,7 @@ impl<'a> From<playground::port::Port<'a>> for Port {
 }
 
 impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
+    #[inline]
     fn from(cu: playground::collector_unit::CollectorUnit<'a>) -> Self {
         Self {
             kind: OperandCollectorUnitKind::from_repr(cu.set_id()).unwrap(),
@@ -330,6 +402,7 @@ impl<'a> From<playground::collector_unit::CollectorUnit<'a>> for CollectorUnit {
 }
 
 impl From<&playground::operand_collector::arbiter_t> for Arbiter {
+    #[inline]
     fn from(arbiter: &playground::operand_collector::arbiter_t) -> Self {
         Self {
             last_cu: arbiter.get_last_cu() as usize,
@@ -338,6 +411,7 @@ impl From<&playground::operand_collector::arbiter_t> for Arbiter {
 }
 
 impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCollector {
+    #[inline]
     fn from(opcoll: playground::operand_collector::OperandCollector<'a>) -> Self {
         use std::collections::HashSet;
         let skip: HashSet<_> = [
@@ -391,6 +465,7 @@ pub struct Scheduler {
 }
 
 impl<'a> From<playground::scheduler_unit::SchedulerUnit<'a>> for Scheduler {
+    #[inline]
     fn from(scheduler: playground::scheduler_unit::SchedulerUnit<'a>) -> Self {
         let prioritized_warp_ids = scheduler.prioritized_warp_ids();
         let prioritized_dynamic_warp_ids = scheduler.prioritized_dynamic_warp_ids();
@@ -419,6 +494,7 @@ pub struct MemFetch {
 impl Eq for MemFetch {}
 
 impl PartialEq for MemFetch {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         let mut equal = self.kind == other.kind;
         equal &= self.access_kind == other.access_kind;
@@ -433,6 +509,7 @@ impl PartialEq for MemFetch {
 }
 
 impl std::hash::Hash for MemFetch {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.kind.hash(state);
         self.access_kind.hash(state);
@@ -440,6 +517,7 @@ impl std::hash::Hash for MemFetch {
 }
 
 impl std::fmt::Debug for MemFetch {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:?}({:?}", self.kind, self.access_kind)?;
         if let Some((alloc_id, rel_addr)) = self.relative_addr {
@@ -450,6 +528,7 @@ impl std::fmt::Debug for MemFetch {
 }
 
 impl<'a> From<playground::mem_fetch::MemFetch<'a>> for MemFetch {
+    #[inline]
     fn from(fetch: playground::mem_fetch::MemFetch<'a>) -> Self {
         let addr = fetch.get_addr();
         let relative_addr = fetch.get_relative_addr();
@@ -466,6 +545,7 @@ impl<'a> From<playground::mem_fetch::MemFetch<'a>> for MemFetch {
 }
 
 impl From<crate::mem_fetch::MemFetch> for MemFetch {
+    #[inline]
     fn from(fetch: crate::mem_fetch::MemFetch) -> Self {
         let addr = fetch.addr();
         Self {
@@ -487,6 +567,7 @@ pub struct PendingRegisterWrites {
 }
 
 impl From<&playground::core::pending_register_writes> for PendingRegisterWrites {
+    #[inline]
     fn from(writes: &playground::core::pending_register_writes) -> Self {
         Self {
             warp_id: writes.warp_id as usize,
@@ -511,6 +592,7 @@ pub struct Simulation {
     pub l2_to_interconn_queue_per_sub: Box<[Vec<MemFetch>]>,
     pub l2_to_dram_queue_per_sub: Box<[Vec<MemFetch>]>,
     pub dram_to_l2_queue_per_sub: Box<[Vec<MemFetch>]>,
+    pub rop_queue_per_sub: Box<[Vec<(u64, MemFetch)>]>,
     pub l2_cache_per_sub: Box<[Option<Cache>]>,
     // per partition
     pub dram_latency_queue_per_partition: Box<[Vec<MemFetch>]>,
@@ -523,6 +605,8 @@ pub struct Simulation {
     pub operand_collector_per_core: Box<[Option<OperandCollector>]>,
     pub scheduler_per_core: Box<[Box<[Scheduler]>]>,
     pub pending_register_writes_per_core: Box<[Vec<PendingRegisterWrites>]>,
+    pub l1_latency_queue_per_core: Box<[Vec<(usize, Vec<Option<MemFetch>>)>]>,
+    pub l1_cache_per_core: Box<[Option<Cache>]>,
 }
 
 impl Simulation {
@@ -543,6 +627,7 @@ impl Simulation {
             l2_to_interconn_queue_per_sub: box_slice![vec![]; num_sub_partitions],
             l2_to_dram_queue_per_sub: box_slice![vec![]; num_sub_partitions],
             dram_to_l2_queue_per_sub: box_slice![vec![]; num_sub_partitions],
+            rop_queue_per_sub: box_slice![vec![]; num_sub_partitions],
             l2_cache_per_sub: box_slice![None; num_sub_partitions],
 
             // per partition
@@ -571,6 +656,8 @@ impl Simulation {
             ],
             operand_collector_per_core: box_slice![None; total_cores],
             pending_register_writes_per_core: box_slice![vec![]; total_cores],
+            l1_latency_queue_per_core: box_slice![vec![]; total_cores],
+            l1_cache_per_core: box_slice![None; total_cores],
         }
     }
 }

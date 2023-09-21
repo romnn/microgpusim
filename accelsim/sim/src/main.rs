@@ -1,5 +1,3 @@
-// #![allow(warnings)]
-
 use accelsim::Options;
 use accelsim_sim as sim;
 use clap::Parser;
@@ -39,6 +37,8 @@ async fn main() -> eyre::Result<()> {
         options.use_upstream
     );
 
+    let stream_output = options.stream_output.unwrap_or(true);
+    let use_upstream = options.use_upstream.unwrap_or(sim::has_upstream());
     let extra_args: &[String] = &[];
     let (output, _dur) = sim::simulate_trace(
         &traces_dir,
@@ -46,8 +46,8 @@ async fn main() -> eyre::Result<()> {
         &options.sim_config,
         options.timeout,
         extra_args,
-        options.stream_output.unwrap_or(true),
-        options.use_upstream.unwrap_or(sim::has_upstream()),
+        stream_output,
+        use_upstream,
     )
     .await?;
 

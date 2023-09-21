@@ -15,15 +15,18 @@ impl ActiveMask {
     /// Active mask with all threads inactive
     pub const ZERO: Self = ActiveMask(Inner::ZERO);
 
-    #[must_use] pub fn all_ones() -> Self {
+    #[must_use]
+    pub fn all_ones() -> Self {
         Self::ZERO.inverted()
     }
 
-    #[must_use] pub fn as_u32(&self) -> u32 {
+    #[must_use]
+    pub fn as_u32(&self) -> u32 {
         self.0.load()
     }
 
-    #[must_use] pub fn inverted(mut self) -> Self {
+    #[must_use]
+    pub fn inverted(mut self) -> Self {
         self.0 = !self.0;
         self
     }

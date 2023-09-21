@@ -3,6 +3,7 @@ use std::io::Write;
 use std::path::Path;
 
 fn build_accelsim(
+    variant: &str,
     accel_path: &Path,
     cuda_path: &Path,
     profile: &str,
@@ -10,7 +11,10 @@ fn build_accelsim(
 ) -> eyre::Result<()> {
     let artifact = accelsim::executable(accel_path, profile);
     if !force && artifact.is_file() {
-        println!("cargo:warning=using existing {}", &artifact.display());
+        println!(
+            "cargo:warning={variant}:\tusing existing {}",
+            &artifact.display()
+        );
         return Ok(());
     }
 
@@ -77,7 +81,7 @@ make -j -C {src}",
         eyre::bail!("accelsim build exited with code {:?}", result.status.code());
     }
 
-    println!("cargo:warning=built {}", &artifact.display());
+    println!("cargo:warning={variant}\tbuilt {}", &artifact.display());
     Ok(())
 }
 
@@ -104,13 +108,19 @@ fn main() -> eyre::Result<()> {
     };
     println!("cargo:rustc-cfg=feature={build_profile:?}");
 
-    let mut implementations = vec![accelsim::locate(false)?];
+    let use_upstream = false;
+    let mut implementations = vec![("local", accelsim::locate(use_upstream)?)];
     #[cfg(feature = "upstream")]
-    implementations.push(accelsim::locate(true)?);
+    {
+        let use_upstream = true;
+        let upstream_path = accelsim::locate(use_upstream)?;
+        implementations.push(("upstream", upstream_path));
+    }
 
-    for accel_path in implementations {
+    for (i, (variant, accel_path)) in implementations.iter().enumerate() {
+        let variant = format!("{variant}({}/{})", i + 1, implementations.len());
         let force = accelsim::build::is_force();
-        println!("cargo:warning=force={}", &force);
+        println!("cargo:warning={variant}:\tforce={}", force);
 
         // this does not work well, because accelsim builds in-tree, hence every
         // build modifies ../accel-sim-framework-dev/ ... /build which triggers a rebuild
@@ -122,14 +132,17 @@ fn main() -> eyre::Result<()> {
         }
 
         println!(
-            "cargo:warning=using accelsim source at {}",
+            "cargo:warning={variant}:\tusing accelsim source at {}",
             &accel_path.display()
         );
 
         let cuda_path = utils::find_cuda().ok_or(eyre::eyre!("CUDA not found"))?;
-        println!("cargo:warning=using cuda at {}", &cuda_path.display());
+        println!(
+            "cargo:warning={variant}:\tusing cuda at {}",
+            &cuda_path.display()
+        );
 
-        build_accelsim(&accel_path, &cuda_path, "release", force)?;
+        build_accelsim(&variant, &accel_path, &cuda_path, "release", force)?;
     }
     Ok(())
 }

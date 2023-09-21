@@ -58,6 +58,26 @@ pub fn cuda_candidates() -> Vec<PathBuf> {
     valid_paths
 }
 
+#[macro_export]
+macro_rules! decode_utf8 {
+    ($x:expr) => {
+        String::from_utf8_lossy(&*$x).to_string()
+    };
+}
+
+#[macro_export]
+macro_rules! box_slice {
+    () => (
+        std::vec::Vec::new().into_boxed_slice()
+    );
+    ($elem:expr; $n:expr) => (
+        std::vec::from_elem($elem, $n).into_boxed_slice()
+    );
+    ($($x:expr),+ $(,)?) => (
+        std::vec![$($x),+].into_boxed_slice()
+    );
+}
+
 #[derive(thiserror::Error, Debug)]
 pub struct CommandError {
     pub command: String,
@@ -83,26 +103,6 @@ impl std::fmt::Display for CommandError {
             self.output.status.code()
         )
     }
-}
-
-#[macro_export]
-macro_rules! decode_utf8 {
-    ($x:expr) => {
-        String::from_utf8_lossy(&*$x).to_string()
-    };
-}
-
-#[macro_export]
-macro_rules! box_slice {
-    () => (
-        std::vec::Vec::new().into_boxed_slice()
-    );
-    ($elem:expr; $n:expr) => (
-        std::vec::from_elem($elem, $n).into_boxed_slice()
-    );
-    ($($x:expr),+ $(,)?) => (
-        std::vec![$($x),+].into_boxed_slice()
-    );
 }
 
 impl CommandError {

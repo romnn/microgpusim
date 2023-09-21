@@ -82,6 +82,19 @@ impl From<AccessStat> for stats::cache::AccessStat {
     }
 }
 
+/// This function selects how the cache access outcome should be counted.
+///
+/// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
+/// counted as a `HIT_RESERVED` in the caches.
+#[inline]
+pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
+    match probe {
+        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => probe,
+        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => probe,
+        _ => access,
+    }
+}
+
 pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
     /// TODO: shoud this be removed?
     fn as_any(&self) -> &dyn std::any::Any;

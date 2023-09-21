@@ -1,11 +1,22 @@
 #pragma once
 
 #include <iostream>
+#include <deque>
 #include <queue>
 #include <list>
 #include <map>
 #include <bitset>
 #include <set>
+
+template <typename T>
+std::vector<T> deque_to_vector(std::deque<T> q) {
+  std::vector<T> v;
+  typename std::deque<T>::const_iterator iter;
+  for (iter = q.begin(); iter != q.end(); ++iter) {
+    v.push_back(*iter);
+  }
+  return v;
+}
 
 template <typename T>
 std::vector<T> queue_to_vector(std::queue<T> q) {
@@ -27,9 +38,9 @@ std::ostream &operator<<(std::ostream &os, std::queue<T> q) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::list<T> &l) {
   os << "[";
-  for (typename std::list<T>::const_iterator it = l.begin(); it != l.end();
-       ++it) {
-    os << *it << ",";
+  typename std::list<T>::const_iterator iter;
+  for (iter = l.begin(); iter != l.end(); ++iter) {
+    os << *iter << ",";
   }
   os << "]";
   return os;
@@ -38,9 +49,9 @@ std::ostream &operator<<(std::ostream &os, const std::list<T> &l) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, std::vector<T> v) {
   os << "[";
-  for (typename std::vector<T>::const_iterator it = v.begin(); it != v.end();
-       ++it) {
-    os << *it << ",";
+  typename std::vector<T>::const_iterator iter;
+  for (iter = v.begin(); iter != v.end(); ++iter) {
+    os << *iter << ",";
   }
   os << "]";
   return os;
@@ -49,9 +60,9 @@ std::ostream &operator<<(std::ostream &os, std::vector<T> v) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::set<T> &s) {
   os << "[";
-  for (typename std::set<T>::const_iterator it = s.begin(); it != s.end();
-       ++it) {
-    os << *it << ",";
+  typename std::set<T>::const_iterator iter;
+  for (iter = s.begin(); iter != s.end(); ++iter) {
+    os << *iter << ",";
   }
   os << "]";
   return os;
@@ -60,9 +71,9 @@ std::ostream &operator<<(std::ostream &os, const std::set<T> &s) {
 template <typename K, typename V>
 std::ostream &operator<<(std::ostream &os, const std::map<K, V> &m) {
   os << "[";
-  for (typename std::map<K, V>::const_iterator it = m.begin(); it != m.end();
-       ++it) {
-    os << it->first << ":" << it->second << ",";
+  typename std::map<K, V>::const_iterator iter;
+  for (iter = m.begin(); iter != m.end(); ++iter) {
+    os << iter->first << ":" << iter->second << ",";
   }
   os << "]";
   return os;

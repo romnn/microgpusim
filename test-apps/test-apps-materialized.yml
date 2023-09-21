@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 20/09/2023 04:08:18
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 21/09/2023 00:45:57
 ##
 
 config:
@@ -99,7 +99,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -120,7 +120,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -141,7 +141,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -162,7 +162,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -183,7 +183,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -204,7 +204,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -225,7 +225,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -246,7 +246,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -1314,7 +1314,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -1337,7 +1337,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -1360,7 +1360,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -1383,7 +1383,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -1406,7 +1406,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -1429,7 +1429,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -1452,7 +1452,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -1475,7 +1475,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -2631,7 +2631,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -2652,7 +2652,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -2673,7 +2673,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -2694,7 +2694,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -2715,7 +2715,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -2736,7 +2736,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -2757,7 +2757,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -2778,7 +2778,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -3846,7 +3846,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -3875,7 +3875,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -3904,7 +3904,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -3933,7 +3933,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -3962,7 +3962,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -3991,7 +3991,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4020,7 +4020,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4049,7 +4049,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4078,7 +4078,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4107,7 +4107,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4136,7 +4136,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4165,7 +4165,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4194,7 +4194,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4223,7 +4223,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4252,7 +4252,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4281,7 +4281,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4310,7 +4310,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4339,7 +4339,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4368,7 +4368,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4397,7 +4397,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4426,7 +4426,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4455,7 +4455,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4484,7 +4484,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4513,7 +4513,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4542,7 +4542,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4571,7 +4571,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4600,7 +4600,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4629,7 +4629,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4658,7 +4658,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4687,7 +4687,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4716,7 +4716,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4745,7 +4745,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4774,7 +4774,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4803,7 +4803,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4832,7 +4832,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4861,7 +4861,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4890,7 +4890,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4919,7 +4919,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4948,7 +4948,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -4977,7 +4977,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -5006,7 +5006,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -5035,7 +5035,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -5064,7 +5064,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5093,7 +5093,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5122,7 +5122,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5151,7 +5151,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5180,7 +5180,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5209,7 +5209,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5238,7 +5238,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5267,7 +5267,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5296,7 +5296,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5325,7 +5325,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5354,7 +5354,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5383,7 +5383,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5412,7 +5412,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5441,7 +5441,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5470,7 +5470,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5499,7 +5499,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5528,7 +5528,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5557,7 +5557,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5586,7 +5586,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5615,7 +5615,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5644,7 +5644,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5673,7 +5673,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5702,7 +5702,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5731,7 +5731,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5760,7 +5760,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5789,7 +5789,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5818,7 +5818,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5847,7 +5847,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5876,7 +5876,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5905,7 +5905,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5934,7 +5934,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5963,7 +5963,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -5992,7 +5992,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6021,7 +6021,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6050,7 +6050,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6079,7 +6079,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6108,7 +6108,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6137,7 +6137,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6166,7 +6166,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6195,7 +6195,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6224,7 +6224,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6253,7 +6253,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -6282,7 +6282,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6311,7 +6311,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6340,7 +6340,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6369,7 +6369,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6398,7 +6398,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6427,7 +6427,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6456,7 +6456,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6485,7 +6485,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6514,7 +6514,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6543,7 +6543,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6572,7 +6572,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6601,7 +6601,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6630,7 +6630,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6659,7 +6659,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6688,7 +6688,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6717,7 +6717,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6746,7 +6746,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6775,7 +6775,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6804,7 +6804,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6833,7 +6833,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6862,7 +6862,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6891,7 +6891,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6920,7 +6920,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6949,7 +6949,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -6978,7 +6978,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7007,7 +7007,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7036,7 +7036,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7065,7 +7065,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7094,7 +7094,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7123,7 +7123,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7152,7 +7152,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7181,7 +7181,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7210,7 +7210,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7239,7 +7239,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7268,7 +7268,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7297,7 +7297,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7326,7 +7326,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7355,7 +7355,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7384,7 +7384,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7413,7 +7413,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7442,7 +7442,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7471,7 +7471,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -7500,7 +7500,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7529,7 +7529,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7558,7 +7558,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7587,7 +7587,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7616,7 +7616,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7645,7 +7645,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7674,7 +7674,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7703,7 +7703,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7732,7 +7732,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7761,7 +7761,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7790,7 +7790,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7819,7 +7819,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7848,7 +7848,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7877,7 +7877,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7906,7 +7906,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7935,7 +7935,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7964,7 +7964,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -7993,7 +7993,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8022,7 +8022,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8051,7 +8051,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8080,7 +8080,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8109,7 +8109,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8138,7 +8138,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8167,7 +8167,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8196,7 +8196,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8225,7 +8225,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8254,7 +8254,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8283,7 +8283,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8312,7 +8312,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8341,7 +8341,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8370,7 +8370,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8399,7 +8399,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8428,7 +8428,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8457,7 +8457,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8486,7 +8486,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8515,7 +8515,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8544,7 +8544,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8573,7 +8573,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8602,7 +8602,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8631,7 +8631,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8660,7 +8660,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8689,7 +8689,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-32-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -8718,7 +8718,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8747,7 +8747,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8776,7 +8776,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8805,7 +8805,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8834,7 +8834,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8863,7 +8863,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8892,7 +8892,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8921,7 +8921,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8950,7 +8950,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -8979,7 +8979,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9008,7 +9008,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9037,7 +9037,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9066,7 +9066,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9095,7 +9095,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9124,7 +9124,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9153,7 +9153,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9182,7 +9182,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9211,7 +9211,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9240,7 +9240,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9269,7 +9269,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9298,7 +9298,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9327,7 +9327,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9356,7 +9356,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9385,7 +9385,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9414,7 +9414,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9443,7 +9443,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9472,7 +9472,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9501,7 +9501,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9530,7 +9530,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9559,7 +9559,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9588,7 +9588,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9617,7 +9617,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9646,7 +9646,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9675,7 +9675,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9704,7 +9704,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9733,7 +9733,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9762,7 +9762,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9791,7 +9791,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9820,7 +9820,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9849,7 +9849,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9878,7 +9878,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9907,7 +9907,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-100-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -9936,7 +9936,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -9965,7 +9965,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -9994,7 +9994,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10023,7 +10023,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10052,7 +10052,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10081,7 +10081,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10110,7 +10110,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10139,7 +10139,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10168,7 +10168,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10197,7 +10197,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10226,7 +10226,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10255,7 +10255,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10284,7 +10284,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10313,7 +10313,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10342,7 +10342,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10371,7 +10371,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10400,7 +10400,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10429,7 +10429,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10458,7 +10458,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10487,7 +10487,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10516,7 +10516,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10545,7 +10545,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10574,7 +10574,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10603,7 +10603,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10632,7 +10632,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10661,7 +10661,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10690,7 +10690,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10719,7 +10719,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10748,7 +10748,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10777,7 +10777,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10806,7 +10806,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10835,7 +10835,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10864,7 +10864,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10893,7 +10893,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10922,7 +10922,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10951,7 +10951,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -10980,7 +10980,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11009,7 +11009,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11038,7 +11038,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11067,7 +11067,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11096,7 +11096,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11125,7 +11125,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-1000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -11154,7 +11154,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11183,7 +11183,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11212,7 +11212,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11241,7 +11241,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11270,7 +11270,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11299,7 +11299,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11328,7 +11328,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11357,7 +11357,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11386,7 +11386,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11415,7 +11415,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11444,7 +11444,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11473,7 +11473,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11502,7 +11502,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11531,7 +11531,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11560,7 +11560,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11589,7 +11589,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11618,7 +11618,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11647,7 +11647,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11676,7 +11676,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11705,7 +11705,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11734,7 +11734,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11763,7 +11763,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11792,7 +11792,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11821,7 +11821,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11850,7 +11850,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11879,7 +11879,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11908,7 +11908,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11937,7 +11937,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11966,7 +11966,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -11995,7 +11995,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12024,7 +12024,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12053,7 +12053,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12082,7 +12082,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12111,7 +12111,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12140,7 +12140,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12169,7 +12169,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12198,7 +12198,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12227,7 +12227,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12256,7 +12256,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12285,7 +12285,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12314,7 +12314,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12343,7 +12343,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-10000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -12372,7 +12372,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12401,7 +12401,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12430,7 +12430,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12459,7 +12459,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12488,7 +12488,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12517,7 +12517,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12546,7 +12546,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12575,7 +12575,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12604,7 +12604,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12633,7 +12633,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12662,7 +12662,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12691,7 +12691,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12720,7 +12720,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12749,7 +12749,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12778,7 +12778,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12807,7 +12807,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12836,7 +12836,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12865,7 +12865,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12894,7 +12894,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12923,7 +12923,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12952,7 +12952,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -12981,7 +12981,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13010,7 +13010,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13039,7 +13039,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13068,7 +13068,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13097,7 +13097,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13126,7 +13126,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13155,7 +13155,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13184,7 +13184,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13213,7 +13213,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13242,7 +13242,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13271,7 +13271,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13300,7 +13300,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13329,7 +13329,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13358,7 +13358,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13387,7 +13387,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13416,7 +13416,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13445,7 +13445,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13474,7 +13474,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13503,7 +13503,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-4-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13532,7 +13532,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -13561,7 +13561,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -71766,7 +71766,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -71788,7 +71788,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -71810,7 +71810,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -71832,7 +71832,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -71854,7 +71854,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -71876,7 +71876,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -71898,7 +71898,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -71920,7 +71920,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -73032,7 +73032,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -73058,7 +73058,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -73084,7 +73084,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -73110,7 +73110,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -73136,7 +73136,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -73162,7 +73162,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -73188,7 +73188,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -73214,7 +73214,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000
@@ -74502,7 +74502,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 100
@@ -74528,7 +74528,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 1000
@@ -74554,7 +74554,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 10000
@@ -74580,7 +74580,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-32-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 32
         length: 20000
@@ -74606,7 +74606,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 100
@@ -74632,7 +74632,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-1000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 1000
@@ -74658,7 +74658,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-10000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 10000
@@ -74684,7 +74684,7 @@ benchmarks:
       benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-20000
       path: /home/roman/dev/box/test-apps/vectoradd
-      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_disabled
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
       values:
         dtype: 64
         length: 20000

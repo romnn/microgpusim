@@ -39,8 +39,11 @@ void *BoxInterconnect::Pop(unsigned deviceID) {
 
   int turn = _round_robin_turn[subnet][icntID];
 
-  logger->debug("INTERCONN POP FROM {} (device={}, id={}, subnet={}, turn={})",
-                deviceID, icntID, deviceID, subnet, turn);
+  logger->debug(
+      "INTERCONN POP FROM {} (device={}, id={}, subnet={}, turn={}, "
+      "buffer=[{}])",
+      deviceID, icntID, deviceID, subnet, turn,
+      fmt::join(simple_output_queue[subnet][icntID][turn], ","));
 
   for (int vc = 0; (vc < _vcs) && (data == NULL); vc++) {
     if (!simple_output_queue[subnet][icntID][turn].empty()) {

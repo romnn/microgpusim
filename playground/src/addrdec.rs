@@ -2,6 +2,7 @@ pub use playground_sys::types::addrdec::{addrdec_t as AddrDec, next_powerOf2, po
 use playground_sys::{bindings, types};
 
 #[must_use]
+#[inline]
 pub fn mask_limit(mask: u64) -> (u8, u8) {
     let mut low = 0;
     let mut high = 64;
@@ -16,6 +17,7 @@ pub fn mask_limit(mask: u64) -> (u8, u8) {
 }
 
 #[must_use]
+#[inline]
 pub fn packbits(mask: u64, val: u64, low: u8, high: u8) -> u64 {
     assert!(low <= 64);
     assert!(high <= 64);
@@ -43,11 +45,13 @@ impl AddressTranslation {
         Self(inner)
     }
 
+    #[inline]
     #[must_use]
     pub fn partition_address(&self, addr: u64) -> u64 {
         self.0.partition_address(addr)
     }
 
+    #[inline]
     #[must_use]
     pub fn tlx(&self, addr: u64) -> AddrDec {
         let mut tlx = AddrDec {

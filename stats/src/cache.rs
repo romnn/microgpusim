@@ -313,10 +313,11 @@ impl Cache {
         access: impl Into<AccessStat>,
         count: usize,
     ) {
-        *self
-            .inner
-            .entry((alloc_id, Access((kind.into(), access.into()))))
-            .or_insert(0) += count;
+        let kind = kind.into();
+        let access = access.into();
+        let access_stat = Access((kind, access));
+        // println!("inc access stat: {access_stat}");
+        *self.inner.entry((alloc_id, access_stat)).or_insert(0) += count;
     }
 }
 

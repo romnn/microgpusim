@@ -593,6 +593,7 @@ where
                     // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                     // , gpu_sim_cycle + gpu_tot_sim_cycle);
                     // drop(fetch);
+                    log::trace!("interconn push from memory sub partition {i}: {fetch}");
                     self.interconn.push(
                         device,
                         cluster_id,
@@ -758,11 +759,29 @@ where
             for core_id in &*core_sim_order {
                 let core = cluster.cores[*core_id].try_read();
                 let mut port = core.mem_port.lock();
+                log::trace!(
+                    "interconn buffer for core {:?}: {:?}",
+                    core.id(),
+                    port.buffer
+                        .iter()
+                        .map(
+                            |ic::Packet {
+                                 data: (_dest, fetch, _size),
+                                 ..
+                             }| fetch.to_string()
+                        )
+                        .collect::<Vec<_>>()
+                );
+
                 for ic::Packet {
                     data: (dest, fetch, size),
                     time,
                 } in port.buffer.drain(..)
                 {
+                    log::trace!(
+                        "interconn push from core {:?}: buffer size {fetch}",
+                        core.id()
+                    );
                     self.interconn.push(
                         core.cluster_id,
                         dest,

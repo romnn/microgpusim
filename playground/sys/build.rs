@@ -73,19 +73,15 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
             non_exhaustive: false,
         })
         .parse_callbacks(Box::new(ParseCallbacks {}))
-        // .allowlist_function("powli")
-        // .allowlist_function("LOGB2_32")
-        // .allowlist_function("next_powerOf2")
-        // .allowlist_function("addrdec_packbits")
-        // .allowlist_function("addrdec_getmasklimit")
-        // .allowlist_function("parse_cache_config")
-        // .allowlist_type("linear_to_raw_address_translation")
-        // .allowlist_type("mem_fetch_t")
-        // .allowlist_type("tag_array")
-        // .allowlist_type("data_cache")
-        // .allowlist_type("l1_cache")
-        // .allowlist_type("l2_cache")
-        // .allowlist_type("read_only_cache_params")
+        .blocklist_type("std::.*")
+        // .blocklist_type("(::)?std::.*")
+        // .opaque_type("(::)?std::.*")
+        // .blocklist_type("mem_fetch")
+        // .opaque_type("mem_fetch")
+        // .blocklist_type("trace_shd_warp_t")
+        // .opaque_type("trace_shd_warp_t")
+        // for cache bridge
+        .allowlist_type("cache_block_state")
         // for mem fetch
         .allowlist_type("mem_access_type")
         .allowlist_type("mem_fetch_status")
@@ -109,16 +105,6 @@ fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::R
         // for config tests
         .allowlist_type("CacheConfig")
         .allowlist_function("parse_cache_config")
-        // .allowlist_type("cache_config")
-        // .allowlist_type("cache_access_logger_types")
-        // .allowlist_type("mem_fetch_status")
-        // .opaque_type("mem_fetch_interface")
-        // .opaque_type("const_pointer")
-        // .opaque_type("tag_array")
-        // .opaque_type("warp_inst_t")
-        // .opaque_type("kernel_info_t")
-        // .opaque_type("(::)?std::.*")
-        // .include_dir("src/bindings.hpp")
         .header("src/bindings.hpp");
 
     let bindings = builder.generate()?;

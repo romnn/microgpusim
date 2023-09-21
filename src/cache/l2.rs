@@ -114,11 +114,6 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
         self
     }
 
-    // #[inline]
-    // fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
-    //     &self.inner.inner.stats
-    // }
-
     #[inline]
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.inner.stats

@@ -129,7 +129,6 @@ pub mod access {
     #[allow(clippy::module_name_repetitions)]
     #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct MemAccess {
-        // uid: usize,
         /// request address
         pub addr: super::address,
         pub allocation: Option<crate::allocation::Allocation>,
@@ -262,6 +261,7 @@ pub struct MemFetch {
     // sector requests at L2 cache (if the req size > L2 sector
     // size), so the pointer refers to the original request
     pub original_fetch: Option<Box<MemFetch>>,
+    // pub original_fetch: Option<Box<MemFetch>>,
 
     // this fetch refers to the original write req,
     // when fetch-on-write policy is used
@@ -325,6 +325,11 @@ pub struct Builder {
     pub partition_addr: address,
 }
 
+/// Generate a unique ID that can be used to identify fetch requests
+pub fn generate_uid() -> u64 {
+    MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst)
+}
+
 impl Builder {
     #[must_use]
     pub fn build(self) -> MemFetch {
@@ -334,7 +339,7 @@ impl Builder {
             Kind::READ_REQUEST
         };
         MemFetch {
-            uid: MEM_FETCH_UID.fetch_add(1, atomic::Ordering::SeqCst),
+            uid: generate_uid(),
             access: self.access,
             instr: self.instr,
             warp_id: self.warp_id,
