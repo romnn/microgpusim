@@ -207,20 +207,17 @@ class Stats(common.Stats):
                 dfs.append(df)
 
         self.df = pd.concat(dfs)
-        # print(self.df)
-        # print(self.df.index)
-        # df = df[NUMERIC_METRIC_COLUMNS + INDEX_COLS]
-        # df[NUMERIC_METRIC_COLUMNS] = df[NUMERIC_METRIC_COLUMNS].astype(float)
-        # self.df = common.compute_df_statistics(df, group_by=INDEX_COLS)
+
+        # grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
 
         self.commands_df = pd.concat(command_dfs)
-        # self.commands_df = common.compute_df_statistics(
-        #     commands_df,
-        #     group_by=INDEX_COLS,
-        #     agg={"SrcMemType": "first", "DstMemType": "first"},
-        # )
 
         self.compute_native_result_df()
+
+        # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
+        print(self.result_df[["l2_accesses", "l2_hits", "l2_misses", "l2_read_hit_rate"]].head())
+        print(self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head())
 
         # print(commands_df.select_dtypes(include=["object"]).columns)
 
@@ -449,7 +446,10 @@ class Stats(common.Stats):
         nvprof_key = "dram_read_transactions"
         if nvprof_key in self.df:
             grouped = self.df.groupby(INDEX_COLS, dropna=False)
-            self.result_df["dram_reads"] = grouped[nvprof_key].sum()
+            # print(grouped[[nvprof_key]].mean().head())
+            # print(grouped[[nvprof_key]].sum().head())
+            assert (grouped[nvprof_key].mean() == grouped[nvprof_key].sum()).all()
+            self.result_df["dram_reads"] = grouped[nvprof_key].mean()
             # self.result_df[stat_cols("dram_reads")] = self.df[stat_cols(nvprof_key)]
         else:
             # nsight_key = "dram__sectors_read.sum_sector"
@@ -704,7 +704,8 @@ class Stats(common.Stats):
 
     def _compute_l1_reads(self):
         grouped = self.df.groupby(INDEX_COLS, dropna=False)
-        self.result_df["l1_reads"] = grouped["gld_transactions"].sum()
+        self.result_df["l1_accesses"] = grouped["tex_cache_transactions"].sum()
+        # self.result_df["l1_reads"] = grouped["gld_transactions"].sum()
 
     def _compute_l1_writes(self):
         self.result_df["l1_writes"] = np.nan

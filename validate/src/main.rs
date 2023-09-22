@@ -398,7 +398,8 @@ async fn main() -> eyre::Result<()> {
     let commands = match &options.command {
         Command::Full(_) => vec![
             Command::Build(options::Build::default()),
-            Command::Profile(options::Profile::default()),
+            // profiling requires sudo so we skip for now
+            // Command::Profile(options::Profile::default()),
             Command::Trace(options::Trace::default()),
             Command::AccelsimTrace(options::AccelsimTrace::default()),
             Command::ExecSimulate(options::Sim::default()),
@@ -418,6 +419,9 @@ async fn main() -> eyre::Result<()> {
 
     // create progress bar
     let bar = Arc::new(ProgressBar::new(num_bench_configs as u64));
+    if options.no_progress {
+        bar.set_draw_target(indicatif::ProgressDrawTarget::hidden());
+    }
     bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
     bar.set_style(progress::Style::default().into());
 

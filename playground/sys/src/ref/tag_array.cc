@@ -307,7 +307,7 @@ void tag_array::fill(new_addr_type addr, unsigned time,
     m_lines[idx]->allocate(m_config.tag(addr), m_config.block_addr(addr), time,
                            mask);
   } else if (status == SECTOR_MISS) {
-    assert(0 && "sector miss not supported");
+    // assert(0 && "sector miss not supported");
     assert(m_config.m_cache_type == SECTOR);
     ((sector_cache_block *)m_lines[idx])->allocate_sector(time, mask);
   }

@@ -72,7 +72,8 @@ pub fn configure_simulator(bench: &BenchmarkConfig) -> Result<config::GTX1080, R
         num_memory_controllers: 8,                                        // 8
         num_dram_chips_per_memory_controller: 1,                          // 1
         num_sub_partitions_per_memory_controller: 2,                      // 2
-        fill_l2_on_memcopy: false,                                        // true
+        fill_l2_on_memcopy: false,                                        // false
+        // fill_l2_on_memcopy: true,
         memory_only: input.memory_only.unwrap_or(false),
         parallelization,
         log_after_cycle: None,
@@ -132,6 +133,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         // dbg!(&kernel_stats.sim);
         // dbg!(&kernel_stats.l1i_stats);
         dbg!(&kernel_stats.l1d_stats);
+        dbg!(&kernel_stats.l2d_stats);
     }
     // dbg!(gpucachesim::is_debug());
 

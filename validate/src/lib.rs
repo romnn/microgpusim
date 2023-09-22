@@ -7,6 +7,8 @@
 
 pub mod accelsim;
 pub mod benchmark;
+#[cfg(feature = "cuda")]
+pub mod cuda;
 pub mod materialized;
 pub mod options;
 pub mod playground;

@@ -332,6 +332,7 @@ class Stats(common.Stats):
         df = self.l1_data_stats_df
         miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         misses = df[miss_mask]
+        # print(misses)
         grouped = misses.groupby(INDEX_COLS, dropna=False)
         self.result_df["l1_misses"] = grouped["num_accesses"].sum()
 

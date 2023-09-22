@@ -9,6 +9,7 @@ serde = { version = "1", features = ["derive"] }
 indexmap = { version = "2", features = ["serde"] }
 nvbit-model = "0"
 itertools = "0"
+thiserror = "1"
 bitvec = "1"
 # it would be nice of bitvec to re-export funty::Integral
 funty = "2"

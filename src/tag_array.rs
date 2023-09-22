@@ -518,9 +518,7 @@ where
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-            // debug_assert_eq!(self.cache_config.kind, config::CacheKind::Sector);
-            // line.allocate_sector(&sector_mask, time);
-            unimplemented!("sectored cache");
+            line.allocate_sector(&sector_mask, time);
         }
         if was_modified_before && !line.is_modified() {
             self.num_dirty -= 1;

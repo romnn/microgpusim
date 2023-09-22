@@ -5,7 +5,8 @@ edition = "2021"
 publish = false
 
 [features]
-default = ["remote", "parallel"]
+default = ["remote", "parallel", "cuda"]
+cuda = ["dep:rustacuda", "dep:cuda-driver-sys"]
 parallel = ["gpucachesim/parallel"]
 remote = ["dep:ssh_jumper"]
 
@@ -74,8 +75,12 @@ stats = { path = "../stats" }
 # benchmarks
 gpucachesim-benchmarks = { path = "../benchmarks" }
 
-# optional dependencies
+# optional: remove
 ssh_jumper = { version = "0", optional = true }
+
+# optional: cuda
+rustacuda = { version = "0", optional = true }
+cuda-driver-sys = { version = "0", optional = true }
 
 [dev-dependencies]
 pretty_assertions_sorted = "1"

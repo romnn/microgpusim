@@ -739,8 +739,6 @@ impl WarpInstruction {
             coalescing_arch >= 40
         };
 
-        log::warn!("coalescing warp instruction {self} [arch={coalescing_arch} use sector segment size={use_sector_segment_size}]");
-
         // If `use_sector_segment_size` is false,
         let segment_size = match self.data_size {
             1 => 32,
@@ -860,6 +858,12 @@ impl WarpInstruction {
                             segment_size,
                         )
                     }),
+            );
+
+            log::warn!(
+                "coalesced warp instruction {self} into {} transactions: {:?}",
+                accesses.len(),
+                accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
             );
         }
         accesses

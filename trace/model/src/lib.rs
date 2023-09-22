@@ -107,10 +107,18 @@ pub type WarpTraces = indexmap::IndexMap<(Dim, u32), Vec<MemAccessTraceEntry>>;
 #[repr(transparent)]
 pub struct MemAccessTrace(pub Vec<MemAccessTraceEntry>);
 
+#[derive(thiserror::Error, Debug)]
+pub enum ValidationError {
+    #[error("duplicate blocks in trace: {0:?}")]
+    DuplicateBlocks(Vec<(u64, dim::Dim)>),
+    #[error("duplicate warp ids in trace: {0:?}")]
+    DuplicateWarpIds(Vec<(u64, dim::Dim, u32)>),
+}
+
 impl MemAccessTrace {
     #[must_use]
     #[inline]
-    pub fn is_valid(&self) -> bool {
+    pub fn check_valid(&self) -> Result<(), ValidationError> {
         is_valid_trace(&self.0)
     }
 
@@ -158,23 +166,31 @@ impl std::ops::Deref for MemAccessTrace {
 /// In order to pass, a trace must not contain any non-consecutive duplicate block or warp ids.
 #[must_use]
 #[inline]
-pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> bool {
+pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> Result<(), ValidationError> {
     use itertools::Itertools;
 
-    let duplicate_blocks = trace
+    let duplicate_blocks: Vec<_> = trace
         .iter()
-        .map(|t| &t.block_id)
+        .map(|t| (t.kernel_id, t.block_id.clone()))
         .dedup()
         .duplicates()
-        .count();
-    let duplicate_warp_ids = trace
+        .collect();
+    if !duplicate_blocks.is_empty() {
+        return Err(ValidationError::DuplicateBlocks(duplicate_blocks));
+    }
+    let duplicate_warp_ids: Vec<_> = trace
         .iter()
-        .map(|t| (&t.block_id, &t.warp_id_in_block))
+        .map(|t| (t.kernel_id, t.block_id.clone(), t.warp_id_in_block))
         .dedup()
         .duplicates()
-        .count();
+        .collect();
+
+    if !duplicate_warp_ids.is_empty() {
+        return Err(ValidationError::DuplicateWarpIds(duplicate_warp_ids));
+    }
+    Ok(())
 
     // assert_eq!(duplicate_blocks, 0);
     // assert_eq!(duplicate_warp_ids, 0);
-    duplicate_blocks == 0 && duplicate_warp_ids == 0
+    // duplicate_blocks == 0 && duplicate_warp_ids == 0
 }

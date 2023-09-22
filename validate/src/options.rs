@@ -120,6 +120,9 @@ pub struct Options {
     )]
     pub concurrency: Option<usize>,
 
+    #[clap(long = "no-progress", help = "hide progress bar")]
+    pub no_progress: bool,
+
     #[clap(subcommand)]
     pub command: Command,
 }

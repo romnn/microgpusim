@@ -65,7 +65,7 @@ impl Kernel {
         // memory_only: bool,
     ) -> Self {
         // sanity check
-        assert!(trace.is_valid());
+        trace.check_valid().expect("valid trace");
 
         // check if grid size is equal to the number of unique blocks in the trace
         let all_blocks: HashSet<_> = trace.iter().map(|t| &t.block_id).collect();

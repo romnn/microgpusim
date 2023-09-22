@@ -113,7 +113,7 @@ pub fn write_trace_instructions(
     mut out: impl std::io::Write,
 ) -> eyre::Result<()> {
     use std::collections::HashSet;
-    assert!(trace_model::is_valid_trace(trace));
+    trace_model::is_valid_trace(trace)?;
 
     let mut instruction_counts: HashMap<_, u64> = HashMap::new();
     for inst in trace {

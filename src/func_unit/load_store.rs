@@ -324,7 +324,7 @@ impl LoadStoreUnit {
                     assert!(self.data_l1.is_some());
                     if let Some(ref mut data_l1) = self.data_l1 {
                         if let Some(fetch) = data_l1.next_access() {
-                            log::warn!("l1 cache got ready access {} cycle={}", &fetch, cycle);
+                            log::trace!("l1 cache got ready access {} cycle={}", &fetch, cycle);
                             self.next_writeback = fetch.instr;
                             serviced_client = Some(next_client_id);
                         }
