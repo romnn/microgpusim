@@ -4,6 +4,16 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[features]
+default = ["cuda"]
+cuda = ["dep:rustacuda", "dep:cuda-driver-sys"]
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[package.metadata.cargo-feature-combinations.matrix]
+need_cuda = true
+
 [dependencies]
 color-eyre = "0"
 duct = "0"
@@ -28,3 +38,7 @@ utils = { path = "../utils" }
 gpucachesim = { path = "../" }
 accelsim = { path = "../accelsim" }
 trace-model = { path = "../trace/model" }
+
+# optional: cuda
+rustacuda = { version = "0", optional = true }
+cuda-driver-sys = { version = "0", optional = true }

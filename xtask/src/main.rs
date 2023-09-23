@@ -1,5 +1,7 @@
 mod accelsim;
 mod coverage;
+#[cfg(feature = "cuda")]
+mod cuda;
 mod docs;
 mod format;
 mod trace;
@@ -14,6 +16,8 @@ pub enum Command {
     Format(format::Options),
     Accelsim(self::accelsim::Options),
     Trace(trace::Options),
+    #[cfg(feature = "cuda")]
+    Cuda(cuda::Options),
     Docs,
 }
 
@@ -32,6 +36,8 @@ fn main() -> eyre::Result<()> {
         Command::Format(opts) => format::format(opts),
         Command::Accelsim(opts) => accelsim::run(opts),
         Command::Trace(opts) => trace::run(&opts),
+        #[cfg(feature = "cuda")]
+        Command::Cuda(opts) => cuda::run(&opts),
         Command::Docs => docs::docs(),
     }
 }
