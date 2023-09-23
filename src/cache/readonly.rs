@@ -166,7 +166,8 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                         1,
                     );
                 } else {
-                    let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
+                    // let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
+                    let (should_miss, _evicted) = self.inner.send_read_request(
                         addr,
                         block_addr,
                         cache_index,

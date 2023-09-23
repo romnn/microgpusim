@@ -7,6 +7,7 @@ pub type LineTable = HashMap<address, u64>;
 
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct EvictedBlockInfo {
+    pub writeback: bool,
     pub block_addr: address,
     pub allocation: Option<crate::allocation::Allocation>,
     pub modified_size: u32,
@@ -17,7 +18,7 @@ pub struct EvictedBlockInfo {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct AccessStatus {
     pub cache_index: Option<usize>,
-    pub writeback: bool,
+    // pub writeback: bool,
     pub evicted: Option<EvictedBlockInfo>,
     pub status: cache::RequestStatus,
 }
@@ -123,14 +124,14 @@ where
         self.num_access += 1;
         self.is_used = true;
 
-        let mut writeback = false;
+        // let mut writeback = false;
         let mut evicted = None;
 
         let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
             self.num_reservation_fail += 1;
             return AccessStatus {
                 cache_index: None,
-                writeback,
+                // writeback,
                 evicted,
                 status: cache::RequestStatus::RESERVATION_FAIL,
             };
@@ -164,8 +165,9 @@ where
 
                 if self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS {
                     if line.is_modified() {
-                        writeback = true;
+                        // writeback = true;
                         evicted = Some(EvictedBlockInfo {
+                            writeback: true,
                             allocation: fetch.access.allocation.clone(),
                             block_addr: line.block_addr(),
                             modified_size: line.modified_size(),
@@ -207,7 +209,7 @@ where
         }
         AccessStatus {
             cache_index: Some(cache_index),
-            writeback,
+            // writeback,
             evicted,
             status,
         }

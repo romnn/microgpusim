@@ -205,7 +205,8 @@ where
         }
 
         let block_addr = self.inner.cache_controller.block_addr(addr);
-        let (should_miss, writeback, evicted) = self.inner.send_read_request(
+        // let (should_miss, writeback, evicted) = self.inner.send_read_request(
+        let (should_miss, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
             cache_index,
@@ -218,18 +219,21 @@ where
 
         let writeback_policy = self.inner.cache_config.write_policy;
         log::debug!(
-            "handling READ MISS for {} (should miss={}, writeback={}, writeback policy={:?})",
+            "handling READ MISS for {} (should miss={})",
+            // , writeback={}, writeback policy={:?})",
             fetch,
             should_miss,
-            writeback,
-            writeback_policy,
+            // writeback,
+            // writeback_policy,
         );
 
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
-            if writeback && writeback_policy != cache::config::WritePolicy::WRITE_THROUGH {
-                if let Some(evicted) = evicted {
+            if let Some(evicted) = evicted {
+                if evicted.writeback
+                    && writeback_policy != cache::config::WritePolicy::WRITE_THROUGH
+                {
                     let is_write = true;
                     let writeback_access = mem_fetch::access::Builder {
                         kind: self.write_back_type,
@@ -410,7 +414,9 @@ where
         // Send read request resulting from write miss
         let is_read_only = false;
         let is_write_allocate = true;
-        let (should_miss, writeback, evicted) = self.inner.send_read_request(
+        // TODO: remove should miss, put writeback in evicted struct
+        // let (should_miss, writeback, evicted) = self.inner.send_read_request(
+        let (should_miss, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
             cache_index,
@@ -423,6 +429,9 @@ where
 
         events.push(cache::Event::WriteAllocateSent);
 
+        // does not hold, but we could return another status from send_read_request
+        // assert_eq!(should_miss, evicted.is_some());
+
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
@@ -433,8 +442,9 @@ where
             let not_write_through =
                 self.inner.cache_config.write_policy != cache::config::WritePolicy::WRITE_THROUGH;
 
-            if writeback && not_write_through {
-                if let Some(evicted) = evicted {
+            // if writeback && not_write_through {
+            if let Some(evicted) = evicted {
+                if evicted.writeback && not_write_through {
                     log::debug!("evicted block: {:?}", evicted.block_addr);
 
                     // SECTOR_MISS and HIT_RESERVED should not send write back

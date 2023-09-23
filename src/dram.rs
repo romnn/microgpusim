@@ -58,6 +58,7 @@ impl DRAM {
 
         let mut stats = self.stats.lock();
         let kernel_stats = stats.get_mut(0);
+        log::warn!("dram access: {} data size={}", fetch, fetch.data_size());
         let atom_size = self.config.atom_size;
 
         if fetch.is_write() {
