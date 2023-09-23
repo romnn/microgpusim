@@ -15,6 +15,81 @@
     }                                                                          \
   }
 
+// simple copy kernel for stressing the L1 and L2 cache
+__global__ void copy(float *a, float *b, float *dest, unsigned count,
+                     unsigned loops) {
+  int id = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t start = id * count;
+  // size_t end = (id + 1) * count;
+
+  for (int l = 0; l < loops; l++) {
+    // for (int i = threadIdx.x+blockDim.x*blockIdx.x; i<len;
+    // i+=gridDim.x*blockDim.x)
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < count;
+         i += gridDim.x * blockDim.x) {
+      // for (int i = start; i < count; i++) {
+      // float temp = dest[i];
+      dest[i] = a[i] + b[i];
+      // dest[i] = __ldg(&a[i]) + __ldg(&b[i]);
+
+      // dest[i] = __ldca(src + i);
+      // dest[i] = __ldca(src[i]);
+      // dest[i] = __ldcg(src + i);
+    }
+  }
+  // todo: load the address here with cache mode all
+
+  // Make sure we do not go out of bounds
+  // if (id < n)
+  //   c[id] = a[id] + b[id];
+  // float4 val;
+  // const float4* myinput = input+i;
+  // asm("ld.global.cv.v4.f32 {%0, %1, %2, %3}, [%4];" : "=f"(val.x),
+  // "=f"(val.y), "=f"(val.z), "=f"(val.w) : "l"(myinput));
+}
+
+// find largest power of 2
+unsigned flp2(unsigned x) {
+  x = x | (x >> 1);
+  x = x | (x >> 2);
+  x = x | (x >> 4);
+  x = x | (x >> 8);
+  x = x | (x >> 16);
+  return x - (x >> 1);
+}
+
+void invalidate_caches() {
+  cudaDeviceProp prop;
+  cudaGetDeviceProperties(&prop, 0);
+  const unsigned num_threads_per_sm = prop.maxThreadsPerMultiProcessor;
+  const unsigned num_sm = prop.multiProcessorCount;
+  const unsigned l2_size = prop.l2CacheSize;
+  const unsigned buffer_size_bytes = flp2(l2_size) * 10; // double the l2 size
+  const unsigned buffer_size = buffer_size_bytes / sizeof(float);
+
+  const unsigned block_size = 512;
+  const unsigned num_blocks = (num_sm * num_threads_per_sm) / block_size;
+  const unsigned loops = 2;
+
+  printf("grid: (%d,1,1)\n", num_blocks);
+  printf("threads: (%d,1,1)\n", block_size);
+
+  float *a, *b, *dest;
+  CUDA_SAFECALL(cudaMalloc(&a, buffer_size * sizeof(float)));
+  CUDA_SAFECALL(cudaMalloc(&b, buffer_size * sizeof(float)));
+  CUDA_SAFECALL(cudaMalloc(&dest, buffer_size * sizeof(float)));
+  // k<<<nBLK, nTPB>>>(d, d2, sz, 1);  // warm-up
+  // cudaDeviceSynchronize();
+  // unsigned long long dt = dtime_usec(0);
+  CUDA_SAFECALL(
+      (copy<<<num_blocks, block_size>>>(a, b, dest, buffer_size, loops)));
+  CUDA_SAFECALL(cudaDeviceSynchronize());
+
+  CUDA_SAFECALL(cudaFree(a));
+  CUDA_SAFECALL(cudaFree(b));
+  CUDA_SAFECALL(cudaFree(dest));
+}
+
 // CUDA kernel. Each thread takes care of one element of c
 template <typename T> __global__ void vecAdd(T *a, T *b, T *c, int n) {
   // Get our global thread ID
@@ -64,6 +139,9 @@ template <typename T> int vectoradd(int n) {
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
+  // invalidate all the caches
+  invalidate_caches();
+
   int blockSize, gridSize;
 
   // Number of threads in each thread block
@@ -112,6 +190,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "usage: vectoradd <n> <datatype>\n");
     return 1;
   }
+  // 1M floats * 4 bytes * 2 = 8MB (vs. 2MB l2 cache)
+  // n = 1000000;
 
   if (use_double) {
     return vectoradd<double>(n);

@@ -27,7 +27,8 @@ all: transpose
 # 	$(NVCC) $(ALL_LDFLAGS) --cudart shared $(GENCODE_FLAGS) -o transpose transpose.o $(LIBRARIES)
 
 transpose: transpose.cu
-	$(NVCC) -I$(INCLUDES) -O3 -arch=sm_35 transpose.cu -o transpose
+	$(NVCC) -I$(INCLUDES) -O3 transpose.cu -o transpose
+	# $(NVCC) -I$(INCLUDES) -O3 -arch=sm_35 transpose.cu -o transpose
 
 clean:
 	rm -f transpose transpose.o

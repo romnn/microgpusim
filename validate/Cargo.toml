@@ -45,6 +45,7 @@ tempfile = "3"
 smart-default = "0"
 chrono = "0"
 itertools = "0"
+human_bytes = "0"
 once_cell = "1"
 async-process = "1"
 strum = { version = "0", features = ["derive"] }

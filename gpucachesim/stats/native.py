@@ -216,8 +216,19 @@ class Stats(common.Stats):
         self.compute_native_result_df()
 
         # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
-        print(self.result_df[["l2_accesses", "l2_hits", "l2_misses", "l2_read_hit_rate"]].head())
-        print(self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head())
+        print(self.result_df[["l1_accesses", "l1_hit_rate"]].head(n=20))
+        print(
+            self.result_df[
+                [
+                    "l2_accesses",
+                    "l2_hits",
+                    "l2_misses",
+                    "l2_read_hit_rate",
+                    "l2_write_hit_rate",
+                ]
+            ].head(n=20)
+        )
+        print(self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head(n=20))
 
         # print(commands_df.select_dtypes(include=["object"]).columns)
 
@@ -715,6 +726,7 @@ class Stats(common.Stats):
         # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
         grouped = self.df.groupby(INDEX_COLS, dropna=False)
         self.result_df["l1_hit_rate"] = grouped["global_hit_rate"].mean()
+        # self.result_df["l1_hit_rate"] = grouped["tex_cache_hit_rate"].mean()
         self.result_df["l1_hit_rate"] /= 100.0
 
     def _compute_l1_miss_rate(self):

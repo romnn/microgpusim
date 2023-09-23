@@ -618,6 +618,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_for_loop_kernel() -> eyre::Result<()> {
+        env_logger::builder().is_test(true).init();
+        // super::testing::init_test();
+
         struct ForLoopKernel {}
         #[async_trait::async_trait]
         impl super::Kernel for ForLoopKernel {

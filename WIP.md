@@ -1,10 +1,5 @@
 #### TODO
 
-- TODO:
-
-  - should really also compare the l1 cache in lockstep so we can quickly find the issues
-  - compare the rop queue
-
 GTX1080 has `20 SM * 4 SIMD unit * 32 lanes = 2560 "CUDA cores"`
 https://www.es.ele.tue.nl/~heco/courses/ECA/GPU-papers/GeForce_GTX_1080_Whitepaper_FINAL.pdf
 
@@ -56,6 +51,13 @@ A miss does not imply that all sectors in the cache line will be filled.
 
 - today:
 
+- TODO:
+
+  - DONE: add simple command to xtask to query cuda devices (to be replacing the python script)
+  - try to flush / invalidate the L2 cache before profiling
+  - implement a more faithful L2 pre-fill on CUDA memcopies
+  - inject the current kernel ids to actually implement per kernel stats
+
   - NOTE: change playground back to correct accelsim compat
 
   - exec driven: ensure allocations are aligned! (otherwise that can negatively impact access performance)
@@ -64,11 +66,6 @@ A miss does not imply that all sectors in the cache line will be filled.
     - l1 accesses (transactions?)
     - l1 reads
     - l1 writes
-
-  - understand the role of the l1 data cache, when is it used?
-  - compute the expected values manually for vectoradd
-    - add warning prints to trace the coalescing
-  - investigate the l1 cache (e.g. disable in profiling)
 
   - investigate the effect that the dram model has
 
@@ -88,78 +85,86 @@ A miss does not imply that all sectors in the cache line will be filled.
 
   - add option for l2 set index unless when in compat mode
 
-  -
   - config is passed to instruction for different things
 
     - could make that a smaller config struct
 
   - remove the global config from components and use smaller configs
   - stat: warp instructions
-  - detailed stat feature:
-
-    - per allocation stats
-    - per kernel stats
 
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores
   - convert, match and plot statistics
   - record mem fetch latency in playground and box
 
-  - DONE: write more execution driven examples (especially the different transpose variants)
+DONE:
 
-    - DONE: add them to the stats (as a new target?)
+- DONE: should really also compare the l1 cache in lockstep so we can quickly find the issues
+- DONE: compare the rop queue
+- DONE: understand the role of the l1 data cache, when is it used?
+- DONE: compute the expected values manually for vectoradd
+  - DONE: add warning prints to trace the coalescing
+- DONE: investigate the l1 cache (e.g. disable in profiling)
+- DONE: detailed stat feature:
 
-  - DONE: proc macro for addign reconvergence points (building a dominator tree)
-    - DONE cargo expand -p exec --lib --profile=test tracegen::tests
-  - DONE: control flow graph serialization using dominated BFS
-  - DONE: add options to simulate
-    - DONE: larger vectoradd example
-    - DONE: different number of cores per cluster [1, 4, 8]
-    - DONE: memory only mode versus compute as well
-  - DONE: implement full validate for benchmark
-  - DONE: speed up simulate run for validate
-    - DONE: set repetitions to 1 temp
-    - DONE: increase concurrency temp
-  - DONE: add option for full trace and do the filtering post-tracing
-    - DONE: (so we dont need to maintain separate traces)
-  - DONE: wrap the stats in a per kernel vector (faster than hashmap?)
-  - DONE: add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
-  - DONE: even when using non-detailed stats, index by kernel launch id
-  - DONE: do not compute mean and min max etc. until the last step (plotting)
-  - DONE: build a well defined dataframe in all of the classes including the inputs and concat them
-  - DONE: add mangled and non mangled kernel names
-  - DONE: extend validate to support parallel execution
-  - DONE: validate the number of warp instructions for the execution driven frontend and test that.
-  - DONE: move simulate added matrix optinos to top level
-  - DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
-  - DONE: make the native class ceate a df with mean, variance, min, max per repetition
-  - DONE: repeat simulate for validation
-  - DONE: Optional new type to simplify display printing for optionals
-  - DONE: implement repetitions for profile validate
-  - DONE: implement option to run all steps for a benchmark ("validate")
-    - DONE: build, profile, (trace, accelsim-trace), (simulate, accelsim-simulate, playground-simulate)
-  - DONE: xtask: allow comparing traces
-  - DONE: tracer: allow tracing all instructions
-  - DONE: allow using full accelsim traces for simulate (do we miss out on the allocations though?).
-  - DONE: replace addresstranslation trait with cache controller trait
-  - DONE: use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations (required for per allocation stats)
-  - DONE: decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
-  - DONE: rename casimu to gpucachesim
-  - DONE: use bench configs with query for nondet tests
-  - DONE: change bench configs to allow queries for benchmarks instead of input indices
-  - DONE: change lockstep tests to use bench configs
-  - DONE: check accelsim compat again
-  - DONE: rename translated address to either DRAMAddress or PhysicalAddress
-  - DONE: fix that cache index unwrapping design
-  - DONE: playground stats (should match accelsim)
-  - DONE: builder for mem access as well
-  - DONE: consolidate deterministic parallelism, make rayon optional finally
-  - DONE: rename crates and github repo
-  - DONE: write trait for tag array
+  - DONE: per allocation stats
+  - DONE: per kernel stats
 
-  - SKIP: add config parsing for box
-  - SKIP: publish to crates.io
-  - SKIP: xtask task for converting traces? or do that in the validation component
+- DONE: write more execution driven examples (especially the different transpose variants)
+
+  - DONE: add them to the stats (as a new target?)
+
+- DONE: proc macro for addign reconvergence points (building a dominator tree)
+  - DONE cargo expand -p exec --lib --profile=test tracegen::tests
+- DONE: control flow graph serialization using dominated BFS
+- DONE: add options to simulate
+  - DONE: larger vectoradd example
+  - DONE: different number of cores per cluster [1, 4, 8]
+  - DONE: memory only mode versus compute as well
+- DONE: implement full validate for benchmark
+- DONE: speed up simulate run for validate
+  - DONE: set repetitions to 1 temp
+  - DONE: increase concurrency temp
+- DONE: add option for full trace and do the filtering post-tracing
+  - DONE: (so we dont need to maintain separate traces)
+- DONE: wrap the stats in a per kernel vector (faster than hashmap?)
+- DONE: add allocation id to per kernel stats where it makes sense (e.g. NOT cycles or instructions)
+- DONE: even when using non-detailed stats, index by kernel launch id
+- DONE: do not compute mean and min max etc. until the last step (plotting)
+- DONE: build a well defined dataframe in all of the classes including the inputs and concat them
+- DONE: add mangled and non mangled kernel names
+- DONE: extend validate to support parallel execution
+- DONE: validate the number of warp instructions for the execution driven frontend and test that.
+- DONE: move simulate added matrix options to top level
+- DONE: make the accelsim class ceate a df with mean, variance, min, max per repetition
+- DONE: make the native class ceate a df with mean, variance, min, max per repetition
+- DONE: repeat simulate for validation
+- DONE: Optional new type to simplify display printing for optionals
+- DONE: implement repetitions for profile validate
+- DONE: implement option to run all steps for a benchmark ("validate")
+  - DONE: build, profile, (trace, accelsim-trace), (simulate, accelsim-simulate, playground-simulate)
+- DONE: xtask: allow comparing traces
+- DONE: tracer: allow tracing all instructions
+- DONE: allow using full accelsim traces for simulate (do we miss out on the allocations though?).
+- DONE: replace addresstranslation trait with cache controller trait
+- DONE: use gpu_mem_alloc for the allocations but still allow smart comparison with play whose traces does not include allocations (required for per allocation stats)
+- DONE: decide on better names for linear, raw, translated addr to reflect virtual and physical for cache and global
+- DONE: rename casimu to gpucachesim
+- DONE: use bench configs with query for nondet tests
+- DONE: change bench configs to allow queries for benchmarks instead of input indices
+- DONE: change lockstep tests to use bench configs
+- DONE: check accelsim compat again
+- DONE: rename translated address to either DRAMAddress or PhysicalAddress
+- DONE: fix that cache index unwrapping design
+- DONE: playground stats (should match accelsim)
+- DONE: builder for mem access as well
+- DONE: consolidate deterministic parallelism, make rayon optional finally
+- DONE: rename crates and github repo
+- DONE: write trait for tag array
+
+- SKIP: add config parsing for box
+- SKIP: publish to crates.io
+- SKIP: xtask task for converting traces? or do that in the validation component
 
 - TODO:
 
@@ -172,8 +177,6 @@ A miss does not imply that all sectors in the cache line will be filled.
   - add a few more stats
   - SKIP: publish python package to pip
 
-- tomorrow:
-
   - look into the akita model
 
   - look into the DRAM issue
@@ -181,19 +184,6 @@ A miss does not imply that all sectors in the cache line will be filled.
   - output all memory accesses for post simulation tools to visualize
 
     - asynchronously push into file (unordered)
-
-  - DONE: move functional units into package
-  - DONE: try using native threads and barriers for core simulation
-  - DONE: pipelined simd function unit should not implement simd function unit
-  - DONE: get rid of global cycle mutex
-  - DONE: lint
-  - DONE: execution driven frontend
-  - DONE: refactor events
-  - DONE: add rop delay queue
-  - DONE: execution driven rust frontend
-  - DONE: add compute instructions
-
-  - todos
 
   - refactor
 
@@ -207,9 +197,6 @@ A miss does not imply that all sectors in the cache line will be filled.
     - remove dead code
     - instantiate the entire GPU in one file to find a good API
     - factor out traits
-
-    - DONE: restructure caches source files
-    - DONE: flatten ported submodule
 
   - generate plots and correlation stuff etc
 
@@ -228,6 +215,19 @@ A miss does not imply that all sectors in the cache line will be filled.
   - allow basic configurations for the playground bridge
 
   - FIX: add l2 set index back in
+
+  - DONE: move functional units into package
+  - DONE: try using native threads and barriers for core simulation
+  - DONE: pipelined simd function unit should not implement simd function unit
+  - DONE: get rid of global cycle mutex
+  - DONE: lint
+  - DONE: execution driven frontend
+  - DONE: refactor events
+  - DONE: add rop delay queue
+  - DONE: execution driven rust frontend
+  - DONE: add compute instructions
+  - DONE: restructure caches source files
+  - DONE: flatten ported submodule
 
   - DONE: multiple memories
   - DONE: lockstep with multiple cores and clusters

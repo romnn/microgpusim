@@ -447,6 +447,8 @@ class Stats(common.Stats):
 
     def _compute_l2_accesses(self):
         df = self.l2_data_stats_df
+        # l2 accesses are only read in nvprof
+        # global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
         mask = df["access_status"].isin(["MISS", "SECTOR_MISS", "HIT"])
         accesses = df[mask]
         grouped = accesses.groupby(INDEX_COLS, dropna=False)

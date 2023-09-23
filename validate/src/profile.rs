@@ -48,8 +48,8 @@ pub async fn profile(
             return Err(RunError::Skipped);
         }
 
-        #[cfg(feature = "cuda")]
-        crate::cuda::flush_l2(None)?;
+        // #[cfg(feature = "cuda")]
+        // crate::cuda::flush_l2(None)?;
 
         let options = profile::nvprof::Options {};
         let output = profile::nvprof::nvprof(&bench.executable, &bench.args, &options)

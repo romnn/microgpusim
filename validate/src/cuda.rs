@@ -79,42 +79,80 @@ impl ToResult for cuda_driver_sys::cudaError_enum {
     }
 }
 
-/// Flush L2 cache of device
+/// Flush L2 cache of device.
+///
 /// based on NVIDIA's `nvbench` [source](https://github.com/NVIDIA/nvbench/blob/f57aa9c993f4392a76650bc54513f571cd1128c9/nvbench/detail/l2flush.cuh#L55).
 pub fn flush_l2(device_id: Option<u32>) -> eyre::Result<()> {
-    use rustacuda::context::{Context, ContextFlags};
+    use rustacuda::context::{Context, ContextFlags, CurrentContext};
     use rustacuda::device::{Device, DeviceAttribute};
 
     rustacuda::init(rustacuda::CudaFlags::empty())?;
 
     // initialize context for device
     let device = Device::get_device(device_id.unwrap_or(0))?;
-    let _context =
+    let context =
         Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)?;
+    CurrentContext::set_current(&context)?;
+
+    dbg!(device.get_attribute(DeviceAttribute::GlobalL1CacheSupported)? != 0);
 
     let l2_size = usize::try_from(device.get_attribute(DeviceAttribute::L2CacheSize)?)?;
     if l2_size == 0 {
         return Ok(());
     }
 
+    let global_mem_size = device.total_memory()?;
+
+    log::info!(
+        "invalidating L2 of GPU device {:?} ({})",
+        device.uuid()?,
+        device.name()?
+    );
+
+    // allocate device memory
+    // let buffer_size = (10 * l2_size).min(global_mem_size);
+    let buffer_size = (global_mem_size / 2).max(l2_size);
+    dbg!(buffer_size);
     assert_eq!(
-        l2_size,
-        l2_size
+        buffer_size,
+        buffer_size
             .checked_mul(std::mem::size_of::<std::ffi::c_char>())
             .unwrap_or(0)
     );
-    // allocate device memory
-    let device_buffer = unsafe { rustacuda::memory::cuda_malloc::<std::ffi::c_char>(l2_size)? };
+    let device_buffer = unsafe { rustacuda::memory::cuda_malloc::<std::ffi::c_char>(buffer_size)? };
 
+    dbg!(human_bytes::human_bytes(global_mem_size as f64));
+    dbg!(human_bytes::human_bytes(buffer_size as f64));
+    dbg!(human_bytes::human_bytes(l2_size as f64));
+
+    // copy chunks of memory
+    let chunk_size = l2_size / 2;
+
+    let chunks = (0..buffer_size - chunk_size).step_by(chunk_size);
+    for chunk_offset in chunks {
+        dbg!(chunk_offset);
+        unsafe {
+            let chunk: Box<[std::ffi::c_char]> = utils::box_slice![0; chunk_size];
+            cuda_driver_sys::cuMemcpyHtoD_v2(
+                device_buffer.as_raw() as u64 + chunk_offset as u64,
+                chunk.as_ptr() as *const std::ffi::c_char as *mut std::ffi::c_void,
+                chunk_size,
+            )
+            .to_result()?
+        }
+    }
     // zero out memory
-    let memset_result = unsafe {
-        cuda_driver_sys::cuMemsetD8_v2(device_buffer.as_raw() as u64, 0, l2_size).to_result()
-    };
+    // let memset_result = unsafe {
+    //     cuda_driver_sys::cuMemsetD8_v2(device_buffer.as_raw() as u64, 0, l2_size).to_result()
+    // };
+
+    // synchronize
+    CurrentContext::synchronize()?;
 
     // free memory
     let free_result = unsafe { rustacuda::memory::cuda_free(device_buffer) };
 
-    memset_result?;
+    // memset_result?;
     free_result?;
 
     // int dev_id{};
