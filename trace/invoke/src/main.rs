@@ -99,6 +99,7 @@ async fn main() -> eyre::Result<()> {
         traces_dir,
         save_json,
         full_trace,
+        skip_kernel_prefixes: vec![],
         validate,
         tracer_so,
     };

@@ -19,6 +19,7 @@ pub enum TargetBenchmarkConfig {
         traces_dir: PathBuf,
         save_json: bool,
         full_trace: bool,
+        skip_kernel_prefixes: Vec<String>,
     },
     AccelsimTrace {
         /// Traces dir
@@ -261,6 +262,13 @@ impl crate::Benchmark {
                 traces_dir,
                 full_trace: top_level_config.trace.full_trace,
                 save_json: top_level_config.trace.save_json,
+                skip_kernel_prefixes: self
+                    .trace
+                    .skip_kernel_prefixes
+                    .iter()
+                    .chain(top_level_config.trace.skip_kernel_prefixes.iter())
+                    .cloned()
+                    .collect(),
             },
             Target::AccelsimTrace => TargetBenchmarkConfig::AccelsimTrace {
                 traces_dir: accelsim_traces_dir,

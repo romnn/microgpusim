@@ -141,6 +141,8 @@ pub struct TraceOptions {
     #[serde(default)]
     pub enabled: Option<bool>,
     #[serde(default)]
+    pub skip_kernel_prefixes: Vec<String>,
+    #[serde(default)]
     pub inputs: matrix::Inputs,
 }
 
@@ -250,6 +252,8 @@ pub struct TraceConfig {
     pub full_trace: bool,
     #[serde(default = "bool_true")]
     pub save_json: bool,
+    #[serde(default)]
+    pub skip_kernel_prefixes: Vec<String>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
 }

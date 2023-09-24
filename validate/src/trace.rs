@@ -17,6 +17,7 @@ pub async fn trace(
         ref traces_dir,
         save_json,
         full_trace,
+        ref skip_kernel_prefixes,
         ..
     } = bench.target_config
     else {
@@ -37,6 +38,7 @@ pub async fn trace(
     let options = invoke_trace::Options {
         traces_dir: traces_dir.clone(),
         tracer_so: None, // auto detect
+        skip_kernel_prefixes: skip_kernel_prefixes.clone(),
         save_json,
         validate,
         full_trace,

@@ -75,6 +75,7 @@ pub struct Instrumentor<'c> {
     pub validate: bool,
     pub full_trace: bool,
     pub save_json: bool,
+    pub skip_kernel_prefixes: Vec<String>,
     pub rmp_trace_file_path: PathBuf,
 }
 
@@ -100,12 +101,21 @@ impl Instrumentor<'static> {
         }
         let save_json = bool_env("SAVE_JSON").unwrap_or(false);
 
+        let skip_kernel_prefixes: Vec<_> = std::env::var("SKIP_KERNEL_PREFIXES")
+            .as_deref()
+            .unwrap_or("")
+            .split(",")
+            .map(str::trim)
+            .map(str::to_string)
+            .collect();
+
         log::debug!(
-            "ctx@{:X} traces_dir={} full={}, json={}",
+            "ctx@{:X} traces_dir={} full={}, json={}, skip kernel prefixes={:?}",
             ctx.as_ptr() as u64,
             traces_dir.display(),
             full_trace,
-            save_json
+            save_json,
+            skip_kernel_prefixes,
         );
 
         let _ = utils::fs::create_dirs(&traces_dir).ok();
@@ -133,6 +143,7 @@ impl Instrumentor<'static> {
             full_trace,
             validate,
             save_json,
+            skip_kernel_prefixes,
             rmp_trace_file_path,
             allocations: Mutex::new(Vec::new()),
             commands: Mutex::new(Vec::new()),
@@ -266,11 +277,21 @@ impl<'c> Instrumentor<'c> {
         else {
             return;
         };
+
+        let kernel_func_name = func.unmangled_name(&mut self.ctx.lock().unwrap());
+
+        if self
+            .skip_kernel_prefixes
+            .iter()
+            .any(|prefix| kernel_func_name.starts_with(prefix))
+        {
+            // skip this kernel
+            log::info!("skipping kernel {}", kernel_func_name);
+            return;
+        }
+
         if is_exit {
-            log::info!(
-                "KERNEL {} COMPLETED",
-                &func.name(&mut self.ctx.lock().unwrap())
-            );
+            log::info!("KERNEL {} COMPLETED", kernel_func_name);
 
             // make sure current kernel is completed
             unsafe { nvbit_sys::cuCtxSynchronize() };

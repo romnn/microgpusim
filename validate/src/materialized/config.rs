@@ -73,6 +73,7 @@ pub struct TraceConfig {
     pub common: GenericBenchmark,
     pub full_trace: bool,
     pub save_json: bool,
+    pub skip_kernel_prefixes: Vec<String>,
     pub inputs: crate::matrix::Inputs,
 }
 
@@ -218,6 +219,7 @@ impl crate::Config {
                     .materialize(base, Some(Target::Trace), Some(&common))?,
                 full_trace: self.trace.full_trace,
                 save_json: self.trace.save_json,
+                skip_kernel_prefixes: self.trace.skip_kernel_prefixes,
                 inputs: self.trace.inputs,
             }
         };

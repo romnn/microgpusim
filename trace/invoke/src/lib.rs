@@ -48,6 +48,7 @@ pub struct Options {
     pub traces_dir: PathBuf,
     pub save_json: bool,
     pub full_trace: bool,
+    pub skip_kernel_prefixes: Vec<String>,
     pub validate: bool,
     pub tracer_so: Option<PathBuf>,
 }
@@ -102,6 +103,10 @@ where
     cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());
     cmd.env("SAVE_JSON", if options.save_json { "yes" } else { "no" });
     cmd.env("FULL_TRACE", if options.full_trace { "yes" } else { "no" });
+    cmd.env(
+        "SKIP_KERNEL_PREFIXES",
+        options.skip_kernel_prefixes.join(","),
+    );
     cmd.env("VALIDATE", if options.validate { "yes" } else { "no" });
     cmd.env("LD_PRELOAD", &tracer_so.to_string_lossy().to_string());
 

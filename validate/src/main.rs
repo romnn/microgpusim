@@ -1,5 +1,3 @@
-// #![allow(warnings)]
-
 mod progress;
 
 // #[cfg(feature = "remote")]
@@ -10,6 +8,7 @@ use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
+use itertools::Itertools;
 use std::io::Write;
 
 use indicatif::ProgressBar;
@@ -193,17 +192,37 @@ fn print_benchmark_result(
     bar: &ProgressBar,
     _options: &Options,
 ) {
+    let profile = |is_debug: bool| -> &str {
+        if is_debug {
+            "debug"
+        } else {
+            "release"
+        }
+    };
     let op = match command {
-        Command::Profile(_) => "profiling",
-        Command::Trace(_) => "tracing [gpucachesim]",
-        Command::AccelsimTrace(_) => "tracing [accelsim]",
-        Command::Simulate(_) => "simulating [gpucachesim]",
-        Command::ExecSimulate(_) => "simulating [gpucachesim]",
-        Command::AccelsimSimulate(_) => "simulating [accelsim]",
-        Command::PlaygroundSimulate(_) => "simulating [playground]",
-        Command::Build(_) => "building",
-        Command::Clean(_) => "cleaning",
-        Command::Expand(_) => "expanding",
+        Command::Profile(_) => "profiling".to_string(),
+        Command::Trace(_) => format!(
+            "tracing [gpucachesim][{}]",
+            profile(gpucachesim::is_debug())
+        ),
+        Command::AccelsimTrace(_) => {
+            format!("tracing [accelsim][{}]", profile(accelsim_sim::is_debug()))
+        }
+        Command::Simulate(_) | Command::ExecSimulate(_) => format!(
+            "simulating [gpucachesim][{}]",
+            profile(gpucachesim::is_debug())
+        ),
+        Command::AccelsimSimulate(_) => format!(
+            "simulating [accelsim][{}]",
+            profile(accelsim_sim::is_debug()),
+        ),
+        Command::PlaygroundSimulate(_) => format!(
+            "simulating [playground][{}]",
+            profile(playground::is_debug()),
+        ),
+        Command::Build(_) => "building".to_string(),
+        Command::Clean(_) => "cleaning".to_string(),
+        Command::Expand(_) => "expanding".to_string(),
         Command::Full(_) => unreachable!(),
     };
     let op = style(op).cyan();
@@ -243,13 +262,20 @@ fn print_benchmark_result(
         _ => {
             let benchmark_config_id =
                 format!("{}@{:<3}", &bench_config.name, bench_config.input_idx);
+            // bar.println(format!(
+            //     "{} {:<20} [ {} ][ {} {} ] {}",
+            //     op,
+            //     color.apply_to(benchmark_config_id),
+            //     materialized::bench_config_name(&bench_config.name, &bench_config.values, true),
+            //     executable.display(),
+            //     bench_config.args.join(" "),
+            //     color.apply_to(status),
+            // ));
             bar.println(format!(
-                "{} {:<20} [ {} ][ {} {} ] {}",
+                "{} {:<20} [ {} ] {}",
                 op,
                 color.apply_to(benchmark_config_id),
                 materialized::bench_config_name(&bench_config.name, &bench_config.values, true),
-                executable.display(),
-                bench_config.args.join(" "),
                 color.apply_to(status),
             ));
         }
@@ -289,8 +315,6 @@ impl Error {
         }
     }
 }
-
-use itertools::Itertools;
 
 fn compute_per_command_bench_configs<'a>(
     materialized: &'a Benchmarks,
@@ -422,7 +446,7 @@ async fn main() -> eyre::Result<()> {
     if options.no_progress {
         bar.set_draw_target(indicatif::ProgressDrawTarget::hidden());
     }
-    bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 10.0));
+    bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 100.0));
     bar.set_style(progress::Style::default().into());
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -448,7 +472,6 @@ async fn main() -> eyre::Result<()> {
                             .await
                             .map_err(|err| Error::new(err, bench_config.clone()))
                     };
-                    bar.inc(1);
                     print_benchmark_result(
                         &command,
                         &bench_config,
@@ -457,6 +480,8 @@ async fn main() -> eyre::Result<()> {
                         &bar,
                         &options,
                     );
+
+                    bar.inc(1);
 
                     match res {
                         Err(Error::Failed { .. }) if options.fail_fast => {
@@ -480,7 +505,7 @@ async fn main() -> eyre::Result<()> {
     }
     // do not finish the bar if a stage failed
     if results.len() == num_bench_configs {
-        bar.finish();
+        // bar.finish();
     }
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);
