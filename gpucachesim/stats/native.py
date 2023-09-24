@@ -308,7 +308,7 @@ class Stats(common.Stats):
         self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
 
     def _compute_exec_time_sec(self):
-        # print(self._kernel_durations_us())
+        print(self._kernel_durations_us())
         # print(self.result_df)
         self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
         # self.result_df["exec_time_sec"] = self._kernel_durations_us() * float(1e-6)
@@ -736,7 +736,7 @@ class Stats(common.Stats):
         # print(self.commands_df.index)
         # commands = self.commands_df.reset_index()
         commands = self.commands_df
-        kernel_launches = commands[~commands["Kernel"].str.contains(r"\[CUDA memcpy .*\]")]
+        kernel_launches = commands[~commands["Kernel"].str.contains(r"\[CUDA (memcpy|memset).*\]")]
         if isinstance(kernel_launches, pd.Series):
             return kernel_launches.to_frame()
         return kernel_launches

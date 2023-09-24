@@ -189,12 +189,17 @@ impl TryFrom<Stats> for stats::Stats {
             .get(&key!("total_dram_writes"))
             .copied()
             .unwrap_or(0.0) as u64;
+
+        let mut bank_accesses = ndarray::Array4::from_elem((1, 1, 1, AccessKind::count()), 0);
+        bank_accesses[(0, 0, 0, AccessKind::GLOBAL_ACC_R as usize)] = total_dram_reads;
+        bank_accesses[(0, 0, 0, AccessKind::GLOBAL_ACC_W as usize)] = total_dram_writes;
         let dram = stats::DRAM {
             kernel_info: stats::KernelInfo::default(),
-            bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
-            bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
-            total_bank_writes: box_slice![box_slice![total_dram_writes]],
-            total_bank_reads: box_slice![box_slice![total_dram_reads]],
+            bank_accesses,
+            // bank_writes: box_slice![box_slice![box_slice![total_dram_writes]]],
+            // bank_reads: box_slice![box_slice![box_slice![total_dram_reads]]],
+            // total_bank_writes: box_slice![box_slice![total_dram_writes]],
+            // total_bank_reads: box_slice![box_slice![total_dram_reads]],
             // we only have total numbers
             num_banks: 1,
             num_cores: 1,

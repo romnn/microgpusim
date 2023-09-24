@@ -65,6 +65,7 @@ pub mod access {
     #[derive(
         Debug,
         strum::EnumIter,
+        strum::EnumCount,
         Clone,
         Copy,
         PartialEq,
@@ -132,6 +133,7 @@ pub mod access {
         /// request address
         pub addr: super::address,
         pub allocation: Option<crate::allocation::Allocation>,
+        pub kernel_launch_id: usize,
         /// if access is write
         pub is_write: bool,
         /// request size in bytes
@@ -149,6 +151,7 @@ pub mod access {
                 .field("addr", &self.addr)
                 .field("relative_addr", &self.relative_addr())
                 .field("allocation", &self.allocation)
+                .field("kernel_launch_id", &self.kernel_launch_id)
                 .field("kind", &self.kind)
                 .field("req_size_bytes", &self.req_size_bytes)
                 .field("is_write", &self.is_write)
@@ -174,6 +177,7 @@ pub mod access {
     pub struct Builder {
         pub kind: Kind,
         pub addr: crate::address,
+        pub kernel_launch_id: usize,
         pub allocation: Option<crate::allocation::Allocation>,
         pub req_size_bytes: u32,
         pub is_write: bool,
@@ -188,9 +192,11 @@ pub mod access {
             if let Some(ref alloc) = self.allocation {
                 debug_assert!(alloc.start_addr <= self.addr);
             }
+            assert_eq!(self.kind.is_write(), self.is_write);
             MemAccess {
                 addr: self.addr,
                 allocation: self.allocation,
+                kernel_launch_id: self.kernel_launch_id,
                 is_write: self.is_write,
                 req_size_bytes: self.req_size_bytes,
                 kind: self.kind,
@@ -225,6 +231,17 @@ pub mod access {
             } else {
                 u32::from(super::READ_PACKET_SIZE)
             }
+        }
+
+        #[inline]
+        pub fn kernel_launch_id(&self) -> usize {
+            self.kernel_launch_id
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn is_write(&self) -> bool {
+            self.kind.is_write()
         }
 
         #[must_use]
@@ -394,6 +411,11 @@ impl MemFetch {
         } else {
             u32::from(READ_PACKET_SIZE)
         }
+    }
+
+    #[inline]
+    pub fn kernel_launch_id(&self) -> usize {
+        self.access.kernel_launch_id()
     }
 
     #[must_use]

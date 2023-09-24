@@ -114,12 +114,13 @@ class Stats(common.Stats):
             accesses_df["run"] = r
             accesses_dfs.append(accesses_df)
 
-            dram_df = pd.read_csv(
-                self.path / f"stats.dram.{r}.csv",
-                header=0,
-            )
-            dram_df["run"] = r
-            dram_dfs.append(dram_df)
+            # dram_df = pd.read_csv(
+            #     self.path / f"stats.dram.{r}.csv",
+            #     header=0,
+            # )
+            # dram_df["run"] = r
+            # dram_dfs.append(dram_df)
+            # print(dram_dfs)
 
             dram_banks_df = pd.read_csv(
                 self.path / f"stats.dram.banks.{r}.csv",
@@ -127,6 +128,7 @@ class Stats(common.Stats):
             )
             dram_banks_df["run"] = r
             dram_banks_dfs.append(dram_banks_df)
+            # print(dram_banks_dfs)
 
             try:
                 instructions_df = pd.read_csv(
@@ -177,7 +179,7 @@ class Stats(common.Stats):
         # self.accesses_df = common.compute_df_statistics(accesses_df, group_by=["access"])
         # print(self.accesses_df)
 
-        self.dram_df = pd.concat(dram_dfs)
+        # self.dram_df = pd.concat(dram_dfs)
         # print(dram_df)
         # self.dram_df = common.compute_df_statistics(dram_df, group_by=["chip_id", "bank_id"])
         # print(self.dram_df)
@@ -392,22 +394,51 @@ class Stats(common.Stats):
         # dram_reads = self.dram_df[stat_cols("reads")].sum(axis=0).values
         # self.result_df[stat_cols("dram_reads")] = dram_reads
         # print(self.dram_df.groupby(INDEX_COLS + ["dram)["reads"].mean())
-        grouped = self.dram_df.groupby(INDEX_COLS, dropna=False)
-        self.result_df["dram_reads"] = grouped["reads"].sum()
+        df = self.dram_banks_df
+        # print(df)
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        # hit_mask = df["access_status"].isin(["HIT"])
+        # miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        # read_mask = df["is_write"] == False
+        reads = df[global_mask]
+        grouped = reads.groupby(INDEX_COLS, dropna=False)
+
+        # grouped = self.dram_banks_df.groupby(INDEX_COLS + ["access_kind"], dropna=False)
+        # GLOBAL_ACC_R
+        # print(grouped.sum())
+        self.result_df["dram_reads"] = grouped["num_accesses"].sum()
 
     def _compute_dram_writes(self):
+        df = self.dram_banks_df
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_W"])
+        # hit_mask = df["access_status"].isin(["HIT"])
+        # miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        # read_mask = df["is_write"] == False
+        reads = df[global_mask]
+        grouped = reads.groupby(INDEX_COLS, dropna=False)
+        self.result_df["dram_writes"] = grouped["num_accesses"].sum()
+
         # dram_writes = self.dram_df[stat_cols("writes")].sum(axis=0)
         # self.result_df[stat_cols("dram_writes")] = dram_writes.values
-        grouped = self.dram_df.groupby(INDEX_COLS, dropna=False)
-        self.result_df["dram_writes"] = grouped["writes"].sum()
+        # grouped = self.dram_banks_df.groupby(INDEX_COLS, dropna=False)
+        # print(grouped.sum())
+        # self.result_df["dram_writes"] = grouped["writes"].sum()
 
     def _compute_dram_accesses(self):
         # print(self.dram_df.groupby(INDEX_COLS, dropna=False)[["reads", "writes"]].sum().sum(axis=1))
-        grouped = self.dram_df.groupby(INDEX_COLS, dropna=False)
-        reads_and_writes = grouped[["reads", "writes"]].sum()
-        self.result_df["dram_accesses"] = reads_and_writes.sum(axis=1)
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["dram_accesses" + s] = self.result_df["dram_reads" + s] + self.result_df["dram_writes" + s]
+        df = self.dram_banks_df
+        global_mask = df["access_kind"].isin(["GLOBAL_ACC_W", "GLOBAL_ACC_R"])
+        # hit_mask = df["access_status"].isin(["HIT"])
+        # miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        # read_mask = df["is_write"] == False
+        reads = df[global_mask]
+        grouped = reads.groupby(INDEX_COLS, dropna=False)
+        self.result_df["dram_accesses"] = grouped["num_accesses"].sum().sum()
+
+        # grouped = self.dram_banks_df.groupby(INDEX_COLS, dropna=False)
+        # print(grouped.sum())
+        # reads_and_writes = grouped[["reads", "writes"]].sum()
+        # self.result_df["dram_accesses"] = reads_and_writes.sum(axis=1)
 
     def _compute_l2_reads(self):
         df = self.l2_data_stats_df

@@ -123,6 +123,7 @@ pub struct WarpInstruction {
     ///
     /// The id is assigned once the instruction is issued by a core.
     pub uid: u64,
+    pub kernel_launch_id: usize,
     pub warp_id: usize,
     /// The ID of the scheduler unit that issued this instruction.
     pub scheduler_id: Option<usize>,
@@ -197,71 +198,6 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
     }
     // default is 4 bytes
     Ok(4)
-}
-
-fn memory_coalescing_arch_reduce(
-    is_write: bool,
-    access_kind: mem_fetch::access::Kind,
-    tx: &TransactionInfo,
-    mut addr: address,
-    segment_size: u64,
-) -> MemAccess {
-    debug_assert_eq!(addr & (segment_size - 1), 0);
-    debug_assert!(tx.chunk_mask.count_ones() >= 1);
-    // halves (used to check if 64 byte segment can be
-    // compressed into a single 32 byte segment)
-    let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
-
-    let mut req_size_bytes = segment_size as u32;
-    if segment_size == 128 {
-        let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
-        let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
-        if lower_half_used && !upper_half_used {
-            // only lower 64 bytes used
-            req_size_bytes = 64;
-            halves |= &tx.chunk_mask[0..2];
-        } else if !lower_half_used && upper_half_used {
-            // only upper 64 bytes used
-            addr += 64;
-            req_size_bytes = 64;
-            halves |= &tx.chunk_mask[2..4];
-        } else {
-            assert!(lower_half_used && upper_half_used);
-        }
-    } else if segment_size == 64 {
-        // need to set halves
-        if addr % 128 == 0 {
-            halves |= &tx.chunk_mask[0..2];
-        } else {
-            debug_assert_eq!(addr % 128, 64);
-            halves |= &tx.chunk_mask[2..4];
-        }
-    }
-
-    if req_size_bytes == 64 {
-        let lower_half_used = halves[0];
-        let upper_half_used = halves[1];
-        if lower_half_used && !upper_half_used {
-            req_size_bytes = 32;
-        } else if !lower_half_used && upper_half_used {
-            addr += 32;
-            req_size_bytes = 32;
-        } else {
-            assert!(lower_half_used && upper_half_used);
-        }
-    }
-
-    MemAccessBuilder {
-        kind: access_kind,
-        addr,
-        allocation: None, // we cannot know the allocation start address in this context
-        req_size_bytes,
-        is_write,
-        warp_active_mask: tx.active_mask,
-        byte_mask: tx.byte_mask,
-        sector_mask: tx.chunk_mask,
-    }
-    .build()
 }
 
 impl WarpInstruction {
@@ -438,6 +374,7 @@ impl WarpInstruction {
         Self {
             uid: 0,
             warp_id: trace.warp_id_in_block as usize,
+            kernel_launch_id: trace.kernel_id as usize,
             scheduler_id: None,
             opcode,
             pc: trace.instr_offset as usize,
@@ -850,7 +787,7 @@ impl WarpInstruction {
                 subwarp_accesses
                     .into_iter()
                     .map(|(block_addr, transaction)| {
-                        memory_coalescing_arch_reduce(
+                        self.memory_coalescing_arch_reduce(
                             is_write,
                             access_kind,
                             &transaction,
@@ -867,5 +804,72 @@ impl WarpInstruction {
             );
         }
         accesses
+    }
+
+    fn memory_coalescing_arch_reduce(
+        &self,
+        is_write: bool,
+        access_kind: mem_fetch::access::Kind,
+        tx: &TransactionInfo,
+        mut addr: address,
+        segment_size: u64,
+    ) -> MemAccess {
+        debug_assert_eq!(addr & (segment_size - 1), 0);
+        debug_assert!(tx.chunk_mask.count_ones() >= 1);
+        // halves (used to check if 64 byte segment can be
+        // compressed into a single 32 byte segment)
+        let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
+
+        let mut req_size_bytes = segment_size as u32;
+        if segment_size == 128 {
+            let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
+            let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
+            if lower_half_used && !upper_half_used {
+                // only lower 64 bytes used
+                req_size_bytes = 64;
+                halves |= &tx.chunk_mask[0..2];
+            } else if !lower_half_used && upper_half_used {
+                // only upper 64 bytes used
+                addr += 64;
+                req_size_bytes = 64;
+                halves |= &tx.chunk_mask[2..4];
+            } else {
+                assert!(lower_half_used && upper_half_used);
+            }
+        } else if segment_size == 64 {
+            // need to set halves
+            if addr % 128 == 0 {
+                halves |= &tx.chunk_mask[0..2];
+            } else {
+                debug_assert_eq!(addr % 128, 64);
+                halves |= &tx.chunk_mask[2..4];
+            }
+        }
+
+        if req_size_bytes == 64 {
+            let lower_half_used = halves[0];
+            let upper_half_used = halves[1];
+            if lower_half_used && !upper_half_used {
+                req_size_bytes = 32;
+            } else if !lower_half_used && upper_half_used {
+                addr += 32;
+                req_size_bytes = 32;
+            } else {
+                assert!(lower_half_used && upper_half_used);
+            }
+        }
+
+        MemAccessBuilder {
+            kind: access_kind,
+            addr,
+            kernel_launch_id: self.kernel_launch_id,
+            allocation: None, // we cannot know the allocation start address in this context
+            req_size_bytes,
+            is_write,
+            warp_active_mask: tx.active_mask,
+            byte_mask: tx.byte_mask,
+            sector_mask: tx.chunk_mask,
+        }
+        .build()
     }
 }

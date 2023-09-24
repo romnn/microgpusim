@@ -115,10 +115,8 @@ where
         events: &mut Vec<super::event::Event>,
         read_only: bool,
         write_allocate: bool,
-        // ) -> (bool, bool, Option<tag_array::EvictedBlockInfo>) {
     ) -> (bool, Option<tag_array::EvictedBlockInfo>) {
         let mut should_miss = false;
-        // let mut writeback = false;
         let mut evicted = None;
 
         let mshr_addr = self.cache_controller.mshr_addr(fetch.addr());
@@ -136,16 +134,13 @@ where
             if read_only {
                 let _ = self.tag_array.access(block_addr, &fetch, time);
             } else {
-                tag_array::AccessStatus {
-                    // writeback,
-                    evicted,
-                    ..
-                } = self.tag_array.access(block_addr, &fetch, time);
+                tag_array::AccessStatus { evicted, .. } =
+                    self.tag_array.access(block_addr, &fetch, time);
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
@@ -158,11 +153,8 @@ where
             if read_only {
                 let _ = self.tag_array.access(block_addr, &fetch, time);
             } else {
-                tag_array::AccessStatus {
-                    // writeback,
-                    evicted,
-                    ..
-                } = self.tag_array.access(block_addr, &fetch, time);
+                tag_array::AccessStatus { evicted, .. } =
+                    self.tag_array.access(block_addr, &fetch, time);
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
@@ -203,7 +195,6 @@ where
             }
 
             should_miss = true;
-        // } else if mshr_hit && mshr_full {
         } else if mshr_full {
             let access_stat = if mshr_hit {
                 super::AccessStat::ReservationFailure(
@@ -214,17 +205,8 @@ where
             };
 
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(fetch.allocation_id(), fetch.access_kind(), access_stat, 1);
-        // } else if !mshr_hit && mshr_full {
-        //     let mut stats = self.stats.lock();
-        //     let kernel_stats = stats.get_mut(0);
-        //     kernel_stats.inc(
-        //         fetch.allocation_id(),
-        //         fetch.access_kind(),
-        //         super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL),
-        //         1,
-        //     );
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",
@@ -233,7 +215,6 @@ where
                 self.miss_queue_full()
             );
         }
-        // (should_miss, writeback, evicted)
         (should_miss, evicted)
     }
 }

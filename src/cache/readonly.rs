@@ -135,7 +135,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         match probe {
             None => {
                 let mut stats = self.inner.stats.lock();
-                let kernel_stats = stats.get_mut(0);
+                let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                 kernel_stats.inc(
                     fetch.allocation_id(),
                     fetch.access_kind(),
@@ -156,7 +156,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                     access_status = cache::RequestStatus::RESERVATION_FAIL;
 
                     let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(0);
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
@@ -166,7 +166,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                         1,
                     );
                 } else {
-                    // let (should_miss, _writeback, _evicted) = self.inner.send_read_request(
                     let (should_miss, _evicted) = self.inner.send_read_request(
                         addr,
                         block_addr,
@@ -187,7 +186,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         }
 
         let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(0);
+        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
         kernel_stats.inc(
             fetch.allocation_id(),
             fetch.access_kind(),

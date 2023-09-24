@@ -194,7 +194,7 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
@@ -205,7 +205,6 @@ where
         }
 
         let block_addr = self.inner.cache_controller.block_addr(addr);
-        // let (should_miss, writeback, evicted) = self.inner.send_read_request(
         let (should_miss, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
@@ -220,11 +219,8 @@ where
         let writeback_policy = self.inner.cache_config.write_policy;
         log::debug!(
             "handling READ MISS for {} (should miss={})",
-            // , writeback={}, writeback policy={:?})",
             fetch,
             should_miss,
-            // writeback,
-            // writeback_policy,
         );
 
         if should_miss {
@@ -238,6 +234,7 @@ where
                     let writeback_access = mem_fetch::access::Builder {
                         kind: self.write_back_type,
                         addr: evicted.block_addr,
+                        kernel_launch_id: fetch.kernel_launch_id(),
                         allocation: evicted.allocation.clone(),
                         req_size_bytes: evicted.modified_size,
                         is_write,
@@ -309,7 +306,7 @@ where
 
         if self.inner.miss_queue_full() {
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
@@ -364,7 +361,7 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             };
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
@@ -382,6 +379,7 @@ where
         let new_access = mem_fetch::access::Builder {
             kind: self.write_alloc_type,
             addr: fetch.addr(),
+            kernel_launch_id: fetch.kernel_launch_id(),
             allocation: fetch.access.allocation.clone(),
             req_size_bytes: self.inner.cache_config.atom_size,
             is_write, // Now performing a read
@@ -414,8 +412,6 @@ where
         // Send read request resulting from write miss
         let is_read_only = false;
         let is_write_allocate = true;
-        // TODO: remove should miss, put writeback in evicted struct
-        // let (should_miss, writeback, evicted) = self.inner.send_read_request(
         let (should_miss, evicted) = self.inner.send_read_request(
             addr,
             block_addr,
@@ -442,7 +438,6 @@ where
             let not_write_through =
                 self.inner.cache_config.write_policy != cache::config::WritePolicy::WRITE_THROUGH;
 
-            // if writeback && not_write_through {
             if let Some(evicted) = evicted {
                 if evicted.writeback && not_write_through {
                     log::debug!("evicted block: {:?}", evicted.block_addr);
@@ -454,6 +449,7 @@ where
                     let writeback_access = mem_fetch::access::Builder {
                         kind: self.write_back_type,
                         addr: evicted.block_addr,
+                        kernel_launch_id: fetch.kernel_launch_id(),
                         allocation: evicted.allocation.clone(),
                         req_size_bytes: evicted.modified_size,
                         is_write,
@@ -604,7 +600,7 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(0);
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
@@ -625,7 +621,7 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(0);
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
@@ -691,6 +687,7 @@ where
         let is_write = fetch.is_write();
         let access_kind = fetch.access_kind();
         let allocation_id = fetch.allocation_id();
+        let kernel_launch_id = fetch.kernel_launch_id();
         let block_addr = cache_controller.block_addr(addr);
 
         log::debug!(
@@ -717,19 +714,8 @@ where
             access_status
         );
 
-        // let stat_cache_request_status = match probe_status {
-        //     cache::RequestStatus::HIT_RESERVED
-        //         if access_status != cache::RequestStatus::RESERVATION_FAIL =>
-        //     {
-        //         probe_status
-        //     }
-        //     cache::RequestStatus::SECTOR_MISS if access_status != cache::RequestStatus::MISS => {
-        //         probe_status
-        //     }
-        //     _ => access_status,
-        // };
         let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(0);
+        let kernel_stats = stats.get_mut(kernel_launch_id);
         kernel_stats.inc(
             allocation_id,
             access_kind,

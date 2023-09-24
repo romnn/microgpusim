@@ -104,7 +104,15 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     )
 
     # only keep gold gpucachesim and other targets
-    selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
+    # selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
+    kernels = selected_df[gold_gpucachesim]["kernel_name_mangled"].unique().tolist()
+    print(kernels)
+    # print(selected_df[gold_gpucachesim][["target", "benchmark", "input_id", "kernel_name_mangled", "cycles"]])
+    print(selected_df[non_gpucachesim][["target", "kernel_name_mangled", "kernel_name"]].drop_duplicates())
+
+    no_kernel = selected_df["kernel_name_mangled"].isna()
+    valid_kernel = selected_df["kernel_name_mangled"].isin(kernels)
+    selected_df = selected_df[(gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)]
 
     if isinstance(targets, list):
         selected_df = selected_df[selected_df["target"].isin(targets)]

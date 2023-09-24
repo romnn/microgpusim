@@ -1,5 +1,3 @@
-// #![allow(warnings)]
-
 use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 use std::path::PathBuf;
@@ -119,18 +117,17 @@ fn main() -> eyre::Result<()> {
 
     eprintln!("STATS:\n");
     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
-        eprintln!("=> kernel launch {kernel_launch_id}");
-        eprintln!("\tDRAM: total reads: {}", &kernel_stats.dram.total_reads());
         eprintln!(
-            "\tDRAM: total writes: {}",
-            &kernel_stats.dram.total_writes()
+            "\n ===== kernel launch {kernel_launch_id:<3}: {}  =====\n",
+            kernel_stats.sim.kernel_name
         );
-        eprintln!("\tSIM: {:#?}", &kernel_stats.sim);
-        eprintln!("\tINSTRUCTIONS: {:#?}", &kernel_stats.instructions);
-        eprintln!("\tACCESSES: {:#?}", &kernel_stats.accesses);
-        eprintln!("\tL1I: {:#?}", &kernel_stats.l1i_stats.reduce());
-        eprintln!("\tL1D: {:#?}", &kernel_stats.l1d_stats.reduce());
-        eprintln!("\tL2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+        eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
+        eprintln!("SIM: {:#?}", &kernel_stats.sim);
+        eprintln!("INSTRUCTIONS: {:#?}", &kernel_stats.instructions);
+        eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
+        eprintln!("L1I: {:#?}", &kernel_stats.l1i_stats.reduce());
+        eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
+        eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
     }
     eprintln!("completed in {:?}", start.elapsed());
     Ok(())

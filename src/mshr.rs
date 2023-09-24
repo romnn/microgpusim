@@ -118,22 +118,6 @@ impl Table<mem_fetch::MemFetch> {
         }
     }
 
-    /// check `is_read_after_write_pending`
-    // #[allow(dead_code)]
-    // pub fn is_read_after_write_pending(&self, block_addr: address) -> bool {
-    //     let mut write_found = false;
-    //     for fetch in &self.entries[&block_addr].list {
-    //         if fetch.is_write() {
-    //             // pending write
-    //             write_found = true;
-    //         } else if write_found {
-    //             // pending read and previous write
-    //             return true;
-    //         }
-    //     }
-    //     return false;
-    // }
-
     /// Accept a new cache fill response: mark entry ready for processing
     ///
     /// # Returns
@@ -225,6 +209,7 @@ mod tests {
         let access = mem_fetch::access::Builder {
             kind: mem_fetch::access::Kind::INST_ACC_R,
             addr: fetch_addr,
+            kernel_launch_id: 0,
             allocation: None,
             req_size_bytes: 128,
             is_write: false,

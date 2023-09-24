@@ -374,7 +374,7 @@ impl LoadStoreUnit {
         if dispatch_instr.dispatch_delay_cycles > 0 {
             if let Some(ref l1_cache) = self.data_l1 {
                 let mut stats = l1_cache.per_kernel_stats().lock();
-                let kernel_stats = stats.get_mut(0);
+                let kernel_stats = stats.get_mut(dispatch_instr.kernel_launch_id);
                 kernel_stats.num_shared_mem_bank_accesses += 1;
             }
         }
@@ -387,7 +387,7 @@ impl LoadStoreUnit {
             *stall_kind = MemStageStallKind::BK_CONF;
             if let Some(ref l1_cache) = self.data_l1 {
                 let mut stats = l1_cache.per_kernel_stats().lock();
-                let kernel_stats = stats.get_mut(0);
+                let kernel_stats = stats.get_mut(dispatch_instr.kernel_launch_id);
                 kernel_stats.num_shared_mem_bank_conflicts += 1;
             }
         } else {
@@ -674,7 +674,7 @@ impl LoadStoreUnit {
                     stall_cond = MemStageStallKind::BK_CONF;
                     if let Some(ref l1_cache) = self.data_l1 {
                         let mut stats = l1_cache.per_kernel_stats().lock();
-                        let kernel_stats = stats.get_mut(0);
+                        let kernel_stats = stats.get_mut(access.kernel_launch_id());
                         kernel_stats.num_l1_cache_bank_conflicts += 1;
                     }
 
@@ -949,7 +949,7 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(instr.kernel_launch_id);
             let active_count = instr.active_thread_count() as u64;
             kernel_stats
                 .instructions

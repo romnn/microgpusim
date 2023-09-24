@@ -50,31 +50,40 @@ impl DRAM {
 
     /// DRAM access
     ///
-    /// Here, we do nothing except logging statistics
-    /// see: `memory_stats_t::memlatstat_dram_access`()
+    /// We only collect statistics here.
     pub fn access(&mut self, fetch: &mem_fetch::MemFetch) {
         let dram_id = fetch.physical_addr.chip as usize;
         let bank = fetch.physical_addr.bk as usize;
 
         let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(0);
-        log::warn!("dram access: {} data size={}", fetch, fetch.data_size());
-        let atom_size = self.config.atom_size;
+        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        log::warn!(
+            "dram access: {} ({:?}) data size={}",
+            fetch,
+            fetch.access_kind(),
+            fetch.data_size()
+        );
+        // let atom_size = self.config.atom_size;
+        let idx = (fetch.core_id, dram_id, bank, fetch.access_kind() as usize);
 
-        if fetch.is_write() {
-            // do not count L2_writebacks here
-            // if fetch.core_id < self.config.num_cores_per_simt_cluster {
-            if let Some(dram_writes_per_core) = kernel_stats.dram.bank_writes.get_mut(fetch.core_id)
-            {
-                dram_writes_per_core[dram_id][bank] += 1;
-            }
-            kernel_stats.dram.total_bank_writes[dram_id][bank] +=
-                (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
-        } else {
-            kernel_stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
-            kernel_stats.dram.total_bank_reads[dram_id][bank] +=
-                (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
-        }
+        kernel_stats.dram.bank_accesses[idx] += 1;
+
+        // if fetch.is_write() {
+        //     // do not count L2_writebacks here
+        //     // if fetch.core_id < self.config.num_cores_per_simt_cluster {
+        //     kernel_stats.dram.bank_accesses[idx] += 1;
+        //     // if let Some(dram_writes_per_core) = kernel_stats.dram.bank_writes.get_mut(fetch.core_id)
+        //     // {
+        //     //     dram_writes_per_core[dram_id][bank] += 1;
+        //     // }
+        //     // kernel_stats.dram.total_bank_writes[dram_id][bank] +=
+        //     //     (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
+        // } else {
+        //     kernel_stats.dram.bank_accesses[idx] += 1;
+        //     // kernel_stats.dram.bank_reads[fetch.core_id][dram_id][bank] += 1;
+        //     // kernel_stats.dram.total_bank_reads[dram_id][bank] +=
+        //     //     (fetch.data_size() as f32 / atom_size as f32).ceil() as u64;
+        // }
         // these stats are not used
         // mem_access_type_stats[fetch.access_kind()][dram_id][bank] +=
         //     (fetch.data_size as f32 / dram_atom_size as f32).ceil() as u64;

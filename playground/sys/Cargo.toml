@@ -21,6 +21,7 @@ denylist = ["default"]
 
 [dependencies]
 cxx = "1"
+ndarray = { version = "0" }
 serde = { version = "1", features = ["derive"] }
 
 stats = { path = "../../stats" }

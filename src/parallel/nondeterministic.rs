@@ -171,9 +171,12 @@ fn new_serial_cycle<I>(
             }
         } else {
             log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-            let mut stats = stats.lock();
-            let kernel_stats = stats.get_mut(0);
-            kernel_stats.stall_dram_full += 1;
+            // TODO
+            // if let Some(kernel) = &*mem_sub.current_kernel.lock() {
+            //     let mut stats = stats.lock();
+            //     let kernel_stats = stats.get_mut(kernel.id() as usize);
+            //     kernel_stats.stall_dram_full += 1;
+            // }
         }
         // we borrow all of sub here, which is a problem for the cyclic reference in l2
         // interface
@@ -442,7 +445,8 @@ where
 
         let num_threads = self
             .config
-            .simulation_threads.map_or_else(super::get_num_threads, Result::Ok)?;
+            .simulation_threads
+            .map_or_else(super::get_num_threads, Result::Ok)?;
 
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)

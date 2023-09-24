@@ -383,15 +383,17 @@ impl MemorySubPartition {
     pub fn cache_cycle(&mut self, cycle: u64) {
         use mem_fetch::{access::Kind as AccessKind, Status};
 
-        let log_line = style(format!(
-            " => memory sub partition[{}] cache cycle {}",
-            self.id, cycle
-        ))
-        .blue();
+        let log_line = || {
+            style(format!(
+                " => memory sub partition[{}] cache cycle {}",
+                self.id, cycle
+            ))
+            .blue()
+        };
 
         log::debug!(
             "{}: rop queue={:?}, icnt to l2 queue={}, l2 to icnt queue={}, l2 to dram queue={}",
-            log_line,
+            log_line(),
             self.rop_queue
                 .iter()
                 .map(|(ready_cycle, fetch)| (ready_cycle, fetch.to_string()))
@@ -407,7 +409,7 @@ impl MemorySubPartition {
 
             log::debug!(
                 "{}: l2 cache ready accesses={:?} l2 to icnt queue full={}",
-                log_line,
+                log_line(),
                 l2_cache
                     .ready_accesses()
                     .unwrap_or(&NO_FETCHES)

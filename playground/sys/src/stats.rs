@@ -1,6 +1,6 @@
 pub use crate::bridge::stats::StatsBridge as Stats;
 pub use crate::bridge::stats::*;
-use stats::box_slice;
+// use stats::box_slice;
 
 impl From<Cache> for stats::Cache {
     fn from(stats: crate::bridge::stats::Cache) -> Self {
@@ -168,12 +168,19 @@ impl From<stats::dram::DRAM> for DRAM {
 
 impl From<DRAM> for stats::dram::DRAM {
     fn from(dram: DRAM) -> Self {
+        let mut bank_accesses =
+            ndarray::Array4::from_elem((1, 1, 1, stats::mem::AccessKind::count()), 0);
+        bank_accesses[(0, 0, 0, stats::mem::AccessKind::GLOBAL_ACC_R as usize)] = dram.total_reads;
+        bank_accesses[(0, 0, 0, stats::mem::AccessKind::GLOBAL_ACC_W as usize)] = dram.total_writes;
+
         Self {
             kernel_info: stats::KernelInfo::default(),
-            bank_writes: box_slice![box_slice![box_slice![dram.total_writes]]],
-            bank_reads: box_slice![box_slice![box_slice![dram.total_reads]]],
-            total_bank_writes: box_slice![box_slice![dram.total_writes]],
-            total_bank_reads: box_slice![box_slice![dram.total_reads]],
+            bank_accesses,
+            // bank_accesses: ndarray::Array4::from_elem((1, 1, 1, 1), dram.total_writes),
+            // bank_writes: box_slice![box_slice![box_slice![dram.total_writes]]],
+            // bank_reads: box_slice![box_slice![box_slice![dram.total_reads]]],
+            // total_bank_writes: box_slice![box_slice![dram.total_writes]],
+            // total_bank_reads: box_slice![box_slice![dram.total_reads]],
             // we only have total numbers
             num_banks: 1,
             num_cores: 1,

@@ -56,7 +56,7 @@ impl Scoreboard {
             core_id,
             cluster_id,
         } = config;
-        let warp_registers = utils::box_slice![HashSet::new(); *max_warps];
+        let warp_registers = utils::box_slice![HashSet::with_capacity(8 + 24); *max_warps];
         Self {
             core_id: *core_id,
             cluster_id: *cluster_id,
@@ -70,30 +70,43 @@ impl Access<WarpInstruction> for Scoreboard {
     fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         use itertools::Itertools;
 
-        // Get list of all input and output registers
-        let mut instr_registers: HashSet<u32> = HashSet::new();
-        instr_registers.extend(instr.outputs());
-        instr_registers.extend(instr.inputs());
-
         log::trace!(
             "scoreboard: {} uses registers {:?} (in) + {:?} (out) = {:?}",
             instr,
             instr.inputs().sorted().collect::<Vec<_>>(),
             instr.outputs().sorted().collect::<Vec<_>>(),
-            instr_registers.iter().sorted().collect::<Vec<_>>(),
+            instr
+                .inputs()
+                .chain(instr.outputs())
+                .collect::<HashSet<_>>()
+                .iter()
+                .sorted()
+                .collect::<Vec<_>>(),
         );
 
         // get the intersection of reserved registers and instruction registers
         let Some(reserved) = self.warp_registers.get(warp_id) else {
             return false;
         };
+
         log::trace!(
             "scoreboard: warp {} has reserved registers: {:?}",
             warp_id,
             reserved.iter().sorted().collect::<Vec<_>>(),
         );
-        let mut intersection = instr_registers.intersection(reserved);
-        intersection.next().is_some()
+
+        // let mut instr_registers: HashSet<u32> = HashSet::new();
+        // instr_registers.extend(instr.outputs());
+        // instr_registers.extend(instr.inputs());
+        // let mut intersection = instr_registers.intersection(reserved);
+        // intersection.next().is_some()
+
+        // creating a new hash set to do an intersection is much slower than this loop.
+        // Note that the number of registers is always very small
+        instr
+            .inputs()
+            .chain(instr.outputs())
+            .any(|reg| reserved.contains(reg))
     }
 
     #[inline]

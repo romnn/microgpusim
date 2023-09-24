@@ -397,7 +397,7 @@ where
             let access_kind = fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats
                 .accesses
                 .inc(fetch.allocation_id(), access_kind, 1);
@@ -1434,6 +1434,7 @@ where
                         let access = mem_fetch::access::Builder {
                             kind: AccessKind::INST_ACC_R,
                             addr: ppc as u64,
+                            kernel_launch_id: instr.kernel_launch_id,
                             allocation: Some(inst_alloc.clone()),
                             req_size_bytes: num_bytes as u32,
                             is_write: false,
@@ -1801,7 +1802,7 @@ where
         let have_block = kernel.next_threadblock_traces(selected_warps, &self.config);
         if have_block {
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(0);
+            let kernel_stats = stats.get_mut(kernel.id() as usize);
             kernel_stats.sim.num_blocks += 1;
         }
         log::debug!(
@@ -1933,7 +1934,7 @@ where
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerKernel>) {
     // TODO: use per core stats
     let mut stats = stats.lock();
-    let kernel_stats = stats.get_mut(0);
+    let kernel_stats = stats.get_mut(instr.kernel_launch_id as usize);
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
     crate::WIP_STATS.lock().warp_instructions += 1;
 }

@@ -201,7 +201,7 @@ impl MemoryPartitionUnit {
             let has_dram_resource = self.arbiter.has_credits(spid);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
 
-            {
+            if log::log_enabled!(log::Level::Debug) {
                 log::debug!("checking sub partition[{spid}]:");
                 log::debug!(
                     "\t icnt to l2 queue ({:3}) = {}",

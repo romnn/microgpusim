@@ -542,7 +542,7 @@ where
         let start = std::time::Instant::now();
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.try_lock();
-            {
+            if log::log_enabled!(log::Level::Debug) {
                 log::debug!("checking sub partition[{i}]:");
                 log::debug!(
                     "\t icnt to l2 queue ({:<3}) = {}",
@@ -659,7 +659,6 @@ where
             // buffer for them
             let device = self.config.mem_id_to_device_id(i);
 
-            // same as full with parameter overload
             if mem_sub
                 .interconn_to_l2_queue
                 .can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
@@ -677,9 +676,11 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                let mut stats = self.stats.lock();
-                let kernel_stats = stats.get_mut(0);
-                kernel_stats.stall_dram_full += 1;
+                if let Some(kernel) = &*self.current_kernel.lock() {
+                    let mut stats = self.stats.lock();
+                    let kernel_stats = stats.get_mut(kernel.id() as usize);
+                    kernel_stats.stall_dram_full += 1;
+                }
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface

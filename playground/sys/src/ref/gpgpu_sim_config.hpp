@@ -93,9 +93,9 @@ class gpgpu_sim_config : public power_config,
     sscanf(gpgpu_runtime_stat, "%d:%x", &gpu_stat_sample_freq,
            &gpu_runtime_stat_flag);
 
-    fmt::println("fill l2: {}", m_memory_config.m_perf_sim_memcpy);
-
-    m_memory_config.simple_dram_model = true;
+    // fmt::println("fill l2: {}", m_memory_config.m_perf_sim_memcpy);
+    //
+    // m_memory_config.simple_dram_model = true;
 
     if (!gpgpu_ctx->accelsim_compat_mode) {
       // ROMAN TODO: we override config here

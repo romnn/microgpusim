@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::{EnumCount, IntoEnumIterator};
 
 #[derive(
     Debug,
     strum::EnumIter,
+    strum::EnumCount,
+    strum::FromRepr,
     Clone,
     Copy,
     PartialEq,
@@ -14,6 +17,7 @@ use std::collections::HashMap;
     Serialize,
     Deserialize,
 )]
+#[repr(usize)]
 pub enum AccessKind {
     GLOBAL_ACC_R,
     LOCAL_ACC_R,
@@ -29,6 +33,24 @@ pub enum AccessKind {
 }
 
 impl AccessKind {
+    #[must_use]
+    #[inline]
+    pub const fn count() -> usize {
+        Self::COUNT
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn reads() -> impl Iterator<Item = Self> {
+        Self::iter().filter(|kind| !kind.is_write())
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn writes() -> impl Iterator<Item = Self> {
+        Self::iter().filter(|kind| kind.is_write())
+    }
+
     #[must_use]
     pub fn is_write(self) -> bool {
         match self {
@@ -59,7 +81,6 @@ pub struct Accesses {
 
 impl Default for Accesses {
     fn default() -> Self {
-        use strum::IntoEnumIterator;
         let mut inner = HashMap::new();
         for access_kind in AccessKind::iter() {
             inner.insert((None, access_kind), 0);
@@ -74,10 +95,7 @@ impl Default for Accesses {
 impl std::ops::AddAssign for Accesses {
     fn add_assign(&mut self, other: Self) {
         for (alloc_id, count) in other.inner {
-            // for (kind, count) in per_alloc {
-            // *self.0.entry(alloc_id).or_default().entry(key).or_insert(0) += count;
             *self.inner.entry(alloc_id).or_insert(0) += count;
-            // }
         }
     }
 }
@@ -110,7 +128,8 @@ impl Accesses {
         self.inner
     }
 
-    #[must_use] pub fn num_accesses(&self, kind: AccessKind) -> u64 {
+    #[must_use]
+    pub fn num_accesses(&self, kind: AccessKind) -> u64 {
         self.iter()
             .filter(|((_, k), _)| *k == kind)
             .map(|(_, count)| count)
@@ -119,11 +138,8 @@ impl Accesses {
 
     #[must_use]
     pub fn into_csv_rows(self) -> Vec<CsvRow> {
-        // let mut flattened: Vec<_> = self.into_inner().into_iter()
-        // use itertools::Itertools;
         self.inner
             .into_iter()
-            // .sort_by_key(|(key, _)| *key)
             .map(|((allocation_id, access_kind), num_accesses)| CsvRow {
                 kernel_name: self.kernel_info.name.clone(),
                 kernel_name_mangled: self.kernel_info.mangled_name.clone(),
@@ -133,16 +149,7 @@ impl Accesses {
                 num_accesses,
             })
             .collect()
-        // flattened.sort_by_key(|(kind, _)| *kind);
-        // flattened
     }
-
-    // #[must_use]
-    // pub fn flatten(self) -> Vec<((Option<usize>, AccessKind), u64)> {
-    //     let mut flattened: Vec<_> = self.into_inner().into_iter().collect();
-    //     flattened.sort_by_key(|(kind, _)| *kind);
-    //     flattened
-    // }
 
     #[must_use]
     pub fn num_writes(&self) -> u64 {

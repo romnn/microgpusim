@@ -16,11 +16,10 @@
   }
 
 // simple copy kernel for stressing the L1 and L2 cache
-__global__ void copy(float *a, float *b, float *dest, unsigned count,
-                     unsigned loops) {
+__global__ void gpucachesim_skip_copy(float *a, float *b, float *dest,
+                                      unsigned count, unsigned loops) {
   int id = blockIdx.x * blockDim.x + threadIdx.x;
   size_t start = id * count;
-  // size_t end = (id + 1) * count;
 
   for (int l = 0; l < loops; l++) {
     // for (int i = threadIdx.x+blockDim.x*blockIdx.x; i<len;
@@ -29,19 +28,14 @@ __global__ void copy(float *a, float *b, float *dest, unsigned count,
          i += gridDim.x * blockDim.x) {
       // for (int i = start; i < count; i++) {
       // float temp = dest[i];
-      dest[i] = a[i] + b[i];
-      // dest[i] = __ldg(&a[i]) + __ldg(&b[i]);
+      // dest[i] = a[i] + b[i];
+      dest[i] = __ldg(&a[i]) + __ldg(&b[i]);
 
       // dest[i] = __ldca(src + i);
       // dest[i] = __ldca(src[i]);
       // dest[i] = __ldcg(src + i);
     }
   }
-  // todo: load the address here with cache mode all
-
-  // Make sure we do not go out of bounds
-  // if (id < n)
-  //   c[id] = a[id] + b[id];
   // float4 val;
   // const float4* myinput = input+i;
   // asm("ld.global.cv.v4.f32 {%0, %1, %2, %3}, [%4];" : "=f"(val.x),
@@ -78,16 +72,36 @@ void invalidate_caches() {
   CUDA_SAFECALL(cudaMalloc(&a, buffer_size * sizeof(float)));
   CUDA_SAFECALL(cudaMalloc(&b, buffer_size * sizeof(float)));
   CUDA_SAFECALL(cudaMalloc(&dest, buffer_size * sizeof(float)));
-  // k<<<nBLK, nTPB>>>(d, d2, sz, 1);  // warm-up
-  // cudaDeviceSynchronize();
-  // unsigned long long dt = dtime_usec(0);
-  CUDA_SAFECALL(
-      (copy<<<num_blocks, block_size>>>(a, b, dest, buffer_size, loops)));
+  CUDA_SAFECALL((gpucachesim_skip_copy<<<num_blocks, block_size>>>(
+      a, b, dest, buffer_size, loops)));
   CUDA_SAFECALL(cudaDeviceSynchronize());
-
   CUDA_SAFECALL(cudaFree(a));
   CUDA_SAFECALL(cudaFree(b));
   CUDA_SAFECALL(cudaFree(dest));
+}
+
+void flush_l2_cache() {
+  int dev_id = 0;
+  CUDA_SAFECALL(cudaGetDevice(&dev_id));
+  int l2_size = 0;
+  CUDA_SAFECALL(
+      cudaDeviceGetAttribute(&l2_size, cudaDevAttrL2CacheSize, dev_id));
+
+  if (l2_size > 0) {
+    for (int i = 0; i < 20; i++) {
+      int *l2_buffer;
+      CUDA_SAFECALL(cudaMalloc(&l2_buffer, l2_size * 2));
+
+      char *host_l2_buffer = (char *)malloc(l2_size * 2);
+      CUDA_SAFECALL(cudaMemcpy(l2_buffer, host_l2_buffer, l2_size * 2,
+                               cudaMemcpyHostToDevice));
+
+      // CUDA_SAFECALL(cudaMemsetAsync(l2_buffer, 0, l2_size, stream));
+      // CUDA_SAFECALL(cudaMemset(l2_buffer, 0, l2_size * 2));
+      CUDA_SAFECALL(cudaDeviceSynchronize());
+      CUDA_SAFECALL(cudaFree(l2_buffer));
+    }
+  }
 }
 
 // CUDA kernel. Each thread takes care of one element of c
@@ -153,7 +167,10 @@ template <typename T> int vectoradd(int n) {
   printf("threads: (%d,1,1)\n", blockSize);
 
   // Execute the kernel
-  CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));
+  for (int i = 0; i < 3; i++) {
+    CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));
+    flush_l2_cache();
+  }
 
   // Copy array back to host
   CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));

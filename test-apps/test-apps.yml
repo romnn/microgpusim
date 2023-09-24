@@ -11,6 +11,9 @@ config:
     concurrency: 1
     # tracing does not require multiple repetitions
     repetitions: 1
+    # skip certain kernels used for cache invalidation
+    skip_kernel_prefixes:
+      - gpucachesim_skip
   accelsim_trace:
     # one benchmark at once to not stress the GPU
     concurrency: 1
