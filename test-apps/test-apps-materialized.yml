@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 25/09/2023 03:24:34
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 25/09/2023 04:01:49
 ##
 
 config:
@@ -1352,6 +1352,24 @@ benchmarks:
       target: Profile
       target_config: !Profile
         profile_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/profile
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 10
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Profile
+      target_config: !Profile
+        profile_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/profile
   Trace:
     vectorAdd:
     - name: vectorAdd
@@ -2821,6 +2839,28 @@ benchmarks:
         full_trace: true
         skip_kernel_prefixes:
         - gpucachesim_skip
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Trace
+      target_config: !Trace
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/trace
+        save_json: false
+        full_trace: true
+        skip_kernel_prefixes:
+        - gpucachesim_skip
   AccelsimTrace:
     vectorAdd:
     - name: vectorAdd
@@ -4078,6 +4118,24 @@ benchmarks:
       target: AccelsimTrace
       target_config: !AccelsimTrace
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimTrace
+      target_config: !AccelsimTrace
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/accelsim-trace
   Simulate:
     vectorAdd:
     - name: vectorAdd
@@ -74434,6 +74492,1057 @@ benchmarks:
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/trace
         accelsim_traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
         parallel: null
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 1
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 2
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 3
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 5
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-serial-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-serial-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 6
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 7
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 8
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 10
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 11
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 12
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 13
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 14
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 15
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 16
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 17
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-deterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 18
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 19
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 20
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 21
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 22
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 23
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 24
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 25
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 26
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 27
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 28
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 29
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 30
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 31
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 32
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 33
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 34
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 35
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args: []
+      input_idx: 36
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args: []
+      input_idx: 37
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-1-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args: []
+      input_idx: 38
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args: []
+      input_idx: 39
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-4-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args: []
+      input_idx: 40
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values:
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args: []
+      input_idx: 41
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-cores_per_cluster-8-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/accelsim-trace
+        parallel: null
   ExecDrivenSimulate:
     vectorAdd:
     - name: vectorAdd
@@ -75743,6 +76852,25 @@ benchmarks:
       target: ExecDrivenSimulate
       target_config: !ExecDrivenSimulate
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/sim
+        parallel: null
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: false
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/sim
         parallel: null
   AccelsimSimulate:
     vectorAdd:
@@ -77266,6 +78394,29 @@ benchmarks:
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-sim
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimSimulate
+      target_config: !AccelsimSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/accelsim-sim
   PlaygroundSimulate:
     vectorAdd:
     - name: vectorAdd
@@ -78788,3 +79939,26 @@ benchmarks:
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/playground-sim
+    parboil_bfs:
+    - name: parboil_bfs
+      benchmark_idx: 5
+      uid: parboil_bfs-
+      path: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda
+      executable: /home/roman/dev/box/test-apps/parboil/bfs/src/cuda/CUDAStream
+      values: {}
+      args: []
+      input_idx: 0
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: PlaygroundSimulate
+      target_config: !PlaygroundSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/parboil_bfs/parboil_bfs-/playground-sim
