@@ -440,11 +440,11 @@ impl TraceGenerator for Tracer {
                     .copied()
                     .unwrap_or_default();
 
-                log::trace!(
-                    "node {:?} has {} instructions",
-                    super_cfg[node_idx],
-                    longest_thread_trace.len()
-                );
+                // log::trace!(
+                //     "node {:?} has {} instructions",
+                //     super_cfg[node_idx],
+                //     longest_thread_trace.len()
+                // );
 
                 let mut branch_trace: Vec<_> = longest_thread_trace
                     .iter()
@@ -490,6 +490,10 @@ impl TraceGenerator for Tracer {
                 }
 
                 // here we have the warp_trace ready to be added into the global trace
+                for inst in testing::simplify_warp_trace(&branch_trace) {
+                    log::trace!("{}", inst);
+                }
+
                 trace.extend(branch_trace.into_iter());
 
                 let mut active_mask = trace_model::ActiveMask::ZERO;
@@ -547,63 +551,106 @@ pub mod testing {
         first_addr: u64,
         active_mask: String,
         pc: u32,
-        idx: usize,
+        // idx: usize,
+    }
+
+    impl std::fmt::Display for SimplifiedTraceInstruction {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "{:<10}{:?}\t active={} \tpc={}",
+                self.opcode, self.first_addr, self.active_mask, self.pc,
+            )
+        }
     }
 
     impl From<(usize, (&str, u64, &str, u32))> for SimplifiedTraceInstruction {
         fn from(value: (usize, (&str, u64, &str, u32))) -> Self {
-            let (idx, (opcode, first_addr, active_mask, pc)) = value;
+            let (_idx, (opcode, first_addr, active_mask, pc)) = value;
             assert_eq!(active_mask.len(), 32, "invalid active mask {active_mask:?}");
             Self {
                 opcode: opcode.to_string(),
                 first_addr,
                 active_mask: active_mask.to_string(),
                 pc,
-                idx,
+                // idx,
             }
+        }
+    }
+
+    pub fn simplify_warp_instruction(
+        warp_instr: &trace_model::MemAccessTraceEntry,
+    ) -> SimplifiedTraceInstruction {
+        let human_readable_active_mask = warp_instr
+            .active_mask
+            .to_string()
+            .chars()
+            .rev()
+            .collect::<String>();
+
+        SimplifiedTraceInstruction {
+            opcode: warp_instr.instr_opcode.clone(),
+            first_addr: warp_instr
+                .addrs
+                .iter()
+                .enumerate()
+                .filter(|(ti, _)| warp_instr.active_mask[*ti])
+                .map(|(_, addr)| addr)
+                .next()
+                .copied()
+                .unwrap_or(0),
+            active_mask: human_readable_active_mask,
+            pc: warp_instr.instr_offset,
+            // idx: warp_instr_idx,
         }
     }
 
     pub fn simplify_warp_trace(
         warp_trace: &[trace_model::MemAccessTraceEntry],
     ) -> impl Iterator<Item = SimplifiedTraceInstruction> + '_ {
-        warp_trace
-            .iter()
-            .enumerate()
-            .map(|(warp_instr_idx, warp_instr)| {
-                let human_readable_active_mask = warp_instr
-                    .active_mask
-                    .to_string()
-                    .chars()
-                    .rev()
-                    .collect::<String>();
-
-                SimplifiedTraceInstruction {
-                    opcode: warp_instr.instr_opcode.clone(),
-                    first_addr: warp_instr
-                        .addrs
-                        .iter()
-                        .enumerate()
-                        .filter(|(ti, _)| warp_instr.active_mask[*ti])
-                        .map(|(_, addr)| addr)
-                        .next()
-                        .copied()
-                        .unwrap_or(0),
-                    active_mask: human_readable_active_mask,
-                    pc: warp_instr.instr_offset,
-                    idx: warp_instr_idx,
-                }
-            })
+        warp_trace.iter().map(simplify_warp_instruction)
+        // .enumerate()
+        // .map(|(warp_instr_idx, warp_instr)| {
+        //     let human_readable_active_mask = warp_instr
+        //         .active_mask
+        //         .to_string()
+        //         .chars()
+        //         .rev()
+        //         .collect::<String>();
+        //
+        //     SimplifiedTraceInstruction {
+        //         opcode: warp_instr.instr_opcode.clone(),
+        //         first_addr: warp_instr
+        //             .addrs
+        //             .iter()
+        //             .enumerate()
+        //             .filter(|(ti, _)| warp_instr.active_mask[*ti])
+        //             .map(|(_, addr)| addr)
+        //             .next()
+        //             .copied()
+        //             .unwrap_or(0),
+        //         active_mask: human_readable_active_mask,
+        //         pc: warp_instr.instr_offset,
+        //         idx: warp_instr_idx,
+        //     }
+        // })
     }
 
-    pub fn print_warp_trace(trace: &[trace_model::MemAccessTraceEntry]) {
-        for inst in simplify_warp_trace(trace) {
-            println!(
-                "{:<10}{:?}\t active={} \tpc={} idx={}",
-                inst.opcode, inst.first_addr, inst.active_mask, inst.pc, inst.idx,
-            );
-        }
-    }
+    // pub fn fmt_trace(trace: &trace_model::MemAccessTraceEntry) -> String {
+    //     format!(
+    //         "{:<10}{:?}\t active={} \tpc={} idx={}",
+    //         inst.opcode, inst.first_addr, inst.active_mask, inst.pc, inst.idx,
+    //     )
+    // }
+
+    // pub fn print_warp_trace(trace: &[trace_model::MemAccessTraceEntry]) {
+    //     for inst in simplify_warp_trace(trace) {
+    //         println!(
+    //             "{:<10}{:?}\t active={} \tpc={} idx={}",
+    //             inst.opcode, inst.first_addr, inst.active_mask, inst.pc, inst.idx,
+    //         );
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -618,8 +665,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_for_loop_kernel() -> eyre::Result<()> {
-        env_logger::builder().is_test(true).init();
-        // super::testing::init_test();
+        crate::tests::init_test();
 
         struct ForLoopKernel {}
         #[async_trait::async_trait]
@@ -643,7 +689,9 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        testing::print_warp_trace(first_warp);
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
@@ -659,6 +707,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_if_kernel() -> eyre::Result<()> {
+        crate::tests::init_test();
+
         struct IfKernel {}
         #[async_trait::async_trait]
         impl super::Kernel for IfKernel {
@@ -677,7 +727,10 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, IfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        testing::print_warp_trace(first_warp);
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
+
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
@@ -690,6 +743,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_full_imbalance() -> eyre::Result<()> {
+        crate::tests::init_test();
+
         struct FullImbalanceKernel {}
         #[async_trait::async_trait]
         impl super::Kernel for FullImbalanceKernel {
@@ -721,14 +776,16 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, FullImbalanceKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        testing::print_warp_trace(first_warp);
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 1, "11111111000000000000000000000000", 0),
+                ("LDG", 2, "11111111111111110000000000000000", 0),
                 ("LDG", 10, "00000000000000001111111100000000", 0),
                 ("LDG", 11, "00000000000000001111111111111111", 0),
-                ("LDG", 2, "11111111111111110000000000000000", 0),
                 ("LDG", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
@@ -738,6 +795,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_two_level_nested_if_kernel() -> eyre::Result<()> {
+        crate::tests::init_test();
+
         struct Imbalanced {}
         #[async_trait::async_trait]
         impl super::Kernel for Imbalanced {
@@ -802,7 +861,9 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        testing::print_warp_trace(first_warp);
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
@@ -901,8 +962,9 @@ mod tests {
 
         reference_vectoradd(&a, &b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
-
-        testing::print_warp_trace(first_warp);
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [

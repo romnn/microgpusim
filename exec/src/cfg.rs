@@ -144,6 +144,7 @@ impl<N, E, D, Ix> Neighbors<N, E, Ix> for Graph<N, E, D, Ix>
 where
     D: petgraph::EdgeType,
     Ix: petgraph::graph::IndexType,
+    E: Ord,
 {
     fn outgoing_neigbors(&self, node: NodeIndex<Ix>) -> Vec<(EdgeIndex<Ix>, NodeIndex<Ix>)> {
         let mut neighbors = Vec::new();
@@ -152,6 +153,8 @@ where
         while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(self) {
             neighbors.push((outgoing_edge_idx, next_node_idx));
         }
+
+        neighbors.sort_by_key(|(e, _)| &self[*e]);
         neighbors
     }
 }
@@ -305,7 +308,7 @@ pub fn build_control_flow_graph(
 
 pub fn format_control_flow_path<'a, G>(
     graph: &'a G,
-    path: &'a [(Option<G::EdgeId>, G::NodeId)],
+    path: impl IntoIterator<Item = &'a (Option<G::EdgeId>, G::NodeId)> + 'a,
 ) -> impl Iterator<Item = String> + 'a
 where
     G: petgraph::data::DataMap,
@@ -313,7 +316,7 @@ where
     <G as petgraph::visit::Data>::NodeWeight: std::fmt::Display,
     <G as petgraph::visit::Data>::EdgeWeight: std::fmt::Display,
 {
-    path.iter().flat_map(move |(edge_idx, node_idx)| {
+    path.into_iter().flat_map(move |(edge_idx, node_idx)| {
         let mut parts: Vec<String> = vec![format!("{}", graph.node_weight(*node_idx).unwrap())];
         if let Some(edge_idx) = edge_idx {
             parts.push(format!("--{}-->", graph.edge_weight(*edge_idx).unwrap()));
@@ -355,14 +358,16 @@ pub mod visit {
     use petgraph::graph::{EdgeIndex, NodeIndex};
     use std::collections::{HashSet, VecDeque};
 
+    pub type Path = Vec<(Option<EdgeIndex>, NodeIndex)>;
+
     #[derive(Debug)]
     pub struct DominatedDfs<'a> {
+        // dominator_stack: VecDeque<(NodeIndex, NodeIndex, Path)>,
         dominator_stack: VecDeque<NodeIndex>,
         visited: HashSet<(EdgeIndex, NodeIndex)>,
         stack: VecDeque<(EdgeIndex, NodeIndex)>,
-        path: VecDeque<(Option<EdgeIndex>, NodeIndex)>,
+        path: Path,
         limit: Option<usize>,
-
         graph: &'a CFG,
     }
 
@@ -370,15 +375,35 @@ pub mod visit {
         #[must_use]
         pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
             let mut dominator_stack = VecDeque::new();
-            assert!(matches!(graph[root_node_idx], Node::Branch(0)));
-            dominator_stack.push_front(root_node_idx);
+            let mut stack = VecDeque::new();
+
+            if let Node::Branch(branch_id) = graph[root_node_idx] {
+                let reconvergence_point = Node::Reconverge(branch_id);
+                let reconvergence_node_idx = graph.find_node(&reconvergence_point).unwrap();
+                dominator_stack.push_back(root_node_idx);
+                // dominator_stack.push_back((root_node_idx, reconvergence_node_idx, Path::new()));
+            }
+
+            // let mut outgoing_neigbors = graph.outgoing_neigbors(root_node_idx);
+            // outgoing_neigbors.sort_by_key(|(e, _)| graph[*e]);
+
+            for (outgoing_edge_idx, next_node_idx) in graph.outgoing_neigbors(root_node_idx) {
+                stack.push_back((outgoing_edge_idx, next_node_idx));
+            }
+
+            // let mut dominator_stack = VecDeque::new();
+            // assert!(matches!(graph[root_branch_node_idx], Node::Branch(0)));
+            //
+            // let reconvergence_point = Node::Reconverge(0);
+            // let reconvergence_node_idx = graph.find_node(&reconvergence_point).unwrap();
+            // dominator_stack.push_front((root_branch_node_idx, reconvergence_node_idx, Path::new()));
 
             Self {
                 graph,
                 dominator_stack,
                 visited: HashSet::new(),
-                path: VecDeque::new(),
-                stack: VecDeque::new(),
+                path: Path::new(),
+                stack,
                 limit: None,
             }
         }
@@ -387,151 +412,284 @@ pub mod visit {
     impl<'a> Iterator for DominatedDfs<'a> {
         type Item = (EdgeIndex, NodeIndex);
         fn next(&mut self) -> Option<Self::Item> {
-            // if let Some((edge_idx, node_idx)) = self.stack.pop_front() {
             if let Some((edge_idx, node_idx)) = self.stack.pop_back() {
-                // add to path
-                self.path.push_back((Some(edge_idx), node_idx));
+                self.path.push((Some(edge_idx), node_idx));
+
                 log::trace!(
-                    "current path: {} stack: {:?}",
-                    super::format_control_flow_path(self.graph, self.path.make_contiguous())
+                    "dominator: {:?} {}",
+                    self.dominator_stack.back().map(|dom| &self.graph[*dom]),
+                    super::format_control_flow_path(self.graph, self.path.as_slice())
                         .collect::<String>(),
-                    self.stack
-                        .iter()
-                        .map(|(e, n)| (self.graph[*e], self.graph[*n].to_string()))
-                        .collect::<Vec<_>>(),
                 );
 
                 self.visited.insert((edge_idx, node_idx));
+                self.path.clear();
 
                 match &self.graph[node_idx] {
-                    Node::Reconverge(..) => {
-                        if self.dominator_stack.contains(&node_idx) {
-                            // stop here, never go beyond the domninators reconvergence point
-                            // log::trace!(
-                            //     "current: dominator={:?} \t taken={} --> {:?} \t STOP: found reconvergence point",
-                            //     self.graph[reconvergence_node_idx],
-                            //     self.graph[edge_idx],
-                            //     self.graph[node_idx],
-                            //     // active_mask,
-                            // );
-                            self.path.pop_back();
-                            self.path.pop_back();
-                            return Some((edge_idx, node_idx));
+                    Node::Reconverge(branch_id) => {
+                        // Encountered a reconvergence point.
+                        //
+                        // Jump back to the last branch node to serialize other possible
+                        // control flow paths.
+                        // let (last_branch_node_idx, last_branch_reconvergence_node_idx, _) =
+                        let last_branch_node_idx = self.dominator_stack.back().unwrap();
+                        assert_eq!(self.graph[*last_branch_node_idx].id(), *branch_id);
+                        // assert_eq!(*last_branch_reconvergence_node_idx, node_idx);
+
+                        self.stack.clear();
+
+                        // continue at the last branch node
+                        // let mut outgoing_neigbors =
+                        //     self.graph.outgoing_neigbors(*last_branch_node_idx);
+                        // outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
+
+                        for (outgoing_edge_idx, next_node_idx) in
+                            self.graph.outgoing_neigbors(*last_branch_node_idx)
+                        {
+                            if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                                continue;
+                            }
+                            self.stack.push_back((outgoing_edge_idx, next_node_idx));
                         }
+
+                        if self.stack.is_empty() {
+                            // continue from this reconvergence point
+                            self.dominator_stack.pop_back();
+
+                            let mut outgoing_neigbors = self.graph.outgoing_neigbors(node_idx);
+                            outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
+
+                            for (outgoing_edge_idx, next_node_idx) in outgoing_neigbors {
+                                if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                                    continue;
+                                }
+
+                                self.stack.push_back((outgoing_edge_idx, next_node_idx));
+                            }
+                        }
+
+                        // do not add children of reconvergence node until all control flow paths
+                        // reached convergence.
+                        return Some((edge_idx, node_idx));
                     }
                     Node::Branch(branch_id) => {
-                        // must handle new branch
+                        // add new branch and reconvergence point on the stack
                         let reconvergence_point = Node::Reconverge(*branch_id);
                         let reconvergence_node_idx =
                             self.graph.find_node(&reconvergence_point).unwrap();
-                        self.dominator_stack.push_back(reconvergence_node_idx);
+
+                        self.dominator_stack.push_back(
+                            node_idx,
+                            // reconvergence_node_idx,
+                            // self.path.clone(),
+                        );
                     }
                 }
 
-                // let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
-                //     self.dominator_stack.front().copied();
-
-                // log::trace!(
-                //     "current: dominator={:?} \t taken={} --> {:?}",
-                //     reconvergence_node_idx.map(|idx| &self.graph[idx]),
-                //     self.graph[edge_idx],
-                //     self.graph[node_idx],
-                //     // active_mask,
-                // );
-
                 let mut has_children = false;
-
-                let mut outgoing_neigbors = self.graph.outgoing_neigbors(node_idx);
-                outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
-                // self.path.pop_back();
-                for (outgoing_edge_idx, next_node_idx) in outgoing_neigbors {
+                for (outgoing_edge_idx, next_node_idx) in self.graph.outgoing_neigbors(node_idx) {
                     if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
                         continue;
                     }
-
                     has_children = true;
                     self.stack.push_back((outgoing_edge_idx, next_node_idx));
                 }
-
-                // let mut edges = self
-                //     .graph
-                //     .neighbors_directed(node_idx, petgraph::Outgoing)
-                //     .detach();
-                //
-                // // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
-                // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
-                //     // log::trace!(
-                //     //     "pushing branch \t {:?} --> taken={} --> {:?}",
-                //     //     self.graph[node_idx],
-                //     //     self.graph[outgoing_edge_idx],
-                //     //     self.graph[next_node_idx],
-                //     // );
-                //     if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
-                //         continue;
-                //     }
-                //
-                //     has_children = true;
-                //     self.stack.push_back((outgoing_edge_idx, next_node_idx));
-                //     // self.stack.push_front((edge_idx, node_idx));
-                //     // break;
-                // }
-
                 if !has_children {
-                    self.path.pop_back();
+                    self.path.pop();
                 }
                 Some((edge_idx, node_idx))
             } else {
-                // stack is empty, proceed with parent denominator
-                // if let Some(reconvergence_node_idx) = self.dominator_stack.pop_front() {
-                if let Some(reconvergence_node_idx) = self.dominator_stack.pop_back() {
-                    log::trace!("all reconverged {:?}", self.graph[reconvergence_node_idx]);
+                log::trace!("done");
+                None
+            }
+        }
+    }
 
-                    let mut outgoing_neigbors =
-                        self.graph.outgoing_neigbors(reconvergence_node_idx);
+    #[deprecated]
+    pub mod old {
+        use super::*;
+
+        #[derive(Debug)]
+        pub struct DominatedDfs<'a> {
+            dominator_stack: VecDeque<NodeIndex>,
+            visited: HashSet<(EdgeIndex, NodeIndex)>,
+            stack: VecDeque<(EdgeIndex, NodeIndex)>,
+            path: VecDeque<(Option<EdgeIndex>, NodeIndex)>,
+            limit: Option<usize>,
+
+            graph: &'a CFG,
+        }
+
+        impl<'a> DominatedDfs<'a> {
+            #[must_use]
+            pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
+                let mut dominator_stack = VecDeque::new();
+                assert!(matches!(graph[root_node_idx], Node::Branch(0)));
+                dominator_stack.push_front(root_node_idx);
+
+                Self {
+                    graph,
+                    dominator_stack,
+                    visited: HashSet::new(),
+                    path: VecDeque::new(),
+                    stack: VecDeque::new(),
+                    limit: None,
+                }
+            }
+        }
+
+        impl<'a> Iterator for DominatedDfs<'a> {
+            type Item = (EdgeIndex, NodeIndex);
+            fn next(&mut self) -> Option<Self::Item> {
+                // if let Some((edge_idx, node_idx)) = self.stack.pop_front() {
+                if let Some((edge_idx, node_idx)) = self.stack.pop_back() {
+                    // add to path
+                    self.path.push_back((Some(edge_idx), node_idx));
+                    log::trace!(
+                        "current path: {} stack: {:?}",
+                        crate::cfg::format_control_flow_path(
+                            self.graph,
+                            &*self.path.make_contiguous()
+                        )
+                        .collect::<String>(),
+                        self.stack
+                            .iter()
+                            .map(|(e, n)| (self.graph[*e], self.graph[*n].to_string()))
+                            .collect::<Vec<_>>(),
+                    );
+
+                    self.visited.insert((edge_idx, node_idx));
+
+                    match &self.graph[node_idx] {
+                        Node::Reconverge(..) => {
+                            if self.dominator_stack.contains(&node_idx) {
+                                // stop here, never go beyond the domninators reconvergence point
+                                // log::trace!(
+                                //     "current: dominator={:?} \t taken={} --> {:?} \t STOP: found reconvergence point",
+                                //     self.graph[reconvergence_node_idx],
+                                //     self.graph[edge_idx],
+                                //     self.graph[node_idx],
+                                //     // active_mask,
+                                // );
+                                self.path.pop_back();
+                                self.path.pop_back();
+                                return Some((edge_idx, node_idx));
+                            }
+                        }
+                        Node::Branch(branch_id) => {
+                            // must handle new branch
+                            let reconvergence_point = Node::Reconverge(*branch_id);
+                            let reconvergence_node_idx =
+                                self.graph.find_node(&reconvergence_point).unwrap();
+                            self.dominator_stack.push_back(reconvergence_node_idx);
+                        }
+                    }
+
+                    // let reconvergence_node_idx: Option<petgraph::graph::NodeIndex> =
+                    //     self.dominator_stack.front().copied();
+
+                    // log::trace!(
+                    //     "current: dominator={:?} \t taken={} --> {:?}",
+                    //     reconvergence_node_idx.map(|idx| &self.graph[idx]),
+                    //     self.graph[edge_idx],
+                    //     self.graph[node_idx],
+                    //     // active_mask,
+                    // );
+
+                    let mut has_children = false;
+
+                    let mut outgoing_neigbors = self.graph.outgoing_neigbors(node_idx);
                     outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
-
                     // self.path.pop_back();
                     for (outgoing_edge_idx, next_node_idx) in outgoing_neigbors {
                         if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
                             continue;
                         }
 
+                        has_children = true;
                         self.stack.push_back((outgoing_edge_idx, next_node_idx));
-                        // self.stack.push_back((outgoing_edge_idx, next_node_idx));
-                        // self.stack.push_front(child);
                     }
 
                     // let mut edges = self
                     //     .graph
-                    //     .neighbors_directed(reconvergence_node_idx, petgraph::Outgoing)
+                    //     .neighbors_directed(node_idx, petgraph::Outgoing)
                     //     .detach();
                     //
-                    // self.path.pop_back();
-                    //
+                    // // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
                     // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
+                    //     // log::trace!(
+                    //     //     "pushing branch \t {:?} --> taken={} --> {:?}",
+                    //     //     self.graph[node_idx],
+                    //     //     self.graph[outgoing_edge_idx],
+                    //     //     self.graph[next_node_idx],
+                    //     // );
                     //     if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
                     //         continue;
                     //     }
                     //
+                    //     has_children = true;
                     //     self.stack.push_back((outgoing_edge_idx, next_node_idx));
-                    //     // self.stack.push_back((outgoing_edge_idx, next_node_idx));
-                    //     // self.stack.push_front(child);
+                    //     // self.stack.push_front((edge_idx, node_idx));
+                    //     // break;
                     // }
-                    // // self.path = [(None, reconvergence_node_idx)].into_iter().collect();
-                }
 
-                if self.stack.is_empty() {
-                    // done
-                    log::trace!("done");
-                    return None;
-                }
+                    if !has_children {
+                        self.path.pop_back();
+                    }
+                    Some((edge_idx, node_idx))
+                } else {
+                    // stack is empty, proceed with parent denominator
+                    // if let Some(reconvergence_node_idx) = self.dominator_stack.pop_front() {
+                    if let Some(reconvergence_node_idx) = self.dominator_stack.pop_back() {
+                        log::trace!("all reconverged {:?}", self.graph[reconvergence_node_idx]);
 
-                if let Some(ref mut limit) = self.limit {
-                    *limit = limit.checked_sub(1).unwrap_or(0);
-                    assert!(*limit != 0, "limit reached");
-                }
+                        let mut outgoing_neigbors =
+                            self.graph.outgoing_neigbors(reconvergence_node_idx);
+                        outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
 
-                self.next()
+                        // self.path.pop_back();
+                        for (outgoing_edge_idx, next_node_idx) in outgoing_neigbors {
+                            if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                                continue;
+                            }
+
+                            self.stack.push_back((outgoing_edge_idx, next_node_idx));
+                            // self.stack.push_back((outgoing_edge_idx, next_node_idx));
+                            // self.stack.push_front(child);
+                        }
+
+                        // let mut edges = self
+                        //     .graph
+                        //     .neighbors_directed(reconvergence_node_idx, petgraph::Outgoing)
+                        //     .detach();
+                        //
+                        // self.path.pop_back();
+                        //
+                        // while let Some((outgoing_edge_idx, next_node_idx)) = edges.next(&self.graph) {
+                        //     if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                        //         continue;
+                        //     }
+                        //
+                        //     self.stack.push_back((outgoing_edge_idx, next_node_idx));
+                        //     // self.stack.push_back((outgoing_edge_idx, next_node_idx));
+                        //     // self.stack.push_front(child);
+                        // }
+                        // // self.path = [(None, reconvergence_node_idx)].into_iter().collect();
+                    }
+
+                    if self.stack.is_empty() {
+                        // done
+                        log::trace!("done");
+                        return None;
+                    }
+
+                    if let Some(ref mut limit) = self.limit {
+                        *limit = limit.checked_sub(1).unwrap_or(0);
+                        assert!(*limit != 0, "limit reached");
+                    }
+
+                    self.next()
+                }
             }
         }
     }
