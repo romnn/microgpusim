@@ -7,7 +7,7 @@ use trace_model::ToBitString;
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
 
 /// four sectors
-pub const SECTOR_CHUNCK_SIZE: usize = 4;
+pub const SECTOR_CHUNK_SIZE: usize = 4;
 
 /// Sector size is 32 bytes width
 pub const SECTOR_SIZE: u32 = 32;
@@ -134,8 +134,8 @@ impl MemorySubPartition {
     fn breakdown_request_to_sector_requests(
         &self,
         fetch: mem_fetch::MemFetch,
-    ) -> Vec<mem_fetch::MemFetch> {
-        let mut sector_requests = Vec::new();
+        sector_requests: &mut [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE],
+    ) {
         log::trace!(
             "breakdown to sector requests for {fetch} with data size {} sector mask={}",
             fetch.data_size(),
@@ -180,20 +180,17 @@ impl MemorySubPartition {
             }
         }
 
-        let num_sectors = SECTOR_CHUNCK_SIZE as usize;
+        let num_sectors = SECTOR_CHUNK_SIZE as usize;
         let sector_size = SECTOR_SIZE as usize;
 
         if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
-            sector_requests.push(fetch.clone());
+            sector_requests[0] = Some(fetch.clone());
         } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
             // break down every sector
             let mut byte_mask = mem_fetch::ByteMask::ZERO;
             // todo: rename sector_chunk_size to num_sectors
             for sector in 0..num_sectors {
                 byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-                // for k in (i * SECTOR_SIZE)..((i + 1) * SECTOR_SIZE) {
-                //     byte_mask.set(k as usize, true);
-                // }
                 let sector_fetch = SectorFetch {
                     sector,
                     addr: fetch.addr() + (sector_size * sector) as u64,
@@ -201,47 +198,18 @@ impl MemorySubPartition {
                     original_fetch: fetch.clone(),
                     config: &*self.config,
                 };
-
-                // let mut new_fetch = fetch.clone();
-                // new_fetch.access.addr += SECTOR_SIZE as u64 * sector as u64;
-                // new_fetch.access.byte_mask &= byte_mask;
-                // new_fetch.access.sector_mask.set(sector as usize, true);
-
-                // new_fetch.access.addr = fetch.addr() + SECTOR_SIZE as u64 * i as u64;
-                // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
-                // mf->get_addr() + SECTOR_SIZE * i, mf->get_access_type(),
-                // mf->get_access_warp_mask(), mf->get_access_byte_mask() & mask,
-                // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE, mf->is_write(),
-                // m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
-                // mf->get_sid(), mf->get_tpc(), mf);
-
-                sector_requests.push(sector_fetch.into());
+                sector_requests[sector] = Some(sector_fetch.into());
             }
-            // This is for constant cache
         } else if fetch.data_size() == 64
             && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
         {
+            // This is for constant cache
             let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
             let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
 
             let mut byte_mask = mem_fetch::ByteMask::ZERO;
             for sector in sector_start..(sector_start + 2) {
                 byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-                // for k in i * SECTOR_SIZE..((i + 1) * SECTOR_SIZE) {
-                //     byte_mask.set(k as usize, true);
-                // }
-
-                // let mut new_fetch = fetch.clone();
-                // // address is the same
-                // // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
-                // new_fetch.access.byte_mask &= byte_mask;
-                // new_fetch.access.sector_mask.set(i as usize, true);
-
-                // mf->get_addr(), mf->get_access_type(), mf->get_access_warp_mask(),
-                // mf->get_access_byte_mask() & mask,
-                // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE, mf->is_write(),
-                // m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, mf->get_wid(),
-                // mf->get_sid(), mf->get_tpc(), mf);
 
                 let sector_fetch = SectorFetch {
                     sector,
@@ -251,18 +219,19 @@ impl MemorySubPartition {
                     config: &*self.config,
                 };
 
-                sector_requests.push(sector_fetch.into());
+                sector_requests[sector] = Some(sector_fetch.into());
             }
+        } else if fetch.data_size() > MAX_MEMORY_ACCESS_SIZE {
+            panic!(
+                "fetch {fetch} has data size={} (max data size is {MAX_MEMORY_ACCESS_SIZE })",
+                fetch.data_size()
+            );
         } else {
             // access sectors individually
             for sector in 0..num_sectors {
                 if fetch.access.sector_mask[sector as usize] {
                     let mut byte_mask = mem_fetch::ByteMask::ZERO;
                     byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-
-                    // for k in (i * SECTOR_SIZE)..((i + 1) * SECTOR_SIZE) {
-                    //     byte_mask.set(k as usize, true);
-                    // }
 
                     let sector_fetch = SectorFetch {
                         sector,
@@ -272,22 +241,7 @@ impl MemorySubPartition {
                         config: &*self.config,
                     };
 
-                    // let mut new_fetch = fetch.clone();
-                    // new_fetch.access.addr += SECTOR_SIZE as u64 * i as u64;
-                    // new_fetch.access.byte_mask &= byte_mask;
-                    // new_fetch.access.sector_mask.set(i as usize, true);
-
-                    // new_fetch.access.addr = fetch.addr() + SECTOR_SIZE as u64 * i as u64;
-                    // new_fetch.access.byte_mask = *fetch.access_byte_mask() & byte_mask;
-                    //
-                    // different addr
-                    // mf->get_addr() + SECTOR_SIZE * i, mf->get_access_type(),
-                    // mf->get_access_warp_mask(), mf->get_access_byte_mask() & mask,
-                    // std::bitset<SECTOR_CHUNCK_SIZE>().set(i), SECTOR_SIZE,
-                    // mf->is_write(), m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,
-                    // mf->get_wid(), mf->get_sid(), mf->get_tpc(), mf);
-
-                    sector_requests.push(sector_fetch.into());
+                    sector_requests[sector] = Some(sector_fetch.into());
                 }
             }
         }
@@ -295,25 +249,32 @@ impl MemorySubPartition {
             "sector requests for {fetch}: {:?}",
             sector_requests
                 .iter()
+                .filter_map(|x| x.as_ref())
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
         );
-        debug_assert!(!sector_requests.is_empty(), "no fetch sent");
-        sector_requests
+        debug_assert!(
+            sector_requests.iter().any(|req| req.is_some()),
+            "no fetch sent"
+        );
     }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
-        // m_stats->memlatstat_icnt2mem_pop(m_req);
-        let mut requests = Vec::new();
+        let mut sector_requests: [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE] =
+            [(); SECTOR_CHUNK_SIZE].map(|_| None);
+
         let l2_config = self.config.data_cache_l2.as_ref().unwrap();
         if l2_config.inner.kind == config::CacheKind::Sector {
-            requests.extend(self.breakdown_request_to_sector_requests(fetch));
+            self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
         } else {
-            requests.push(fetch);
-        }
+            sector_requests[0] = Some(fetch);
+        };
 
-        for mut fetch in requests.drain(..) {
-            // self.request_tracker.insert(fetch);
+        for mut fetch in sector_requests
+            .into_iter()
+            .filter_map(|x: Option<mem_fetch::MemFetch>| x)
+        {
+            self.request_tracker.insert(fetch.clone());
             assert!(!self.interconn_to_l2_queue.full());
             fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
 
@@ -433,19 +394,22 @@ impl MemorySubPartition {
                         data: fetch,
                         time: cycle,
                     });
-                } else if l2_config.inner.write_allocate_policy
-                    == cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
-                {
-                    let mut original_write_fetch = *fetch.original_fetch.unwrap();
-                    original_write_fetch.set_reply();
-                    original_write_fetch
-                        .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
-                    // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.l2_to_interconn_queue.enqueue(Packet {
-                        data: original_write_fetch,
-                        time: cycle,
-                    });
-                    todo!("fetch on write: l2 to icnt queue");
+                } else {
+                    if l2_config.inner.write_allocate_policy
+                        == cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
+                    {
+                        let mut original_write_fetch = *fetch.original_fetch.unwrap();
+                        original_write_fetch.set_reply();
+                        original_write_fetch
+                            .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
+                        // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+                        self.l2_to_interconn_queue.enqueue(Packet {
+                            data: original_write_fetch,
+                            time: cycle,
+                        });
+                        todo!("fetch on write: l2 to icnt queue");
+                    }
+                    self.request_tracker.remove(&fetch);
                 }
             }
         }
@@ -524,8 +488,7 @@ impl MemorySubPartition {
                                     // L2 cache replies
                                     assert!(!read_sent);
                                     if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
-                                        // m_request_tracker.erase(mf);
-                                        // delete mf;
+                                        self.request_tracker.remove(&fetch);
                                     } else {
                                         fetch.set_reply();
                                         fetch.set_status(
@@ -549,8 +512,7 @@ impl MemorySubPartition {
                                     && !cache::event::was_writeallocate_sent(&events)
                                 {
                                     if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
-                                        //     m_request_tracker.erase(mf);
-                                        //     delete mf;
+                                        self.request_tracker.remove(&fetch);
                                     } else {
                                         fetch.set_reply();
                                         fetch.set_status(

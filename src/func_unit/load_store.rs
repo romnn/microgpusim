@@ -126,7 +126,11 @@ impl LoadStoreUnit {
                 );
 
                 let mut data_cache = cache::data::Builder {
-                    name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
+                    // name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
+                    name: format!(
+                        "ldst-unit-{cluster_id}-{core_id}-{}",
+                        style("L1D-CACHE").green()
+                    ),
                     core_id,
                     cluster_id,
                     stats: cache_stats,
@@ -534,8 +538,8 @@ impl LoadStoreUnit {
                     instr: Some(instr.clone()),
                     access,
                     warp_id: instr.warp_id,
-                    core_id: self.core_id,
-                    cluster_id: self.cluster_id,
+                    core_id: Some(self.core_id),
+                    cluster_id: Some(self.cluster_id),
                     physical_addr,
                     partition_addr,
                 }
@@ -648,8 +652,8 @@ impl LoadStoreUnit {
                         instr: Some(instr.clone()),
                         access,
                         warp_id: instr.warp_id,
-                        core_id: self.core_id,
-                        cluster_id: self.cluster_id,
+                        core_id: Some(self.core_id),
+                        cluster_id: Some(self.cluster_id),
                         physical_addr,
                         partition_addr,
                     }
@@ -709,8 +713,8 @@ impl LoadStoreUnit {
                 access: access.clone(),
                 // &self.config,
                 warp_id: instr.warp_id,
-                core_id: self.core_id,
-                cluster_id: self.cluster_id,
+                core_id: Some(self.core_id),
+                cluster_id: Some(self.cluster_id),
                 physical_addr,
                 partition_addr,
             }

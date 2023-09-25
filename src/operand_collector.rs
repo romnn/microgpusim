@@ -1,6 +1,7 @@
 use super::{config, instruction::WarpInstruction, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
+use itertools::Itertools;
 use register_set::Access;
 use trace_model::ToBitString;
 use utils::box_slice;
@@ -42,32 +43,6 @@ pub struct Operand {
     pub scheduler_id: usize,
     pub collector_unit_id: Option<usize>,
 }
-
-// impl Operand {
-//     #[must_use]
-//     pub fn new(
-//         warp_id: Option<usize>,
-//         cu_id: usize,
-//         op: usize,
-//         reg: u32,
-//         bank: usize,
-//         scheduler_id: usize,
-//     ) -> Self {
-//         Self {
-//             bank,
-//             warp_id,
-//             operand: Some(op),
-//             register: reg,
-//             scheduler_id,
-//             collector_unit_id: Some(cu_id),
-//         }
-//     }
-//
-//     #[must_use]
-//     pub fn warp_id(&self) -> Option<usize> {
-//         self.warp_id
-//     }
-// }
 
 #[derive(Debug)]
 pub struct CollectorUnit {
@@ -128,7 +103,6 @@ impl CollectorUnit {
         self.num_banks_per_scheduler = banks_per_scheduler;
     }
 
-    // looks ok
     #[must_use]
     pub fn ready(&self) -> bool {
         if self.free {
@@ -155,7 +129,6 @@ impl CollectorUnit {
         !self.free && self.not_ready.not_any() && has_free_register
     }
 
-    // looks ok
     pub fn dispatch(&mut self) {
         debug_assert!(self.not_ready.not_any());
         let output_register = self.output_register.take().unwrap();
@@ -166,8 +139,6 @@ impl CollectorUnit {
         // TODO HOTFIX: workaround
         self.warp_id = None;
         self.reg_id = 0;
-
-        // let mut output_register = self.output_register.as_mut().unwrap();
 
         if self.sub_core_model {
             // let msg = format!(
@@ -220,39 +191,34 @@ impl CollectorUnit {
                     .collect::<Vec<i64>>(),
             );
 
-            // remove duplicate regs within same instr
-            let mut prev_regs: Vec<u32> = Vec::new();
-            for op in 0..MAX_REG_OPERANDS {
-                // this math needs to match that used in function_info::ptx_decode_inst
-                if let Some(reg_num) = ready_reg.src_arch_reg[op] {
-                    let is_new_reg = !prev_regs.contains(&reg_num);
-                    if is_new_reg {
-                        // valid register
-                        prev_regs.push(reg_num);
-                        let scheduler_id = ready_reg.scheduler_id.unwrap();
-                        let bank = register_bank(
-                            reg_num,
-                            ready_reg.warp_id,
-                            self.num_banks,
-                            self.bank_warp_shift,
-                            self.sub_core_model,
-                            self.num_banks_per_scheduler,
-                            scheduler_id,
-                        );
+            self.src_operands.fill(None);
+            for (op, reg_num) in ready_reg
+                .src_arch_reg
+                .iter()
+                .enumerate()
+                .filter_map(|(op, reg_num)| reg_num.map(|reg_num| (op, reg_num)))
+                .unique_by(|(_, reg_num)| *reg_num)
+            {
+                let scheduler_id = ready_reg.scheduler_id.unwrap();
+                let bank = register_bank(
+                    reg_num,
+                    ready_reg.warp_id,
+                    self.num_banks,
+                    self.bank_warp_shift,
+                    self.sub_core_model,
+                    self.num_banks_per_scheduler,
+                    scheduler_id,
+                );
 
-                        self.src_operands[op] = Some(Operand {
-                            warp_id: self.warp_id,
-                            collector_unit_id: Some(self.id),
-                            operand: Some(op),
-                            register: reg_num,
-                            bank,
-                            scheduler_id,
-                        });
-                        self.not_ready.set(op, true);
-                    } else {
-                        self.src_operands[op] = None;
-                    }
-                }
+                self.src_operands[op] = Some(Operand {
+                    warp_id: self.warp_id,
+                    collector_unit_id: Some(self.id),
+                    operand: Some(op),
+                    register: reg_num,
+                    bank,
+                    scheduler_id,
+                });
+                self.not_ready.set(op, true);
             }
             log::debug!(
                 "operand collector::allocate({:?}) => active: {}",
@@ -1002,7 +968,7 @@ impl RegisterFileUnit {
 
 #[cfg(test)]
 mod test {
-    use crate::{testing};
+    use crate::testing;
     use std::ops::Deref;
     use trace_model::ToBitString;
 

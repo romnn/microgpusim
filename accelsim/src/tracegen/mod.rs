@@ -84,6 +84,13 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
                 let kernel_trace_path = accelsim_traces_dir.join(&kernel.trace_file);
                 let reader = utils::fs::open_readable(kernel_trace_path)?;
                 let mem_only = false;
+
+                // accelsim kernel launch ids start at index 1
+                kernel.id = kernel
+                    .id
+                    .checked_sub(1)
+                    .expect("accelsim kernel launch ids start at index 1");
+
                 let parsed_trace = reader::read_trace_instructions(
                     reader,
                     metadata.trace_version,
@@ -105,16 +112,6 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
 
                 // update the kernel trace path
                 kernel.trace_file = generated_kernel_trace_name;
-
-                // note: accelsim kernel launch ids start at index 1
-                // for (cmd, _) in &mut command_traces {
-                //     if let trace_model::Command::KernelLaunch(kernel) = cmd {
-                kernel.id = kernel
-                    .id
-                    .checked_sub(1)
-                    .expect("accelsim kernel launch ids start at index 1");
-                //     }
-                // }
 
                 Ok::<_, eyre::Report>(trace_model::Command::KernelLaunch(kernel))
             }

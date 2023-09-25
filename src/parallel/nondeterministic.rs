@@ -115,21 +115,22 @@ fn new_serial_cycle<I>(
             let device = config.mem_id_to_device_id(i);
             if interconn.has_buffer(device, response_packet_size) {
                 let mut fetch = mem_sub.pop().unwrap();
-                let cluster_id = fetch.cluster_id;
-                fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                // drop(fetch);
-                interconn.push(
-                    device,
-                    cluster_id,
-                    ic::Packet {
-                        data: fetch,
-                        time: cycle,
-                    },
-                    response_packet_size,
-                );
-                // self.partition_replies_in_parallel += 1;
+                if let Some(cluster_id) = fetch.cluster_id {
+                    fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                    // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // , gpu_sim_cycle + gpu_tot_sim_cycle);
+                    // drop(fetch);
+                    interconn.push(
+                        device,
+                        cluster_id,
+                        ic::Packet {
+                            data: fetch,
+                            time: cycle,
+                        },
+                        response_packet_size,
+                    );
+                    // self.partition_replies_in_parallel += 1;
+                }
             } else {
                 // self.gpu_stall_icnt2sh += 1;
             }
@@ -154,7 +155,7 @@ fn new_serial_cycle<I>(
         // same as full with parameter overload
         if mem_sub
             .interconn_to_l2_queue
-            .can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
+            .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
         {
             if let Some(packet) = interconn.pop(device) {
                 log::debug!(
@@ -1569,21 +1570,22 @@ where
                 let device = self.config.mem_id_to_device_id(i);
                 if self.interconn.has_buffer(device, response_packet_size) {
                     let mut fetch = mem_sub.pop().unwrap();
-                    let cluster_id = fetch.cluster_id;
-                    fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                    // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                    // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                    // drop(fetch);
-                    self.interconn.push(
-                        device,
-                        cluster_id,
-                        ic::Packet {
-                            data: fetch,
-                            time: cycle,
-                        },
-                        response_packet_size,
-                    );
-                    // self.partition_replies_in_parallel += 1;
+                    if let Some(cluster_id) = fetch.cluster_id {
+                        fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                        // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+                        // , gpu_sim_cycle + gpu_tot_sim_cycle);
+                        // drop(fetch);
+                        self.interconn.push(
+                            device,
+                            cluster_id,
+                            ic::Packet {
+                                data: fetch,
+                                time: cycle,
+                            },
+                            response_packet_size,
+                        );
+                        // self.partition_replies_in_parallel += 1;
+                    }
                 } else {
                     // self.gpu_stall_icnt2sh += 1;
                 }
@@ -1608,7 +1610,7 @@ where
             // same as full with parameter overload
             if mem_sub
                 .interconn_to_l2_queue
-                .can_fit(mem_sub_partition::SECTOR_CHUNCK_SIZE as usize)
+                .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
             {
                 if let Some(packet) = self.interconn.pop(device) {
                     log::debug!(

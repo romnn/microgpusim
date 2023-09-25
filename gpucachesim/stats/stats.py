@@ -27,11 +27,22 @@ READ_ACCESS_KINDS = [
 ]
 WRITE_ACCESS_KINDS = ["GLOBAL_ACC_W", "LOCAL_ACC_W", "L1_WRBK_ACC", "L2_WRBK_ACC"]
 
+ACCESS_KINDS = READ_ACCESS_KINDS + WRITE_ACCESS_KINDS
+
 INDEX_COLS = [
     "kernel_name",
     "kernel_name_mangled",
     "kernel_launch_id",
     "run",
+]
+
+ACCESS_STATUSES = [
+    "HIT",
+    "HIT_RESERVED",
+    "MISS",
+    "RESERVATION_FAIL",
+    "SECTOR_MISS",
+    "MSHR_HIT",
 ]
 
 # def access_is_write(access_type: str) -> bool:

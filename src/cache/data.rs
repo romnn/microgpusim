@@ -95,9 +95,11 @@ where
         );
 
         // update LRU state
+        let old_cache_index = cache_index;
         let tag_array::AccessStatus { cache_index, .. } =
             self.inner.tag_array.access(block_addr, fetch, time);
         let cache_index = cache_index.expect("write hit write back");
+        assert_eq!(old_cache_index, cache_index);
 
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
@@ -112,22 +114,28 @@ where
     }
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
-        use crate::mem_sub_partition::{SECTOR_CHUNCK_SIZE, SECTOR_SIZE};
+        use crate::mem_sub_partition::{SECTOR_CHUNK_SIZE, SECTOR_SIZE};
         let block = self.inner.tag_array.get_block_mut(cache_index);
-        for i in 0..SECTOR_CHUNCK_SIZE as usize {
-            let sector_mask = fetch.access.sector_mask;
-            if sector_mask[i] {
-                let mut all_set = true;
-                for k in (i * SECTOR_SIZE as usize)..((i + 1) * SECTOR_SIZE as usize) {
-                    // If any bit in the byte mask (within the sector) is not set,
-                    // the sector is unreadble
-                    if !block.dirty_byte_mask()[k] {
-                        all_set = false;
-                        break;
-                    }
-                }
-                if all_set {
-                    block.set_readable(true, &fetch.access.sector_mask);
+        for sector in 0..SECTOR_CHUNK_SIZE as usize {
+            let sector_mask = &fetch.access.sector_mask;
+            if sector_mask[sector] {
+                let dirty_byte_mask = &block.dirty_byte_mask();
+                let bytes = &dirty_byte_mask
+                    [sector * SECTOR_SIZE as usize..(sector + 1) * SECTOR_SIZE as usize];
+
+                // TODO: test if this is equal
+                // let mut all_set = true;
+                // for byte in (sector * SECTOR_SIZE as usize)..((sector + 1) * SECTOR_SIZE as usize) {
+                //     // If any bit in the byte mask (within the sector) is not set,
+                //     // the sector is unreadble
+                //     if !dirty_byte_mask[byte] {
+                //         all_set = false;
+                //         break;
+                //     }
+                // }
+                // if all_set {
+                if bytes.all() {
+                    block.set_readable(true, sector_mask);
                 }
             }
         }
@@ -262,8 +270,8 @@ where
                         instr: fetch.instr.clone(),
                         access: writeback_access,
                         warp_id: 0,
-                        core_id: 0,
-                        cluster_id: 0,
+                        core_id: None,
+                        cluster_id: None,
                         physical_addr,
                         partition_addr,
                     }
@@ -475,8 +483,8 @@ where
                         instr: None,
                         access: writeback_access,
                         warp_id: 0,
-                        core_id: 0,
-                        cluster_id: 0,
+                        core_id: None,
+                        cluster_id: None,
                         physical_addr,
                         partition_addr,
                     }

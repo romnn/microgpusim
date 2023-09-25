@@ -206,7 +206,11 @@ pub fn expand(inputs: &Inputs, includes: &Includes, excludes: &Excludes) -> Vec<
             prods.push(ExpandedInput::Include(include.clone()));
         }
     }
-    prods.into_iter().map(ExpandedInput::into_inner).collect()
+    let mut prods: Vec<_> = prods.into_iter().map(ExpandedInput::into_inner).collect();
+    if prods.is_empty() {
+        prods.push(Input::default());
+    }
+    prods
 }
 
 impl Matrix {

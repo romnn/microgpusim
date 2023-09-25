@@ -134,6 +134,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         // dbg!(&kernel_stats.l1i_stats);
         dbg!(&kernel_stats.l1d_stats);
         dbg!(&kernel_stats.l2d_stats);
+        dbg!(&kernel_stats.dram.reduce());
     }
     // dbg!(gpucachesim::is_debug());
 

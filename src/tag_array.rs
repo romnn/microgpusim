@@ -1,5 +1,5 @@
 use super::{address, cache, mem_fetch};
-use crate::config;
+use crate::{config, mem_sub_partition::SECTOR_CHUNK_SIZE};
 
 use std::collections::HashMap;
 
@@ -217,11 +217,10 @@ where
 
     #[inline]
     fn flush(&mut self) -> usize {
-        use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
         let mut flushed = 0;
         for line in &mut self.lines {
             if line.is_modified() {
-                for i in 0..SECTOR_CHUNCK_SIZE {
+                for i in 0..SECTOR_CHUNK_SIZE {
                     let mut sector_mask = mem_fetch::SectorMask::ZERO;
                     sector_mask.set(i as usize, true);
                     line.set_status(cache::block::Status::INVALID, &sector_mask);
@@ -235,9 +234,8 @@ where
 
     #[inline]
     fn invalidate(&mut self) {
-        use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
         for line in &mut self.lines {
-            for i in 0..SECTOR_CHUNCK_SIZE {
+            for i in 0..SECTOR_CHUNK_SIZE {
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;
                 sector_mask.set(i as usize, true);
                 line.set_status(cache::block::Status::INVALID, &sector_mask);

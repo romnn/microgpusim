@@ -1457,8 +1457,8 @@ where
                             instr: None,
                             access,
                             warp_id,
-                            core_id: self.core_id,
-                            cluster_id: self.cluster_id,
+                            core_id: Some(self.core_id),
+                            cluster_id: Some(self.cluster_id),
                             physical_addr,
                             partition_addr,
                         }

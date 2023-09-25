@@ -436,6 +436,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         num_memory_controllers: 8,                   // 8
         num_sub_partitions_per_memory_controller: 2, // 2
         fill_l2_on_memcopy: false,                   // true
+        accelsim_compat: true,
         ..config::GPU::default()
     });
 

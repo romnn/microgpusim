@@ -492,6 +492,9 @@ impl crate::Benchmarks {
                     .map(|(benchmark_idx, (name, bench))| {
                         let mut bench_configs =
                             bench.materialize_for_target(&name, base, &config, target)?;
+                        if name.contains("parboil") {
+                            dbg!(&target, &name, bench_configs.len());
+                        }
                         for bench_config in &mut bench_configs {
                             bench_config.benchmark_idx = benchmark_idx;
                         }

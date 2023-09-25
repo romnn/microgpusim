@@ -335,11 +335,11 @@ fn compute_per_command_bench_configs<'a>(
             let mut bench_configs: Vec<_> = materialized
                 .benchmark_configs()
                 .filter(|bench_config| {
-                    if !targets.contains(&bench_config.target) {
+                    if !bench_config.common.enabled.unwrap_or(true) {
                         return false;
                     }
 
-                    if !bench_config.common.enabled.unwrap_or(true) {
+                    if !targets.contains(&bench_config.target) {
                         return false;
                     }
 
@@ -356,7 +356,7 @@ fn compute_per_command_bench_configs<'a>(
                             ];
                             valid_patterns
                                 .into_iter()
-                                .any(move |p| b.to_lowercase() == *p)
+                                .any(move |p| p.contains(&b.to_lowercase()))
                         });
                         if !is_match {
                             return false;
@@ -378,6 +378,7 @@ fn compute_per_command_bench_configs<'a>(
 
             if let Command::Build(_) | Command::Clean(_) = command {
                 // do not build the same executables multiple times
+                // dbg!(bench_configs.len());
                 bench_configs.dedup_by_key(|bench_config| bench_config.executable.clone());
             }
 
@@ -399,7 +400,22 @@ fn compute_per_command_bench_configs<'a>(
 #[allow(clippy::too_many_lines)]
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> eyre::Result<()> {
-    env_logger::init();
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.format(|buf, record| {
+        use std::io::Write;
+        let level_style = buf.default_level_style(record.level());
+        writeln!(
+            buf,
+            "[ {} {} ] {}",
+            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+            level_style.value(record.level()),
+            record.module_path().unwrap_or(""),
+            record.args()
+        )
+    });
+    log_builder.parse_default_env();
+    log_builder.init();
+
     color_eyre::install()?;
     dotenv::dotenv().ok();
 
@@ -505,7 +521,7 @@ async fn main() -> eyre::Result<()> {
     }
     // do not finish the bar if a stage failed
     if results.len() == num_bench_configs {
-        // bar.finish();
+        bar.finish();
     }
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);

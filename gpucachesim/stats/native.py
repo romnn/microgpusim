@@ -208,8 +208,25 @@ class Stats(common.Stats):
 
         self.df = pd.concat(dfs)
 
-        # grouped = self.df.groupby(INDEX_COLS, dropna=False)
-        # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
+        grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        print(
+            grouped[
+                [
+                    "l2_read_transactions",
+                    "l2_tex_read_hit_rate",
+                    "l2_tex_write_hit_rate",
+                    # "dram_write_transactions",
+                    # "dram_read_transactions",
+                ]
+            ]
+            .mean()
+            .reset_index()
+            .head(n=100)
+        )
+        # nvprof_key = "l2_read_transactions"
+        # if nvprof_key in self.df:
+        #     grouped = self.df.groupby(INDEX_COLS, dropna=False)
+        #     self.result_df["l2_reads"] = grouped[nvprof_key].sum()
 
         self.commands_df = pd.concat(command_dfs)
 
@@ -308,7 +325,7 @@ class Stats(common.Stats):
         self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
 
     def _compute_exec_time_sec(self):
-        print(self._kernel_durations_us())
+        # print(self._kernel_durations_us())
         # print(self.result_df)
         self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
         # self.result_df["exec_time_sec"] = self._kernel_durations_us() * float(1e-6)

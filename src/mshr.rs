@@ -228,8 +228,8 @@ mod tests {
             instr: None,
             access,
             warp_id: 0,
-            core_id: 0,
-            cluster_id: 0,
+            core_id: None,
+            cluster_id: None,
             physical_addr,
             partition_addr,
         }

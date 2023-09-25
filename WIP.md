@@ -53,13 +53,9 @@ A miss does not imply that all sectors in the cache line will be filled.
 
 - TODO:
 
-  - DONE: add simple command to xtask to query cuda devices (to be replacing the python script)
   - try to flush / invalidate the L2 cache before profiling
-  - implement a more faithful L2 pre-fill on CUDA memcopies
-  - inject the current kernel ids to actually implement per kernel stats
 
-  - NOTE: change playground back to correct accelsim compat
-
+  - exec driven: refactor the dfs to use a visited hash set + jump back branch stack
   - exec driven: ensure allocations are aligned! (otherwise that can negatively impact access performance)
   - investigate (in this order)
 
@@ -69,11 +65,11 @@ A miss does not imply that all sectors in the cache line will be filled.
 
   - investigate the effect that the dram model has
 
-  - implement per kernel and allocation stats
   - implement stall stats
 
   - add to simulate benchmark configs:
 
+    - 80 clusters @ 1 core?
     - interleave nondeterministic
     - l2 partition addr option
     - DONE: mem only option
@@ -99,6 +95,12 @@ A miss does not imply that all sectors in the cache line will be filled.
 
 DONE:
 
+- DONE: add simple command to xtask to query cuda devices (to be replacing the python script)
+- DONE: implement a more faithful L2 pre-fill on CUDA memcopies
+- DONE: inject the current kernel ids to actually implement per kernel stats
+- DONE: change playground back to correct accelsim compat
+- DONE: refactor DRAM stats to record access kinds
+- DONE: implement per kernel DRAM stats
 - DONE: should really also compare the l1 cache in lockstep so we can quickly find the issues
 - DONE: compare the rop queue
 - DONE: understand the role of the l1 data cache, when is it used?

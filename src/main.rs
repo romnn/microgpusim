@@ -45,8 +45,6 @@ struct Options {
 }
 
 fn main() -> eyre::Result<()> {
-    use std::io::Write;
-
     color_eyre::install()?;
 
     let start = Instant::now();
@@ -56,12 +54,14 @@ fn main() -> eyre::Result<()> {
 
     let mut log_builder = env_logger::Builder::new();
     log_builder.format(|buf, record| {
+        use std::io::Write;
+        let level_style = buf.default_level_style(record.level());
         writeln!(
             buf,
-            // "{} [{}] - {}",
-            "{}",
+            "[ {} {} ] {}",
             // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            // record.level(),
+            level_style.value(record.level()),
+            record.module_path().unwrap_or(""),
             record.args()
         )
     });

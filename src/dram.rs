@@ -58,13 +58,19 @@ impl DRAM {
         let mut stats = self.stats.lock();
         let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
         log::warn!(
-            "dram access: {} ({:?}) data size={}",
+            "dram access: {} ({:?}) data size={} uid={}",
             fetch,
             fetch.access_kind(),
-            fetch.data_size()
+            fetch.data_size(),
+            fetch.uid
         );
         // let atom_size = self.config.atom_size;
-        let idx = (fetch.core_id, dram_id, bank, fetch.access_kind() as usize);
+        let idx = (
+            fetch.core_id.unwrap_or(0),
+            dram_id,
+            bank,
+            fetch.access_kind() as usize,
+        );
 
         kernel_stats.dram.bank_accesses[idx] += 1;
 

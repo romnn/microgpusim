@@ -1,12 +1,13 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
     address, cache, config, interconn as ic, mem_fetch,
-    mem_sub_partition::SECTOR_SIZE,
+    mem_sub_partition::{SECTOR_CHUNK_SIZE, SECTOR_SIZE},
     mshr::{self, MSHR},
     tag_array,
 };
 use cache::block::Block;
 use console::style;
+use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 use tag_array::Access;
 
@@ -20,10 +21,9 @@ struct PendingRequest {
     // this variable is used when a load request generates multiple load
     // transactions For example, a read request from non-sector L1 request sends
     // a request to sector L2
+    #[allow(dead_code)]
     pending_reads: usize,
 }
-
-use crate::mem_sub_partition::SECTOR_CHUNCK_SIZE;
 
 /// Base cache
 ///
@@ -43,7 +43,7 @@ pub struct Base<CC, S> {
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
     // pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
-    pub tag_array: tag_array::TagArray<cache::block::sector::Block<SECTOR_CHUNCK_SIZE>, CC>,
+    pub tag_array: tag_array::TagArray<cache::block::sector::Block<SECTOR_CHUNK_SIZE>, CC>,
     pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     top_port: Option<ic::Port<mem_fetch::MemFetch>>,
     pub bandwidth: super::bandwidth::Manager,
@@ -350,11 +350,32 @@ where
             // pending.pending_reads -= 1;
         }
 
+        // dbg!(fetch.to_string());
+        // dbg!(&self
+        //     .pending
+        //     .iter()
+        //     .map(|(fetch, pending)| (fetch.to_string(), pending))
+        //     .collect::<Vec<_>>());
+
+        let pending_uids = self
+            .pending
+            .keys()
+            .map(|fetch| fetch.uid)
+            .sorted()
+            .collect::<Vec<_>>();
+
+        log::warn!(
+            "{}::baseline_cache::fill({}) uid={} pending={:?}",
+            self.name,
+            fetch,
+            fetch.uid,
+            pending_uids
+        );
+
         let pending = self.pending.remove(&fetch).unwrap();
         self.bandwidth.use_fill_port(&fetch);
 
         debug_assert!(pending.valid);
-        // fetch.data_size = pending.data_size();
         fetch.access.req_size_bytes = pending.data_size;
         fetch.access.addr = pending.addr;
 

@@ -16,7 +16,7 @@ pub const WRITE_PACKET_SIZE: u8 = 8;
 pub const WRITE_MASK_SIZE: u8 = 8;
 
 pub type ByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
-pub type SectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNCK_SIZE as usize, in u8);
+pub type SectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNK_SIZE as usize, in u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Kind {
@@ -130,18 +130,22 @@ pub mod access {
     #[allow(clippy::module_name_repetitions)]
     #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct MemAccess {
-        /// request address
+        /// Requested address.
         pub addr: super::address,
+        /// The allocation that this access corresponds to.
         pub allocation: Option<crate::allocation::Allocation>,
         pub kernel_launch_id: usize,
-        /// if access is write
+        // TODO: is_write could be computed using kind.is_write()
         pub is_write: bool,
-        /// request size in bytes
+        /// Requested number of bytes.
         pub req_size_bytes: u32,
-        /// access type
+        /// Access kind.
         pub kind: Kind,
+        /// Warp active mask of the warp that issued this access.
         pub warp_active_mask: crate::warp::ActiveMask,
+        /// Byte mask.
         pub byte_mask: super::ByteMask,
+        /// Sector mask of this access.
         pub sector_mask: super::SectorMask,
     }
 
@@ -164,11 +168,12 @@ pub mod access {
 
     impl std::fmt::Display for MemAccess {
         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(f, "Access({:?}@", self.kind)?;
+            // write!(f, "Access({:?}@", self.kind)?;
+            write!(f, "{:?}@", self.kind)?;
             if let Some(ref alloc) = self.allocation {
-                write!(f, "{}+{})", &alloc.id, self.addr - alloc.start_addr)
+                write!(f, "{}+{}", &alloc.id, self.addr - alloc.start_addr)
             } else {
-                write!(f, "{})", &self.addr)
+                write!(f, "{}", &self.addr)
             }
         }
     }
@@ -180,6 +185,7 @@ pub mod access {
         pub kernel_launch_id: usize,
         pub allocation: Option<crate::allocation::Allocation>,
         pub req_size_bytes: u32,
+        // TODO: is_write could be computed using kind.is_write()
         pub is_write: bool,
         pub warp_active_mask: crate::warp::ActiveMask,
         pub byte_mask: super::ByteMask,
@@ -267,8 +273,8 @@ pub struct MemFetch {
     pub partition_addr: address,
     pub kind: Kind,
     pub warp_id: usize,
-    pub core_id: usize,
-    pub cluster_id: usize,
+    pub core_id: Option<usize>,
+    pub cluster_id: Option<usize>,
     pub pushed_cycle: Option<u64>,
 
     pub status: Status,
@@ -336,8 +342,8 @@ pub struct Builder {
     pub instr: Option<WarpInstruction>,
     pub access: access::MemAccess,
     pub warp_id: usize,
-    pub core_id: usize,
-    pub cluster_id: usize,
+    pub core_id: Option<usize>,
+    pub cluster_id: Option<usize>,
     pub physical_addr: mcu::PhysicalAddress,
     pub partition_addr: address,
 }

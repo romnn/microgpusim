@@ -106,7 +106,9 @@ where
         );
 
         if let Some(fetch) = self.response_fifo.front() {
-            let core_id = self.config.global_core_id_to_core_id(fetch.core_id);
+            let core_id = self
+                .config
+                .global_core_id_to_core_id(fetch.core_id.unwrap());
 
             // we should not fully lock a core as we completely block a full core cycle
             let core = self.cores[core_id].read();
@@ -158,7 +160,7 @@ where
             .cyan()
         );
 
-        debug_assert_eq!(fetch.cluster_id, self.cluster_id);
+        debug_assert_eq!(fetch.cluster_id, Some(self.cluster_id));
         // debug_assert!(matches!(
         //     fetch.kind,
         //     mem_fetch::Kind::READ_REPLY | mem_fetch::Kind::WRITE_ACK

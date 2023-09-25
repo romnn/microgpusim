@@ -335,6 +335,11 @@ pub enum Parallelization {
 pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,
+    /// Accelsim compatibility mode.
+    ///
+    /// This must be set when running lockstep tests.
+    /// In other cases, accelsim compat mode is not recommended.
+    pub accelsim_compat: bool,
     /// Simulation method
     pub parallelization: Parallelization,
     /// Simulate memory instructions only
@@ -939,6 +944,7 @@ impl Default for GPU {
     fn default() -> Self {
         Self {
             log_after_cycle: None,
+            accelsim_compat: false,
             parallelization: Parallelization::Serial,
             memory_only: false,
             simulation_threads: None,
