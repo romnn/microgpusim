@@ -55,8 +55,6 @@ A miss does not imply that all sectors in the cache line will be filled.
 
   - try to flush / invalidate the L2 cache before profiling
 
-  - exec driven: refactor the dfs to use a visited hash set + jump back branch stack
-  - exec driven: ensure allocations are aligned! (otherwise that can negatively impact access performance)
   - investigate (in this order)
 
     - l1 accesses (transactions?)
@@ -95,6 +93,8 @@ A miss does not imply that all sectors in the cache line will be filled.
 
 DONE:
 
+- DONE: exec driven: refactor the dfs to use a visited hash set + jump back branch stack
+- DONE: exec driven: ensure allocations are aligned! (otherwise that can negatively impact access performance)
 - DONE: add simple command to xtask to query cuda devices (to be replacing the python script)
 - DONE: implement a more faithful L2 pre-fill on CUDA memcopies
 - DONE: inject the current kernel ids to actually implement per kernel stats

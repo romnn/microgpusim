@@ -395,82 +395,83 @@ pub mod visit {
     impl<'a> Iterator for DominatedDfs<'a> {
         type Item = (EdgeIndex, NodeIndex);
         fn next(&mut self) -> Option<Self::Item> {
-            if let Some((edge_idx, node_idx)) = self.stack.pop() {
-                self.path.push((Some(edge_idx), node_idx));
+            let Some((edge_idx, node_idx)) = self.stack.pop() else {
+                log::trace!("done");
+                return None;
+            };
 
-                log::trace!(
-                    "dominator: {:?} {}",
-                    self.dominator_stack.last().map(|dom| &self.graph[*dom]),
-                    super::format_control_flow_path(self.graph, self.path.as_slice())
-                        .collect::<String>(),
-                );
+            self.path.push((Some(edge_idx), node_idx));
 
-                self.visited.insert((edge_idx, node_idx));
-                self.path.clear();
+            log::trace!(
+                "dominator: {:?} {}",
+                self.dominator_stack.last().map(|dom| &self.graph[*dom]),
+                super::format_control_flow_path(self.graph, self.path.as_slice())
+                    .collect::<String>(),
+            );
 
-                match &self.graph[node_idx] {
-                    Node::Reconverge(branch_id) => {
-                        // Encountered a reconvergence point.
-                        //
-                        // Jump back to the last branch node to serialize other possible
-                        // control flow paths.
-                        let last_branch_node_idx = self.dominator_stack.last().unwrap();
-                        assert_eq!(self.graph[*last_branch_node_idx].id(), *branch_id);
+            self.visited.insert((edge_idx, node_idx));
+            self.path.clear();
 
-                        self.stack.clear();
+            match &self.graph[node_idx] {
+                Node::Reconverge(branch_id) => {
+                    // Encountered a reconvergence point.
+                    //
+                    // Jump back to the last branch node to serialize other possible
+                    // control flow paths.
+                    let last_branch_node_idx = self.dominator_stack.last().unwrap();
+                    assert_eq!(self.graph[*last_branch_node_idx].id(), *branch_id);
 
-                        // continue at the last branch node
+                    self.stack.clear();
+
+                    // continue at the last branch node
+                    for (outgoing_edge_idx, next_node_idx) in
+                        self.graph.outgoing_neigbors(*last_branch_node_idx)
+                    {
+                        if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                            continue;
+                        }
+                        self.stack.push((outgoing_edge_idx, next_node_idx));
+                    }
+
+                    if self.stack.is_empty() {
+                        // continue from this reconvergence point
+                        self.dominator_stack.pop();
+
                         for (outgoing_edge_idx, next_node_idx) in
-                            self.graph.outgoing_neigbors(*last_branch_node_idx)
+                            self.graph.outgoing_neigbors(node_idx)
                         {
                             if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
                                 continue;
                             }
+
                             self.stack.push((outgoing_edge_idx, next_node_idx));
                         }
+                    }
 
-                        if self.stack.is_empty() {
-                            // continue from this reconvergence point
-                            self.dominator_stack.pop();
+                    // do not add children of reconvergence node until all control flow paths
+                    // reached convergence.
+                }
+                Node::Branch(_) => {
+                    // add new branch and reconvergence point on the stack
+                    self.dominator_stack.push(node_idx);
 
-                            let mut outgoing_neigbors = self.graph.outgoing_neigbors(node_idx);
-                            outgoing_neigbors.sort_by_key(|(e, _)| self.graph[*e]);
-
-                            for (outgoing_edge_idx, next_node_idx) in outgoing_neigbors {
-                                if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
-                                    continue;
-                                }
-
-                                self.stack.push((outgoing_edge_idx, next_node_idx));
-                            }
+                    // continue dfs
+                    let mut has_children = false;
+                    for (outgoing_edge_idx, next_node_idx) in self.graph.outgoing_neigbors(node_idx)
+                    {
+                        if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
+                            continue;
                         }
-
-                        // do not add children of reconvergence node until all control flow paths
-                        // reached convergence.
-                        return Some((edge_idx, node_idx));
+                        has_children = true;
+                        self.stack.push((outgoing_edge_idx, next_node_idx));
                     }
-                    Node::Branch(_) => {
-                        // add new branch and reconvergence point on the stack
-                        self.dominator_stack.push(node_idx);
+                    if !has_children {
+                        self.path.pop();
                     }
                 }
-
-                let mut has_children = false;
-                for (outgoing_edge_idx, next_node_idx) in self.graph.outgoing_neigbors(node_idx) {
-                    if self.visited.contains(&(outgoing_edge_idx, next_node_idx)) {
-                        continue;
-                    }
-                    has_children = true;
-                    self.stack.push((outgoing_edge_idx, next_node_idx));
-                }
-                if !has_children {
-                    self.path.pop();
-                }
-                Some((edge_idx, node_idx))
-            } else {
-                log::trace!("done");
-                None
             }
+
+            Some((edge_idx, node_idx))
         }
     }
 }

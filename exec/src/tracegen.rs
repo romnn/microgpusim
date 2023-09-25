@@ -261,6 +261,10 @@ impl Tracer {
     }
 }
 
+pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
+    (value as f64 / multiple_of as f64).ceil() as u64 * multiple_of
+}
+
 #[async_trait::async_trait]
 impl TraceGenerator for Tracer {
     type Error = TraceError;
@@ -270,8 +274,10 @@ impl TraceGenerator for Tracer {
         T: Allocatable + Send,
     {
         let mut offset_lock = self.offset.lock().await;
-        let offset = *offset_lock;
-        *offset_lock += value.size() as u64;
+        let offset = next_multiple(*offset_lock, 512);
+        // cudaDeviceProp::textureAlignment is either 256 or 512, we choose 512
+        // next multiple of
+        *offset_lock = offset + value.size() as u64;
 
         DevicePtr {
             inner: value,
@@ -439,12 +445,6 @@ impl TraceGenerator for Tracer {
                     .max_by_key(|(_, instructions)| instructions.len())
                     .copied()
                     .unwrap_or_default();
-
-                // log::trace!(
-                //     "node {:?} has {} instructions",
-                //     super_cfg[node_idx],
-                //     longest_thread_trace.len()
-                // );
 
                 let mut branch_trace: Vec<_> = longest_thread_trace
                     .iter()
@@ -975,6 +975,16 @@ mod tests {
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_next_multiple() {
+        assert_eq!(super::next_multiple(1, 512), 512);
+        assert_eq!(super::next_multiple(512, 512), 512);
+        assert_eq!(super::next_multiple(513, 512), 1024);
+        assert_eq!(super::next_multiple(0, 512), 0);
+        assert_eq!(super::next_multiple(1024, 512), 1024);
+        assert_eq!(super::next_multiple(1023, 512), 1024);
     }
 
     #[test]
