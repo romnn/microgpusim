@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 24/09/2023 19:54:23
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 25/09/2023 03:24:34
 ##
 
 config:
@@ -183,6 +183,27 @@ benchmarks:
         profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/profile
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 10
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Profile
+      target_config: !Profile
+        profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/profile
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -192,7 +213,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 10
         timeout: null
@@ -213,7 +234,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 10
         timeout: null
@@ -234,7 +255,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 10
         timeout: null
@@ -255,7 +276,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 10
         timeout: null
@@ -265,6 +286,27 @@ benchmarks:
       target: Profile
       target_config: !Profile
         profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/profile
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 10
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Profile
+      target_config: !Profile
+        profile_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/profile
     simple_matrixmul:
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -1414,6 +1456,31 @@ benchmarks:
         - gpucachesim_skip
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Trace
+      target_config: !Trace
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        save_json: false
+        full_trace: true
+        skip_kernel_prefixes:
+        - gpucachesim_skip
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -1423,7 +1490,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 1
         timeout: null
@@ -1448,7 +1515,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 1
         timeout: null
@@ -1473,7 +1540,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 1
         timeout: null
@@ -1498,7 +1565,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 1
         timeout: null
@@ -1508,6 +1575,31 @@ benchmarks:
       target: Trace
       target_config: !Trace
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/trace
+        save_json: false
+        full_trace: true
+        skip_kernel_prefixes:
+        - gpucachesim_skip
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Trace
+      target_config: !Trace
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
         save_json: false
         full_trace: true
         skip_kernel_prefixes:
@@ -2817,6 +2909,27 @@ benchmarks:
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/accelsim-trace
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimTrace
+      target_config: !AccelsimTrace
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -2826,7 +2939,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 1
         timeout: null
@@ -2847,7 +2960,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 1
         timeout: null
@@ -2868,7 +2981,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 1
         timeout: null
@@ -2889,7 +3002,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 1
         timeout: null
@@ -2899,6 +3012,27 @@ benchmarks:
       target: AccelsimTrace
       target_config: !AccelsimTrace
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimTrace
+      target_config: !AccelsimTrace
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
     simple_matrixmul:
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -8820,6 +8954,1224 @@ benchmarks:
         parallel: null
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 168
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 169
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 170
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 171
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 172
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 173
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 174
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 175
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 176
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 177
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 178
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 179
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 180
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 181
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 182
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 183
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 184
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 185
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 186
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 187
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 188
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 189
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 190
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 191
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 192
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 193
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 194
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 195
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 196
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 197
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 198
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 199
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 200
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 201
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 202
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 203
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 204
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 205
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 206
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 207
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '32'
+      input_idx: 208
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '32'
+      input_idx: 209
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-32-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-cores_per_cluster-1-dtype-64-length-100-memory_only-false-mode-serial-run_ahead-5-threads-4
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -8834,7 +10186,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 168
+      input_idx: 210
       common:
         repetitions: 1
         timeout: null
@@ -8863,7 +10215,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 169
+      input_idx: 211
       common:
         repetitions: 1
         timeout: null
@@ -8892,7 +10244,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 170
+      input_idx: 212
       common:
         repetitions: 1
         timeout: null
@@ -8921,7 +10273,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 171
+      input_idx: 213
       common:
         repetitions: 1
         timeout: null
@@ -8950,7 +10302,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 172
+      input_idx: 214
       common:
         repetitions: 1
         timeout: null
@@ -8979,7 +10331,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 173
+      input_idx: 215
       common:
         repetitions: 1
         timeout: null
@@ -9008,7 +10360,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 174
+      input_idx: 216
       common:
         repetitions: 1
         timeout: null
@@ -9037,7 +10389,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 175
+      input_idx: 217
       common:
         repetitions: 1
         timeout: null
@@ -9066,7 +10418,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 176
+      input_idx: 218
       common:
         repetitions: 1
         timeout: null
@@ -9095,7 +10447,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 177
+      input_idx: 219
       common:
         repetitions: 1
         timeout: null
@@ -9124,7 +10476,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 178
+      input_idx: 220
       common:
         repetitions: 1
         timeout: null
@@ -9153,7 +10505,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 179
+      input_idx: 221
       common:
         repetitions: 1
         timeout: null
@@ -9182,7 +10534,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 180
+      input_idx: 222
       common:
         repetitions: 1
         timeout: null
@@ -9211,7 +10563,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 181
+      input_idx: 223
       common:
         repetitions: 1
         timeout: null
@@ -9240,7 +10592,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 182
+      input_idx: 224
       common:
         repetitions: 1
         timeout: null
@@ -9269,7 +10621,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 183
+      input_idx: 225
       common:
         repetitions: 1
         timeout: null
@@ -9298,7 +10650,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 184
+      input_idx: 226
       common:
         repetitions: 1
         timeout: null
@@ -9327,7 +10679,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 185
+      input_idx: 227
       common:
         repetitions: 1
         timeout: null
@@ -9356,7 +10708,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 186
+      input_idx: 228
       common:
         repetitions: 1
         timeout: null
@@ -9385,7 +10737,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 187
+      input_idx: 229
       common:
         repetitions: 1
         timeout: null
@@ -9414,7 +10766,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 188
+      input_idx: 230
       common:
         repetitions: 1
         timeout: null
@@ -9443,7 +10795,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 189
+      input_idx: 231
       common:
         repetitions: 1
         timeout: null
@@ -9472,7 +10824,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 190
+      input_idx: 232
       common:
         repetitions: 1
         timeout: null
@@ -9501,7 +10853,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 191
+      input_idx: 233
       common:
         repetitions: 1
         timeout: null
@@ -9530,7 +10882,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 192
+      input_idx: 234
       common:
         repetitions: 1
         timeout: null
@@ -9559,7 +10911,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 193
+      input_idx: 235
       common:
         repetitions: 1
         timeout: null
@@ -9588,7 +10940,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 194
+      input_idx: 236
       common:
         repetitions: 1
         timeout: null
@@ -9617,7 +10969,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 195
+      input_idx: 237
       common:
         repetitions: 1
         timeout: null
@@ -9646,7 +10998,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 196
+      input_idx: 238
       common:
         repetitions: 1
         timeout: null
@@ -9675,7 +11027,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 197
+      input_idx: 239
       common:
         repetitions: 1
         timeout: null
@@ -9704,7 +11056,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 198
+      input_idx: 240
       common:
         repetitions: 1
         timeout: null
@@ -9733,7 +11085,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 199
+      input_idx: 241
       common:
         repetitions: 1
         timeout: null
@@ -9762,7 +11114,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 200
+      input_idx: 242
       common:
         repetitions: 1
         timeout: null
@@ -9791,7 +11143,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 201
+      input_idx: 243
       common:
         repetitions: 1
         timeout: null
@@ -9820,7 +11172,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 202
+      input_idx: 244
       common:
         repetitions: 1
         timeout: null
@@ -9849,7 +11201,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 203
+      input_idx: 245
       common:
         repetitions: 1
         timeout: null
@@ -9878,7 +11230,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 204
+      input_idx: 246
       common:
         repetitions: 1
         timeout: null
@@ -9907,7 +11259,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 205
+      input_idx: 247
       common:
         repetitions: 1
         timeout: null
@@ -9936,7 +11288,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 206
+      input_idx: 248
       common:
         repetitions: 1
         timeout: null
@@ -9965,7 +11317,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 207
+      input_idx: 249
       common:
         repetitions: 1
         timeout: null
@@ -9994,7 +11346,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 208
+      input_idx: 250
       common:
         repetitions: 1
         timeout: null
@@ -10023,7 +11375,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 209
+      input_idx: 251
       common:
         repetitions: 1
         timeout: null
@@ -10052,7 +11404,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 210
+      input_idx: 252
       common:
         repetitions: 1
         timeout: null
@@ -10081,7 +11433,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 211
+      input_idx: 253
       common:
         repetitions: 1
         timeout: null
@@ -10110,7 +11462,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 212
+      input_idx: 254
       common:
         repetitions: 1
         timeout: null
@@ -10139,7 +11491,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 213
+      input_idx: 255
       common:
         repetitions: 1
         timeout: null
@@ -10168,7 +11520,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 214
+      input_idx: 256
       common:
         repetitions: 1
         timeout: null
@@ -10197,7 +11549,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 215
+      input_idx: 257
       common:
         repetitions: 1
         timeout: null
@@ -10226,7 +11578,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 216
+      input_idx: 258
       common:
         repetitions: 1
         timeout: null
@@ -10255,7 +11607,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 217
+      input_idx: 259
       common:
         repetitions: 1
         timeout: null
@@ -10284,7 +11636,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 218
+      input_idx: 260
       common:
         repetitions: 1
         timeout: null
@@ -10313,7 +11665,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 219
+      input_idx: 261
       common:
         repetitions: 1
         timeout: null
@@ -10342,7 +11694,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 220
+      input_idx: 262
       common:
         repetitions: 1
         timeout: null
@@ -10371,7 +11723,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 221
+      input_idx: 263
       common:
         repetitions: 1
         timeout: null
@@ -10400,7 +11752,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 222
+      input_idx: 264
       common:
         repetitions: 1
         timeout: null
@@ -10429,7 +11781,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 223
+      input_idx: 265
       common:
         repetitions: 1
         timeout: null
@@ -10458,7 +11810,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 224
+      input_idx: 266
       common:
         repetitions: 1
         timeout: null
@@ -10487,7 +11839,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 225
+      input_idx: 267
       common:
         repetitions: 1
         timeout: null
@@ -10516,7 +11868,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 226
+      input_idx: 268
       common:
         repetitions: 1
         timeout: null
@@ -10545,7 +11897,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 227
+      input_idx: 269
       common:
         repetitions: 1
         timeout: null
@@ -10574,7 +11926,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 228
+      input_idx: 270
       common:
         repetitions: 1
         timeout: null
@@ -10603,7 +11955,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 229
+      input_idx: 271
       common:
         repetitions: 1
         timeout: null
@@ -10632,7 +11984,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 230
+      input_idx: 272
       common:
         repetitions: 1
         timeout: null
@@ -10661,7 +12013,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 231
+      input_idx: 273
       common:
         repetitions: 1
         timeout: null
@@ -10690,7 +12042,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 232
+      input_idx: 274
       common:
         repetitions: 1
         timeout: null
@@ -10719,7 +12071,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 233
+      input_idx: 275
       common:
         repetitions: 1
         timeout: null
@@ -10748,7 +12100,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 234
+      input_idx: 276
       common:
         repetitions: 1
         timeout: null
@@ -10777,7 +12129,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 235
+      input_idx: 277
       common:
         repetitions: 1
         timeout: null
@@ -10806,7 +12158,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 236
+      input_idx: 278
       common:
         repetitions: 1
         timeout: null
@@ -10835,7 +12187,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 237
+      input_idx: 279
       common:
         repetitions: 1
         timeout: null
@@ -10864,7 +12216,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 238
+      input_idx: 280
       common:
         repetitions: 1
         timeout: null
@@ -10893,7 +12245,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 239
+      input_idx: 281
       common:
         repetitions: 1
         timeout: null
@@ -10922,7 +12274,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 240
+      input_idx: 282
       common:
         repetitions: 1
         timeout: null
@@ -10951,7 +12303,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 241
+      input_idx: 283
       common:
         repetitions: 1
         timeout: null
@@ -10980,7 +12332,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 242
+      input_idx: 284
       common:
         repetitions: 1
         timeout: null
@@ -11009,7 +12361,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 243
+      input_idx: 285
       common:
         repetitions: 1
         timeout: null
@@ -11038,7 +12390,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 244
+      input_idx: 286
       common:
         repetitions: 1
         timeout: null
@@ -11067,7 +12419,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 245
+      input_idx: 287
       common:
         repetitions: 1
         timeout: null
@@ -11096,7 +12448,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 246
+      input_idx: 288
       common:
         repetitions: 1
         timeout: null
@@ -11125,7 +12477,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 247
+      input_idx: 289
       common:
         repetitions: 1
         timeout: null
@@ -11154,7 +12506,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 248
+      input_idx: 290
       common:
         repetitions: 1
         timeout: null
@@ -11183,7 +12535,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 249
+      input_idx: 291
       common:
         repetitions: 1
         timeout: null
@@ -11212,7 +12564,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 250
+      input_idx: 292
       common:
         repetitions: 1
         timeout: null
@@ -11241,7 +12593,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 251
+      input_idx: 293
       common:
         repetitions: 1
         timeout: null
@@ -11270,7 +12622,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 252
+      input_idx: 294
       common:
         repetitions: 1
         timeout: null
@@ -11299,7 +12651,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 253
+      input_idx: 295
       common:
         repetitions: 1
         timeout: null
@@ -11328,7 +12680,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 254
+      input_idx: 296
       common:
         repetitions: 1
         timeout: null
@@ -11357,7 +12709,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 255
+      input_idx: 297
       common:
         repetitions: 1
         timeout: null
@@ -11386,7 +12738,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 256
+      input_idx: 298
       common:
         repetitions: 1
         timeout: null
@@ -11415,7 +12767,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 257
+      input_idx: 299
       common:
         repetitions: 1
         timeout: null
@@ -11444,7 +12796,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 258
+      input_idx: 300
       common:
         repetitions: 1
         timeout: null
@@ -11473,7 +12825,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 259
+      input_idx: 301
       common:
         repetitions: 1
         timeout: null
@@ -11502,7 +12854,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 260
+      input_idx: 302
       common:
         repetitions: 1
         timeout: null
@@ -11531,7 +12883,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 261
+      input_idx: 303
       common:
         repetitions: 1
         timeout: null
@@ -11560,7 +12912,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 262
+      input_idx: 304
       common:
         repetitions: 1
         timeout: null
@@ -11589,7 +12941,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 263
+      input_idx: 305
       common:
         repetitions: 1
         timeout: null
@@ -11618,7 +12970,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 264
+      input_idx: 306
       common:
         repetitions: 1
         timeout: null
@@ -11647,7 +12999,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 265
+      input_idx: 307
       common:
         repetitions: 1
         timeout: null
@@ -11676,7 +13028,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 266
+      input_idx: 308
       common:
         repetitions: 1
         timeout: null
@@ -11705,7 +13057,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 267
+      input_idx: 309
       common:
         repetitions: 1
         timeout: null
@@ -11734,7 +13086,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 268
+      input_idx: 310
       common:
         repetitions: 1
         timeout: null
@@ -11763,7 +13115,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 269
+      input_idx: 311
       common:
         repetitions: 1
         timeout: null
@@ -11792,7 +13144,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 270
+      input_idx: 312
       common:
         repetitions: 1
         timeout: null
@@ -11821,7 +13173,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 271
+      input_idx: 313
       common:
         repetitions: 1
         timeout: null
@@ -11850,7 +13202,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 272
+      input_idx: 314
       common:
         repetitions: 1
         timeout: null
@@ -11879,7 +13231,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 273
+      input_idx: 315
       common:
         repetitions: 1
         timeout: null
@@ -11908,7 +13260,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 274
+      input_idx: 316
       common:
         repetitions: 1
         timeout: null
@@ -11937,7 +13289,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 275
+      input_idx: 317
       common:
         repetitions: 1
         timeout: null
@@ -11966,7 +13318,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 276
+      input_idx: 318
       common:
         repetitions: 1
         timeout: null
@@ -11995,7 +13347,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 277
+      input_idx: 319
       common:
         repetitions: 1
         timeout: null
@@ -12024,7 +13376,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 278
+      input_idx: 320
       common:
         repetitions: 1
         timeout: null
@@ -12053,7 +13405,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 279
+      input_idx: 321
       common:
         repetitions: 1
         timeout: null
@@ -12082,7 +13434,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 280
+      input_idx: 322
       common:
         repetitions: 1
         timeout: null
@@ -12111,7 +13463,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 281
+      input_idx: 323
       common:
         repetitions: 1
         timeout: null
@@ -12140,7 +13492,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 282
+      input_idx: 324
       common:
         repetitions: 1
         timeout: null
@@ -12169,7 +13521,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 283
+      input_idx: 325
       common:
         repetitions: 1
         timeout: null
@@ -12198,7 +13550,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 284
+      input_idx: 326
       common:
         repetitions: 1
         timeout: null
@@ -12227,7 +13579,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 285
+      input_idx: 327
       common:
         repetitions: 1
         timeout: null
@@ -12256,7 +13608,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 286
+      input_idx: 328
       common:
         repetitions: 1
         timeout: null
@@ -12285,7 +13637,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 287
+      input_idx: 329
       common:
         repetitions: 1
         timeout: null
@@ -12314,7 +13666,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 288
+      input_idx: 330
       common:
         repetitions: 1
         timeout: null
@@ -12343,7 +13695,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 289
+      input_idx: 331
       common:
         repetitions: 1
         timeout: null
@@ -12372,7 +13724,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 290
+      input_idx: 332
       common:
         repetitions: 1
         timeout: null
@@ -12401,7 +13753,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 291
+      input_idx: 333
       common:
         repetitions: 1
         timeout: null
@@ -12430,7 +13782,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 292
+      input_idx: 334
       common:
         repetitions: 1
         timeout: null
@@ -12459,7 +13811,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 293
+      input_idx: 335
       common:
         repetitions: 1
         timeout: null
@@ -12488,7 +13840,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 294
+      input_idx: 336
       common:
         repetitions: 1
         timeout: null
@@ -12517,7 +13869,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 295
+      input_idx: 337
       common:
         repetitions: 1
         timeout: null
@@ -12546,7 +13898,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 296
+      input_idx: 338
       common:
         repetitions: 1
         timeout: null
@@ -12575,7 +13927,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 297
+      input_idx: 339
       common:
         repetitions: 1
         timeout: null
@@ -12604,7 +13956,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 298
+      input_idx: 340
       common:
         repetitions: 1
         timeout: null
@@ -12633,7 +13985,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 299
+      input_idx: 341
       common:
         repetitions: 1
         timeout: null
@@ -12662,7 +14014,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 300
+      input_idx: 342
       common:
         repetitions: 1
         timeout: null
@@ -12691,7 +14043,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 301
+      input_idx: 343
       common:
         repetitions: 1
         timeout: null
@@ -12720,7 +14072,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 302
+      input_idx: 344
       common:
         repetitions: 1
         timeout: null
@@ -12749,7 +14101,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 303
+      input_idx: 345
       common:
         repetitions: 1
         timeout: null
@@ -12778,7 +14130,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 304
+      input_idx: 346
       common:
         repetitions: 1
         timeout: null
@@ -12807,7 +14159,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 305
+      input_idx: 347
       common:
         repetitions: 1
         timeout: null
@@ -12836,7 +14188,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 306
+      input_idx: 348
       common:
         repetitions: 1
         timeout: null
@@ -12865,7 +14217,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 307
+      input_idx: 349
       common:
         repetitions: 1
         timeout: null
@@ -12894,7 +14246,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 308
+      input_idx: 350
       common:
         repetitions: 1
         timeout: null
@@ -12923,7 +14275,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 309
+      input_idx: 351
       common:
         repetitions: 1
         timeout: null
@@ -12952,7 +14304,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 310
+      input_idx: 352
       common:
         repetitions: 1
         timeout: null
@@ -12981,7 +14333,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 311
+      input_idx: 353
       common:
         repetitions: 1
         timeout: null
@@ -13010,7 +14362,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 312
+      input_idx: 354
       common:
         repetitions: 1
         timeout: null
@@ -13039,7 +14391,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 313
+      input_idx: 355
       common:
         repetitions: 1
         timeout: null
@@ -13068,7 +14420,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 314
+      input_idx: 356
       common:
         repetitions: 1
         timeout: null
@@ -13097,7 +14449,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 315
+      input_idx: 357
       common:
         repetitions: 1
         timeout: null
@@ -13126,7 +14478,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 316
+      input_idx: 358
       common:
         repetitions: 1
         timeout: null
@@ -13155,7 +14507,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 317
+      input_idx: 359
       common:
         repetitions: 1
         timeout: null
@@ -13184,7 +14536,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 318
+      input_idx: 360
       common:
         repetitions: 1
         timeout: null
@@ -13213,7 +14565,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 319
+      input_idx: 361
       common:
         repetitions: 1
         timeout: null
@@ -13242,7 +14594,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 320
+      input_idx: 362
       common:
         repetitions: 1
         timeout: null
@@ -13271,7 +14623,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 321
+      input_idx: 363
       common:
         repetitions: 1
         timeout: null
@@ -13300,7 +14652,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 322
+      input_idx: 364
       common:
         repetitions: 1
         timeout: null
@@ -13329,7 +14681,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 323
+      input_idx: 365
       common:
         repetitions: 1
         timeout: null
@@ -13358,7 +14710,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 324
+      input_idx: 366
       common:
         repetitions: 1
         timeout: null
@@ -13387,7 +14739,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 325
+      input_idx: 367
       common:
         repetitions: 1
         timeout: null
@@ -13416,7 +14768,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 326
+      input_idx: 368
       common:
         repetitions: 1
         timeout: null
@@ -13445,7 +14797,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 327
+      input_idx: 369
       common:
         repetitions: 1
         timeout: null
@@ -13474,7 +14826,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 328
+      input_idx: 370
       common:
         repetitions: 1
         timeout: null
@@ -13503,7 +14855,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 329
+      input_idx: 371
       common:
         repetitions: 1
         timeout: null
@@ -13532,7 +14884,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 330
+      input_idx: 372
       common:
         repetitions: 1
         timeout: null
@@ -13561,7 +14913,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 331
+      input_idx: 373
       common:
         repetitions: 1
         timeout: null
@@ -13590,7 +14942,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 332
+      input_idx: 374
       common:
         repetitions: 1
         timeout: null
@@ -13619,7 +14971,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 333
+      input_idx: 375
       common:
         repetitions: 1
         timeout: null
@@ -13648,7 +15000,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 334
+      input_idx: 376
       common:
         repetitions: 1
         timeout: null
@@ -13677,7 +15029,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 335
+      input_idx: 377
       common:
         repetitions: 1
         timeout: null
@@ -13689,6 +15041,1224 @@ benchmarks:
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-20000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/trace
         accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 378
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 379
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 380
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 381
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 382
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: serial
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 383
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-serial-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 384
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 385
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 386
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 387
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 388
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 389
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 390
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 391
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 392
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 393
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 394
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: deterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 395
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-deterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 396
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 397
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 398
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 399
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 400
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 401
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 402
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 403
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 404
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 405
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 406
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 4
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 407
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-4/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 408
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 409
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 410
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 411
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 412
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 5
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 413
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-5-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 414
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 1
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 415
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-1-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 416
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 4
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 417
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-4-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: false
+      args:
+      - '500000'
+      - '64'
+      input_idx: 418
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-false-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+        mode: nondeterministic
+        threads: 8
+        run_ahead: 10
+        cores_per_cluster: 8
+        memory_only: true
+      args:
+      - '500000'
+      - '64'
+      input_idx: 419
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 4
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: Simulate
+      target_config: !Simulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-cores_per_cluster-8-dtype-64-length-500000-memory_only-true-mode-nondeterministic-run_ahead-10-threads-8/sim
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/trace
+        accelsim_traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
         parallel: null
     simple_matrixmul:
     - name: simple_matrixmul
@@ -71956,6 +74526,28 @@ benchmarks:
         parallel: null
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -71965,7 +74557,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 1
         timeout: null
@@ -71987,7 +74579,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 1
         timeout: null
@@ -72009,7 +74601,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 1
         timeout: null
@@ -72031,7 +74623,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 1
         timeout: null
@@ -72041,6 +74633,28 @@ benchmarks:
       target: ExecDrivenSimulate
       target_config: !ExecDrivenSimulate
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/sim
+        parallel: null
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: null
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: ExecDrivenSimulate
+      target_config: !ExecDrivenSimulate
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/sim
         parallel: null
     simple_matrixmul:
     - name: simple_matrixmul
@@ -73238,6 +75852,32 @@ benchmarks:
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/accelsim-sim
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimSimulate
+      target_config: !AccelsimSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-sim
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -73247,7 +75887,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 1
         timeout: null
@@ -73273,7 +75913,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 1
         timeout: null
@@ -73299,7 +75939,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 1
         timeout: null
@@ -73325,7 +75965,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 1
         timeout: null
@@ -73340,6 +75980,32 @@ benchmarks:
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-sim
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: AccelsimSimulate
+      target_config: !AccelsimSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-sim
     simple_matrixmul:
     - name: simple_matrixmul
       benchmark_idx: 1
@@ -74708,6 +77374,32 @@ benchmarks:
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/playground-sim
     - name: vectorAdd
       benchmark_idx: 0
+      uid: vectorAdd-dtype-32-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 32
+        length: 500000
+      args:
+      - '500000'
+      - '32'
+      input_idx: 4
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: PlaygroundSimulate
+      target_config: !PlaygroundSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/playground-sim
+    - name: vectorAdd
+      benchmark_idx: 0
       uid: vectorAdd-dtype-64-length-100
       path: /home/roman/dev/box/test-apps/vectoradd
       executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
@@ -74717,7 +77409,7 @@ benchmarks:
       args:
       - '100'
       - '64'
-      input_idx: 4
+      input_idx: 5
       common:
         repetitions: 1
         timeout: null
@@ -74743,7 +77435,7 @@ benchmarks:
       args:
       - '1000'
       - '64'
-      input_idx: 5
+      input_idx: 6
       common:
         repetitions: 1
         timeout: null
@@ -74769,7 +77461,7 @@ benchmarks:
       args:
       - '10000'
       - '64'
-      input_idx: 6
+      input_idx: 7
       common:
         repetitions: 1
         timeout: null
@@ -74795,7 +77487,7 @@ benchmarks:
       args:
       - '20000'
       - '64'
-      input_idx: 7
+      input_idx: 8
       common:
         repetitions: 1
         timeout: null
@@ -74810,6 +77502,32 @@ benchmarks:
         config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/playground-sim
+    - name: vectorAdd
+      benchmark_idx: 0
+      uid: vectorAdd-dtype-64-length-500000
+      path: /home/roman/dev/box/test-apps/vectoradd
+      executable: /home/roman/dev/box/test-apps/vectoradd/vectoradd_l1_enabled
+      values:
+        dtype: 64
+        length: 500000
+      args:
+      - '500000'
+      - '64'
+      input_idx: 9
+      common:
+        repetitions: 1
+        timeout: null
+        concurrency: 1
+        enabled: null
+        results_dir: /home/roman/dev/box/results
+      target: PlaygroundSimulate
+      target_config: !PlaygroundSimulate
+        trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
+        inter_config: /home/roman/dev/box/accelsim/gtx1080/config_fermi_islip.icnt
+        config_dir: /home/roman/dev/box/accelsim/gtx1080
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
+        stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/playground-sim
     simple_matrixmul:
     - name: simple_matrixmul
       benchmark_idx: 1

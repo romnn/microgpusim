@@ -153,8 +153,8 @@ template <typename T> int vectoradd(int n) {
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
-  // invalidate all the caches
-  invalidate_caches();
+  // invalidate all caches
+  // invalidate_caches();
 
   int blockSize, gridSize;
 
@@ -169,7 +169,12 @@ template <typename T> int vectoradd(int n) {
   // Execute the kernel
   for (int i = 0; i < 3; i++) {
     CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));
-    flush_l2_cache();
+
+    // reset the result vector
+    // CUDA_SAFECALL(cudaMemset(d_c, 0, bytes));
+    // CUDA_SAFECALL(cudaDeviceSynchronize());
+
+    // flush_l2_cache();
   }
 
   // Copy array back to host

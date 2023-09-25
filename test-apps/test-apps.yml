@@ -76,7 +76,8 @@ benchmarks:
     # executable: vectoradd_l1_disabled
     inputs:
       dtype: [32, 64]
-      length: [100, 1000, 10000, 20000]
+      # at a size of 500000 we have 2*500k*4 bytes = 4MB of floats, which is enough to saturate the 2MB L2 cache
+      length: [100, 1000, 10000, 20000, 500000]
     args: "{{ input.length }} {{ input.dtype }}"
     simulate:
       traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/trace"
