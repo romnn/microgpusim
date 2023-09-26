@@ -10,7 +10,6 @@
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap
 )]
-// #![allow(warnings)]
 
 pub mod allocation;
 pub mod arbitration;
@@ -86,10 +85,7 @@ pub fn parse_commands(path: impl AsRef<Path>) -> eyre::Result<Vec<Command>> {
 }
 
 pub struct Optional<T>(Option<T>);
-// pub struct Optional<'a, T>(Option<&'a T>);
-// pub struct Optional<'a, T>(Option<&'a T>);
 
-// impl<T> std::fmt::Display for Optional<T>
 impl<'a, T> std::fmt::Display for Optional<&'a T>
 where
     T: std::fmt::Display,
@@ -108,10 +104,6 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self, f)
-        // match self.0 {
-        //     Some(ref value) => write!(f, "Some({value})"),
-        //     None => write!(f, "None"),
-        // }
     }
 }
 
@@ -201,10 +193,9 @@ pub struct DebugState {
 
 #[derive()]
 pub struct MockSimulator<I> {
-    /// Temporary for debugging
-    // pub states: Vec<(u64, DebugState)>,
     stats: Arc<Mutex<stats::PerKernel>>,
     config: Arc<config::GPU>,
+    mem_controller: Arc<dyn mcu::MemoryController>,
     // mem_partition_units: Vec<Arc<RwLock<dyn MemoryPartitionUnit>>>,
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
@@ -271,6 +262,8 @@ where
             stats::Config::from_config(&config),
         )));
 
+        let mem_controller = Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap());
+
         let num_mem_units = config.num_memory_controllers;
 
         let mem_partition_units: Vec<_> = (0..num_mem_units)
@@ -278,6 +271,7 @@ where
                 let unit = mem_partition_unit::MemoryPartitionUnit::new(
                     i,
                     Arc::clone(&config),
+                    mem_controller.clone(),
                     Arc::clone(&stats),
                 );
                 // Arc::new(RwLock::new(unit)) as Arc<RwLock<dyn MemoryPartitionUnit>>
@@ -304,6 +298,7 @@ where
                     &interconn,
                     &stats,
                     &config,
+                    &(Arc::clone(&mem_controller) as Arc<dyn mcu::MemoryController>),
                 );
                 Arc::new(RwLock::new(cluster))
             })
@@ -336,8 +331,8 @@ where
         let last_cluster_issue = Arc::new(Mutex::new(config.num_simt_clusters - 1));
 
         Self {
-            // states: Vec::new(),
             config,
+            mem_controller,
             stats,
             mem_partition_units,
             mem_sub_partitions,
@@ -879,8 +874,9 @@ where
     fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
         let num_sub_partitions = self.config.num_sub_partitions_per_memory_controller;
         let tlx_addr = self
-            .config
-            .address_mapping()
+            .mem_controller
+            // .config
+            // .address_mapping()
             .to_physical_address(write_addr);
         let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
         let sub_partition_id = tlx_addr.sub_partition % num_sub_partitions as u64;
@@ -973,12 +969,14 @@ where
             .build();
 
             let physical_addr = self
-                .config
-                .address_mapping()
+                // .config
+                // .address_mapping()
+                .mem_controller
                 .to_physical_address(access.addr);
             let partition_addr = self
-                .config
-                .address_mapping()
+                // .config
+                // .address_mapping()
+                .mem_controller
                 .memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {
@@ -1017,7 +1015,6 @@ where
         // repeat until interconnect is emptied
         // let initial_cycle = cycle;
 
-        // while self.interconn.busy() {
         // while self.interconn.busy() {
         let mut new_cycle = cycle;
 
@@ -1525,8 +1522,11 @@ where
                 self.run_to_completion_parallel_deterministic()?;
             }
             #[cfg(feature = "parallel")]
-            config::Parallelization::Nondeterministic(n) => {
-                self.run_to_completion_parallel_nondeterministic(n)?;
+            config::Parallelization::Nondeterministic {
+                run_ahead,
+                interleave,
+            } => {
+                self.run_to_completion_parallel_nondeterministic(run_ahead, interleave)?;
             }
         }
         Ok(())
@@ -1661,7 +1661,6 @@ where
 
     fn finished_kernel(&mut self) -> Option<Arc<Kernel>> {
         // check running kernels
-        // let _active = self.active();
         let mut running_kernels = self.running_kernels.try_write().clone();
         let finished_kernel: Option<&mut Option<Arc<Kernel>>> =
             running_kernels.iter_mut().find(|k| {
@@ -1673,7 +1672,6 @@ where
                 }
             });
         if let Some(kernel) = finished_kernel {
-            // kernel.end_cycle = self.cycle.get();
             kernel.take()
         } else {
             None
@@ -1698,9 +1696,6 @@ where
         let mut stats = self.stats.lock();
         let kernel_stats = stats.get_mut(kernel.id() as usize);
 
-        // *kernel.completed_time.lock() = Some(completion_time);
-        // *kernel.completed_cycle.lock() = Some(cycle);
-
         kernel_stats.sim.is_release_build = !is_debug();
         kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
         let elapsed_millis = kernel
@@ -1710,27 +1705,6 @@ where
             .unwrap_or(0);
 
         kernel_stats.sim.elapsed_millis = elapsed_millis;
-        // if is_debug() {
-        //     kernel_stats.sim.elapsed_millis_debug = elapsed_millis;
-        // } else {
-        //     kernel_stats.sim.elapsed_millis_release = elapsed_millis;
-        // }
-
-        // println!(
-        //     "stats len is now {} ({:#?})",
-        //     stats.as_ref().len(),
-        //     stats
-        //         .as_ref()
-        //         .iter()
-        //         .map(|kernel_stats| &kernel_stats.sim)
-        //         .collect::<Vec<_>>()
-        // );
-
-        // resets some statistics between kernel launches
-        //   if (!silent && m_gpgpu_sim->gpu_sim_cycle > 0) {
-        //   m_gpgpu_sim->update_stats();
-        //   m_gpgpu_context->print_simulation_time();
-        // }
     }
 }
 
@@ -1751,31 +1725,38 @@ pub fn save_stats_to_file(stats: &stats::PerKernel, path: &Path) -> eyre::Result
     Ok(())
 }
 
-// MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>
+#[cfg(feature = "deadlock_detection")]
+const DEADLOCK_DETECTOR_THREAD: std::sync::OnceLock<std::thread::JoinHandle<()>> =
+    std::sync::OnceLock::new();
+
+pub fn init_deadlock_detector() {
+    #[cfg(feature = "deadlock_detection")]
+    DEADLOCK_DETECTOR_THREAD.get_or_init(|| {
+        std::thread::spawn(move || loop {
+            // Create a background thread which checks for deadlocks every 10s
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            let deadlocks = parking_lot::deadlock::check_deadlock();
+            if deadlocks.is_empty() {
+                continue;
+            }
+
+            println!("{} deadlocks detected", deadlocks.len());
+            for (i, threads) in deadlocks.iter().enumerate() {
+                println!("Deadlock #{i}");
+                for t in threads {
+                    println!("Thread Id {:#?}", t.thread_id());
+                    println!("{:#?}", t.backtrace());
+                }
+            }
+        })
+    });
+}
 
 pub fn accelmain(
     traces_dir: impl AsRef<Path>,
     config: impl Into<Arc<config::GPU>>,
 ) -> eyre::Result<config::GTX1080> {
-    #[cfg(feature = "deadlock_detection")]
-    std::thread::spawn(move || loop {
-        // Create a background thread which checks for deadlocks every 10s
-        std::thread::sleep(std::time::Duration::from_secs(10));
-        let deadlocks = parking_lot::deadlock::check_deadlock();
-        if deadlocks.is_empty() {
-            continue;
-        }
-
-        println!("{} deadlocks detected", deadlocks.len());
-        for (i, threads) in deadlocks.iter().enumerate() {
-            println!("Deadlock #{i}");
-            for t in threads {
-                println!("Thread Id {:#?}", t.thread_id());
-                println!("{:#?}", t.backtrace());
-            }
-        }
-    });
-
+    init_deadlock_detector();
     let config = config.into();
     let traces_dir = traces_dir.as_ref();
     let (traces_dir, commands_path) = if traces_dir.is_dir() {

@@ -436,10 +436,11 @@ where
     pub fn run_to_completion_parallel_nondeterministic(
         &mut self,
         mut run_ahead: usize,
+        mut interleave_serial: bool,
     ) -> eyre::Result<()> {
         run_ahead = run_ahead.max(1);
 
-        let interleave_serial = std::env::var("INTERLEAVE")
+        interleave_serial |= std::env::var("INTERLEAVE")
             .unwrap_or_default()
             .to_lowercase()
             == "yes";

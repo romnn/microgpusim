@@ -1,6 +1,6 @@
 use super::{
     address, allocation::Allocation, barrier, cache, config, func_unit as fu,
-    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mem_fetch, opcodes,
+    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes,
     operand_collector as opcoll, register_set, scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
@@ -452,6 +452,7 @@ pub struct Core<I> {
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
     pub config: Arc<config::GPU>,
+    pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub current_kernel: Mutex<Option<Arc<Kernel>>>,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
@@ -510,6 +511,7 @@ where
         interconn: Arc<I>,
         stats: Arc<Mutex<stats::PerKernel>>,
         config: Arc<config::GPU>,
+        mem_controller: Arc<dyn mcu::MemoryController>,
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
@@ -610,6 +612,7 @@ where
             operand_collector.clone(),
             scoreboard.clone(),
             config.clone(),
+            mem_controller.clone(),
             stats.clone(),
         );
         let load_store_unit = Arc::new(Mutex::new(load_store_unit));
@@ -729,6 +732,7 @@ where
             stats,
             allocations,
             config,
+            mem_controller,
             current_kernel: Mutex::new(None),
             last_warp_fetched: None,
             active_thread_mask: BitArray::ZERO,
@@ -1445,12 +1449,14 @@ where
                         .build();
 
                         let physical_addr = self
-                            .config
-                            .address_mapping()
+                            // .config
+                            // .address_mapping()
+                            .mem_controller
                             .to_physical_address(access.addr);
                         let partition_addr = self
-                            .config
-                            .address_mapping()
+                            // .config
+                            // .address_mapping()
+                            .mem_controller
                             .memory_partition_address(access.addr);
 
                         let fetch = mem_fetch::Builder {

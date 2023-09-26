@@ -133,7 +133,7 @@ fn gather_simulation_state(
                 let l1_data_cache = l1_data_cache
                     .as_any()
                     .downcast_ref::<cache::Data<
-                        crate::mcu::MemoryControllerUnit,
+                        Arc<dyn crate::mcu::MemoryController>,
                         cache::controller::pascal::L1DataCacheController,
                         stats::cache::PerKernel,
                     >>()
@@ -864,6 +864,7 @@ fn get_bench_config(
     input.insert("mode".to_string(), validate::input!("serial")?);
     input.insert("memory_only".to_string(), validate::input!(false)?);
     input.insert("cores_per_cluster".to_string(), validate::input!(1)?);
+    input.insert("num_clusters".to_string(), validate::input!(20)?);
 
     let bench_config =
         validate::benchmark::find_exact(validate::Target::Simulate, bench_name, &input)?;

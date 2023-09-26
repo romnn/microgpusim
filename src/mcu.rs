@@ -331,6 +331,22 @@ pub trait MemoryController: Send + Sync + 'static {
     fn num_memory_sub_partitions(&self) -> usize;
 }
 
+// impl MemoryController for Box<dyn MemoryController + '_> {
+impl MemoryController for std::sync::Arc<dyn MemoryController + '_> {
+    fn memory_partition_address(&self, addr: address) -> address {
+        (**self).memory_partition_address(addr)
+    }
+    fn to_physical_address(&self, addr: address) -> PhysicalAddress {
+        (**self).to_physical_address(addr)
+    }
+    fn num_memory_partitions(&self) -> usize {
+        (**self).num_memory_partitions()
+    }
+    fn num_memory_sub_partitions(&self) -> usize {
+        (**self).num_memory_sub_partitions()
+    }
+}
+
 impl MemoryController for MemoryControllerUnit {
     #[inline]
     fn memory_partition_address(&self, addr: address) -> address {
@@ -452,6 +468,7 @@ impl std::hash::Hash for PhysicalAddress {
 
 #[cfg(test)]
 mod tests {
+    use super::MemoryController;
     use crate::config;
     use color_eyre::eyre;
     use utils::diff;
@@ -477,7 +494,7 @@ mod tests {
         config: &config::GPU,
         addr: u64,
     ) -> (super::PhysicalAddress, super::PhysicalAddress) {
-        let mapping = config.address_mapping();
+        let mapping = super::MemoryControllerUnit::new(config).unwrap();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
             config.num_sub_partitions_per_memory_controller as u32,
@@ -643,7 +660,7 @@ mod tests {
             num_sub_partitions_per_memory_controller: 2,
             ..config::GPU::default()
         };
-        let mapping = config.address_mapping();
+        let mapping = super::MemoryControllerUnit::new(&config).unwrap();
         let ref_mapping = playground::addrdec::AddressTranslation::new(
             config.num_memory_controllers as u32,
             config.num_sub_partitions_per_memory_controller as u32,

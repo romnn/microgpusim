@@ -57,9 +57,10 @@ pub fn run(
         .transpose()
         .unwrap()
         .unwrap_or(1);
+    let interleave_serial = false;
 
     // box_sim.run_to_completion_parallel_nondeterministic(1)?;
-    box_sim.run_to_completion_parallel_nondeterministic(run_ahead)?;
+    box_sim.run_to_completion_parallel_nondeterministic(run_ahead, interleave_serial)?;
     let box_dur = start.elapsed();
 
     let args = vec![

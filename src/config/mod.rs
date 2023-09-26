@@ -327,7 +327,10 @@ pub enum Parallelization {
     #[cfg(feature = "parallel")]
     Deterministic,
     #[cfg(feature = "parallel")]
-    Nondeterministic(usize),
+    Nondeterministic {
+        run_ahead: usize,
+        interleave: bool,
+    },
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -934,10 +937,10 @@ impl GPU {
         self.num_memory_controllers * self.num_sub_partitions_per_memory_controller
     }
 
-    pub fn address_mapping(&self) -> &dyn mcu::MemoryController {
-        self.memory_controller_unit
-            .get_or_init(|| mcu::MemoryControllerUnit::new(self).unwrap())
-    }
+    // pub fn address_mapping(&self) -> &dyn mcu::MemoryController {
+    //     self.memory_controller_unit
+    //         .get_or_init(|| mcu::MemoryControllerUnit::new(self).unwrap())
+    // }
 }
 
 impl Default for GPU {

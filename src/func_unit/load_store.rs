@@ -2,7 +2,7 @@ use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
     address, cache, config, func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    interconn as ic, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
+    interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
     register_set::{self},
     scoreboard::{Access, Scoreboard},
     warp,
@@ -23,6 +23,7 @@ pub struct LoadStoreUnit {
     warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     config: Arc<config::GPU>,
+    mem_controller: Arc<dyn mcu::MemoryController>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
     scoreboard: Arc<RwLock<Scoreboard>>,
     next_global: Option<MemFetch>,
@@ -85,7 +86,7 @@ enum MemStageStallKind {
 }
 
 impl LoadStoreUnit {
-    pub fn new(
+    pub fn new<MC>(
         id: usize,
         core_id: usize,
         cluster_id: usize,
@@ -94,8 +95,13 @@ impl LoadStoreUnit {
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
+        // mem_controller: Arc<dyn mcu::MemoryController>,
+        mem_controller: MC,
         stats: Arc<Mutex<stats::PerKernel>>,
-    ) -> Self {
+    ) -> Self
+    where
+        MC: mcu::MemoryController + Clone,
+    {
         let pipeline_depth = config.shared_memory_latency;
         let inner = fu::PipelinedSimdUnit::new(
             id,
@@ -118,14 +124,27 @@ impl LoadStoreUnit {
 
                 // initialize l1 data cache
                 let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
-                let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
+                // let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
 
                 let cache_controller = cache::controller::pascal::L1DataCacheController::new(
                     cache::Config::from(l1_config.inner.as_ref()),
                     l1_config,
                 );
 
-                let mut data_cache = cache::data::Builder {
+                // let test: &dyn mcu::MemoryController = &*mem_controller;
+                // fn is_sized<T>(val: T) -> ()
+                // where
+                //     T: Sized,
+                // {
+                // }
+                // is_sized(mem_controller);
+
+                let mut data_cache: cache::data::Data<
+                    MC,
+                    // Arc<dyn mcu::MemoryController>,
+                    cache::controller::pascal::L1DataCacheController,
+                    stats::cache::PerKernel,
+                > = cache::data::Builder {
                     // name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     name: format!(
                         "ldst-unit-{cluster_id}-{core_id}-{}",
@@ -135,7 +154,9 @@ impl LoadStoreUnit {
                     cluster_id,
                     stats: cache_stats,
                     config: Arc::clone(&config),
-                    mem_controller,
+                    mem_controller: mem_controller.clone(),
+                    // &(mem_controller as Arc<dyn mcu::MemoryController>),
+                    // mem_controller: Arc::clone(&mem_controller),
                     cache_controller,
                     cache_config: Arc::clone(&l1_config.inner),
                     write_alloc_type: AccessKind::L1_WR_ALLOC_R,
@@ -143,6 +164,8 @@ impl LoadStoreUnit {
                 }
                 .build();
                 data_cache.set_top_port(mem_port.clone());
+                // let _: &dyn cache::Cache<stats::cache::PerKernel> = &data_cache;
+
                 Some(Box::new(data_cache))
             } else {
                 None
@@ -162,6 +185,7 @@ impl LoadStoreUnit {
             mem_port,
             inner,
             config,
+            mem_controller: Arc::new(mem_controller),
             stats,
             scoreboard,
             operand_collector,
@@ -526,12 +550,14 @@ impl LoadStoreUnit {
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
                 let physical_addr = self
-                    .config
-                    .address_mapping()
+                    // .config
+                    // .address_mapping()
+                    .mem_controller
                     .to_physical_address(access.addr);
                 let partition_addr = self
-                    .config
-                    .address_mapping()
+                    // .config
+                    // .address_mapping()
+                    .mem_controller
                     .memory_partition_address(access.addr);
 
                 let fetch = mem_fetch::Builder {
@@ -640,12 +666,14 @@ impl LoadStoreUnit {
                     let access = instr.mem_access_queue.pop_back().unwrap();
 
                     let physical_addr = self
-                        .config
-                        .address_mapping()
+                        // .config
+                        // .address_mapping()
+                        .mem_controller
                         .to_physical_address(access.addr);
                     let partition_addr = self
-                        .config
-                        .address_mapping()
+                        // .config
+                        // .address_mapping()
+                        .mem_controller
                         .memory_partition_address(access.addr);
 
                     let fetch = mem_fetch::Builder {
@@ -700,12 +728,14 @@ impl LoadStoreUnit {
             stall_cond
         } else {
             let physical_addr = self
-                .config
-                .address_mapping()
+                // .config
+                // .address_mapping()
+                .mem_controller
                 .to_physical_address(access.addr);
             let partition_addr = self
-                .config
-                .address_mapping()
+                // .config
+                // .address_mapping()
+                .mem_controller
                 .memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {

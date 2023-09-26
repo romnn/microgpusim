@@ -161,10 +161,36 @@ impl Kernel {
             let warp_id = entry.warp_id_in_block as usize;
             let instr = instruction::WarpInstruction::from_trace(self, entry, config);
 
+            // if instr.active_mask.not_any() {
+            log::error!(
+                "instruction #{}: {:<30} {}",
+                *trace_pos,
+                instr.to_string(),
+                instr.active_mask
+            );
+            // } else {
+            //     log::warn!(
+            //         "instruction #{}: {:<30} {}",
+            //         *trace_pos,
+            //         instr.to_string(),
+            //         instr.active_mask
+            //     );
+            // }
+            // log::error!(
+            //     "instruction #{}: {:#?} {}",
+            //     *trace_pos,
+            //     instr,
+            //     instr.active_mask
+            // );
+
+            // assert!(instr.is_memory_instruction());
             if !self.memory_only || instr.is_memory_instruction() {
                 let warp = warps.get_mut(warp_id).unwrap();
                 let mut warp = warp.try_lock();
                 warp.push_trace_instruction(instr);
+            } else {
+                log::error!("SKIP non memory instruction {}", instr);
+                // panic!("skipped instruction");
             }
 
             instructions += 1;

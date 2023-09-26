@@ -1,4 +1,4 @@
-use super::{config, interconn as ic, mem_fetch, Core, MockSimulator};
+use super::{config, interconn as ic, mcu, mem_fetch, Core, MockSimulator};
 use console::style;
 use crossbeam::utils::CachePadded;
 
@@ -32,6 +32,7 @@ where
         interconn: &Arc<I>,
         stats: &Arc<Mutex<stats::PerKernel>>,
         config: &Arc<config::GPU>,
+        mem_controller: &Arc<dyn mcu::MemoryController>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = num_cores - 1;
@@ -47,6 +48,7 @@ where
                     Arc::clone(interconn),
                     Arc::clone(stats),
                     Arc::clone(config),
+                    Arc::clone(mem_controller),
                 );
                 Arc::new(RwLock::new(core))
             })

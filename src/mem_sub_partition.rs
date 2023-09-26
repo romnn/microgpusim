@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, fifo::Fifo, interconn::Packet, mem_fetch};
+use crate::{address, cache, config, fifo::Fifo, interconn::Packet, mcu, mem_fetch};
 use console::style;
 use std::collections::{HashSet, VecDeque};
 use trace_model::ToBitString;
@@ -17,6 +17,7 @@ pub struct MemorySubPartition {
     pub id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
+    pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
 
     /// queues
@@ -55,6 +56,7 @@ impl MemorySubPartition {
         id: usize,
         partition_id: usize,
         config: Arc<config::GPU>,
+        mem_controller: Arc<dyn mcu::MemoryController>,
         stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let interconn_to_l2_queue = Fifo::new(
@@ -107,6 +109,7 @@ impl MemorySubPartition {
             // cluster_id,
             // core_id,
             config,
+            mem_controller,
             stats,
             l2_cache,
             memcpy_cycle_offset: 0,
@@ -147,15 +150,20 @@ impl MemorySubPartition {
             sector: usize,
             byte_mask: mem_fetch::ByteMask,
             original_fetch: mem_fetch::MemFetch,
-            config: &'c config::GPU,
+            mem_controller: &'c dyn mcu::MemoryController,
+            // config: &'c config::GPU,
         }
 
         impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
             fn into(self) -> mem_fetch::MemFetch {
-                let physical_addr = self.config.address_mapping().to_physical_address(self.addr);
+                let physical_addr = self
+                    // .config.address_mapping()
+                    .mem_controller
+                    .to_physical_address(self.addr);
                 let partition_addr = self
-                    .config
-                    .address_mapping()
+                    // .config
+                    // .address_mapping()
+                    .mem_controller
                     .memory_partition_address(self.addr);
 
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;
@@ -196,7 +204,7 @@ impl MemorySubPartition {
                     addr: fetch.addr() + (sector_size * sector) as u64,
                     byte_mask: fetch.access.byte_mask & byte_mask,
                     original_fetch: fetch.clone(),
-                    config: &*self.config,
+                    mem_controller: &*self.mem_controller,
                 };
                 sector_requests[sector] = Some(sector_fetch.into());
             }
@@ -216,7 +224,7 @@ impl MemorySubPartition {
                     addr: fetch.addr(),
                     byte_mask: fetch.access.byte_mask & byte_mask,
                     original_fetch: fetch.clone(),
-                    config: &*self.config,
+                    mem_controller: &*self.mem_controller,
                 };
 
                 sector_requests[sector] = Some(sector_fetch.into());
@@ -238,7 +246,7 @@ impl MemorySubPartition {
                         addr: fetch.addr() + (sector_size * sector) as u64,
                         byte_mask: fetch.access.byte_mask & byte_mask,
                         original_fetch: fetch.clone(),
-                        config: &*self.config,
+                        mem_controller: &*self.mem_controller,
                     };
 
                     sector_requests[sector] = Some(sector_fetch.into());

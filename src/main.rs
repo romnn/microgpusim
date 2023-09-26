@@ -40,12 +40,17 @@ struct Options {
     #[arg(long = "non-deterministic")]
     pub non_deterministic: Option<usize>,
 
+    /// Interleave serial part for non-deterministic simulation
+    #[arg(long = "interleave-serial")]
+    pub interleave_serial: Option<bool>,
+
     #[clap(flatten)]
     pub accelsim: gpucachesim::config::accelsim::Config,
 }
 
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
+    gpucachesim::init_deadlock_detector();
 
     let start = Instant::now();
     let options = Options::parse();
@@ -81,12 +86,20 @@ fn main() -> eyre::Result<()> {
         .to_lowercase()
         == "yes";
 
-    let parallelization = match (options.parallel, options.non_deterministic) {
+    let parallelization = match (
+        options.parallel,
+        (options.non_deterministic, options.interleave_serial),
+    ) {
         (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(feature = "parallel")]
-        (true, None) => gpucachesim::config::Parallelization::Deterministic,
+        (true, (None, _)) => gpucachesim::config::Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (true, Some(n)) => gpucachesim::config::Parallelization::Nondeterministic(n),
+        (true, (Some(run_ahead), interleave)) => {
+            gpucachesim::config::Parallelization::Nondeterministic {
+                run_ahead,
+                interleave: interleave.unwrap_or(true),
+            }
+        }
         #[cfg(not(feature = "parallel"))]
         _ => eyre::bail!(
             "{} was compiled with parallel simulation disabled",

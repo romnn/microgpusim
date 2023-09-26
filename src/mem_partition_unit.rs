@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, arbitration, config, dram, ic::Packet, mem_fetch,
+    address, arbitration, config, dram, ic::Packet, mcu, mem_fetch,
     mem_sub_partition::MemorySubPartition,
 };
 use console::style;
@@ -26,7 +26,12 @@ impl std::fmt::Debug for MemoryPartitionUnit {
 }
 
 impl MemoryPartitionUnit {
-    pub fn new(id: usize, config: Arc<config::GPU>, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
+    pub fn new(
+        id: usize,
+        config: Arc<config::GPU>,
+        mem_controller: Arc<dyn mcu::MemoryController>,
+        stats: Arc<Mutex<stats::PerKernel>>,
+    ) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
             .map(|i| {
@@ -36,6 +41,7 @@ impl MemoryPartitionUnit {
                     sub_id,
                     id,
                     Arc::clone(&config),
+                    Arc::clone(&mem_controller),
                     Arc::clone(&stats),
                 )))
             })
