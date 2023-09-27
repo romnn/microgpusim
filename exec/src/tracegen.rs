@@ -52,9 +52,18 @@ pub trait TraceGenerator {
         <K as Kernel>::Error: Send;
 
     /// Allocate a variable.
-    async fn allocate<T>(self: &Arc<Self>, value: T, mem_space: model::MemorySpace) -> DevicePtr<T>
+    async fn allocate<T, S>(
+        self: &Arc<Self>,
+        value: T,
+        mem_space: model::MemorySpace,
+        name: Option<S>,
+    ) -> DevicePtr<T>
     where
-        T: Allocatable + Send;
+        T: Allocatable + Send,
+        S: ToString + Send;
+
+    /// Get commands
+    async fn commands<'a>(self: &'a Arc<Self>) -> Vec<trace_model::Command>;
 }
 
 #[async_trait::async_trait]
@@ -83,8 +92,12 @@ pub type WarpInstructionTraces = [Vec<model::ThreadInstruction>; WARP_SIZE as us
 
 pub struct Tracer {
     offset: Mutex<u64>,
+    /// Traced instructions for the current kernel launch.
+    ///
+    /// Instructions are cleared after each kernel and there may only run one kernel at any time.
     traced_instructions: std::sync::Mutex<HashMap<WarpId, WarpInstructionTraces>>,
     kernel_launch_id: atomic::AtomicU64,
+    commands: std::sync::Mutex<Vec<trace_model::command::Command>>,
 }
 
 impl Tracer {
@@ -94,6 +107,7 @@ impl Tracer {
             offset: Mutex::new(0),
             traced_instructions: std::sync::Mutex::new(HashMap::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
+            commands: std::sync::Mutex::new(Vec::new()),
         })
     }
 }
@@ -269,15 +283,32 @@ pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
 impl TraceGenerator for Tracer {
     type Error = TraceError;
 
-    async fn allocate<T>(self: &Arc<Self>, value: T, mem_space: model::MemorySpace) -> DevicePtr<T>
+    async fn allocate<T, S>(
+        self: &Arc<Self>,
+        value: T,
+        mem_space: model::MemorySpace,
+        name: Option<S>,
+    ) -> DevicePtr<T>
     where
         T: Allocatable + Send,
+        S: ToString + Send,
     {
         let mut offset_lock = self.offset.lock().await;
         let offset = next_multiple(*offset_lock, 512);
         // cudaDeviceProp::textureAlignment is either 256 or 512, we choose 512
-        // next multiple of
-        *offset_lock = offset + value.size() as u64;
+        let num_bytes = value.size() as u64;
+        *offset_lock = offset + num_bytes;
+
+        self.commands
+            .lock()
+            .unwrap()
+            .push(trace_model::command::Command::MemAlloc(
+                trace_model::command::MemAlloc {
+                    allocation_name: name.as_ref().map(ToString::to_string),
+                    device_ptr: offset,
+                    num_bytes,
+                },
+            ));
 
         DevicePtr {
             inner: value,
@@ -285,6 +316,10 @@ impl TraceGenerator for Tracer {
             memory: self.clone(),
             offset,
         }
+    }
+
+    async fn commands<'a>(self: &'a Arc<Self>) -> Vec<trace_model::Command> {
+        self.commands.lock().unwrap().clone()
     }
 
     #[allow(clippy::too_many_lines)]
@@ -319,8 +354,6 @@ impl TraceGenerator for Tracer {
         let mut trace = Vec::new();
         let mut traced_instructions = self.traced_instructions.lock().unwrap();
 
-        // dbg!(&traced_instructions.keys().collect::<Vec<_>>());
-
         // check for reconvergence points
         if !traced_instructions.values().all(|warp_instructions| {
             warp_instructions
@@ -335,13 +368,18 @@ impl TraceGenerator for Tracer {
             return Err(Error::Tracer(TraceError::MissingReconvergencePoints));
         }
 
+        // sort warps
+        let mut traced_instructions: Vec<_> = traced_instructions.drain().collect();
+        traced_instructions
+            .sort_by_key(|(warp, _)| (warp.block_id.accelsim_id(), warp.warp_id_in_block));
+
         for (
             WarpId {
                 block_id,
                 warp_id_in_block,
             },
             warp_instructions,
-        ) in traced_instructions.drain()
+        ) in traced_instructions.into_iter()
         {
             log::debug!("==> block {:?} warp {:<3}", block_id, warp_id_in_block);
 
@@ -454,12 +492,12 @@ impl TraceGenerator for Tracer {
                         let is_store = access.kind == model::MemAccessKind::Store;
                         let instr_opcode = match access.mem_space {
                             model::MemorySpace::Local if is_load => "LDL".to_string(),
-                            model::MemorySpace::Global if is_load => "LDG".to_string(),
+                            model::MemorySpace::Global if is_load => "LDG.E".to_string(),
                             model::MemorySpace::Shared if is_load => "LDS".to_string(),
                             // MemorySpace::Texture if is_load => "LDG".to_string(),
                             model::MemorySpace::Constant if is_load => "LDC".to_string(),
                             model::MemorySpace::Local if is_store => "STL".to_string(),
-                            model::MemorySpace::Global if is_store => "STG".to_string(),
+                            model::MemorySpace::Global if is_store => "STG.E".to_string(),
                             model::MemorySpace::Shared if is_store => "STS".to_string(),
                             // MemorySpace::Texture if is_store => "LDG".to_string(),
                             model::MemorySpace::Constant if is_store => {
@@ -527,6 +565,12 @@ impl TraceGenerator for Tracer {
             local_mem_base_addr: 0,
             nvbit_version: "none".to_string(),
         };
+        self.commands
+            .lock()
+            .unwrap()
+            .push(trace_model::command::Command::KernelLaunch(
+                launch_config.clone(),
+            ));
         Ok((launch_config, trace))
     }
 }
@@ -945,9 +989,15 @@ mod tests {
             b[i] = angle.cos() * angle.cos();
         }
 
-        let dev_a = tracer.allocate(&mut a, MemorySpace::Global).await;
-        let dev_b = tracer.allocate(&mut b, MemorySpace::Global).await;
-        let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
+        let dev_a = tracer
+            .allocate(&mut a, MemorySpace::Global, Some("a"))
+            .await;
+        let dev_b = tracer
+            .allocate(&mut b, MemorySpace::Global, Some("b"))
+            .await;
+        let dev_result = tracer
+            .allocate(&mut result, MemorySpace::Global, Some("result"))
+            .await;
 
         let kernel: VecAdd<f32> = VecAdd {
             dev_a: Mutex::new(dev_a),
@@ -969,8 +1019,8 @@ mod tests {
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG", 0, "11111111111111111111000000000000", 0),
-                ("LDG", 80, "11111111111111111111000000000000", 0),
-                ("STG", 160, "11111111111111111111000000000000", 0),
+                ("LDG", 512, "11111111111111111111000000000000", 0),
+                ("STG", 1024, "11111111111111111111000000000000", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );

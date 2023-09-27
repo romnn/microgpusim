@@ -566,9 +566,12 @@ pub fn read_trace_instructions(
     Ok(instructions)
 }
 
-pub type CommandTraces = Vec<(trace_model::Command, Option<trace_model::MemAccessTrace>)>;
+pub type CommandTraces = Vec<(
+    Option<trace_model::Command>,
+    Option<trace_model::MemAccessTrace>,
+)>;
 
-pub fn read_traces_for_commands(
+pub fn read_command_traces(
     trace_dir: impl AsRef<Path>,
     kernelslist: impl AsRef<Path>,
     mem_only: bool,
@@ -580,7 +583,7 @@ pub fn read_traces_for_commands(
         .into_iter()
         .map(|cmd| match cmd {
             Command::MemcpyHtoD(memcopy) => {
-                Ok::<_, eyre::Report>((trace_model::Command::MemcpyHtoD(memcopy), None))
+                Ok::<_, eyre::Report>((Some(trace_model::Command::MemcpyHtoD(memcopy)), None))
             }
             Command::KernelLaunch((kernel, metadata)) => {
                 // transform kernel instruction trace
@@ -595,7 +598,7 @@ pub fn read_traces_for_commands(
                 )?;
 
                 Ok::<_, eyre::Report>((
-                    trace_model::Command::KernelLaunch(kernel),
+                    Some(trace_model::Command::KernelLaunch(kernel)),
                     Some(trace_model::MemAccessTrace(parsed_trace)),
                 ))
             }

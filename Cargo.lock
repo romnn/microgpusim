@@ -711,6 +711,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "common-path"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2382f75942f4b3be3690fe4f86365e9c853c1587d6ee58212cebf6e2a9ccd101"
+
+[[package]]
 name = "concurrent-queue"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4259,9 +4265,10 @@ version = "0.1.0"
 dependencies = [
  "async-process",
  "color-eyre",
+ "console",
  "glob",
  "libc",
- "similar-asserts",
+ "similar",
  "thiserror",
 ]
 
@@ -4298,6 +4305,7 @@ dependencies = [
  "playground",
  "pretty_assertions_sorted",
  "profile",
+ "rmp-serde",
  "rustacuda",
  "serde",
  "serde_json",
@@ -4705,6 +4713,8 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
+ "common-path",
+ "console",
  "cuda-driver-sys",
  "difflib",
  "duct",

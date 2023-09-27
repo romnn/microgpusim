@@ -49,12 +49,9 @@ edition = "2021"
 publish = false
 
 [features]
-# default = ["parking_lot"]
-# default = ["detailed-stats", "stats", "parking_lot", "parallel"]
-default = ["detailed-stats", "parking_lot", "parallel"]
+default = ["detailed-stats", "parking_lot", "parallel", "deadlock_detection"]
+# default = ["detailed-stats", "parking_lot", "parallel"]
 # default = ["parking_lot", "parallel", "deadlock_detection"]
-# default = ["stats", "parallel"]
-# default = ["stats", "parking_lot"]
 deadlock_detection = ["parking_lot/deadlock_detection"]
 timings = []
 detailed-stats = []

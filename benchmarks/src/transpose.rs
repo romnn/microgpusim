@@ -242,13 +242,7 @@ pub enum Variant {
     Optimized,
 }
 
-pub async fn benchmark<T>(
-    dim: usize,
-    variant: Variant,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+pub async fn benchmark<T>(dim: usize, variant: Variant) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -297,10 +291,7 @@ pub async fn transpose_naive<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -309,8 +300,12 @@ where
     let tracer = Tracer::new();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_mat = tracer.allocate(mat, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_mat = tracer
+        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     let kernel: naive::Transpose<T> = naive::Transpose {
         dev_mat: Mutex::new(dev_mat),
@@ -327,10 +322,7 @@ pub async fn transpose_coalesced<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -339,12 +331,22 @@ where
     let tracer = Tracer::new();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_mat = tracer.allocate(mat, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_mat = tracer
+        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     // shared memory
     let shared_mem_tiles = vec![T::zero(); (TILE_DIM * TILE_DIM) as usize];
-    let shared_mem_tiles = tracer.allocate(shared_mem_tiles, MemorySpace::Shared).await;
+    let shared_mem_tiles = tracer
+        .allocate(
+            shared_mem_tiles,
+            MemorySpace::Shared,
+            Some("shared_mem_tiles"),
+        )
+        .await;
 
     let kernel: coalesced::Transpose<T> = coalesced::Transpose {
         dev_mat: Mutex::new(dev_mat),
@@ -362,10 +364,7 @@ pub async fn transpose_optimized<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -374,12 +373,22 @@ where
     let tracer = Tracer::new();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_mat = tracer.allocate(mat, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_mat = tracer
+        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     // shared memory
     let shared_mem_tiles = vec![T::zero(); (TILE_DIM * (TILE_DIM + 1)) as usize];
-    let shared_mem_tiles = tracer.allocate(shared_mem_tiles, MemorySpace::Shared).await;
+    let shared_mem_tiles = tracer
+        .allocate(
+            shared_mem_tiles,
+            MemorySpace::Shared,
+            Some("shared_mem_tiles"),
+        )
+        .await;
 
     let kernel: optimized::Transpose<T> = optimized::Transpose {
         dev_mat: Mutex::new(dev_mat),
@@ -396,10 +405,7 @@ pub async fn transpose<T, K>(
     rows: usize,
     cols: usize,
     kernel: K,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     K: Kernel + Send + Sync,
@@ -417,7 +423,7 @@ where
     assert!(grid_dim.z > 0);
 
     let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
-    Ok(trace)
+    Ok((tracer.commands().await, vec![trace]))
 }
 
 #[cfg(test)]
@@ -447,9 +453,10 @@ mod tests {
             let ref_mat = Array2::from_shape_vec((dim, dim), mat.clone())?;
             ref_mat.reversed_axes()
         };
-        // let (_launch_config, trace) = super::transpose_naive(&mat, &mut result, dim, dim).await?;
-        let (_launch_config, trace) =
+        let (_commands, kernel_traces) =
             super::transpose_optimized(&mat, &mut result, dim, dim).await?;
+        assert_eq!(kernel_traces.len(), 1);
+        let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         super::reference(&mat, &mut ref_result, dim, dim);
 
         let ref_result = Array2::from_shape_vec((dim, dim), ref_result)?;
@@ -468,9 +475,12 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        testing::print_warp_trace(first_warp);
+        let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        for inst in &simplified_trace {
+            println!("{}", inst);
+        }
         // diff::assert_eq!(
-        //     have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+        //     have: simplified_trace,
         //     want: [
         //         ("LDG", 0, "11111111111111111111000000000000", 0),
         //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()

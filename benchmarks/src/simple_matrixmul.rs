@@ -1,4 +1,3 @@
-use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
     model::{Dim, MemorySpace},
@@ -85,14 +84,7 @@ where
 }
 
 /// Simple matrixmul benchmark application.
-pub async fn benchmark<T>(
-    m: usize,
-    n: usize,
-    p: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+pub async fn benchmark<T>(m: usize, n: usize, p: usize) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     distributions::Open01: Distribution<T>,
@@ -122,10 +114,7 @@ pub async fn simple_matrixmul<T>(
     m: usize,
     n: usize,
     p: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -135,9 +124,15 @@ where
     assert_eq!(matrix_b.len(), result.len());
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(matrix_a, MemorySpace::Global).await;
-    let dev_b = tracer.allocate(matrix_b, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_a = tracer
+        .allocate(matrix_a, MemorySpace::Global, Some("a"))
+        .await;
+    let dev_b = tracer
+        .allocate(matrix_b, MemorySpace::Global, Some("b"))
+        .await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     // number of thread blocks in grid
     let block_dim: Dim = (BLOCK_DIM as u32, BLOCK_DIM as u32).into();
@@ -160,7 +155,7 @@ where
         p,
     };
     let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
-    Ok(trace)
+    Ok((tracer.commands().await, vec![trace]))
 }
 
 #[cfg(test)]
@@ -198,8 +193,10 @@ mod tests {
             let ref_b = Array2::from_shape_vec((n, p), matrix_b.clone())?;
             ref_a.dot(&ref_b)
         };
-        let (_launch_config, trace) =
+        let (_commands, kernel_traces) =
             super::simple_matrixmul(&matrix_a, &matrix_b, &mut result, m, n, p).await?;
+        assert_eq!(kernel_traces.len(), 1);
+        let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         super::reference(&matrix_a, &matrix_b, &mut ref_result, m, n, p);
 
         let ref_result = Array2::from_shape_vec((m, p), ref_result)?;
@@ -217,9 +214,13 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        testing::print_warp_trace(first_warp);
+        let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        for inst in &simplified_trace {
+            println!("{}", inst);
+        }
+
         // diff::assert_eq!(
-        //     have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+        //     have: simplified_trace,
         //     want: [
         //         ("LDG", 0, "11111111111111111111000000000000", 0),
         //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()

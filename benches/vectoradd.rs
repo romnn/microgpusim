@@ -262,7 +262,10 @@ fn main() -> eyre::Result<()> {
         .transpose()?;
     let parallelization = match non_deterministic {
         None => Parallelization::Deterministic,
-        Some(run_ahead) => Parallelization::Nondeterministic(run_ahead),
+        Some(run_ahead) => Parallelization::Nondeterministic {
+            run_ahead,
+            interleave: true,
+        },
     };
 
     let start = Instant::now();

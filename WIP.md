@@ -65,10 +65,12 @@ A miss does not imply that all sectors in the cache line will be filled.
 
   - implement stall stats
 
+  - validate the exec driven model
+
   - add to simulate benchmark configs:
 
-    - 80 clusters @ 1 core?
-    - interleave nondeterministic
+    - DONE: 80 clusters @ 1 core?
+    - DONE: interleave nondeterministic
     - l2 partition addr option
     - DONE: mem only option
     - DONE: number of threads

@@ -237,25 +237,28 @@ impl crate::Config {
 
         let simulate = {
             SimConfig {
-                common: self.simulate.common.materialize(
+                common: self.simulate.common.clone().materialize(
                     base,
                     Some(Target::Simulate),
                     Some(&common),
                 )?,
                 parallel: self.simulate.parallel,
-                inputs: self.simulate.inputs,
+                inputs: self.simulate.inputs.clone(),
             }
         };
 
         let exec_driven_simulate = {
             ExecDrivenSimConfig {
-                common: self.exec_driven_simulate.common.materialize(
+                // common: self.exec_driven_simulate.common.materialize(
+                common: self.simulate.common.materialize(
                     base,
                     Some(Target::ExecDrivenSimulate),
                     Some(&common),
                 )?,
-                parallel: self.exec_driven_simulate.parallel,
-                inputs: self.exec_driven_simulate.inputs,
+                // parallel: self.exec_driven_simulate.parallel,
+                parallel: self.simulate.parallel,
+                // inputs: self.exec_driven_simulate.inputs,
+                inputs: self.simulate.inputs,
             }
         };
 

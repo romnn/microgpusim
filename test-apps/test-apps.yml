@@ -33,9 +33,14 @@ config:
     repetitions: 1
     # this is added to all inputs
     inputs:
-      mode: ["serial", "deterministic", "nondeterministic"]
+      mode:
+        - serial
+        - deterministic
+        - nondeterministic
+        - nondeterministic_interleave
       threads: [4, 8]
       run_ahead: [5, 10]
+      num_clusters: [20, 40]
       cores_per_cluster: [1, 4, 8]
       memory_only: [false, true]
       exclude:
@@ -45,6 +50,10 @@ config:
           run_ahead: 10
         - mode: deterministic
           run_ahead: 10
+        - num_clusters: 40
+          cores_per_cluster: 4
+        - num_clusters: 40
+          cores_per_cluster: 8
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.
@@ -114,7 +123,8 @@ benchmarks:
     executable: transpose
     inputs:
       # must be square matrix
-      dim: [256, 512, 1024]
+      # dim: [256, 512, 1024]
+      dim: [128, 256, 512]
       variant:
         - "naive"
         - "coalesced"

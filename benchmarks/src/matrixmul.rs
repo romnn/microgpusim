@@ -1,4 +1,3 @@
-use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
     model::{Dim, MemorySpace},
@@ -142,12 +141,7 @@ where
 }
 
 /// Matrixmul benchmark application.
-pub async fn benchmark<T>(
-    num_rows: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+pub async fn benchmark<T>(num_rows: usize) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
     distributions::Open01: Distribution<T>,
@@ -174,10 +168,7 @@ pub async fn matrixmul<T>(
     b: &Vec<T>,
     result: &mut Vec<T>,
     num_rows: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -188,16 +179,22 @@ where
     let _n = a.len();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(a, MemorySpace::Global).await;
-    let dev_b = tracer.allocate(b, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_a = tracer.allocate(a, MemorySpace::Global, Some("a")).await;
+    let dev_b = tracer.allocate(b, MemorySpace::Global, Some("b")).await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     // shared memory
     let shared_mem_a = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
-    let shared_mem_a = tracer.allocate(shared_mem_a, MemorySpace::Shared).await;
+    let shared_mem_a = tracer
+        .allocate(shared_mem_a, MemorySpace::Shared, Some("shared_a"))
+        .await;
 
     let shared_mem_b = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
-    let shared_mem_b = tracer.allocate(shared_mem_b, MemorySpace::Shared).await;
+    let shared_mem_b = tracer
+        .allocate(shared_mem_b, MemorySpace::Shared, Some("shared_b"))
+        .await;
 
     // number of thread blocks in grid
     let block_dim: Dim = (BLOCK_SIZE as u32, BLOCK_SIZE as u32).into();
@@ -219,7 +216,7 @@ where
         num_rows,
     };
     let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
-    Ok(trace)
+    Ok((tracer.commands().await, vec![trace]))
 }
 
 #[cfg(test)]
@@ -257,7 +254,9 @@ mod tests {
             let ref_b = Array2::from_shape_vec(matrix_shape, b.clone())?;
             ref_a.dot(&ref_b)
         };
-        let (_launch_config, trace) = super::matrixmul(&a, &b, &mut result, size).await?;
+        let (_commands, kernel_traces) = super::matrixmul(&a, &b, &mut result, size).await?;
+        assert_eq!(kernel_traces.len(), 1);
+        let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         super::reference(&a, &b, &mut ref_result, size);
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
@@ -276,9 +275,13 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        testing::print_warp_trace(first_warp);
+        let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        for inst in &simplified_trace {
+            println!("{}", inst);
+        }
+
         // diff::assert_eq!(
-        //     have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+        //     have: simplified_trace,
         //     want: [
         //         ("LDG", 0, "11111111111111111111000000000000", 0),
         //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()

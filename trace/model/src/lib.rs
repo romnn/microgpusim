@@ -73,9 +73,15 @@ pub struct MemAccessTraceEntry {
     pub addrs: [u64; 32],
 }
 
-// impl MemAccessTraceEntry {
-//     pub fn set_active_mask(&mut self, mask: ActiveMask) {}
-// }
+impl MemAccessTraceEntry {
+    #[allow(clippy::match_same_arms)]
+    #[must_use]
+    pub fn is_memory_instruction(&self) -> bool {
+        let is_exit = self.instr_opcode.to_uppercase() == "EXIT";
+        let is_barrier = self.instr_opcode.to_uppercase() == "MEMBAR";
+        self.instr_is_mem || self.instr_is_store || self.instr_is_load || is_exit || is_barrier
+    }
+}
 
 impl std::cmp::Ord for MemAccessTraceEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {

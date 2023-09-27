@@ -21,9 +21,9 @@ fn convert_traces_to_json(
     mem_only: bool,
 ) -> eyre::Result<()> {
     let mut command_traces =
-        tracegen::reader::read_traces_for_commands(trace_dir, kernelslist, mem_only)?;
+        tracegen::reader::read_command_traces(trace_dir, kernelslist, mem_only)?;
     for (cmd, traces) in &mut command_traces {
-        if let trace_model::Command::KernelLaunch(kernel) = cmd {
+        if let Some(trace_model::Command::KernelLaunch(kernel)) = cmd {
             let json_kernel_trace_name = format!("kernel-{}.json", kernel.id);
             let json_kernel_trace_path = trace_dir.join(&json_kernel_trace_name);
             let mut writer = utils::fs::open_writable(json_kernel_trace_path)?;

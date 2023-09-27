@@ -121,7 +121,13 @@ impl Kernel {
             .join(&config.trace_file)
             .with_extension("msgpack");
 
-        let trace = crate::timeit!("read trace", read_trace(trace_path).unwrap());
+        let mut trace = crate::timeit!("read trace", read_trace(trace_path).unwrap());
+        // TODO: temp hotfix
+        for inst in trace.0.iter_mut() {
+            // does this break simulation?
+            inst.instr_offset = 0;
+        }
+
         Self::new(config, trace)
     }
 

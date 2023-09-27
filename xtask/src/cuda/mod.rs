@@ -15,7 +15,7 @@ pub struct Options {
     pub command: Command,
 }
 
-pub fn run(options: &Options) -> eyre::Result<()> {
+pub fn run(_options: &Options) -> eyre::Result<()> {
     todo!("implement cuda queries for devices here");
     // Ok(())
 }

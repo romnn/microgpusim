@@ -346,17 +346,12 @@ fn compute_per_command_bench_configs<'a>(
                     if !options.selected_benchmarks.is_empty() {
                         let name = bench_config.name.to_lowercase();
                         let is_match = options.selected_benchmarks.iter().any(|b| {
-                            let valid_patterns = [
-                                // try "benchmark_name"
-                                name.clone(),
-                                // try "benchmark_name[input_idx]"
-                                format!("{}[{}]", name, bench_config.input_idx),
-                                // try "benchmark_name@input_idx"
-                                format!("{}@{}", name, bench_config.input_idx),
-                            ];
-                            valid_patterns
-                                .into_iter()
-                                .any(move |p| p.contains(&b.to_lowercase()))
+                            if b.contains("@") {
+                                // must be an exact match
+                                b.to_lowercase() == format!("{}@{}", name, bench_config.input_idx)
+                            } else {
+                                name.contains(&b.to_lowercase())
+                            }
                         });
                         if !is_match {
                             return false;
@@ -413,7 +408,9 @@ async fn main() -> eyre::Result<()> {
             record.args()
         )
     });
+    log_builder.filter_level(log::LevelFilter::Off);
     log_builder.parse_default_env();
+    // :from_env(Env::default().default_filter_or("warn")).init();
     log_builder.init();
 
     color_eyre::install()?;

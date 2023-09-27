@@ -7,7 +7,7 @@ pub type Inner = BitArr!(for super::WARP_SIZE, in u32);
 /// Thread active mask.
 ///
 /// Bitmask where a 1 at position i means that thread i is active for the current instruction.
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct ActiveMask(Inner);
 
@@ -115,6 +115,12 @@ impl<'de> Deserialize<'de> for ActiveMask {
 impl std::fmt::Display for ActiveMask {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.to_bit_string())
+    }
+}
+
+impl std::fmt::Debug for ActiveMask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
     }
 }
 

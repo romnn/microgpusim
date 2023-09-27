@@ -26,6 +26,7 @@ serde = { version = "1", features = ["derive"] }
 serde_path_to_error = "0"
 csv = "1"
 serde_json = { version = "1", features = ["preserve_order"] }
+rmp-serde = "1"
 serde_yaml = "0"
 serde_json_merge = "0"
 try-partialord = "0"

@@ -6,8 +6,10 @@ publish = false
 
 [dependencies]
 color-eyre = "0"
-glob = "0"
-libc = "0"
-similar-asserts = "1"
 thiserror = "1"
+glob = "0"
 async-process = "1"
+libc = "0"
+
+console = "0"
+similar = { version = "2.2.0", features = ["inline"] }

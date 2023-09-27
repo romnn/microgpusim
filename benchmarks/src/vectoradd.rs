@@ -1,4 +1,3 @@
-use color_eyre::eyre;
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
 use num_traits::{Float, Zero};
@@ -54,12 +53,7 @@ where
 }
 
 /// Vectoradd benchmark application.
-pub async fn benchmark<T>(
-    n: usize,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+pub async fn benchmark<T>(n: usize) -> super::Result
 where
     T: Float + Zero + Send + Sync,
 {
@@ -79,14 +73,7 @@ where
     vectoradd(&a, &b, &mut result).await
 }
 
-pub async fn vectoradd<T>(
-    a: &Vec<T>,
-    b: &Vec<T>,
-    result: &mut Vec<T>,
-) -> eyre::Result<(
-    trace_model::command::KernelLaunch,
-    trace_model::MemAccessTrace,
-)>
+pub async fn vectoradd<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> super::Result
 where
     T: Float + Zero + Send + Sync,
 {
@@ -97,9 +84,11 @@ where
     let n = a.len();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(a, MemorySpace::Global).await;
-    let dev_b = tracer.allocate(b, MemorySpace::Global).await;
-    let dev_result = tracer.allocate(result, MemorySpace::Global).await;
+    let dev_a = tracer.allocate(a, MemorySpace::Global, Some("a")).await;
+    let dev_b = tracer.allocate(b, MemorySpace::Global, Some("b")).await;
+    let dev_result = tracer
+        .allocate(result, MemorySpace::Global, Some("result"))
+        .await;
 
     // number of thread blocks in grid
     let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
@@ -110,8 +99,7 @@ where
         n,
     };
     let trace = tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
-    Ok(trace)
-    
+    Ok((tracer.commands().await, vec![trace]))
 }
 
 #[cfg(test)]
@@ -144,7 +132,9 @@ mod tests {
             let ref_b = Array1::from_shape_vec(n, b.clone())?;
             ref_a + ref_b
         };
-        let (_launch_config, trace) = super::vectoradd(&a, &b, &mut result).await?;
+        let (_commands, kernel_traces) = super::vectoradd(&a, &b, &mut result).await?;
+        assert_eq!(kernel_traces.len(), 1);
+        let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         super::reference(&a, &b, &mut ref_result);
 
         let ref_result = Array1::from_shape_vec(n, ref_result)?;
@@ -162,86 +152,20 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        testing::print_warp_trace(first_warp);
+        let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        for inst in &simplified_trace {
+            println!("{}", inst);
+        }
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: simplified_trace,
             want: [
                 ("LDG", 0, "11111111111111111111111111111111", 0),
-                ("LDG", 400, "11111111111111111111111111111111", 0),
-                ("STG", 800, "11111111111111111111111111111111", 0),
+                ("LDG", 512, "11111111111111111111111111111111", 0),
+                ("STG", 1024, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
 
         Ok(())
     }
-
-    // #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    // async fn generate_trace() -> eyre::Result<()> {
-    //     let n = 100;
-    //     let tracer = Tracer::new();
-    //
-    //     let mut a: Vec<f32> = vec![0.0; n];
-    //     let mut b: Vec<f32> = vec![0.0; n];
-    //     let mut result: Vec<f32> = vec![0.0; n];
-    //
-    //     // initialize vectors
-    //     for i in 0..n {
-    //         let angle = i as f32;
-    //         a[i] = angle.sin() * angle.sin();
-    //         b[i] = angle.cos() * angle.cos();
-    //     }
-    //
-    //     // allocate memory for each vector on simulated GPU device
-    //     let dev_a = tracer.allocate(&a, MemorySpace::Global).await;
-    //     let dev_b = tracer.allocate(&b, MemorySpace::Global).await;
-    //     let dev_result = tracer.allocate(&mut result, MemorySpace::Global).await;
-    //
-    //     // number of thread blocks in grid
-    //     let grid_size = (n as f64 / <f64 as From<_>>::from(super::BLOCK_SIZE)).ceil() as u32;
-    //
-    //     let kernel: super::VecAdd<f32> = super::VecAdd {
-    //         dev_a: Mutex::new(dev_a),
-    //         dev_b: Mutex::new(dev_b),
-    //         dev_result: Mutex::new(dev_result),
-    //         n,
-    //     };
-    //     tracer
-    //         .trace_kernel(grid_size, super::BLOCK_SIZE, kernel)
-    //         .await?;
-    //     // let stats = sim.run_to_completion()?;
-    //
-    //     // sum up vector c and print result divided by n.
-    //     // this should equal 1 within
-    //     // let total_sum: f32 = result.iter().copied().sum();
-    //     // println!(
-    //     //     "Final sum = {total_sum}; sum/n = {:.2} (should be ~1)\n",
-    //     //     total_sum / n as f32
-    //     // );
-    //
-    //     // assert!(false);
-    //     Ok(())
-    // }
-
-    // #[test]
-    // pub fn trace_instructions() -> eyre::Result<()> {
-    //     let traces_dir = PathBuf::from(file!())
-    //         .parent()
-    //         .unwrap()
-    //         .join("../results/vectorAdd/vectorAdd-dtype-32-length-100/trace");
-    //     dbg!(&traces_dir);
-    //     let rmp_trace_file_path = traces_dir.join("kernel-0.msgpack");
-    //     dbg!(&rmp_trace_file_path);
-    //
-    //     let mut reader = utils::fs::open_readable(rmp_trace_file_path)?;
-    //     let full_trace: model::MemAccessTrace = rmp_serde::from_read(&mut reader)?;
-    //     let warp_traces = full_trace.to_warp_traces();
-    //     dbg!(&warp_traces[&(model::Dim::ZERO, 0)]
-    //         .iter()
-    //         .map(|entry| (&entry.instr_opcode, &entry.active_mask))
-    //         .collect::<Vec<_>>());
-    //
-    //     assert!(false);
-    //     Ok(())
-    // }
 }
