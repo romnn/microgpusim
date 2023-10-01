@@ -279,7 +279,7 @@ pub struct Metrics {
     #[serde(rename = "device__attribute_maximum_texture2d_layered_height")]
     pub device_attribute_maximum_texture2d_layered_height: Metric<Float>,
     #[serde(rename = "device__attribute_maximum_texture2d_layered_layers")]
-    pub device__attribute_maximum_texture2d_layered_layers: Metric<Float>,
+    pub device_attribute_maximum_texture2d_layered_layers: Metric<Float>,
     #[serde(rename = "device__attribute_maximum_texture2d_layered_width")]
     pub device_attribute_maximum_texture2d_layered_width: Metric<Float>,
     #[serde(rename = "device__attribute_maximum_texture2d_linear_height")]

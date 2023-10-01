@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::io::{BufRead, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::{Error, JsonError, Metric, ParseError};
 pub use metrics::{Command, Metrics};
@@ -111,9 +111,6 @@ where
 
     Ok(entries)
 }
-
-#[derive(Debug, Clone)]
-pub struct Options {}
 
 pub async fn profile_all_metrics<A>(
     nvprof: impl AsRef<Path>,
@@ -276,6 +273,11 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Options {
+    pub nvprof_path: Option<PathBuf>,
+}
+
 /// Profile test application using nvprof profiler.
 ///
 /// Note: `nvprof` is not compatible with newer devices.
@@ -287,7 +289,7 @@ where
 pub async fn nvprof<A>(
     executable: impl AsRef<Path>,
     args: A,
-    _options: &Options,
+    options: &Options,
 ) -> Result<Output, Error>
 where
     A: Clone + IntoIterator,
@@ -296,7 +298,19 @@ where
     let tmp_dir = tempfile::tempdir()?;
     let log_file_path = tmp_dir.path().join("log_file.csv");
 
-    let nvprof = which::which("nvprof").map_err(|_| Error::MissingProfiler("nvprof".into()));
+    let nvprof: Result<_, Error> = options
+        .nvprof_path
+        .clone()
+        .map(|path| {
+            if path.is_file() {
+                path
+            } else {
+                path.join("nvprof")
+            }
+        })
+        .or_else(|| which::which("nvprof").ok())
+        .ok_or_else(|| Error::MissingProfiler("nvprof".into()));
+
     let nvprof = nvprof.or_else(|_| {
         let cuda = utils::find_cuda().ok_or(Error::MissingCUDA)?;
         Ok::<_, Error>(cuda.join("bin/nvprof"))
