@@ -2,7 +2,7 @@
 pub mod nsight;
 pub mod nvprof;
 
-use color_eyre::{eyre, Section};
+use color_eyre::{eyre, Section, SectionExt};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
@@ -20,22 +20,70 @@ pub enum ParseError {
     #[error(transparent)]
     Csv(#[from] csv::Error),
 
-    #[error("failed to parse `{path:?}`")]
-    JSON {
-        #[source]
-        source: serde_json::Error,
-        values: Option<std::collections::HashMap<String, Metric<String>>>,
-        path: Option<String>,
-    },
+    // #[error("failed to parse `{path:?}`")]
+    #[error(transparent)]
+    Json(#[from] JsonError),
+    // JSON {
+    //     #[source]
+    //     source: serde_json::Error,
+    //     values: Option<std::collections::HashMap<String, Metric<String>>>,
+    //     path: Option<String>,
+    // },
+}
+
+#[derive(Debug)]
+pub struct JsonError {
+    pub source: serde_json::Error,
+    pub values: Option<std::collections::HashMap<String, Metric<String>>>,
+    pub path: Option<serde_path_to_error::Path>,
+    // pub path: Option<String>,
+}
+
+impl std::error::Error for JsonError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
+impl std::fmt::Display for JsonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use serde_path_to_error::Segment;
+        write!(
+            f,
+            "failed to parse [{}] (value={:?})",
+            self.path
+                .as_ref()
+                .map(|path| path
+                    .iter()
+                    .filter_map(|seg| match seg {
+                        Segment::Map { key } => Some(key.to_string()),
+                        Segment::Seq { index } => Some(index.to_string()),
+                        Segment::Enum { variant } => Some(variant.to_string()),
+                        Segment::Unknown => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" > "))
+                .unwrap_or("?".to_string()),
+            match (&self.values, &self.path) {
+                (Some(values), Some(path)) => {
+                    match path.iter().next() {
+                        Some(Segment::Map { key }) => values.get(key),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        )
+    }
 }
 
 impl From<serde_json::Error> for ParseError {
     fn from(err: serde_json::Error) -> Self {
-        Self::JSON {
+        Self::Json(JsonError {
             source: err,
             values: None,
             path: None,
-        }
+        })
     }
 }
 
@@ -61,15 +109,19 @@ pub enum Error {
         source: ParseError,
     },
 
-    #[error(transparent)]
-    Command(#[from] utils::CommandError),
+    #[error("command error: {source}")]
+    Command {
+        raw_log: String,
+        #[source]
+        source: utils::CommandError,
+    },
 }
 
 impl Error {
     pub fn into_eyre(self) -> eyre::Report {
         match self {
             Self::Parse { raw_log, source } => {
-                let values = if let ParseError::JSON { values, .. } = &source {
+                let values = if let ParseError::Json(JsonError { values, .. }) = &source {
                     Some(values.clone())
                 } else {
                     None
@@ -78,7 +130,9 @@ impl Error {
                     .with_section(|| raw_log)
                     .with_section(|| format!("{values:#?}"))
             }
-            Self::Command(err) => err.into_eyre(),
+            Self::Command { raw_log, source } => source
+                .into_eyre()
+                .with_section(|| raw_log.header("profile log")),
             err => err.into(),
         }
     }

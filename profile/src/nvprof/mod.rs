@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::io::{BufRead, Read};
 use std::path::Path;
 
-use crate::{Error, Metric, ParseError};
+use crate::{Error, JsonError, Metric, ParseError};
 pub use metrics::{Command, Metrics};
 
 #[derive(PartialEq, Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -99,12 +99,12 @@ where
         let serialized = serde_json::to_string(&metrics)?;
         let deser = &mut serde_json::Deserializer::from_str(&serialized);
         let metrics: M = serde_path_to_error::deserialize(deser).map_err(|source| {
-            let path = source.path().to_string();
-            ParseError::JSON {
+            let path = source.path().clone();
+            ParseError::Json(JsonError {
                 source: source.into_inner(),
                 values: Some(metrics),
                 path: Some(path),
-            }
+            })
         })?;
         entries.push(metrics);
     }
@@ -159,9 +159,21 @@ where
     );
 
     let result = cmd.output().await?;
-    if !result.status.success() {
-        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
+    let mut raw_log = String::new();
+    if let Ok(mut log_reader) = utils::fs::open_readable(&log_file_path) {
+        log_reader.read_to_string(&mut raw_log)?;
     }
+
+    if !result.status.success() {
+        return Err(Error::Command {
+            raw_log,
+            source: utils::CommandError::new(&cmd, result),
+        });
+    }
+
+    // if !result.status.success() {
+    //     return Err(Error::Command(utils::CommandError::new(&cmd, result)));
+    // }
 
     log::debug!("profile stdout: {}", utils::decode_utf8!(result.stdout));
     log::debug!("profile stderr: {}", utils::decode_utf8!(result.stderr));
@@ -230,8 +242,17 @@ where
     );
 
     let result = cmd.output().await?;
+
+    let mut raw_log = String::new();
+    if let Ok(mut log_reader) = utils::fs::open_readable(&log_file_path) {
+        log_reader.read_to_string(&mut raw_log)?;
+    }
+
     if !result.status.success() {
-        return Err(Error::Command(utils::CommandError::new(&cmd, result)));
+        return Err(Error::Command {
+            raw_log,
+            source: utils::CommandError::new(&cmd, result),
+        });
     }
 
     log::debug!("profile stdout: {}", utils::decode_utf8!(result.stdout));
