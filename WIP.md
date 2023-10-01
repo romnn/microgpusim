@@ -1,5 +1,7 @@
 #### TODO
 
+/usr/local/NVIDIA-Nsight-Compute-2019.4
+
 GTX1080 has `20 SM * 4 SIMD unit * 32 lanes = 2560 "CUDA cores"`
 https://www.es.ele.tue.nl/~heco/courses/ECA/GPU-papers/GeForce_GTX_1080_Whitepaper_FINAL.pdf
 

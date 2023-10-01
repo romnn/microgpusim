@@ -9,7 +9,23 @@ pub struct Build {}
 pub struct Clean {}
 
 #[derive(Parser, Debug, Default, Clone)]
-pub struct Profile {}
+pub struct Profile {
+    #[clap(long = "nvprof", help = "use nvprof")]
+    pub use_nvprof: bool,
+
+    #[clap(long = "nvprof-path", help = "path to nvprof installation")]
+    pub nvprof_path: Option<PathBuf>,
+
+    #[clap(long = "nsight", help = "use nsight")]
+    pub use_nsight: bool,
+
+    #[clap(
+        long = "nsight-path",
+        help = "path to nsight installation",
+        default_value = "/usr/local/NVIDIA-Nsight-Compute-2019.4/"
+    )]
+    pub nsight_path: Option<PathBuf>,
+}
 
 #[derive(Parser, Debug, Default, Clone)]
 pub struct Trace {}

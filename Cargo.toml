@@ -28,7 +28,7 @@ opt-level = 3
 
 [profile.release]
 # lto just takes too long for now
-# lto = true
+lto = false
 opt-level = 3
 debug = true
 # warning: debug assertions negatively impact the performance of accelsim and play
@@ -76,6 +76,8 @@ nvbit-model = "0"
 nvbit-io = "0"
 regex = "1"
 itertools = "0"
+indexmap = { version = "2", features = ["serde"] }
+serde_yaml = "0"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

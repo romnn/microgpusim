@@ -151,7 +151,7 @@ template <typename T> int vectoradd(int n) {
   // Copy host vectors to device
   CUDA_SAFECALL(cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
-  CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
+  // CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
   // invalidate all caches
   // invalidate_caches();
@@ -175,10 +175,13 @@ template <typename T> int vectoradd(int n) {
     // CUDA_SAFECALL(cudaDeviceSynchronize());
 
     // flush_l2_cache();
+
+    // Copy array back to host
+    CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
   }
 
   // Copy array back to host
-  CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
+  // CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
 
   // Sum up vector c and print result divided by n, this should equal 1 within
   // error

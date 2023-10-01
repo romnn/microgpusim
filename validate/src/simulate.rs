@@ -4,91 +4,97 @@ use crate::{
     RunError,
 };
 use color_eyre::{eyre, Help};
-use gpucachesim::config::{self, Parallelization};
+pub use gpucachesim::config::{self, Parallelization};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 use utils::fs::create_dirs;
 
-#[derive(Debug, serde::Deserialize)]
-struct Input {
-    #[serde(rename = "mode")]
-    parallelism_mode: Option<String>,
-    #[serde(rename = "threads")]
-    parallelism_threads: Option<usize>,
-    #[serde(rename = "run_ahead")]
-    parallelism_run_ahead: Option<usize>,
-    cores_per_cluster: Option<usize>,
-    memory_only: Option<bool>,
-}
+// #[derive(Debug, serde::Deserialize)]
+// pub struct Input {
+//     #[serde(rename = "mode")]
+//     parallelism_mode: Option<String>,
+//     #[serde(rename = "threads")]
+//     parallelism_threads: Option<usize>,
+//     #[serde(rename = "run_ahead")]
+//     parallelism_run_ahead: Option<usize>,
+//     cores_per_cluster: Option<usize>,
+//     memory_only: Option<bool>,
+// }
 
-pub fn configure_simulator(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
-    let err = |err: serde_json::Error| {
-        RunError::Failed(
-            eyre::Report::from(err).wrap_err(
-                eyre::eyre!(
-                    "failed to parse input values for bench config {}@{}",
-                    bench.name,
-                    bench.input_idx
-                )
-                .with_section(|| format!("{:#?}", bench.values)),
-            ),
-        )
-    };
-    let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(err)?;
-    let input: Input = serde_json::from_value(values).map_err(err)?;
-    dbg!(&input);
+// pub fn parse_input(bench: &BenchmarkConfig) -> Result<Input, RunError> {
+//     let err = |err: serde_json::Error| {
+//         RunError::Failed(
+//             eyre::Report::from(err).wrap_err(
+//                 eyre::eyre!(
+//                     "failed to parse input values for bench config {}@{}",
+//                     bench.name,
+//                     bench.input_idx
+//                 )
+//                 .with_section(|| format!("{:#?}", bench.values)),
+//             ),
+//         )
+//     };
+//     let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(err)?;
+//     let input: Input = serde_json::from_value(values).map_err(err)?;
+//     Ok(input)
+// }
 
-    let parallelization = match (
-        input
-            .parallelism_mode
-            .as_deref()
-            .map(str::to_lowercase)
-            .as_deref(),
-        input.parallelism_run_ahead,
-    ) {
-        (Some("serial") | None, _) => Parallelization::Serial,
-        #[cfg(feature = "parallel")]
-        (Some("deterministic"), _) => Parallelization::Deterministic,
-        #[cfg(feature = "parallel")]
-        (Some("nondeterministic"), run_ahead) => Parallelization::Nondeterministic {
-            run_ahead: run_ahead.unwrap_or(10),
-            interleave: false,
-        },
-        (Some("nondeterministic_interleave"), run_ahead) => Parallelization::Nondeterministic {
-            run_ahead: run_ahead.unwrap_or(10),
-            interleave: true,
-        },
-        (Some(other), _) => panic!("unknown parallelization mode: {other}"),
-        #[cfg(not(feature = "parallel"))]
-        _ => {
-            return Err(RunError::Failed(
-                eyre::eyre!("parallel feature is disabled")
-                    .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
-            ))
-        }
-    };
-
-    let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                                            // 20
-        num_cores_per_simt_cluster: input.cores_per_cluster.unwrap_or(1), // 1
-        num_schedulers_per_core: 2,                                       // 1
-        num_memory_controllers: 8,                                        // 8
-        num_dram_chips_per_memory_controller: 1,                          // 1
-        num_sub_partitions_per_memory_controller: 2,                      // 2
-        fill_l2_on_memcopy: false,                                        // false
-        // fill_l2_on_memcopy: true,
-        memory_only: input.memory_only.unwrap_or(false),
-        parallelization,
-        log_after_cycle: None,
-        simulation_threads: input.parallelism_threads,
-        ..gpucachesim::config::GPU::default()
-    };
-
-    gpucachesim::init_deadlock_detector();
-    let sim = config::GTX1080::new(Arc::new(config));
-    Ok(sim)
-}
+// pub fn configure_simulator(input: &Input) -> Result<config::GTX1080, RunError> {
+//     let parallelization = match (
+//         input
+//             .parallelism_mode
+//             .as_deref()
+//             .map(str::to_lowercase)
+//             .as_deref(),
+//         input.parallelism_run_ahead,
+//     ) {
+//         (Some("serial") | None, _) => Parallelization::Serial,
+//         #[cfg(feature = "parallel")]
+//         (Some("deterministic"), _) => Parallelization::Deterministic,
+//         #[cfg(feature = "parallel")]
+//         (Some("nondeterministic"), run_ahead) => Parallelization::Nondeterministic {
+//             run_ahead: run_ahead.unwrap_or(10),
+//             interleave: false,
+//         },
+//         (Some("nondeterministic_interleave"), run_ahead) => Parallelization::Nondeterministic {
+//             run_ahead: run_ahead.unwrap_or(10),
+//             interleave: true,
+//         },
+//         (Some(other), _) => panic!("unknown parallelization mode: {other}"),
+//         #[cfg(not(feature = "parallel"))]
+//         _ => {
+//             return Err(RunError::Failed(
+//                 eyre::eyre!("parallel feature is disabled")
+//                     .with_suggestion(|| format!(r#"enable the "parallel" feature"#)),
+//             ))
+//         }
+//     };
+//     let log_after_cycle = std::env::var("LOG_AFTER")
+//         .unwrap_or_default()
+//         .parse::<u64>()
+//         .ok();
+//
+//     let config = gpucachesim::config::GPU {
+//         num_simt_clusters: 20,                                            // 20
+//         num_cores_per_simt_cluster: input.cores_per_cluster.unwrap_or(1), // 1
+//         num_schedulers_per_core: 2,                                       // 1
+//         num_memory_controllers: 8,                                        // 8
+//         num_dram_chips_per_memory_controller: 1,                          // 1
+//         num_sub_partitions_per_memory_controller: 2,                      // 2
+//         fill_l2_on_memcopy: false,                                        // false
+//         // fill_l2_on_memcopy: true,
+//         memory_only: input.memory_only.unwrap_or(false),
+//         parallelization,
+//         log_after_cycle,
+//         simulation_threads: input.parallelism_threads,
+//         ..gpucachesim::config::GPU::default()
+//     };
+//
+//     gpucachesim::init_deadlock_detector();
+//     let sim = config::GTX1080::new(Arc::new(config));
+//     Ok(sim)
+// }
 
 #[allow(clippy::module_name_repetitions)]
 pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
@@ -110,7 +116,18 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         ));
     }
 
-    let mut sim = configure_simulator(bench)?;
+    let input = gpucachesim::config::parse_input(&bench.values).map_err(|err| {
+        eyre::Report::from(err).wrap_err(
+            eyre::eyre!(
+                "failed to parse input values for bench config {}@{}",
+                bench.name,
+                bench.input_idx
+            )
+            .with_section(|| format!("{:#?}", bench.values)),
+        )
+    })?;
+
+    let mut sim = gpucachesim::config::gtx1080::configure_simulator(&input)?;
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
         (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
     } else {
@@ -138,6 +155,11 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         dbg!(&kernel_stats.dram.reduce());
         dbg!(&kernel_stats.sim);
     }
+
+    let reduced = stats.clone().reduce();
+    dbg!(&reduced.dram.reduce());
+    let num_kernels_launched = stats.inner.len();
+    dbg!(num_kernels_launched);
 
     // *wip_stats = gpucachesim::WIPStats::default();
 
@@ -327,14 +349,15 @@ pub mod exec {
                 }
             }
 
+            let commands_path = traces_dir.join("commands.json");
             let mut json_serializer = serde_json::Serializer::with_formatter(
-                utils::fs::open_writable(&traces_dir.join("commands.json"))
-                    .map_err(eyre::Report::from)?,
+                utils::fs::open_writable(&commands_path).map_err(eyre::Report::from)?,
                 serde_json::ser::PrettyFormatter::with_indent(b"    "),
             );
             commands
                 .serialize(&mut json_serializer)
                 .map_err(eyre::Report::from)?;
+            println!("written {}", commands_path.display());
         }
 
         for repetition in 0..bench.common.repetitions {

@@ -15,7 +15,11 @@ from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 # suppress scientific notation by setting float_format
 # pd.options.display.float_format = "{:.3f}".format
-pd.options.display.float_format = "{:.1f}".format
+pd.options.display.float_format = "{:.2f}".format
+pd.set_option("display.max_rows", 500)
+pd.set_option("display.max_columns", 500)
+pd.set_option("max_colwidth", 2000)
+pd.set_option("display.expand_frame_repr", False)
 np.seterr(all="raise")
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
@@ -33,6 +37,7 @@ SIMULATE_INPUT_COLS = [
     "input_threads",
     "input_run_ahead",
     "input_memory_only",
+    "input_num_clusters",
     "input_cores_per_cluster",
 ]
 
@@ -55,6 +60,8 @@ STAT_COLS = [
     "dram_writes",
     # l2 stats
     "l2_accesses",
+    "l2_reads",
+    "l2_writes",
     "l2_read_hit_rate",
     "l2_write_hit_rate",
     "l2_read_miss_rate",
@@ -93,10 +100,12 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
             selected_df[col] = np.nan
 
     non_gpucachesim = selected_df["input_mode"].isnull()
+    print(selected_df[non_gpucachesim]["target"].unique().tolist())
 
     serial_gpucachesim = selected_df["input_mode"] == "serial"
     compute_gpucachesim = selected_df["input_memory_only"] == False
     gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == 1
+    gtx1080_gpucachesim &= selected_df["input_num_clusters"] == 20
     gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
     print(
         "gpucachesim gold input ids:",
@@ -106,11 +115,15 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     # only keep gold gpucachesim and other targets
     # selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
     kernels = selected_df[gold_gpucachesim]["kernel_name_mangled"].unique().tolist()
-    print(kernels)
+    # print(kernels)
     # print(selected_df[gold_gpucachesim][["target", "benchmark", "input_id", "kernel_name_mangled", "cycles"]])
-    print(selected_df[non_gpucachesim][["target", "kernel_name_mangled", "kernel_name"]].drop_duplicates())
+    # print(
+    #     selected_df[non_gpucachesim][
+    #         ["target", "kernel_name_mangled", "kernel_name", "kernel_launch_id"]
+    #     ].drop_duplicates()
+    # )
 
-    no_kernel = selected_df["kernel_name_mangled"].isna()
+    no_kernel = selected_df["kernel_name_mangled"].isna() ^ (selected_df["kernel_name_mangled"] == "")
     valid_kernel = selected_df["kernel_name_mangled"].isin(kernels)
     selected_df = selected_df[(gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)]
 
@@ -120,8 +133,14 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     # assert (selected_df["is_release_build"] == True).all()
 
     input_cols = BENCHMARK_INPUT_COLS[bench_name]
+    # print(selected_df[input_cols].drop_duplicates())
+
     grouped = selected_df.groupby(INDEX_COLS, dropna=False)
+    # print(selected_df[INDEX_COLS + input_cols + ["dram_writes", "l2_accesses"]].head(n=200))
+    # print(grouped["dram_writes"].sum())
     averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
+    # print(averaged)
+    # print(averaged.drop_duplicates())
 
     per_target = averaged.pivot(index=["benchmark"] + input_cols, columns="target", values=STAT_COLS)
     return per_target
@@ -156,15 +175,19 @@ def view(path, bench_name):
             "dram_writes",
             # l2 stats
             "l2_accesses",
+            "l2_reads",
+            "l2_read_hit_rate",
             "l2_read_hits",
+            "l2_writes",
             "l2_write_hits",
-            "l2_hits",
-            "l2_misses",
+            "l2_write_hit_rate",
+            # "l2_hits",
+            # "l2_misses",
             # l1 stats
             "l1_accesses",
-            "l1_reads",
-            "l1_hits",
-            "l1_misses",
+            # "l1_reads",
+            # "l1_hits",
+            # "l1_misses",
         ]
     ]
     print(per_target.T.to_string())
@@ -219,7 +242,7 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
 
         match target.lower():
             case "profile":
-                bench_stats = native.Stats(config, bench_config)
+                bench_stats = native.NsightStats(config, bench_config)
             case "simulate":
                 if bench_config["values"]["mode"] != "serial":
                     continue

@@ -200,7 +200,10 @@ fn print_benchmark_result(
         }
     };
     let op = match command {
-        Command::Profile(_) => "profiling".to_string(),
+        Command::Profile(opts) => format!(
+            "profiling[{}]",
+            if opts.use_nvprof { "nvprof" } else { "nsight" }
+        ),
         Command::Trace(_) => format!(
             "tracing [gpucachesim][{}]",
             profile(gpucachesim::is_debug())
@@ -408,10 +411,16 @@ async fn main() -> eyre::Result<()> {
             record.args()
         )
     });
-    log_builder.filter_level(log::LevelFilter::Off);
-    log_builder.parse_default_env();
-    // :from_env(Env::default().default_filter_or("warn")).init();
-    log_builder.init();
+    let log_after_cycle = std::env::var("LOG_AFTER")
+        .unwrap_or_default()
+        .parse::<u64>()
+        .ok();
+
+    if log_after_cycle.is_none() {
+        log_builder.filter_level(log::LevelFilter::Off);
+        log_builder.parse_default_env();
+        log_builder.init();
+    }
 
     color_eyre::install()?;
     dotenv::dotenv().ok();

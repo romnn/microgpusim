@@ -40,14 +40,12 @@ where
         TraceProvider::Native | TraceProvider::Accelsim => traces_dir.join("kernelslist.g"),
         TraceProvider::Box => {
             // this is a hotfix
-            
-            accelsim::tracegen::convert_box_to_accelsim_traces(
-                &accelsim::tracegen::Conversion {
-                    native_commands_path: &traces_dir.join("../trace/commands.json"),
-                    box_traces_dir: &traces_dir.join("../trace"),
-                    accelsim_traces_dir: traces_dir,
-                },
-            )?
+
+            accelsim::tracegen::convert_box_to_accelsim_traces(&accelsim::tracegen::Conversion {
+                native_commands_path: &traces_dir.join("../trace/commands.json"),
+                box_traces_dir: &traces_dir.join("../trace"),
+                accelsim_traces_dir: traces_dir,
+            })?
         }
     };
     if !kernelslist.is_file() {
@@ -76,17 +74,18 @@ where
     let inter_config = inter_config.to_string_lossy().to_string();
 
     let mut args = vec![
-        "-trace",
-        &kernelslist,
-        "-config",
-        &gpgpusim_config,
-        "-config",
-        &trace_config,
-        "-inter_config_file",
-        &inter_config,
+        "-trace".to_string(),
+        kernelslist.to_string(),
+        "-config".to_string(),
+        gpgpusim_config,
+        "-config".to_string(),
+        trace_config,
+        "-inter_config_file".to_string(),
+        inter_config,
     ];
     let extra_args: Vec<String> = extra_args.into_iter().map(Into::into).collect();
-    args.extend(extra_args.iter().map(String::as_str));
+    args.extend(extra_args.into_iter());
+    // args.extend(extra_args.iter().map(String::as_str));
 
     let tmp_dir = tempfile::tempdir().map_err(eyre::Report::from)?;
     let log_file_path = tmp_dir.path().join("log.txt");
@@ -102,7 +101,7 @@ where
     };
 
     let start = std::time::Instant::now();
-    let stats = playground::run(config, args.as_slice()).map_err(eyre::Report::from)?;
+    let stats = playground::run(config, args).map_err(eyre::Report::from)?;
     let dur = start.elapsed();
 
     let mut raw_log = String::new();
