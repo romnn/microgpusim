@@ -19,11 +19,16 @@ const USAGE: &str = "./profile [nvprof|nsight|auto] [OPTIONS] -- <executable> [a
 pub struct NvprofOptions {
     #[clap(long = "log-file", help = "output log file")]
     pub log_file: Option<PathBuf>,
+
+    #[clap(long = "nvprof-path", help = "path to nvprof")]
+    pub nvprof_path: Option<PathBuf>,
 }
 
 impl From<NvprofOptions> for profile::nvprof::Options {
-    fn from(_options: NvprofOptions) -> Self {
-        Self {}
+    fn from(options: NvprofOptions) -> Self {
+        Self {
+            nvprof_path: options.nvprof_path,
+        }
     }
 }
 
@@ -32,6 +37,17 @@ impl From<NvprofOptions> for profile::nvprof::Options {
 pub struct NsightOptions {
     #[clap(long = "log-file", help = "output log file")]
     pub log_file: Option<PathBuf>,
+
+    #[clap(long = "nsight-path", help = "path to nsight")]
+    pub nsight_path: Option<PathBuf>,
+}
+
+impl From<NsightOptions> for profile::nsight::Options {
+    fn from(options: NsightOptions) -> Self {
+        Self {
+            nsight_path: options.nsight_path,
+        }
+    }
 }
 
 #[derive(Subcommand, Debug, Clone)]

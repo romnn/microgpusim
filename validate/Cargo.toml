@@ -84,5 +84,8 @@ ssh_jumper = { version = "0", optional = true }
 rustacuda = { version = "0", optional = true }
 cuda-driver-sys = { version = "0", optional = true }
 
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0"
+
 [dev-dependencies]
 pretty_assertions_sorted = "1"

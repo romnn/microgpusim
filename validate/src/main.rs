@@ -3,6 +3,13 @@ mod progress;
 // #[cfg(feature = "remote")]
 // mod remote;
 
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 use chrono::offset::Local;
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};

@@ -90,6 +90,8 @@ strum = { version = "0", features = ["derive"] }
 phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
 ndarray = "0"
+
+
 # serde_json_merge = "0"
 
 # synchronization
@@ -112,6 +114,9 @@ utils = { path = "./utils" }
 
 # exec driven (todo: make this a feature)
 exec = { path = "./exec" }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0"
 
 [dependencies.pyo3]
 version = "0"

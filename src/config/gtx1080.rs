@@ -42,7 +42,10 @@ impl GTX1080 {
     }
 }
 
-pub fn configure_simulator(input: &crate::config::Input) -> eyre::Result<super::GTX1080> {
+// accelsim_compat
+// pub fn configure_simulator(input: &crate::config::Input) -> eyre::Result<super::GTX1080> {
+
+pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config::GPU> {
     let parallelization = match (
         input
             .parallelism_mode
@@ -84,6 +87,7 @@ pub fn configure_simulator(input: &crate::config::Input) -> eyre::Result<super::
         num_sub_partitions_per_memory_controller: 2,         // 2
         // fill_l2_on_memcopy: false,                           // false
         fill_l2_on_memcopy: true,
+        accelsim_compat: false,
         memory_only: input.memory_only.unwrap_or(false),
         parallelization,
         log_after_cycle,
@@ -91,8 +95,9 @@ pub fn configure_simulator(input: &crate::config::Input) -> eyre::Result<super::
         ..crate::config::GPU::default()
     };
 
-    crate::init_deadlock_detector();
-    let sim = crate::config::GTX1080::new(Arc::new(config));
-    Ok(sim)
+    Ok(config)
+    // crate::init_deadlock_detector();
+    // let sim = crate::config::GTX1080::new(Arc::new(config));
+    // Ok(sim)
 }
 // }

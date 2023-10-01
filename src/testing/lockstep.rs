@@ -427,51 +427,17 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     assert!(trace_config.is_file());
     assert!(inter_config.is_file());
 
-    // assert!(false);
-
-    // debugging config
-    // let box_config = Arc::new(config::GPU {
-    //     num_simt_clusters: 20,                       // 20
-    //     num_cores_per_simt_cluster: 1,               // 1
-    //     num_schedulers_per_core: 2,                  // 2
-    //     num_memory_controllers: 8,                   // 8
-    //     num_sub_partitions_per_memory_controller: 2, // 2
-    //     fill_l2_on_memcopy: false,                   // true
-    //     accelsim_compat: true,
-    //     ..config::GPU::default()
-    // });
-    //
-    // let box_interconn = Arc::new(ic::ToyInterconnect::new(
-    //     box_config.num_simt_clusters,
-    //     box_config.total_sub_partitions(),
-    // ));
-    //
-    // let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
-    // let input: validate::simulate::Input = validate::simulate::parse_input(bench_config.values)?;
     let input: config::Input = config::parse_input(&bench_config.values)?;
     dbg!(&input);
 
-    let mut box_sim: config::gtx1080::GTX1080 = config::gtx1080::configure_simulator(&input)?;
-    // let mut box_sim: validate::gtx1080::GTX1080 = validate::simulate::configure_simulator(&input)?;
-    // let mut box_sim = validate::simulate::configure_simulator(&input)?;
-    box_sim.add_commands(&box_commands_path, box_traces_dir)?;
-    // box_sim.parallel_simulation =
-    //     std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
+    let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
+    box_config.fill_l2_on_memcopy = false;
+    box_config.accelsim_compat = true;
+    crate::init_deadlock_detector();
+    let mut box_sim = crate::config::GTX1080::new(Arc::new(box_config));
 
-    // let args = vec![
-    //     "-trace",
-    //     accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
-    //     "-config",
-    //     gpgpusim_config.as_os_str().to_str().unwrap(),
-    //     "-config",
-    //     trace_config.as_os_str().to_str().unwrap(),
-    //     "-inter_config_file",
-    //     inter_config.as_os_str().to_str().unwrap(),
-    //     "-gpgpu_n_clusters",
-    //     &input.num_clusters.unwrap_or(20).to_string(),
-    //     "-gpgpu_n_cores_per_cluster",
-    //     &input.cores_per_cluster.unwrap_or(1).to_string(),
-    // ];
+    box_sim.add_commands(&box_commands_path, box_traces_dir)?;
+
     let args = vec![
         "-trace".to_string(),
         accelsim_kernelslist_path.to_string_lossy().to_string(),

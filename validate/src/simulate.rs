@@ -127,7 +127,10 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         )
     })?;
 
-    let mut sim = gpucachesim::config::gtx1080::configure_simulator(&input)?;
+    let sim_config = gpucachesim::config::gtx1080::build_config(&input)?;
+    gpucachesim::init_deadlock_detector();
+    let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
+
     let (traces_dir, commands_path) = if traces_dir.is_dir() {
         (traces_dir.to_path_buf(), traces_dir.join("commands.json"))
     } else {

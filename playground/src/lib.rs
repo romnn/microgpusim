@@ -81,9 +81,6 @@ pub struct Accelsim<'a> {
 
 impl<'a> Accelsim<'a> {
     pub fn new(config: Config, args: impl IntoIterator<Item = String>) -> Result<Self, Error> {
-        // let exe = std::env::current_exe()?;
-        // let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
-        // ffi_argv.extend(args.into_iter());
         let exe = std::env::current_exe()?;
         let mut ffi_argv: Vec<String> = vec![exe.to_string_lossy().to_string()];
         ffi_argv.extend(args.into_iter().map(Into::into));
@@ -91,7 +88,6 @@ impl<'a> Accelsim<'a> {
 
         let accelsim_bridge = playground_sys::main::new_accelsim_bridge(
             config.to_accelsim_config(),
-            // ffi_argv.as_slice(),
             ffi_argv_ref_slice.as_slice(),
         );
 
