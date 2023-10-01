@@ -44,6 +44,12 @@ struct Options {
     #[arg(long = "interleave-serial")]
     pub interleave_serial: Option<bool>,
 
+    #[clap(long = "cores-per-cluster", help = "cores per cluster")]
+    pub cores_per_cluster: Option<usize>,
+
+    #[clap(long = "num-clusters", help = "number of clusters")]
+    pub num_clusters: Option<usize>,
+
     #[clap(flatten)]
     pub accelsim: gpucachesim::config::accelsim::Config,
 }
@@ -77,6 +83,7 @@ fn main() -> eyre::Result<()> {
         .ok();
 
     if log_after_cycle.is_none() {
+        log_builder.filter_level(log::LevelFilter::Off);
         log_builder.parse_default_env();
         log_builder.init();
     }
@@ -108,17 +115,20 @@ fn main() -> eyre::Result<()> {
     };
 
     let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                       // 20
-        num_cores_per_simt_cluster: 1,               // 1
-        num_schedulers_per_core: 2,                  // 1
-        num_memory_controllers: 8,                   // 8
-        num_sub_partitions_per_memory_controller: 2, // 2
-        fill_l2_on_memcopy: false,                   // true
+        num_simt_clusters: options.num_clusters.unwrap_or(20), // 20
+        num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1), // 1
+        num_schedulers_per_core: 2,                            // 1
+        num_memory_controllers: 8,                             // 8
+        num_sub_partitions_per_memory_controller: 2,           // 2
+        fill_l2_on_memcopy: false,                             // true
         parallelization,
         deadlock_check,
         log_after_cycle,
         ..gpucachesim::config::GPU::default()
     };
+
+    dbg!(&config.num_simt_clusters);
+    dbg!(&config.num_cores_per_simt_cluster);
 
     let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
     let stats = sim.stats();

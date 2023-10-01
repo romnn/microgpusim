@@ -797,7 +797,8 @@ impl WarpInstruction {
                     }),
             );
 
-            log::warn!(
+            // log::warn!(
+            log::debug!(
                 "coalesced warp instruction {self} into {} transactions: {:?}",
                 accesses.len(),
                 accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
@@ -862,7 +863,7 @@ impl WarpInstruction {
         MemAccessBuilder {
             kind: access_kind,
             addr,
-            kernel_launch_id: self.kernel_launch_id,
+            kernel_launch_id: Some(self.kernel_launch_id),
             allocation: None, // we cannot know the allocation start address in this context
             req_size_bytes,
             is_write,

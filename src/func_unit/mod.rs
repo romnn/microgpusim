@@ -33,7 +33,7 @@ pub trait SimdFunctionUnit:
     fn occupied(&self) -> &OccupiedSlots;
     fn active_lanes_in_pipeline(&self) -> usize;
     fn is_issue_partitioned(&self) -> bool;
-    fn issue_reg_id(&self) -> usize;
+    // fn issue_reg_id(&self) -> usize;
     fn stallable(&self) -> bool;
 }
 
@@ -44,7 +44,7 @@ pub struct PipelinedSimdUnit {
     pub name: String,
     pub pipeline_depth: usize,
     pub pipeline_reg: Vec<Option<WarpInstruction>>,
-    pub issue_reg_id: usize,
+    // pub issue_reg_id: usize,
     pub active_insts_in_pipeline: usize,
     pub dispatch_reg: Option<WarpInstruction>,
     pub occupied: OccupiedSlots,
@@ -70,7 +70,7 @@ impl PipelinedSimdUnit {
         result_port: Option<register_set::Ref>,
         depth: usize,
         config: Arc<config::GPU>,
-        issue_reg_id: usize,
+        // issue_reg_id: usize,
     ) -> Self {
         let pipeline_reg = (0..depth).map(|_| None).collect();
         Self {
@@ -79,7 +79,7 @@ impl PipelinedSimdUnit {
             result_port,
             pipeline_depth: depth,
             pipeline_reg,
-            issue_reg_id,
+            // issue_reg_id,
             active_insts_in_pipeline: 0,
             dispatch_reg: None,
             occupied: BitArray::ZERO,

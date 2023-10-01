@@ -19,7 +19,7 @@ pub struct LoadStoreUnit {
     core_id: usize,
     cluster_id: usize,
     next_writeback: Option<WarpInstruction>,
-    response_fifo: VecDeque<MemFetch>,
+    pub response_fifo: VecDeque<MemFetch>,
     warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     config: Arc<config::GPU>,
@@ -109,7 +109,7 @@ impl LoadStoreUnit {
             None,
             pipeline_depth,
             config.clone(),
-            0,
+            // 0,
         );
         debug_assert!(config.shared_memory_latency > 1);
 
@@ -706,8 +706,10 @@ impl LoadStoreUnit {
                     stall_cond = MemStageStallKind::BK_CONF;
                     if let Some(ref l1_cache) = self.data_l1 {
                         let mut stats = l1_cache.per_kernel_stats().lock();
-                        let kernel_stats = stats.get_mut(access.kernel_launch_id());
-                        kernel_stats.num_l1_cache_bank_conflicts += 1;
+                        if let Some(kernel_launch_id) = access.kernel_launch_id() {
+                            let kernel_stats = stats.get_mut(kernel_launch_id);
+                            kernel_stats.num_l1_cache_bank_conflicts += 1;
+                        }
                     }
 
                     // do not try again, just break from the loop and try the next cycle
@@ -838,7 +840,8 @@ impl LoadStoreUnit {
                 let write_sent = cache::event::was_write_sent(&events);
                 let read_sent = cache::event::was_read_sent(&events);
                 let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
-                log::warn!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", next_fetch.warp_id, &next_fetch, cycle);
+                // log::warn!"
+                log::debug!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", next_fetch.warp_id, &next_fetch, cycle);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
                     next_fetch.data_size() / mem_sub_partition::SECTOR_SIZE
@@ -1016,9 +1019,9 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
         false
     }
 
-    fn issue_reg_id(&self) -> usize {
-        todo!("load store unit: issue reg id");
-    }
+    // fn issue_reg_id(&self) -> usize {
+    //     todo!("load store unit: issue reg id");
+    // }
 
     fn stallable(&self) -> bool {
         // load store unit is stallable
@@ -1103,22 +1106,16 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
                         let cache_op = fetch.instr.as_ref().map(|i| i.cache_operator);
                         if self.data_l1.is_none() || cache_op == Some(CacheOperator::GLOBAL) {
                             bypass_l1 = true;
-                        } else if matches!(
-                            fetch.access_kind(),
-                            AccessKind::GLOBAL_ACC_R | AccessKind::GLOBAL_ACC_W
-                        ) {
-                            // global memory access
-                            if self.config.global_mem_skip_l1_data_cache {
-                                bypass_l1 = true;
-                            }
+                        } else if fetch.access_kind().is_global()
+                            && self.config.global_mem_skip_l1_data_cache
+                        {
+                            bypass_l1 = true;
                         }
 
                         if bypass_l1 {
                             if self.next_global.is_none() {
                                 let mut fetch = self.response_fifo.pop_front().unwrap();
                                 fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
-                                // m_core->get_gpu()->gpu_sim_cycle +
-                                //     m_core->get_gpu()->gpu_tot_sim_cycle);
                                 self.next_global = Some(fetch);
                             }
                         } else {
@@ -1126,6 +1123,11 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
                             if l1d.has_free_fill_port() {
                                 let fetch = self.response_fifo.pop_front().unwrap();
                                 l1d.fill(fetch, cycle);
+                            } else {
+                                log::trace!(
+                                    "cannot fill L1 data cache with {}: no free fill port",
+                                    fetch
+                                );
                             }
                         }
                     }

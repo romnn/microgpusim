@@ -202,13 +202,17 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-            kernel_stats.inc(
-                fetch.allocation_id(),
-                fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                1,
-            );
+            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
+            }
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
@@ -314,13 +318,17 @@ where
 
         if self.inner.miss_queue_full() {
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-            kernel_stats.inc(
-                fetch.allocation_id(),
-                fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                1,
-            );
+            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::MISS_QUEUE_FULL,
+                    ),
+                    1,
+                );
+            }
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -369,13 +377,15 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             };
             let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-            kernel_stats.inc(
-                fetch.allocation_id(),
-                fetch.access_kind(),
-                cache::AccessStat::ReservationFailure(failure),
-                1,
-            );
+            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(failure),
+                    1,
+                );
+            }
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -608,15 +618,17 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-                    kernel_stats.inc(
-                        fetch.allocation_id(),
-                        fetch.access_kind(),
-                        cache::AccessStat::ReservationFailure(
-                            cache::ReservationFailure::LINE_ALLOC_FAIL,
-                        ),
-                        1,
-                    );
+                    if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                        let kernel_stats = stats.get_mut(kernel_launch_id);
+                        kernel_stats.inc(
+                            fetch.allocation_id(),
+                            fetch.access_kind(),
+                            cache::AccessStat::ReservationFailure(
+                                cache::ReservationFailure::LINE_ALLOC_FAIL,
+                            ),
+                            1,
+                        );
+                    }
                 }
                 Some((cache_index, probe_status)) => {
                     access_status =
@@ -629,15 +641,17 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-                    kernel_stats.inc(
-                        fetch.allocation_id(),
-                        fetch.access_kind(),
-                        cache::AccessStat::ReservationFailure(
-                            cache::ReservationFailure::LINE_ALLOC_FAIL,
-                        ),
-                        1,
-                    );
+                    if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                        let kernel_stats = stats.get_mut(kernel_launch_id);
+                        kernel_stats.inc(
+                            fetch.allocation_id(),
+                            fetch.access_kind(),
+                            cache::AccessStat::ReservationFailure(
+                                cache::ReservationFailure::LINE_ALLOC_FAIL,
+                            ),
+                            1,
+                        );
+                    }
                 }
                 Some((_cache_index, cache::RequestStatus::HIT)) => {
                     access_status = self.read_hit(addr, &fetch, time, events);
@@ -722,14 +736,16 @@ where
             access_status
         );
 
-        let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(kernel_launch_id);
-        kernel_stats.inc(
-            allocation_id,
-            access_kind,
-            cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
-            1,
-        );
+        if let Some(kernel_launch_id) = kernel_launch_id {
+            let mut stats = self.inner.stats.lock();
+            let kernel_stats = stats.get_mut(kernel_launch_id);
+            kernel_stats.inc(
+                allocation_id,
+                access_kind,
+                cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
+                1,
+            );
+        }
         access_status
     }
 

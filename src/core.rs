@@ -393,11 +393,11 @@ where
         let ic::Packet { data, time } = packet;
         let mut fetch = data;
 
-        {
+        if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
             let access_kind = fetch.access_kind();
             debug_assert_eq!(fetch.is_write(), access_kind.is_write());
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            let kernel_stats = stats.get_mut(kernel_launch_id);
             kernel_stats
                 .accesses
                 .inc(fetch.allocation_id(), access_kind, 1);
@@ -654,52 +654,52 @@ where
         let mut dispatch_ports = Vec::new();
 
         // single precision units
-        for u in 0..config.num_sp_units {
+        for unit_id in 0..config.num_sp_units {
             functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
-                u, // id
+                unit_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                u, // issue reg id
+                // u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SP);
             issue_ports.push(PipelineStage::OC_EX_SP);
         }
 
         // double precision units
-        for u in 0..config.num_dp_units {
+        for unit_id in 0..config.num_dp_units {
             functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
-                u, // id
+                unit_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                u, // issue reg id
+                // u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_DP);
             issue_ports.push(PipelineStage::OC_EX_DP);
         }
 
         // integer units
-        for u in 0..config.num_int_units {
+        for unit_id in 0..config.num_int_units {
             functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
-                u, // id
+                unit_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                u, // issue reg id
+                // u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_INT);
             issue_ports.push(PipelineStage::OC_EX_INT);
         }
 
         // special function units
-        for u in 0..config.num_sfu_units {
+        for unit_id in 0..config.num_sfu_units {
             functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
-                u, // id
+                unit_id, // id
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                u, // issue reg id
+                // u, // issue reg id
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SFU);
             issue_ports.push(PipelineStage::OC_EX_SFU);
@@ -1438,7 +1438,7 @@ where
                         let access = mem_fetch::access::Builder {
                             kind: AccessKind::INST_ACC_R,
                             addr: ppc as u64,
-                            kernel_launch_id: instr.kernel_launch_id,
+                            kernel_launch_id: Some(instr.kernel_launch_id),
                             allocation: Some(inst_alloc.clone()),
                             req_size_bytes: num_bytes as u32,
                             is_write: false,
@@ -1666,21 +1666,19 @@ where
 
             // TODO: just give the functional unit a reference to the issue port?
             let issue_port = self.issue_ports[fu_id];
-            {
-                let issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
-                log::debug!(
-                    "fu[{:03}] {:<10} before \t{:?}={}",
-                    &fu_id,
-                    fu.to_string(),
-                    issue_port,
-                    issue_inst
-                );
-            }
+            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
+
+            log::debug!(
+                "fu[{:03}] {:<10} before \t{:?}={}",
+                &fu_id,
+                fu.to_string(),
+                issue_port,
+                issue_inst
+            );
 
             fu.cycle(cycle);
             fu.active_lanes_in_pipeline();
 
-            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
             log::debug!(
                 "fu[{:03}] {:<10} after \t{:?}={}",
                 &fu_id,
@@ -1883,7 +1881,7 @@ where
     #[tracing::instrument(name = "core_cycle")]
     fn cycle(&mut self, cycle: u64) {
         log::debug!(
-            "{} \tactive={}, not completed={}",
+            "{} \tactive={}, not completed={} ldst unit response buffer={}",
             style(format!(
                 "cycle {:03} core {:?}: core cycle",
                 cycle,
@@ -1892,8 +1890,8 @@ where
             .blue(),
             self.is_active(),
             self.not_completed(),
+            self.load_store_unit.lock().response_fifo.len()
         );
-        // self.last_active_cycle = self.last_active_cycle.max(cycle);
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {
             match target {
@@ -1902,18 +1900,18 @@ where
             }
         }
 
-        if !self.is_active() && self.not_completed() == 0 {
-            log::debug!(
-                "{}",
-                style(format!(
-                    "cycle {:03} core {:?}: core done",
-                    cycle,
-                    self.id()
-                ))
-                .blue(),
-            );
-            return;
-        }
+        // if !self.is_active() && self.not_completed() == 0 {
+        //     log::debug!(
+        //         "{}",
+        //         style(format!(
+        //             "cycle {:03} core {:?}: core done",
+        //             cycle,
+        //             self.id()
+        //         ))
+        //         .blue(),
+        //     );
+        //     return;
+        // }
 
         // m_stats->shader_cycles[m_sid]++;
         // "writeback"

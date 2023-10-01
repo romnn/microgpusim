@@ -170,7 +170,7 @@ impl Base {
             let dual_issue_only_to_different_exec_units =
                 self.config.dual_issue_only_to_different_exec_units;
 
-            if inst_count > 1 {
+            if log::log_enabled!(log::Level::Debug) && inst_count > 1 {
                 if next_warp.ibuffer_empty() {
                     log::debug!(
                         "warp (warp_id={}, dynamic_warp_id={}) fails as ibuffer_empty",
@@ -184,9 +184,12 @@ impl Base {
                     || core.warp_waiting_at_mem_barrier(&mut next_warp)
                 {
                     log::debug!(
-                        "warp (warp_id={}, dynamic_warp_id={}) is waiting",
+                        "warp (warp_id={}, dynamic_warp_id={}) is waiting [functional_done={}, barrier={}, mem_barrier={}]",
                         warp_id,
-                        dyn_warp_id
+                        dyn_warp_id,
+                        next_warp.functional_done(),
+                        core.warp_waiting_at_barrier(warp_id),
+                        core.warp_waiting_at_mem_barrier(&mut next_warp),
                     );
                 }
             }
@@ -194,7 +197,7 @@ impl Base {
             let warp = self.warps.get(warp_id).unwrap();
 
             // todo: what is the difference? why dont we just use next_warp?
-            debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
+            assert!(Arc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
             let mut warp = warp.try_lock();

@@ -114,6 +114,15 @@ where
 
             // we should not fully lock a core as we completely block a full core cycle
             let core = self.cores[core_id].read();
+            assert_eq!(core.cluster_id, self.cluster_id);
+
+            log::debug!(
+                "have fetch {} for core {:?} ({}): ldst unit response buffer full={}",
+                fetch,
+                core.id(),
+                fetch.core_id.unwrap(),
+                core.ldst_unit_response_buffer_full(),
+            );
 
             match fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
@@ -163,24 +172,9 @@ where
         );
 
         debug_assert_eq!(fetch.cluster_id, Some(self.cluster_id));
-        // debug_assert!(matches!(
-        //     fetch.kind,
-        //     mem_fetch::Kind::READ_REPLY | mem_fetch::Kind::WRITE_ACK
-        // ));
 
-        // The packet size varies depending on the type of request:
-        // - For read request and atomic request, the packet contains the data
-        // - For write-ack, the packet only has control metadata
-        // let _packet_size = if fetch.is_write() {
-        //     fetch.control_size()
-        // } else {
-        //     fetch.data_size()
-        // };
-        // m_stats->m_incoming_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_CLUSTER_TO_SHADER_QUEUE;
         self.response_fifo.push_back(fetch);
-
-        // m_stats->n_mem_to_simt[m_cluster_id] += mf->get_num_flits(false);
     }
 
     pub fn cache_flush(&self) {
@@ -271,5 +265,17 @@ where
             }
         }
         num_blocks_issued
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    #[test]
+    fn test_global_to_local_core_id() {
+        assert_eq!(4 % 4, 0);
+        assert_eq!(5 % 4, 1);
+        assert_eq!(1 % 4, 1);
+        assert_eq!(0 % 4, 0);
+        assert_eq!(8 % 4, 0);
     }
 }

@@ -209,7 +209,7 @@ mod tests {
         let access = mem_fetch::access::Builder {
             kind: mem_fetch::access::Kind::INST_ACC_R,
             addr: fetch_addr,
-            kernel_launch_id: 0,
+            kernel_launch_id: Some(0),
             allocation: None,
             req_size_bytes: 128,
             is_write: false,

@@ -13,7 +13,7 @@ impl IntUnit {
         result_port: register_set::Ref,
         config: Arc<config::GPU>,
         _stats: &Arc<Mutex<stats::PerKernel>>,
-        issue_reg_id: usize,
+        // issue_reg_id: usize,
     ) -> Self {
         let pipeline_depth = config.max_int_latency;
         let inner = fu::PipelinedSimdUnit::new(
@@ -22,7 +22,7 @@ impl IntUnit {
             Some(result_port),
             pipeline_depth,
             config.clone(),
-            issue_reg_id,
+            // issue_reg_id,
         );
 
         Self { config, inner }
@@ -91,9 +91,9 @@ impl fu::SimdFunctionUnit for IntUnit {
         self.inner.issue(source_reg);
     }
 
-    fn issue_reg_id(&self) -> usize {
-        panic!("issue reg id");
-    }
+    // fn issue_reg_id(&self) -> usize {
+    //     panic!("issue reg id");
+    // }
 
     fn stallable(&self) -> bool {
         false

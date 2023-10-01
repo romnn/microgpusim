@@ -111,6 +111,31 @@ pub mod access {
 
     impl Kind {
         #[must_use]
+        #[inline]
+        pub fn is_global(&self) -> bool {
+            matches!(self, Kind::GLOBAL_ACC_R | Kind::GLOBAL_ACC_W)
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn is_local(&self) -> bool {
+            matches!(self, Kind::LOCAL_ACC_R | Kind::LOCAL_ACC_W)
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn is_texture(&self) -> bool {
+            *self == Kind::TEXTURE_ACC_R
+        }
+
+        #[must_use]
+        #[inline]
+        pub fn is_const(&self) -> bool {
+            *self == Kind::CONST_ACC_R
+        }
+
+        #[must_use]
+        #[inline]
         pub fn is_write(&self) -> bool {
             match self {
                 Kind::GLOBAL_ACC_R
@@ -134,7 +159,7 @@ pub mod access {
         pub addr: super::address,
         /// The allocation that this access corresponds to.
         pub allocation: Option<crate::allocation::Allocation>,
-        pub kernel_launch_id: usize,
+        pub kernel_launch_id: Option<usize>,
         // TODO: is_write could be computed using kind.is_write()
         pub is_write: bool,
         /// Requested number of bytes.
@@ -182,7 +207,7 @@ pub mod access {
     pub struct Builder {
         pub kind: Kind,
         pub addr: crate::address,
-        pub kernel_launch_id: usize,
+        pub kernel_launch_id: Option<usize>,
         pub allocation: Option<crate::allocation::Allocation>,
         pub req_size_bytes: u32,
         // TODO: is_write could be computed using kind.is_write()
@@ -240,7 +265,7 @@ pub mod access {
         }
 
         #[inline]
-        pub fn kernel_launch_id(&self) -> usize {
+        pub fn kernel_launch_id(&self) -> Option<usize> {
             self.kernel_launch_id
         }
 
@@ -420,7 +445,7 @@ impl MemFetch {
     }
 
     #[inline]
-    pub fn kernel_launch_id(&self) -> usize {
+    pub fn kernel_launch_id(&self) -> Option<usize> {
         self.access.kernel_launch_id()
     }
 

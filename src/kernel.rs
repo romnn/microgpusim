@@ -123,10 +123,23 @@ impl Kernel {
 
         let mut trace = crate::timeit!("read trace", read_trace(trace_path).unwrap());
         // TODO: temp hotfix
-        for inst in trace.0.iter_mut() {
-            // does this break simulation?
-            inst.instr_offset = 0;
-        }
+        // for inst in trace.0.iter_mut() {
+        //     // does this break simulation?
+        //     inst.instr_offset = 0;
+        //     inst.instr_idx = 0;
+        //
+        //     inst.line_num = 0;
+        //     inst.warp_id_in_sm = 0;
+        //     inst.instr_data_width = 0;
+        //     inst.sm_id = 0;
+        //     inst.cuda_ctx = 0;
+        //
+        //     inst.src_regs.fill(0);
+        //     inst.num_src_regs = 0;
+        //
+        //     inst.dest_regs.fill(0);
+        //     inst.num_dest_regs = 0;
+        // }
 
         Self::new(config, trace)
     }
@@ -156,6 +169,7 @@ impl Kernel {
             return false;
         }
         let next_block = &self.trace[*trace_pos + 1].block_id;
+        log::info!("{} ({}) issue block {next_block}", self.name(), self.id());
 
         while *trace_pos < trace_size {
             let entry = &self.trace[*trace_pos];
@@ -168,12 +182,12 @@ impl Kernel {
             let instr = instruction::WarpInstruction::from_trace(self, entry, config);
 
             // if instr.active_mask.not_any() {
-            log::error!(
-                "instruction #{}: {:<30} {}",
-                *trace_pos,
-                instr.to_string(),
-                instr.active_mask
-            );
+            // log::error!(
+            //     "instruction #{}: {:<30} {}",
+            //     *trace_pos,
+            //     instr.to_string(),
+            //     instr.active_mask
+            // );
             // } else {
             //     log::warn!(
             //         "instruction #{}: {:<30} {}",
@@ -195,7 +209,7 @@ impl Kernel {
                 let mut warp = warp.try_lock();
                 warp.push_trace_instruction(instr);
             } else {
-                log::error!("SKIP non memory instruction {}", instr);
+                // log::error!("SKIP non memory instruction {}", instr);
                 // panic!("skipped instruction");
             }
 
@@ -218,18 +232,10 @@ impl Kernel {
         true
     }
 
-    // pub fn inc_running(&mut self) {
-    //     self.num_cores_running += 1;
-    // }
-
     #[inline]
     pub fn name(&self) -> &str {
         &self.config.unmangled_name
     }
-
-    // pub fn was_launched(&self) -> bool {
-    //     *self.launched.try_lock()
-    // }
 
     #[inline]
     pub fn running(&self) -> bool {

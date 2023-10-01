@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 #[inline]
 fn gather_simulation_state(
     box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
+    // box_sim: &mut validate::simulate::config::GTX1080,
     play_sim: &mut playground::Accelsim,
 ) -> (testing::state::Simulation, testing::state::Simulation) {
     let num_schedulers = box_sim.config.num_schedulers_per_core;
@@ -429,44 +430,70 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     // assert!(false);
 
     // debugging config
-    let box_config = Arc::new(config::GPU {
-        num_simt_clusters: 20,                       // 20
-        num_cores_per_simt_cluster: 1,               // 1
-        num_schedulers_per_core: 2,                  // 2
-        num_memory_controllers: 8,                   // 8
-        num_sub_partitions_per_memory_controller: 2, // 2
-        fill_l2_on_memcopy: false,                   // true
-        accelsim_compat: true,
-        ..config::GPU::default()
-    });
+    // let box_config = Arc::new(config::GPU {
+    //     num_simt_clusters: 20,                       // 20
+    //     num_cores_per_simt_cluster: 1,               // 1
+    //     num_schedulers_per_core: 2,                  // 2
+    //     num_memory_controllers: 8,                   // 8
+    //     num_sub_partitions_per_memory_controller: 2, // 2
+    //     fill_l2_on_memcopy: false,                   // true
+    //     accelsim_compat: true,
+    //     ..config::GPU::default()
+    // });
+    //
+    // let box_interconn = Arc::new(ic::ToyInterconnect::new(
+    //     box_config.num_simt_clusters,
+    //     box_config.total_sub_partitions(),
+    // ));
+    //
+    // let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
+    // let input: validate::simulate::Input = validate::simulate::parse_input(bench_config.values)?;
+    let input: config::Input = config::parse_input(&bench_config.values)?;
+    dbg!(&input);
 
-    let box_interconn = Arc::new(ic::ToyInterconnect::new(
-        box_config.num_simt_clusters,
-        box_config.total_sub_partitions(),
-    ));
-
-    let mut box_sim = crate::MockSimulator::new(box_interconn, box_config);
+    let mut box_sim: config::gtx1080::GTX1080 = config::gtx1080::configure_simulator(&input)?;
+    // let mut box_sim: validate::gtx1080::GTX1080 = validate::simulate::configure_simulator(&input)?;
+    // let mut box_sim = validate::simulate::configure_simulator(&input)?;
     box_sim.add_commands(&box_commands_path, box_traces_dir)?;
-    box_sim.parallel_simulation =
-        std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
+    // box_sim.parallel_simulation =
+    //     std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
 
+    // let args = vec![
+    //     "-trace",
+    //     accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
+    //     "-config",
+    //     gpgpusim_config.as_os_str().to_str().unwrap(),
+    //     "-config",
+    //     trace_config.as_os_str().to_str().unwrap(),
+    //     "-inter_config_file",
+    //     inter_config.as_os_str().to_str().unwrap(),
+    //     "-gpgpu_n_clusters",
+    //     &input.num_clusters.unwrap_or(20).to_string(),
+    //     "-gpgpu_n_cores_per_cluster",
+    //     &input.cores_per_cluster.unwrap_or(1).to_string(),
+    // ];
     let args = vec![
-        "-trace",
-        accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
-        "-config",
-        gpgpusim_config.as_os_str().to_str().unwrap(),
-        "-config",
-        trace_config.as_os_str().to_str().unwrap(),
-        "-inter_config_file",
-        inter_config.as_os_str().to_str().unwrap(),
+        "-trace".to_string(),
+        accelsim_kernelslist_path.to_string_lossy().to_string(),
+        "-config".to_string(),
+        gpgpusim_config.to_string_lossy().to_string(),
+        "-config".to_string(),
+        trace_config.to_string_lossy().to_string(),
+        "-inter_config_file".to_string(),
+        inter_config.to_string_lossy().to_string(),
+        "-gpgpu_n_clusters".to_string(),
+        input.num_clusters.unwrap_or(20).to_string(),
+        "-gpgpu_n_cores_per_cluster".to_string(),
+        input.cores_per_cluster.unwrap_or(1).to_string(),
     ];
+
     dbg!(&args);
 
     let play_config = playground::Config {
         accelsim_compat_mode: false,
         ..playground::Config::default()
     };
-    let mut play_sim = playground::Accelsim::new(play_config, &args)?;
+    let mut play_sim = playground::Accelsim::new(play_config, args)?;
 
     let mut play_time_cycle = Duration::ZERO;
     let mut play_time_other = Duration::ZERO;
@@ -501,7 +528,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         .map(str::parse)
         .transpose()?;
 
-    let should_compare_states = !box_sim.parallel_simulation || check_every.is_some();
+    let should_compare_states = !box_sim.config.is_parallel_simulation() || check_every.is_some();
 
     let check_every = check_every.unwrap_or(200);
     assert!(check_every >= 1);
@@ -806,7 +833,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     }
 
     let num_checks = u32::try_from(cycle.saturating_sub(check_after) / check_every).unwrap();
-    if !box_sim.parallel_simulation && num_checks > 0 {
+    if !box_sim.config.is_parallel_simulation() && num_checks > 0 {
         let gather_box_state_time = gather_box_state_time / num_checks;
         let gather_play_state_time = gather_play_state_time / num_checks;
         let gather_state_time = gather_state_time / num_checks;
@@ -818,7 +845,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     }
 
     dbg!(&cycle);
-    if box_sim.parallel_simulation {
+    if box_sim.config.is_parallel_simulation() {
         dbg!(&play_cycle);
         dbg!(&box_cycle);
     }
@@ -861,10 +888,18 @@ fn get_bench_config(
     bench_name: &str,
     mut input: validate::benchmark::Input,
 ) -> eyre::Result<BenchmarkConfig> {
-    input.insert("mode".to_string(), validate::input!("serial")?);
-    input.insert("memory_only".to_string(), validate::input!(false)?);
-    input.insert("cores_per_cluster".to_string(), validate::input!(1)?);
-    input.insert("num_clusters".to_string(), validate::input!(20)?);
+    input
+        .entry("mode".to_string())
+        .or_insert(validate::input!("serial")?);
+    input
+        .entry("memory_only".to_string())
+        .or_insert(validate::input!(false)?);
+    input
+        .entry("cores_per_cluster".to_string())
+        .or_insert(validate::input!(1)?);
+    input
+        .entry("num_clusters".to_string())
+        .or_insert(validate::input!(20)?);
 
     let bench_config =
         validate::benchmark::find_exact(validate::Target::Simulate, bench_name, &input)?;
@@ -926,4 +961,8 @@ lockstep_checks! {
 
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),
+
+    // extra tests for large input sizes
+    // vectoradd_32_500000_test: ("vectorAdd", {
+    //     "dtype": 32, "length": 500000, "memory_only": false, "cores_per_cluster": 4 }),
 }

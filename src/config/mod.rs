@@ -629,6 +629,11 @@ pub fn pad_to_multiple(n: usize, k: usize) -> usize {
     }
 }
 impl GPU {
+    #[must_use]
+    pub fn is_parallel_simulation(&self) -> bool {
+        self.parallelization != Parallelization::Serial
+    }
+
     pub fn shared_mem_bank(&self, addr: address) -> address {
         let num_banks = self.shared_memory_num_banks as u64;
         (addr / WORD_SIZE) % num_banks
@@ -951,7 +956,7 @@ impl Default for GPU {
             parallelization: Parallelization::Serial,
             memory_only: false,
             simulation_threads: None,
-            deadlock_check: false,
+            deadlock_check: true,
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,
@@ -1388,4 +1393,35 @@ mod tests {
         let block_addr = 34_887_082_112;
         assert_eq!(l2d_config.inner.set_index(block_addr), 1);
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct Input {
+    #[serde(rename = "mode")]
+    pub parallelism_mode: Option<String>,
+    #[serde(rename = "threads")]
+    pub parallelism_threads: Option<usize>,
+    #[serde(rename = "run_ahead")]
+    pub parallelism_run_ahead: Option<usize>,
+    pub cores_per_cluster: Option<usize>,
+    pub num_clusters: Option<usize>,
+    pub memory_only: Option<bool>,
+}
+
+pub fn parse_input(
+    values: &indexmap::IndexMap<String, serde_yaml::Value>,
+) -> Result<Input, serde_json::Error> {
+    // let err = |err: serde_json::Error| {
+    //     eyre::Report::from(err).wrap_err(
+    //         eyre::eyre!(
+    //             "failed to parse input values for bench config {}@{}",
+    //             bench.name,
+    //             bench.input_idx
+    //         )
+    //         .with_section(|| format!("{:#?}", bench.values)),
+    //     )
+    // };
+    let values: serde_json::Value = serde_json::to_value(&values)?;
+    let input: Input = serde_json::from_value(values)?;
+    Ok(input)
 }

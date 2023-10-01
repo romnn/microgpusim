@@ -209,7 +209,7 @@ pub struct MockSimulator<I> {
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     interconn: Arc<I>,
 
-    parallel_simulation: bool,
+    // parallel_simulation: bool,
     last_cluster_issue: Arc<Mutex<usize>>,
     last_issued_kernel: Mutex<usize>,
     allocations: allocation::Ref,
@@ -337,7 +337,7 @@ where
             mem_partition_units,
             mem_sub_partitions,
             interconn,
-            parallel_simulation: false,
+            // parallel_simulation: false,
             running_kernels,
             executed_kernels,
             current_kernel: Mutex::new(None),
@@ -385,7 +385,6 @@ where
                 let launch_id = last_kernel.id();
                 executed_kernels
                     .entry(launch_id)
-                    // .or_insert(last_kernel.name().to_string());
                     .or_insert(Arc::clone(last_kernel));
                 return Some(last_kernel.clone());
             }
@@ -403,7 +402,6 @@ where
                     *last_issued_kernel = idx;
                     let launch_id = kernel.id();
                     assert!(!executed_kernels.contains_key(&launch_id));
-                    // executed_kernels.insert(launch_id, kernel.name().to_string());
                     executed_kernels.insert(launch_id, Arc::clone(kernel));
                     return Some(Arc::clone(kernel));
                 }
@@ -422,6 +420,20 @@ where
     }
 
     pub fn active(&self) -> bool {
+        // dbg!(self
+        //     .clusters
+        //     .iter()
+        //     .any(|cluster| cluster.try_read().not_completed() > 0));
+        // for partition in self.mem_partition_units.iter() {
+        //     dbg!(partition
+        //         .try_read()
+        //         .sub_partitions
+        //         .iter()
+        //         .any(|unit| unit.try_lock().busy()));
+        // }
+        // dbg!(self.interconn.busy());
+        // dbg!(self.more_blocks_to_run());
+
         for cluster in &self.clusters {
             if cluster.try_read().not_completed() > 0 {
                 return true;
@@ -587,7 +599,8 @@ where
                         fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
                         // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                         // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                        log::trace!("interconn push from memory sub partition {i}: {fetch}");
+                        // log::trace!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
+                        // println!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
                         self.interconn.push(
                             device,
                             cluster_id,
@@ -766,10 +779,13 @@ where
                     time,
                 } in port.buffer.drain(..)
                 {
-                    log::trace!(
-                        "interconn push from core {:?}: buffer size {fetch}",
-                        core.id()
-                    );
+                    // log::trace!(
+                    // println!(
+                    //     "interconn push from core {:?}: {fetch} (cluster={:?}, core={:?})",
+                    //     core.id(),
+                    //     fetch.cluster_id,
+                    //     fetch.core_id,
+                    // );
                     self.interconn.push(
                         core.cluster_id,
                         dest,
@@ -869,15 +885,92 @@ where
             .entry("cycle::total")
             .or_default()
             .add(start_total.elapsed());
+
+        // if cycle > 35_000 {
+        // if cycle > 10 {
+        use itertools::Itertools;
+        log::trace!(
+            "all clusters completed: {}",
+            self.clusters
+                .iter()
+                .any(|cluster| cluster.try_read().not_completed() > 0)
+        );
+        for core in self
+            .clusters
+            .iter()
+            .flat_map(|cluster| cluster.try_read().cores.clone())
+        {
+            let core = core.try_read();
+            let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
+            let block_status: Vec<_> = block_status
+                .into_iter()
+                .filter(|(_id, num_threads)| **num_threads > 0)
+                .collect();
+            log::trace!("core {:?}: blocks: {:?}", core.id(), block_status);
+        }
+        // dbg!(self
+        //     .clusters
+        //     .iter()
+        //     .flat_map(|cluster| cluster.try_read().cores.clone())
+        //     .map(|core| core.try_read().block_status)
+        //     // .sorted_by_key(|(block_hw_id, _)| block_hw_id)
+        //     .collect::<Vec<_>>());
+        for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
+            log::trace!(
+                "partition unit {}: busy={}",
+                partition_id,
+                partition
+                    .try_read()
+                    .sub_partitions
+                    .iter()
+                    .any(|unit| unit.try_lock().busy())
+            );
+        }
+        log::trace!("interconn busy: {}", self.interconn.busy());
+        log::trace!("more blocks to run: {}", self.more_blocks_to_run());
+
+        if self.interconn.busy() {
+            for cluster_id in 0..self.config.num_simt_clusters {
+                let queue = self
+                    .interconn
+                    .dest_queue(cluster_id)
+                    .try_lock()
+                    .iter()
+                    .sorted_by_key(|fetch| fetch.addr())
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>();
+                if !queue.is_empty() {
+                    log::trace!(
+                        "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
+                        queue.len(),
+                        queue.iter().next(),
+                    );
+                }
+            }
+            for sub_id in 0..self.config.total_sub_partitions() {
+                let mem_device = self.config.mem_id_to_device_id(sub_id);
+                let queue = self
+                    .interconn
+                    .dest_queue(mem_device)
+                    .try_lock()
+                    .iter()
+                    .sorted_by_key(|fetch| fetch.addr())
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>();
+                if !queue.is_empty() {
+                    log::trace!(
+                        "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
+                        queue.len(),
+                        queue.iter().next()
+                    );
+                }
+            }
+        }
     }
 
     fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
         let num_sub_partitions = self.config.num_sub_partitions_per_memory_controller;
-        let tlx_addr = self
-            .mem_controller
-            // .config
-            // .address_mapping()
-            .to_physical_address(write_addr);
+        let tlx_addr = self.mem_controller.to_physical_address(write_addr);
         let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
         let sub_partition_id = tlx_addr.sub_partition % num_sub_partitions as u64;
 
@@ -939,12 +1032,15 @@ where
 
     pub fn fill_l2_transaction(&mut self, addr: address, num_bytes: u64, cycle: u64) {
         let chunk_size: u64 = 128;
-        let chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
+        let num_chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
+        dbg!(num_bytes);
+        dbg!(chunk_size);
+        dbg!(num_chunks);
 
         // let num_sub_partitions = self.config.num_sub_partitions_per_memory_controller;
         // let mut transactions = vec![vec![]; num_sub_partitions];
 
-        for chunk in 0..chunks {
+        for chunk in 0..num_chunks {
             let write_addr = addr + (chunk as u64 * chunk_size);
 
             // let tlx_addr = self
@@ -955,10 +1051,9 @@ where
             // let sub_partition_id = tlx_addr.sub_partition % num_sub_partitions as u64;
 
             let access = mem_fetch::access::Builder {
-                // kind: mem_fetch::access::Kind::GLOBAL_ACC_R,
                 kind: mem_fetch::access::Kind::GLOBAL_ACC_W,
                 addr: write_addr,
-                kernel_launch_id: 0,
+                kernel_launch_id: None,
                 allocation: self.allocations.try_read().get(&write_addr).cloned(),
                 req_size_bytes: chunk_size as u32,
                 is_write: true,
@@ -968,16 +1063,8 @@ where
             }
             .build();
 
-            let physical_addr = self
-                // .config
-                // .address_mapping()
-                .mem_controller
-                .to_physical_address(access.addr);
-            let partition_addr = self
-                // .config
-                // .address_mapping()
-                .mem_controller
-                .memory_partition_address(access.addr);
+            let physical_addr = self.mem_controller.to_physical_address(access.addr);
+            let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {
                 instr: None,
@@ -996,7 +1083,7 @@ where
             let dest_mem_device = self.config.mem_id_to_device_id(dest_sub_partition_id);
             let packet_size = fetch.control_size();
 
-            log::warn!("push transaction: {fetch} to device {dest_mem_device}");
+            log::info!("push transaction: {fetch} to device {dest_mem_device} (cluster_id={:?}, core_id={:?})", fetch.cluster_id, fetch.core_id);
 
             self.interconn.push(
                 0,
@@ -1035,7 +1122,7 @@ where
                     };
                     let device = self.config.mem_id_to_device_id(sub_id);
                     if self.interconn.has_buffer(device, response_packet_size) {
-                        let mut fetch = mem_sub.pop().unwrap();
+                        let fetch = mem_sub.pop().unwrap();
                         // if let Some(cluster_id) = fetch.cluster_id {
                         //     fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
                         //     log::trace!(
@@ -1082,18 +1169,20 @@ where
                     if let Some(packet) = self.interconn.pop(device) {
                         // remaining -= 1;
                         // if let Some(fetch) = transactions[i].pop() {
-                        log::warn!(
-                            "got new fetch {} for mem sub partition {} ({})",
-                            packet.data,
-                            sub_id,
-                            device
-                        );
+                        // log::warn!(
+                        // log::trace!(
+                        //     "got new fetch {} for mem sub partition {} ({})",
+                        //     packet.data,
+                        //     sub_id,
+                        //     device
+                        // );
 
                         mem_sub.push(packet.data, new_cycle);
                         // self.parallel_mem_partition_reqs += 1;
                     }
                 } else {
-                    log::warn!("SKIP sub partition {sub_id} ({device}): DRAM full stall");
+                    // log::warn!("SKIP sub partition {sub_id} ({device}): DRAM full stall");
+                    log::trace!("SKIP sub partition {sub_id} ({device}): DRAM full stall");
                     // if let Some(kernel) = &*self.current_kernel.lock() {
                     //     let mut stats = self.stats.lock();
                     //     let kernel_stats = stats.get_mut(kernel.id() as usize);
@@ -1110,8 +1199,8 @@ where
             }
 
             new_cycle += 1;
-            if new_cycle - cycle > 250 {
-                panic!("no progress");
+            if new_cycle - cycle > 0 && (new_cycle - cycle) % 10000 == 0 {
+                log::warn!("fill l2 on memcopy: running for {new_cycle} cycles");
             }
 
             // dbg!(self
@@ -1138,7 +1227,8 @@ where
                         .map(ToString::to_string)
                         .collect::<Vec<_>>();
                     if !queue.is_empty() {
-                        log::warn!(
+                        // log::warn!(
+                        log::trace!(
                             "cluster {cluster_id:<3} icnt: [{:<3}] {queue:?}",
                             queue.len()
                         );
@@ -1155,7 +1245,8 @@ where
                         .map(ToString::to_string)
                         .collect::<Vec<_>>();
                     if !queue.is_empty() {
-                        log::warn!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
+                        // log::warn!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
+                        log::trace!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
                     }
                 }
             }
@@ -1298,34 +1389,35 @@ where
             // }
 
             // let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
-            let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
-            let kernel_info = stats::KernelInfo {
-                name: kernel.config.unmangled_name.clone(),
-                mangled_name: kernel.config.mangled_name.clone(),
-                launch_id: kernel_launch_id,
-            };
-            // let kernel = self
-            //     .kernels
-            //     .iter()
-            //     .find(|k| k.id() == kernel_launch_id as u64)
-            //     .unwrap();
-            kernel_stats.sim.kernel_name = kernel_info.name.clone();
-            kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
-            kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
-            kernel_stats.sim.is_release_build = !is_debug();
+            if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
+                let kernel_info = stats::KernelInfo {
+                    name: kernel.config.unmangled_name.clone(),
+                    mangled_name: kernel.config.mangled_name.clone(),
+                    launch_id: kernel_launch_id,
+                };
+                // let kernel = self
+                //     .kernels
+                //     .iter()
+                //     .find(|k| k.id() == kernel_launch_id as u64)
+                //     .unwrap();
+                kernel_stats.sim.kernel_name = kernel_info.name.clone();
+                kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
+                kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
+                kernel_stats.sim.is_release_build = !is_debug();
 
-            kernel_stats.dram.kernel_info = kernel_info.clone();
-            kernel_stats.accesses.kernel_info = kernel_info.clone();
-            kernel_stats.instructions.kernel_info = kernel_info.clone();
+                kernel_stats.dram.kernel_info = kernel_info.clone();
+                kernel_stats.accesses.kernel_info = kernel_info.clone();
+                kernel_stats.instructions.kernel_info = kernel_info.clone();
 
-            for cache_stats in [
-                &mut kernel_stats.l1i_stats,
-                &mut kernel_stats.l1c_stats,
-                &mut kernel_stats.l1t_stats,
-                &mut kernel_stats.l1d_stats,
-                &mut kernel_stats.l2d_stats,
-            ] {
-                cache_stats.kernel_info = kernel_info.clone();
+                for cache_stats in [
+                    &mut kernel_stats.l1i_stats,
+                    &mut kernel_stats.l1c_stats,
+                    &mut kernel_stats.l1t_stats,
+                    &mut kernel_stats.l1d_stats,
+                    &mut kernel_stats.l2d_stats,
+                ] {
+                    cache_stats.kernel_info = kernel_info.clone();
+                }
             }
             // for cache_stats in [&mut kernel_stats.l1i_stats]
             //     .into_iter()
@@ -1445,7 +1537,44 @@ where
                     let mut kernel =
                         Kernel::from_trace(launch.clone(), self.traces_dir.as_ref().unwrap());
                     kernel.memory_only = self.config.memory_only;
-                    self.kernels.push_back(Arc::new(kernel));
+                    // let num_running_kernels = self
+                    //     .running_kernels
+                    //     .try_read()
+                    //     .iter()
+                    //     .map(Option::as_ref)
+                    //     .filter(Option::is_some)
+                    //     .count();
+                    let num_launched_kernels = self.executed_kernels.lock().len();
+
+                    // self.kernels.len()
+                    match std::env::var("KERNEL_LIMIT")
+                        .ok()
+                        .map(|limit| limit.parse::<usize>())
+                        .transpose()
+                        .unwrap()
+                    {
+                        Some(kernel_limit) if num_launched_kernels < kernel_limit => {
+                            log::info!(
+                                "adding kernel {} ({}/{})",
+                                kernel,
+                                num_launched_kernels + 1,
+                                kernel_limit
+                            );
+                            self.kernels.push_back(Arc::new(kernel));
+                        }
+                        Some(kernel_limit) => {
+                            log::info!(
+                                "skip kernel {} ({}/{})",
+                                kernel,
+                                num_launched_kernels + 1,
+                                kernel_limit
+                            );
+                        }
+                        None => {
+                            log::info!("adding kernel {} (no limit)", kernel);
+                            self.kernels.push_back(Arc::new(kernel));
+                        }
+                    }
                 }
             }
             self.command_idx += 1;
@@ -1458,10 +1587,6 @@ where
                 .map(|(_, alloc)| alloc.to_string())
                 .collect::<Vec<_>>()
         );
-    }
-
-    pub fn add_kernel(&mut self, kernel: Kernel) {
-        self.kernels.push_back(Arc::new(kernel));
     }
 
     /// Lauch more kernels if possible.
@@ -1624,14 +1749,18 @@ where
                         // );
                     }
 
+                    const DEADLOCK_DETECTION_CYCLE: u64 = 300;
                     match &mut last_state_change {
-                        Some((last_state, update_cycle)) if &state == last_state => {
-                            panic!("deadlock after cycle {update_cycle}");
+                        Some((last_state, last_state_change_cycle))
+                            if &state == last_state
+                                && cycle - *last_state_change_cycle > DEADLOCK_DETECTION_CYCLE =>
+                        {
+                            panic!("deadlock after cycle {last_state_change_cycle} no progress until cycle {cycle}");
                         }
-                        Some((ref mut last_state, ref mut update_cycle)) => {
+                        Some((ref mut last_state, ref mut last_state_change_cycle)) => {
                             // log::info!("deadlock check: updated state in cycle {}", cycle);
                             *last_state = state;
-                            *update_cycle = cycle;
+                            *last_state_change_cycle = cycle;
                         }
                         None => {
                             last_state_change = Some((state, cycle));
@@ -1679,12 +1808,6 @@ where
     }
 
     fn cleanup_finished_kernel(&mut self, kernel: &Kernel, cycle: u64) {
-        log::debug!(
-            "cleanup finished kernel with id={}: {}",
-            kernel.id(),
-            kernel
-        );
-        // println!("completed kernel {} in cycle {}", kernel.id(), cycle);
         self.kernels.retain(|k| k.config.id != kernel.config.id);
         self.busy_streams
             .retain(|stream| *stream != kernel.config.stream_id);
@@ -1697,14 +1820,23 @@ where
         let kernel_stats = stats.get_mut(kernel.id() as usize);
 
         kernel_stats.sim.is_release_build = !is_debug();
-        kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
-        let elapsed_millis = kernel
+        let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
+        kernel_stats.sim.cycles = elapsed_cycles;
+        let elapsed = kernel
             .start_time
             .lock()
-            .map(|start_time| completion_time.duration_since(start_time).as_millis())
+            .map(|start_time| completion_time.duration_since(start_time));
+
+        let elapsed_millis = elapsed
+            .as_ref()
+            .map(std::time::Duration::as_millis)
             .unwrap_or(0);
 
         kernel_stats.sim.elapsed_millis = elapsed_millis;
+        log::info!(
+            "finished kernel {}: {kernel} in {elapsed_cycles} cycles ({elapsed:?})",
+            kernel.id(),
+        );
     }
 }
 

@@ -64,14 +64,14 @@ pub fn run(
     let box_dur = start.elapsed();
 
     let args = vec![
-        "-trace",
-        accelsim_kernelslist_path.as_os_str().to_str().unwrap(),
-        "-config",
-        gpgpusim_config.as_os_str().to_str().unwrap(),
-        "-config",
-        trace_config.as_os_str().to_str().unwrap(),
-        "-inter_config_file",
-        inter_config.as_os_str().to_str().unwrap(),
+        "-trace".to_string(),
+        accelsim_kernelslist_path.to_string_lossy().to_string(),
+        "-config".to_string(),
+        gpgpusim_config.to_string_lossy().to_string(),
+        "-config".to_string(),
+        trace_config.to_string_lossy().to_string(),
+        "-inter_config_file".to_string(),
+        inter_config.to_string_lossy().to_string(),
     ];
     dbg!(&args);
 
@@ -80,7 +80,7 @@ pub fn run(
         ..playground::Config::default()
     };
     let start = Instant::now();
-    let mut play_sim = playground::Accelsim::new(play_config, &args)?;
+    let mut play_sim = playground::Accelsim::new(play_config, args)?;
     play_sim.run_to_completion();
     let play_dur = start.elapsed();
 

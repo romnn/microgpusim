@@ -139,14 +139,16 @@ where
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-            kernel_stats.inc(
-                fetch.allocation_id(),
-                fetch.access_kind(),
-                super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                1,
-            );
+            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let mut stats = self.stats.lock();
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
+                    1,
+                );
+            }
 
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
@@ -204,9 +206,11 @@ where
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL)
             };
 
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
-            kernel_stats.inc(fetch.allocation_id(), fetch.access_kind(), access_stat, 1);
+            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let mut stats = self.stats.lock();
+                let kernel_stats = stats.get_mut(kernel_launch_id);
+                kernel_stats.inc(fetch.allocation_id(), fetch.access_kind(), access_stat, 1);
+            }
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",
