@@ -41,6 +41,12 @@ pub struct Options {
         help = "use upstream accelsim implementation (unmodified)"
     )]
     pub use_upstream: Option<bool>,
+
+    #[clap(long = "cores-per-cluster", help = "cores per cluster")]
+    pub cores_per_cluster: Option<usize>,
+
+    #[clap(long = "num-clusters", help = "number of clusters")]
+    pub num_clusters: Option<usize>,
 }
 
 #[derive(Parser, Debug, Default)]

@@ -80,14 +80,19 @@ pub struct Accelsim<'a> {
 }
 
 impl<'a> Accelsim<'a> {
-    pub fn new(config: Config, args: &[&str]) -> Result<Self, Error> {
+    pub fn new(config: Config, args: impl IntoIterator<Item = String>) -> Result<Self, Error> {
+        // let exe = std::env::current_exe()?;
+        // let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
+        // ffi_argv.extend(args.into_iter());
         let exe = std::env::current_exe()?;
-        let mut ffi_argv: Vec<&str> = vec![exe.as_os_str().to_str().unwrap()];
-        ffi_argv.extend(args);
+        let mut ffi_argv: Vec<String> = vec![exe.to_string_lossy().to_string()];
+        ffi_argv.extend(args.into_iter().map(Into::into));
+        let ffi_argv_ref_slice: Vec<&str> = ffi_argv.iter().map(String::as_str).collect();
 
         let accelsim_bridge = playground_sys::main::new_accelsim_bridge(
             config.to_accelsim_config(),
-            ffi_argv.as_slice(),
+            // ffi_argv.as_slice(),
+            ffi_argv_ref_slice.as_slice(),
         );
 
         let num_cores = accelsim_bridge.get_cores().len();
@@ -221,7 +226,10 @@ impl<'a> Accelsim<'a> {
     }
 }
 
-pub fn run(config: Config, args: &[&str]) -> Result<crate::stats::Stats, Error> {
+pub fn run(
+    config: Config,
+    args: impl IntoIterator<Item = String>,
+) -> Result<crate::stats::Stats, Error> {
     let mut accelsim = Accelsim::new(config, args)?;
     accelsim.run_to_completion();
     Ok(accelsim.stats().clone())

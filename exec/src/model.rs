@@ -9,6 +9,18 @@ pub enum MemorySpace {
     Global,
 }
 
+impl From<MemorySpace> for trace_model::MemorySpace {
+    fn from(space: MemorySpace) -> Self {
+        match space {
+            MemorySpace::Local => Self::Local,
+            MemorySpace::Shared => Self::Shared,
+            MemorySpace::Constant => Self::Constant,
+            MemorySpace::Texture => Self::Texture,
+            MemorySpace::Global => Self::Global,
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum MemAccessKind {
     Load,

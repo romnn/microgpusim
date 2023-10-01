@@ -712,15 +712,12 @@ void trace_shader_core_ctx::create_exec_pipeline() {
     m_issue_port.push_back(OC_EX_SFU);
   }
 
-  // if (accelsim_compat_mode) {
   for (int k = 0; k < m_config->gpgpu_num_tensor_core_units; k++) {
     m_fu.push_back(new tensor_core(&m_pipeline_reg[EX_WB], m_config, this, k));
     m_dispatch_port.push_back(ID_OC_TENSOR_CORE);
     m_issue_port.push_back(OC_EX_TENSOR_CORE);
   }
-  // }
 
-  // if (accelsim_compat_mode) {
   for (unsigned j = 0; j < m_config->m_specialized_unit.size(); j++) {
     for (unsigned k = 0; k < m_config->m_specialized_unit[j].num_units; k++) {
       m_fu.push_back(new specialized_unit(
@@ -731,7 +728,6 @@ void trace_shader_core_ctx::create_exec_pipeline() {
       m_issue_port.push_back(m_config->m_specialized_unit[j].OC_EX_SPEC_ID);
     }
   }
-  // }
 
   m_ldst_unit = new ldst_unit(m_icnt, m_mem_fetch_allocator, this,
                               &m_operand_collector, m_scoreboard, m_config,
@@ -781,12 +777,13 @@ void trace_shader_core_ctx::cycle() {
       "cycle {} core ({}, {}): core cycle \tactive={}, not completed={}",
       m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(), get_sid(),
       isactive(), get_not_completed());
-  if (!isactive() && get_not_completed() == 0) {
-    logger->debug("cycle {} core ({}, {}): core done",
-                  m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(),
-                  get_sid());
-    return;
-  }
+
+  // if (!isactive() && get_not_completed() == 0) {
+  //   logger->debug("cycle {} core ({}, {}): core done",
+  //                 m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, get_tpc(),
+  //                 get_sid());
+  //   return;
+  // }
 
   m_stats->shader_cycles[m_sid]++;
   writeback();

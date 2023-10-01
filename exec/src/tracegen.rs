@@ -491,14 +491,14 @@ impl TraceGenerator for Tracer {
                         let is_load = access.kind == model::MemAccessKind::Load;
                         let is_store = access.kind == model::MemAccessKind::Store;
                         let instr_opcode = match access.mem_space {
-                            model::MemorySpace::Local if is_load => "LDL".to_string(),
+                            model::MemorySpace::Local if is_load => "LDL.E".to_string(),
                             model::MemorySpace::Global if is_load => "LDG.E".to_string(),
-                            model::MemorySpace::Shared if is_load => "LDS".to_string(),
+                            model::MemorySpace::Shared if is_load => "LDS.E".to_string(),
                             // MemorySpace::Texture if is_load => "LDG".to_string(),
-                            model::MemorySpace::Constant if is_load => "LDC".to_string(),
-                            model::MemorySpace::Local if is_store => "STL".to_string(),
+                            model::MemorySpace::Constant if is_load => "LDC.E".to_string(),
+                            model::MemorySpace::Local if is_store => "STL.E".to_string(),
                             model::MemorySpace::Global if is_store => "STG.E".to_string(),
-                            model::MemorySpace::Shared if is_store => "STS".to_string(),
+                            model::MemorySpace::Shared if is_store => "STS.E".to_string(),
                             // MemorySpace::Texture if is_store => "LDG".to_string(),
                             model::MemorySpace::Constant if is_store => {
                                 todo!("constant store")
@@ -511,6 +511,8 @@ impl TraceGenerator for Tracer {
                             instr_is_mem: true,
                             instr_is_store: is_store,
                             instr_is_load: is_load,
+                            instr_is_extended: true,
+                            instr_mem_space: access.mem_space.into(),
                             instr_idx: instr_idx as u32,
                             ..warp_instruction.clone()
                         }

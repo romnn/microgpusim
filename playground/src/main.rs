@@ -45,20 +45,30 @@ fn main() -> eyre::Result<()> {
     assert!(kernelslist.is_file());
 
     let mut args = vec![
-        "-trace",
-        kernelslist.as_os_str().to_str().unwrap(),
-        "-config",
-        gpgpu_sim_config.as_os_str().to_str().unwrap(),
-        "-config",
-        trace_config.as_os_str().to_str().unwrap(),
+        "-trace".to_string(),
+        kernelslist.to_string_lossy().to_string(),
+        "-config".to_string(),
+        gpgpu_sim_config.to_string_lossy().to_string(),
+        "-config".to_string(),
+        trace_config.to_string_lossy().to_string(),
     ];
     if let Some(inter_config) = inter_config.as_ref() {
         args.extend([
-            "-inter_config_file",
-            inter_config.as_os_str().to_str().unwrap(),
+            "-inter_config_file".to_string(),
+            inter_config.to_string_lossy().to_string(),
         ]);
     }
-    // dbg!(&args);
+    if let Some(num_clusters) = options.num_clusters {
+        args.extend(["-gpgpu_n_clusters".to_string(), num_clusters.to_string()]);
+    }
+    if let Some(cores_per_cluster) = options.cores_per_cluster {
+        args.extend([
+            "-gpgpu_n_cores_per_cluster".to_string(),
+            cores_per_cluster.to_string(),
+        ]);
+    }
+
+    dbg!(&args);
 
     let accelsim_compat_mode = std::env::var("ACCELSIM_COMPAT_MODE")
         .unwrap_or_default()
@@ -69,7 +79,7 @@ fn main() -> eyre::Result<()> {
         accelsim_compat_mode,
         ..playground::Config::default()
     };
-    let mut accelsim = playground::Accelsim::new(config, &args)?;
+    let mut accelsim = playground::Accelsim::new(config, args)?;
     accelsim.run_to_completion();
     let stats = accelsim.stats().clone();
 
