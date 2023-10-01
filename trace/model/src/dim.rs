@@ -1,3 +1,5 @@
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -5,6 +7,56 @@ pub struct Dim {
     pub x: u32,
     pub y: u32,
     pub z: u32,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("failed to parse {value:?}: {source:?}")]
+    Parse {
+        value: String,
+        source: Option<std::num::ParseIntError>,
+    },
+}
+
+static DIM_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*\(?\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)?\s*$").unwrap());
+
+impl TryFrom<&str> for Dim {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let captures = DIM_REGEX.captures(&value).ok_or_else(|| Error::Parse {
+            value: value.to_string(),
+            source: None,
+        })?;
+        let get_dim = |i: usize| {
+            let dim = captures
+                .get(i)
+                .ok_or_else(|| Error::Parse {
+                    value: value.to_string(),
+                    source: None,
+                })?
+                .as_str();
+            dim.parse().map_err(|err| Error::Parse {
+                value: value.to_string(),
+                source: Some(err),
+            })
+        };
+
+        Ok(Self {
+            x: get_dim(1)?,
+            y: get_dim(2)?,
+            z: get_dim(3)?,
+        })
+    }
+}
+
+impl std::str::FromStr for Dim {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::try_from(value)
+    }
 }
 
 impl Dim {

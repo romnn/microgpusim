@@ -53,6 +53,8 @@ pub struct MemAccessTraceEntry {
     pub warp_id_in_block: u32,
     pub warp_size: u32,
     pub line_num: u32,
+    #[deprecated]
+    #[allow(dead_code)]
     pub instr_data_width: u32,
     pub instr_opcode: String,
     pub instr_offset: u32,
