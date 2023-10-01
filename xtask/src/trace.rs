@@ -2,6 +2,7 @@ use accelsim::tracegen;
 use clap::Parser;
 use color_eyre::eyre;
 use console::style;
+use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use std::path::{Path, PathBuf};
 use utils::diff;
@@ -12,6 +13,10 @@ pub enum Command {
     Compare {
         #[clap(long = "print", help = "print matching traces")]
         print: bool,
+        #[clap(long = "summary", help = "print trace summary")]
+        summary: bool,
+        #[clap(long = "block", help = "get trace for specific block only")]
+        block_id: Option<trace_model::Dim>,
     },
 }
 
@@ -184,6 +189,10 @@ impl std::hash::Hash for TraceCommand {
 pub struct InstructionComparator(trace_model::MemAccessTraceEntry);
 
 impl InstructionComparator {
+    pub fn into_inner(self) -> trace_model::MemAccessTraceEntry {
+        self.0
+    }
+
     pub fn id(
         &self,
     ) -> (
@@ -324,6 +333,7 @@ fn compare_trace(
     right: Option<&WarpTraces>,
     right_path: &Path,
     mem_only: bool,
+    block_id: Option<&trace_model::Dim>,
 ) {
     let (left_label, right_label) = match common_path::common_path(left_path, right_path) {
         Some(ref common_prefix) => (
@@ -338,6 +348,9 @@ fn compare_trace(
         ),
         None => (left_path.display(), right_path.display()),
     };
+
+    let mut different_warps = Vec::new();
+    let mut checked_warps = Vec::new();
 
     match (left, right) {
         (Some(left), Some(right)) => {
@@ -355,7 +368,7 @@ fn compare_trace(
             if left_warps != right_warps {
                 diff!(left: left_warps, right: right_warps);
             }
-            let all_warps: Vec<_> = left_warps
+            let mut all_warps: Vec<_> = left_warps
                 .iter()
                 .chain(right_warps.iter())
                 .copied()
@@ -364,82 +377,91 @@ fn compare_trace(
                 .sorted()
                 .collect();
 
+            if let Some(block_id) = block_id {
+                all_warps.retain(|(trace_block_id, _)| trace_block_id == block_id)
+            }
+
+            pub type WarpId = (trace_model::Dim, u32);
+
+            let get_warp_instructions =
+                |warp_traces: &WarpTraces, warp_id: &WarpId| -> Vec<TraceInstruction> {
+                    warp_traces
+                        .0
+                        .get(warp_id)
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .cloned()
+                        .map(|inst| {
+                            if mem_only && !inst.as_ref().0.is_memory_instruction() {
+                                TraceInstruction::Filtered(inst.into_inner())
+                            } else if inst.as_ref().0.active_mask.not_any() {
+                                TraceInstruction::Filtered(inst.into_inner())
+                            } else {
+                                inst
+                            }
+                        })
+                        .collect()
+                };
+
             for warp_id in all_warps.iter() {
                 let (block_id, warp_id_in_block) = warp_id;
-                let left_warp_trace: Vec<_> = left
-                    .0
-                    .get(*warp_id)
-                    .unwrap_or(&vec![])
-                    .iter()
-                    .cloned()
-                    .map(|inst| {
-                        if mem_only && !inst.as_ref().0.is_memory_instruction() {
-                            TraceInstruction::Filtered(inst.into_inner())
-                        } else {
-                            inst
-                        }
-                    })
-                    .collect();
+                let left_warp_trace: Vec<_> = get_warp_instructions(left, warp_id);
+                let right_warp_trace: Vec<_> = get_warp_instructions(right, warp_id);
 
-                let right_warp_trace: Vec<_> = right
-                    .0
-                    .get(*warp_id)
-                    .unwrap_or(&vec![])
-                    .iter()
-                    .cloned()
-                    .map(|inst| {
-                        if mem_only && !inst.as_ref().0.is_memory_instruction() {
-                            TraceInstruction::Filtered(inst.into_inner())
-                        } else {
-                            inst
-                        }
-                    })
-                    .collect();
-
-                // if mem_only {
-                //     for inst in left_warp_trace.iter_mut() {
-                //         // .filter(Option::is_some) {
-                //         // match inst {
-                //         //     Some(inst) if inst.0.is_memory_instruction() => {
-                //         //     },
-                //         //     _ =>
-                //         // }
-                //         if !inst.0.is_memory_instruction() {
-                //             *inst = None;
-                //         }
-                //         // trace.0.retain(|t| t.is_memory_instruction());
-                //     }
-                // }
-                // if let Some(left_warp_trace) = left_warp_trace {
-                //     if mem_only {
-                //         trace.0.retain(|t| t.is_memory_instruction());
-                //     }
-                // }
-
-                // let right_warp_trace = right.0.get(*warp_id);
-
-                // for inst in &left_warp_trace {
-                //     println!("{:?}", &inst);
-                // }
-                // for inst in &right_warp_trace {
-                //     println!("{:?}", &inst);
-                // }
-
-                // let filtered
-                let (left_valid, left_filtered): (Vec<_>, Vec<_>) =
+                let (mut left_valid, left_filtered): (Vec<_>, Vec<_>) =
                     partition_instructions(left_warp_trace);
-                let (right_valid, right_filtered): (Vec<_>, Vec<_>) =
+                let (mut right_valid, right_filtered): (Vec<_>, Vec<_>) =
                     partition_instructions(right_warp_trace);
 
-                println!(
-                    "\t=> block {} warp {:<3} filtered: {} (left) {} (right)",
-                    block_id,
-                    warp_id_in_block,
-                    left_filtered.len(),
-                    right_filtered.len(),
-                );
-                // diff!(left: left_valid, right: right_valid);
-                diff!(left_label, left_valid, right_label, right_valid);
+                for trace in [&mut left_valid, &mut right_valid] {
+                    for inst in trace.iter_mut() {
+                        inst.0.instr_offset = 0;
+                        inst.0.instr_idx = 0;
+
+                        inst.0.src_regs.fill(0);
+                        inst.0.num_src_regs = 0;
+
+                        inst.0.dest_regs.fill(0);
+                        inst.0.num_dest_regs = 0;
+
+                        inst.0.line_num = 0;
+                        inst.0.warp_id_in_sm = 0;
+                        inst.0.instr_data_width = 0;
+                        inst.0.sm_id = 0;
+                        inst.0.cuda_ctx = 0;
+
+                        let min = inst.0.addrs.iter().min().copied().unwrap_or(0);
+                        for addr in inst.0.addrs.iter_mut() {
+                            *addr = addr.checked_sub(min).unwrap_or(0);
+                        }
+                    }
+                }
+
+                let left_valid_full = left_valid
+                    .iter()
+                    .cloned()
+                    .map(InstructionComparator::into_inner)
+                    .collect::<Vec<_>>();
+                let right_valid_full = right_valid
+                    .iter()
+                    .cloned()
+                    .map(InstructionComparator::into_inner)
+                    .collect::<Vec<_>>();
+
+                if left_valid_full != right_valid_full {
+                    println!(
+                        "\t=> block {} warp {:<3} filtered: {} (left) {} (right)",
+                        block_id,
+                        warp_id_in_block,
+                        left_filtered.len(),
+                        right_filtered.len(),
+                    );
+                    diff!(left_label, left_valid, right_label, right_valid);
+                    diff!(left_label, left_valid_full, right_label, right_valid_full);
+                    different_warps.push((block_id, warp_id_in_block));
+                }
+
+                checked_warps.push((block_id, warp_id_in_block));
             }
         }
         (Some(left), None) => {
@@ -468,6 +490,20 @@ fn compare_trace(
         }
         (None, None) => {}
     }
+    let style = if different_warps.is_empty() {
+        console::Style::new().green()
+    } else {
+        console::Style::new().red()
+    };
+    println!(
+        "different warps: {}",
+        style.apply_to(format!(
+            "{}/{} {:?}",
+            different_warps.len(),
+            checked_warps.len(),
+            different_warps
+        ))
+    );
 }
 
 fn compare_traces(
@@ -476,11 +512,9 @@ fn compare_traces(
     print_traces: bool,
     mem_only: bool,
     verbose: bool,
+    summary: bool,
+    block_id: Option<&trace_model::Dim>,
 ) -> eyre::Result<()> {
-    // use itertools::Itertools;
-    use indexmap::{IndexMap, IndexSet};
-    // use std::collections::{HashMap, HashSet};
-
     let left_command_traces: IndexMap<_, _> = {
         let trace_dir = left_commands_or_trace.parent().unwrap();
         let command_traces = parse_trace(trace_dir, left_commands_or_trace, mem_only)?;
@@ -544,29 +578,46 @@ fn compare_traces(
     if kernel_launch_commands.is_empty() {
         let num_kernel_traces = left_kernel_launches.len().max(right_kernel_launches.len());
         let left_traces = left_kernel_launches
-            .values()
-            .copied()
-            .chain(std::iter::repeat(&None));
+            .iter()
+            .map(|(warp_id, warp_traces)| (*warp_id, *warp_traces))
+            .chain(std::iter::repeat((&None, &None)));
         let right_traces = right_kernel_launches
-            .values()
-            .copied()
-            .chain(std::iter::repeat(&None));
+            .iter()
+            .map(|(warp_id, warp_traces)| (*warp_id, *warp_traces))
+            .chain(std::iter::repeat((&None, &None)));
 
-        // if left_command_traces.len() <= 1 && right_command_traces.len() <= 1
-
-        for ((i, left), right) in (0..num_kernel_traces)
+        for ((i, (_left_command, left_trace)), (_right_command, right_trace)) in (0
+            ..num_kernel_traces)
             .into_iter()
             .zip(left_traces)
             .zip(right_traces)
         {
-            dbg!(i, left.is_some(), right.is_some());
-            compare_trace(
-                left.as_ref(),
-                left_commands_or_trace,
-                right.as_ref(),
-                right_commands_or_trace,
-                mem_only,
-            );
+            dbg!(i, left_trace.is_some(), right_trace.is_some());
+            if summary {
+                match (left_trace, right_trace) {
+                    (Some(left_trace), Some(right_trace)) => {
+                        let block_ids: IndexSet<_> = left_trace
+                            .0
+                            .keys()
+                            .chain(right_trace.0.keys())
+                            .map(|(block_id, _)| block_id)
+                            .collect();
+                        dbg!(block_ids.len());
+                        dbg!(block_ids.iter().min());
+                        dbg!(block_ids.iter().max());
+                    }
+                    _ => {}
+                }
+            } else {
+                compare_trace(
+                    left_trace.as_ref(),
+                    left_commands_or_trace,
+                    right_trace.as_ref(),
+                    right_commands_or_trace,
+                    mem_only,
+                    block_id,
+                );
+            }
         }
     } else {
         todo!()
@@ -656,21 +707,25 @@ pub fn run(options: &Options) -> eyre::Result<()> {
                 trace_info(trace, options.memory_only, options.verbose)?;
             }
         }
-        Command::Compare { print } => {
+        Command::Compare {
+            print,
+            summary,
+            ref block_id,
+        } => {
             if options.traces.len() != 2 {
                 eyre::bail!(
                     "can only compare exactly 2 trace files, got {}",
                     options.traces.len()
                 );
             }
-            let left_trace = &options.traces[0];
-            let right_trace = &options.traces[1];
             compare_traces(
-                left_trace,
-                right_trace,
+                &options.traces[0],
+                &options.traces[1],
                 print,
                 options.memory_only,
                 options.verbose,
+                summary,
+                block_id.as_ref(),
             )?;
         }
     }
