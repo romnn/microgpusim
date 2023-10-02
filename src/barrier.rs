@@ -64,12 +64,12 @@ pub trait Barrier: std::fmt::Debug + Sync + Send + 'static {
 }
 
 impl Barrier for BarrierSet {
-    #[inline]
+    // #[inline]
     fn is_waiting_at_barrier(&self, warp_id: usize) -> bool {
         self.warps_at_barrier[warp_id]
     }
 
-    #[inline]
+    // #[inline]
     fn allocate(&mut self, block_id: u64, warps: core::WarpMask) {
         assert!(block_id < self.max_blocks_per_core as u64);
         assert!(
@@ -90,7 +90,7 @@ impl Barrier for BarrierSet {
         }
     }
 
-    #[inline]
+    // #[inline]
     fn deallocate(&mut self, block_id: u64) {
         let Some(warps_in_block) = self.warps_per_block.remove(&block_id) else {
             return;
@@ -112,7 +112,7 @@ impl Barrier for BarrierSet {
         }
     }
 
-    #[inline]
+    // #[inline]
     fn warp_exited(&mut self, warp_id: usize) {
         // caller needs to verify all threads in warp are done, e.g., by checking PDOM
         // stack to see it has only one entry during exit_impl()

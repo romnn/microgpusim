@@ -4,7 +4,7 @@ use playground_sys::cluster::cluster_bridge;
 pub struct Cluster<'a>(pub(crate) &'a cluster_bridge);
 
 impl<'a> Cluster<'a> {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn core_sim_order(&self) -> Vec<usize> {
         self.0

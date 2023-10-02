@@ -87,7 +87,7 @@ impl PipelinedSimdUnit {
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn num_active_instr_in_pipeline(&self) -> usize {
         self.pipeline_reg
             .iter()
@@ -96,7 +96,7 @@ impl PipelinedSimdUnit {
             .count()
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes = warp::ActiveMaskInner::ZERO;
@@ -106,7 +106,7 @@ impl PipelinedSimdUnit {
         active_lanes.count_ones()
     }
 
-    #[inline]
+    // #[inline]
     pub fn issue(&mut self, src_reg: WarpInstruction) {
         let mut active = 0;
         match src_reg.opcode.op {
@@ -131,7 +131,7 @@ impl PipelinedSimdUnit {
         }
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
@@ -139,7 +139,7 @@ impl PipelinedSimdUnit {
 }
 
 impl crate::engine::cycle::Component for PipelinedSimdUnit {
-    #[inline]
+    // #[inline]
     fn cycle(&mut self, cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",

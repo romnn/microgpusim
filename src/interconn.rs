@@ -85,7 +85,7 @@ impl<P> Interconnect<P> for ToyInterconnect<P>
 where
     P: Send + Sync + std::fmt::Display + std::fmt::Debug + 'static,
 {
-    #[inline]
+    // #[inline]
     fn busy(&self) -> bool {
         // todo: this is not efficient, could keep track of this with a variable
         *self.in_flight.read() != 0
@@ -96,7 +96,7 @@ where
         //     .any(|reqs: &Mutex<VecDeque<_>>| !reqslock().is_empty())
     }
 
-    #[inline]
+    // #[inline]
     fn dest_queue(&self, dest_device: usize) -> &Mutex<VecDeque<P>> {
         // assert!(self.has_buffer(src_device, size));
 
@@ -110,7 +110,7 @@ where
         &self.output_queue[subnet][dest_device][0]
     }
 
-    #[inline]
+    // #[inline]
     fn push(&self, src_device: usize, dest_device: usize, packet: P, size: u32) {
         assert!(self.has_buffer(src_device, size));
 
@@ -126,7 +126,7 @@ where
         queue.push_back(packet);
     }
 
-    #[inline]
+    // #[inline]
     fn pop(&self, device: usize) -> Option<P> {
         let icnt_id = device;
         let subnet = usize::from(device >= self.num_cores);
@@ -154,12 +154,12 @@ where
         None
     }
 
-    #[inline]
+    // #[inline]
     fn transfer(&self) {
         // do nothing
     }
 
-    #[inline]
+    // #[inline]
     fn has_buffer(&self, _device: usize, _size: u32) -> bool {
         true
         // let Some(capacity) = self.capacity else {
@@ -286,12 +286,12 @@ impl<P> Connection<P> for VecDeque<P>
 where
     P: Send + Sync + 'static,
 {
-    #[inline]
+    // #[inline]
     fn can_send(&self, _packet_sizes: &[u32]) -> bool {
         true
     }
 
-    #[inline]
+    // #[inline]
     fn send(&mut self, packet: P) {
         self.push_back(packet);
     }
@@ -301,17 +301,17 @@ impl<P> BufferedConnection<P> for VecDeque<P>
 where
     P: Send + Sync + 'static,
 {
-    #[inline]
+    // #[inline]
     fn buffered(&self) -> Box<dyn Iterator<Item = &P> + '_> {
         Box::new(self.iter())
     }
 
-    #[inline]
+    // #[inline]
     fn num_buffered(&self) -> usize {
         self.len()
     }
 
-    #[inline]
+    // #[inline]
     fn drain(&mut self) -> Box<dyn Iterator<Item = P> + '_> {
         Box::new(self.drain(..))
     }

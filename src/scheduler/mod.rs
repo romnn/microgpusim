@@ -106,7 +106,7 @@ impl Base {
 
     #[tracing::instrument(name = "scheduler_issue")]
     #[must_use]
-    #[inline]
+    // #[inline]
     fn issue(
         &self,
         warp: &mut warp::Warp,

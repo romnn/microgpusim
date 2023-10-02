@@ -1,0 +1,847 @@
+Device GP104
+--------------------------------------------------------------------------- ----------------------------------------------------------------------------------------------------
+Metric Name                                                                 Metric Description                                                                                  
+--------------------------------------------------------------------------- ----------------------------------------------------------------------------------------------------
+crop__busy_cycles_avg                                                       Number of cycles the crop unit is busy.                                                             
+crop__busy_cycles_max                                                       Number of cycles the busiest crop unit is busy.                                                     
+crop__busy_pct_avg                                                          Percentage of elapsed cycles the crop unit is busy.                                                 
+crop__busy_pct_max                                                          Percentage of elapsed cycles the busiest crop unit is busy.                                         
+crop__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a crop unit instance.                  
+crop__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a crop unit instance.                  
+crop__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a crop unit instance.                  
+crop__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a crop unit instance.                    
+crop__frequency                                                             The average frequency of the crop unit(s) in Hz. This is calculated as crop__elapsed_cycles_avg     
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+crop__lts_read_utilization_pct                                              Percentage utilization of the crop to lts interface used.                                           
+crop__lts_write_utilization_pct                                             Percentage utilization of the crop to lts interface used.                                           
+crop__sol_pct                                                               SOL of crop unit in percentage.                                                                     
+dram__active_pct                                                            Percentage of memory cycles that a read or write request is active.                                 
+dram__bytes_per_sec                                                         Read/write throughput to device memory in bytes per second.                                         
+dram__elapsed_cycles                                                        The total count of the number of cycles within a range for a DRAM instance.                         
+dram__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a DRAM instance.                       
+dram__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a DRAM instance.                       
+dram__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a DRAM instance.                       
+dram__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a DRAM instance.                         
+dram__frequency                                                             The average memory frequency in Hz. This is calcualted as dram__elapsed_cycles_avg divided by       
+                                                                            gpu__time_duration. The value will be lower than expected if the measurement range contains GPU     
+                                                                            context switches.                                                                                   
+dram__read_bytes                                                            Number of bytes read from DRAM.                                                                     
+dram__read_bytes_per_sec                                                    Read throughput to device memory in bytes per second.                                               
+dram__read_pct                                                              Percentage of memory cycles that a read request is active.                                          
+dram__read_sectors                                                          Number of 32 byte read requests sent to DRAM.                                                       
+dram__write_bytes                                                           Number of bytes written to DRAM.                                                                    
+dram__write_bytes_per_sec                                                   Write throughput to device memory in bytes per second.                                              
+dram__write_pct                                                             Percentage of memory cycles that a write request is active.                                         
+dram__write_sectors                                                         Number of 32 byte write requests sent to DRAM.                                                      
+fbp__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a fbp unit instance.                   
+fbp__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a fbp unit instance.                   
+fbp__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a fbp unit instance.                   
+fbp__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a fbp unit instance.                     
+fbp__frequency                                                              The average frequency of the fbp unit(s) in Hz. This is calculated as fbp__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+fbpa__busy_cycles_avg                                                       Number of cycles the fbpa unit is busy.                                                             
+fbpa__busy_cycles_max                                                       Number of cycles the busiest fbpa unit is busy.                                                     
+fbpa__busy_pct_avg                                                          Percentage of elapsed cycles the fbpa unit is busy.                                                 
+fbpa__busy_pct_max                                                          Percentage of elapsed cycles the busiest fbpa unit is busy.                                         
+fbpa__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a fbpa unit instance.                  
+fbpa__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a fbpa unit instance.                  
+fbpa__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a fbpa unit instance.                  
+fbpa__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a fbpa unit instance.                    
+fbpa__frequency                                                             The average frequency of the fbpa unit(s) in Hz. This is calculated as fbpa__elapsed_cycles_avg     
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+fbpa__sol_pct                                                               Percentage of memory cycles that a read or write request was active.                                
+gpc__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a gpc unit instance.                   
+gpc__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a gpc unit instance.                   
+gpc__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a gpc unit instance.                   
+gpc__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a gpc unit instance.                     
+gpc__fragments_sent_to_rop                                                  The total number of fragments sent to ROP.                                                          
+gpc__frequency                                                              The average frequency of the gpc unit(s) in Hz. This is calculated as gpc__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+gpu__compute_memory_request_utilization_pct                                 The maximum request utilization percentage of any section of the GPU's memory system for compute.   
+gpu__compute_memory_sol_pct                                                 The maximum SOL percentage of any section of the GPU's memory system for compute.                   
+gpu__cs_invocations                                                         Number of times a compute shader was invoked.                                                       
+gpu__dispatch_count                                                         Number of compute dispatches.                                                                       
+gpu__draw_count                                                             Number of graphics draw calls.                                                                      
+gpu__fe_output_ops_bundle_go_idle                                           Number of go idle bundles sent to the graphics engine by the front end (FE).                        
+gpu__fe_output_ops_bundle_go_idle_async                                     Number of go idle bundles sent to the graphics engine from an asynchronous queue by the front end   
+                                                                            (FE).                                                                                               
+gpu__fe_output_ops_bundle_go_idle_sync                                      Number of go idle bundles sent to the graphics engine from the synchronous (direct/graphics) queue  
+                                                                            by the front end (FE).                                                                              
+gpu__fs_invocations                                                         Number of times a pixel shader was invoked.                                                         
+gpu__gs_invocations                                                         Number of times a geometry shader was invoked.                                                      
+gpu__pixel_shader_barriers                                                  Number of pixel shader barriers executed.                                                           
+gpu__shaded_fragments                                                       The total number of active fragments processed by a fragment shader.                                
+gpu__tcs_invocations                                                        Number of times a tessellation control shader was invoked.                                          
+gpu__tes_invocations                                                        Number of times a tessellation evaluation shader was invoked.                                       
+gpu__time_active                                                            Time duration in nanoseconds; pipelined time = end - start                                          
+gpu__time_duration                                                          Time duration in nanoseconds; pipelined time = end - previous end                                   
+gpu__time_end                                                               End timestamp in nanoseconds relative to the start of the pass.                                     
+gpu__time_start                                                             Start timestamp in nanoseconds relative to the start of the pass.                                   
+gpu__vs_invocations                                                         Number of times a vertex shader was invoked.                                                        
+gr__busy_cycles                                                             The number of elapsed cycles the 3D graphics and compute engine was busy.                           
+gr__busy_pct                                                                Percentage of elapsed cycles the 3D graphics and compute engine was busy.                           
+gr__elapsed_cycles_avg                                                      The average count of the number of cycles within a range for a gr unit instance.                    
+gr__elapsed_cycles_max                                                      The maximum count of the number of cycles within a range for a gr unit instance.                    
+gr__elapsed_cycles_min                                                      The minimum count of the number of cycles within a range for a gr unit instance.                    
+gr__elapsed_cycles_sum                                                      The total count of the number of cycles within a range for a gr unit instance.                      
+gr__frequency                                                               The average frequency of the gr unit(s) in Hz. This is calculated as gr__elapsed_cycles_avg divided 
+                                                                            by gpu__time_duration. The value will be lower than expected if the measurement range contains GPU  
+                                                                            context switches.                                                                                   
+gr__idle_cycles                                                             The number of elapsed cycles the 3D graphics and compute engine was idle.                           
+gr__idle_pct                                                                Percentage of elapsed cycles the 3D graphics and compute engine was idle.                           
+host__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a host unit instance.                  
+host__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a host unit instance.                  
+host__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a host unit instance.                  
+host__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a host unit instance.                    
+host__frequency                                                             The average frequency of the host unit(s) in Hz. This is calculated as host__elapsed_cycles_avg     
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+ia__batch_count                                                             The total number of batches output by the input assembler (ia).                                     
+ia__busy_cycles_avg                                                         Number of cycles the average ia unit is busy.                                                       
+ia__busy_cycles_max                                                         Number of cycles the maximum ia unit is busy.                                                       
+ia__busy_pct_avg                                                            Percentage of elapsed cycles the average ia unit is busy.                                           
+ia__busy_pct_max                                                            Percentage of elapsed cycles the maximum ia unit is busy.                                           
+ia__lts_read_utilization_pct                                                Percentage utilization of the ia read from lts interface.                                           
+ia__prim_count                                                              The total number of primitives.                                                                     
+ia__prim_line_count                                                         The total number of lines.                                                                          
+ia__prim_lineadj_count                                                      The total number of line adjacencies.                                                               
+ia__prim_patch_count                                                        The total number of patches.                                                                        
+ia__prim_point_count                                                        The total number of points.                                                                         
+ia__prim_tri_count                                                          The total number of triangles.                                                                      
+ia__prim_triadj_count                                                       The total number of triangle adjacencies.                                                           
+ia__prim_triflat_count                                                      The total number of triangle flats.                                                                 
+ia__sol_pct                                                                 SOL of IA unit in percent.                                                                          
+ia__vertex_count                                                            The total number of vertices.                                                                       
+ia__vertex_count_reused                                                     The number of reused vertices.                                                                      
+ltc__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a ltc unit instance.                   
+ltc__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a ltc unit instance.                   
+ltc__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a ltc unit instance.                   
+ltc__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a ltc unit instance.                     
+ltc__frequency                                                              The average frequency of the ltc unit(s) in Hz. This is calculated as ltc__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+ltc__sol_pct                                                                L2 cache SOL                                                                                        
+lts__busy_cycles_avg                                                        Number of cycles the lts is busy.                                                                   
+lts__busy_cycles_max                                                        Number of cycles the busiest lts is busy.                                                           
+lts__busy_cycles_sum                                                        Number of cycles the sum of lts is busy.                                                            
+lts__busy_pct_avg                                                           Percentage of elapsed cycles the lts is busy.                                                       
+lts__busy_pct_max                                                           Percentage of elapsed cycles the busiest lts is busy.                                               
+lts__busy_pct_sum                                                           Percentage of elapsed cycles the sum of lts is busy.                                                
+lts__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a lts unit instance.                   
+lts__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a lts unit instance.                   
+lts__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a lts unit instance.                   
+lts__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a lts unit instance.                     
+lts__frequency                                                              The average frequency of the lts unit(s) in Hz. This is calculated as lts__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+lts__request_crop_read_utilization_pct                                      Percentage of lts requests by crop to the total possible lts requests over the measurement range.   
+lts__request_crop_utilization_pct                                           Percentage of lts requests by crop to the total possible lts requests over the measurement range.   
+lts__request_crop_write_utilization_pct                                     Percentage of lts requests by crop to the total possible lts requests over the measurement range.   
+lts__request_ia_read_utilization_pct                                        Number of lts bytes read per second by ia.                                                          
+lts__request_tex_atomic_bytes_global_atom                                   Number of bytes read by TEX global atom requests.                                                   
+lts__request_tex_atomic_bytes_per_sec_global_atom                           The read throughput in bytes per second by TEX global atom requests.                                
+lts__request_tex_atomic_bytes_per_sec_surface_atom                          The read throughput in bytes per second by TEX surface atom requests.                               
+lts__request_tex_atomic_bytes_surface_atom                                  Number of bytes read by TEX surface atom requests.                                                  
+lts__request_tex_atomic_cas_sectors                                         Number of lts sectors accessed for atomic cas by tex.                                               
+lts__request_tex_atomic_cas_utilization_pct                                 Percentage of lts requests by tex to the total possible lts requests over the measurement range.    
+lts__request_tex_atomic_sectors                                             Number of lts sectors accessed for atomic by tex.                                                   
+lts__request_tex_atomic_sectors_global_atom                                 Number of sectors read by TEX global atom requests.                                                 
+lts__request_tex_atomic_sectors_global_atom_red_pct                         Percentage utilization of LTS reads by TEX atomic and reduction requests.                           
+lts__request_tex_atomic_sectors_global_atom_utilization_pct                 Percentage utilization of LTS reads by TEX global atom requests.                                    
+lts__request_tex_atomic_sectors_surface_atom                                Number of sectors read by TEX surface atom requests.                                                
+lts__request_tex_atomic_sectors_surface_atom_utilization_pct                Percentage utilization of LTS reads by TEX surface atom requests.                                   
+lts__request_tex_atomic_utilization_pct                                     Percentage of lts requests by tex to the total possible lts requests over the measurement range.    
+lts__request_tex_read_bytes_global_ld_cached                                Number of bytes read by TEX cached global ld requests.                                              
+lts__request_tex_read_bytes_global_ld_uncached                              Number of bytes read by TEX uncached global ld requests.                                            
+lts__request_tex_read_bytes_local_ld_cached                                 Number of bytes read by TEX cached local ld requests.                                               
+lts__request_tex_read_bytes_local_ld_uncached                               Number of bytes read by TEX uncached local ld requests.                                             
+lts__request_tex_read_bytes_per_sec_global_ld_cached                        Throughput of reads by TEX cached global ld requests in bytes per second.                           
+lts__request_tex_read_bytes_per_sec_global_ld_uncached                      Throughput of reads by TEX uncached global ld requests in bytes per second.                         
+lts__request_tex_read_bytes_per_sec_local_ld_cached                         Throughput of reads by TEX cached local ld requests in bytes per second.                            
+lts__request_tex_read_bytes_per_sec_local_ld_uncached                       Throughput of reads by TEX uncached local ld requests in bytes per second.                          
+lts__request_tex_read_bytes_per_sec_surface_ld                              Throughput of reads by TEX surface ld requests in bytes per second.                                 
+lts__request_tex_read_bytes_surface_ld                                      Number of bytes read by TEX surface ld requests.                                                    
+lts__request_tex_read_sectors                                               Number of lts sectors read by tex.                                                                  
+lts__request_tex_read_sectors_global_ld_cached                              Number of sectors read by TEX cached global ld requests.                                            
+lts__request_tex_read_sectors_global_ld_cached_utilization_pct              Percentage utilization of LTS read by TEX cached global ld.                                         
+lts__request_tex_read_sectors_global_ld_uncached                            Number of sectors read by TEX uncached global ld requests.                                          
+lts__request_tex_read_sectors_global_ld_uncached_utilization_pct            Percentage utilization of LTS read by TEX uncached global ld.                                       
+lts__request_tex_read_sectors_local_ld_cached                               Number of sectors read by TEX cached local ld requests.                                             
+lts__request_tex_read_sectors_local_ld_cached_utilization_pct               Percentage utilization of LTS read by TEX cached local ld.                                          
+lts__request_tex_read_sectors_local_ld_uncached                             Number of sectors read by TEX uncached local ld requests.                                           
+lts__request_tex_read_sectors_local_ld_uncached_utilization_pct             Percentage utilization of LTS read by TEX uncached local ld.                                        
+lts__request_tex_read_sectors_surface_ld                                    Number of sectors read by TEX surface ld requests.                                                  
+lts__request_tex_read_sectors_surface_ld_utilization_pct                    Percentage utilization of LTS read by TEX surface ld.                                               
+lts__request_tex_read_utilization_pct                                       Percentage of lts requests by tex to the total possible lts requests over the measurement range.    
+lts__request_tex_sectors                                                    Number of lts sectors read or written by tex.                                                       
+lts__request_tex_utilization_pct                                            Percentage of lts requests by tex to the total possible lts requests over the measurement range.    
+lts__request_tex_write_bytes_global_nonatom                                 Number of bytes written by TEX global nonatom requests.                                             
+lts__request_tex_write_bytes_global_red                                     Number of bytes written by TEX global red requests.                                                 
+lts__request_tex_write_bytes_local_st                                       Number of bytes written by TEX local st requests.                                                   
+lts__request_tex_write_bytes_per_sec_global_nonatom                         The write throughput in bytes per second by TEX global nonatom requests.                            
+lts__request_tex_write_bytes_per_sec_global_red                             The write throughput in bytes per second by TEX global red requests.                                
+lts__request_tex_write_bytes_per_sec_local_st                               The write throughput in bytes per second by TEX local st requests.                                  
+lts__request_tex_write_bytes_per_sec_surface_nonatom                        The write throughput in bytes per second by TEX surface nonatom requests.                           
+lts__request_tex_write_bytes_per_sec_surface_red                            The write throughput in bytes per second by TEX surface red requests.                               
+lts__request_tex_write_bytes_surface_nonatom                                Number of bytes written by TEX surface nonatom requests.                                            
+lts__request_tex_write_bytes_surface_red                                    Number of bytes written by TEX surface red requests.                                                
+lts__request_tex_write_sectors                                              Number of lts sectors written by tex.                                                               
+lts__request_tex_write_sectors_global_nonatom                               Number of sectors written by TEX global nonatom requests.                                           
+lts__request_tex_write_sectors_global_nonatom_utilization_pct               Percentage utilization of LTS writes by TEX global nonatom requests.                                
+lts__request_tex_write_sectors_global_red                                   Number of sectors written by TEX global red requests.                                               
+lts__request_tex_write_sectors_global_red_utilization_pct                   Percentage utilization of LTS writes by TEX global red requests.                                    
+lts__request_tex_write_sectors_local_st                                     Number of sectors written by TEX local st requests.                                                 
+lts__request_tex_write_sectors_local_st_utilization_pct                     Percentage utilization of LTS writes by TEX local st requests.                                      
+lts__request_tex_write_sectors_surface_nonatom                              Number of sectors written by TEX surface nonatom requests.                                          
+lts__request_tex_write_sectors_surface_nonatom_utilization_pct              Percentage utilization of LTS writes by TEX surface nonatom requests.                               
+lts__request_tex_write_sectors_surface_red                                  Number of sectors written by TEX surface red requests.                                              
+lts__request_tex_write_sectors_surface_red_utilization_pct                  Percentage utilization of LTS writes by TEX surface red requests.                                   
+lts__request_tex_write_utilization_pct                                      Percentage of lts requests by tex to the total possible lts requests over the measurement range.    
+lts__request_total_sectors_hitrate_pct                                      Percentage of all lts requested sectors that hit.                                                   
+lts__request_zrop_read_utilization_pct                                      Percentage of lts requests by zrop to the total possible lts requests over the measurement range.   
+lts__request_zrop_utilization_pct                                           Percentage of lts requests by zrop to the total possible lts requests over the measurement range.   
+lts__request_zrop_write_utilization_pct                                     Percentage of lts requests by zrop to the total possible lts requests over the measurement range.   
+pa__prim_input_count                                                        Number of primitives of all types input to Primitive Assembler.                                     
+pd__sol_pct                                                                 SOL percent of pd unit.                                                                             
+pel__pe_vaf_sol_pct                                                         SOL percent of PE VAF unit.                                                                         
+pes__stream_output_attr_sol_pct                                             SOL percent of PES stream output                                                                    
+pes__vpc_sol_pct                                                            SOL percent of PES VPC unit                                                                         
+rop__busy_cycles_avg                                                        Number of cycles the average rop unit is busy.                                                      
+rop__busy_cycles_max                                                        Number of cycles the maximum rop unit is busy.                                                      
+rop__busy_pct_avg                                                           Percentage of elapsed cycles the average rop unit is busy.                                          
+rop__busy_pct_max                                                           Percentage of elapsed cycles the maximum rop unit is busy.                                          
+sm__active_cycles_avg                                                       The avg number of cycles with at least 1 warp active over all SMs.                                  
+sm__active_cycles_avg_per_elapsed_cycle                                     The average number of SM active cycles per elapsed cycle per SM.                                    
+sm__active_cycles_cs_avg                                                    The average number of cycles with at least 1 cs warp in flight over all SMs.                        
+sm__active_cycles_cs_max                                                    The maximum number of cycles with at least 1 cs warp in flight over all SMs.                        
+sm__active_cycles_cs_min                                                    The minimum number of cycles with at least 1 cs warp in flight over all SMs.                        
+sm__active_cycles_cs_pct                                                    The percentage of elapsed cycles that cs shaders were active on SMs.                                
+sm__active_cycles_cs_sum                                                    The total number of cycles with at least 1 cs warp in flight over all SMs.                          
+sm__active_cycles_fs_avg                                                    The average number of cycles with at least 1 fs warp in flight over all SMs.                        
+sm__active_cycles_fs_max                                                    The maximum number of cycles with at least 1 fs warp in flight over all SMs.                        
+sm__active_cycles_fs_min                                                    The minimum number of cycles with at least 1 fs warp in flight over all SMs.                        
+sm__active_cycles_fs_pct                                                    The percentage of elapsed cycles that fs shaders were active on SMs.                                
+sm__active_cycles_fs_sum                                                    The total number of cycles with at least 1 fs warp in flight over all SMs.                          
+sm__active_cycles_gs_avg                                                    The average number of cycles with at least 1 gs warp in flight over all SMs.                        
+sm__active_cycles_gs_max                                                    The maximum number of cycles with at least 1 gs warp in flight over all SMs.                        
+sm__active_cycles_gs_min                                                    The minimum number of cycles with at least 1 gs warp in flight over all SMs.                        
+sm__active_cycles_gs_pct                                                    The percentage of elapsed cycles that gs shaders were active on SMs.                                
+sm__active_cycles_gs_sum                                                    The total number of cycles with at least 1 gs warp in flight over all SMs.                          
+sm__active_cycles_max                                                       The max number of cycles with at least 1 warp active over all SMs.                                  
+sm__active_cycles_min                                                       The min number of cycles with at least 1 warp active over all SMs.                                  
+sm__active_cycles_sum                                                       The sum number of cycles with at least 1 warp active over all SMs.                                  
+sm__active_cycles_sum_per_elapsed_cycle                                     The total number of SM active cycles per elapsed cycle per SM.                                      
+sm__active_cycles_tcs_avg                                                   The average number of cycles with at least 1 tcs warp in flight over all SMs.                       
+sm__active_cycles_tcs_max                                                   The maximum number of cycles with at least 1 tcs warp in flight over all SMs.                       
+sm__active_cycles_tcs_min                                                   The minimum number of cycles with at least 1 tcs warp in flight over all SMs.                       
+sm__active_cycles_tcs_pct                                                   The percentage of elapsed cycles that tcs shaders were active on SMs.                               
+sm__active_cycles_tcs_sum                                                   The total number of cycles with at least 1 tcs warp in flight over all SMs.                         
+sm__active_cycles_tes_avg                                                   The average number of cycles with at least 1 tes warp in flight over all SMs.                       
+sm__active_cycles_tes_max                                                   The maximum number of cycles with at least 1 tes warp in flight over all SMs.                       
+sm__active_cycles_tes_min                                                   The minimum number of cycles with at least 1 tes warp in flight over all SMs.                       
+sm__active_cycles_tes_pct                                                   The percentage of elapsed cycles that tes shaders were active on SMs.                               
+sm__active_cycles_tes_sum                                                   The total number of cycles with at least 1 tes warp in flight over all SMs.                         
+sm__active_cycles_vs_avg                                                    The average number of cycles with at least 1 vs warp in flight over all SMs.                        
+sm__active_cycles_vs_max                                                    The maximum number of cycles with at least 1 vs warp in flight over all SMs.                        
+sm__active_cycles_vs_min                                                    The minimum number of cycles with at least 1 vs warp in flight over all SMs.                        
+sm__active_cycles_vs_pct                                                    The percentage of elapsed cycles that vs shaders were active on SMs.                                
+sm__active_cycles_vs_sum                                                    The total number of cycles with at least 1 vs warp in flight over all SMs.                          
+sm__active_sol_max_pct                                                      Maximum SM SOL value from any SM instance.                                                          
+sm__active_sol_min_pct                                                      Minimum SM SOL value from any SM instance.                                                          
+sm__active_sol_pct                                                          Maximum utilization percentage of any subunit of the SM.                                            
+sm__active_warps_avg                                                        The avg number of warps active over all SMs.                                                        
+sm__active_warps_avg_per_active_cycle                                       The average number of active warps per active cycle per SM.                                         
+sm__active_warps_avg_per_active_cycle_pct                                   The percentage of active warps to maximum warps per SM per active cycle.                            
+sm__active_warps_avg_per_elapsed_cycle                                      The average number of active warps per elapsed cycle per SM.                                        
+sm__active_warps_avg_per_elapsed_cycle_pct                                  The percentage of active warps to maximum warps per SM per elapsed cycle.                           
+sm__active_warps_max                                                        The max number of warps active over all SMs.                                                        
+sm__active_warps_min                                                        The min number of warps active over all SMs.                                                        
+sm__active_warps_sum                                                        The sum number of warps active over all SMs.                                                        
+sm__active_warps_sum_per_active_cycle                                       The total number of active warps per active cycle per SM.                                           
+sm__active_warps_sum_per_elapsed_cycle                                      The total number of active warps per elapsed cycle per SM.                                          
+sm__busy_cycles_avg                                                         Number of cycles the sm unit is busy.                                                               
+sm__busy_cycles_max                                                         Number of cycles the busiest sm unit is busy.                                                       
+sm__busy_pct_avg                                                            Percentage of elapsed cycles the sm unit is busy.                                                   
+sm__busy_pct_max                                                            Percentage of elapsed cycles the busiest sm unit is busy.                                           
+sm__elapsed_cycles_avg                                                      The average count of the number of cycles within a range for a sm unit instance.                    
+sm__elapsed_cycles_max                                                      The maximum count of the number of cycles within a range for a sm unit instance.                    
+sm__elapsed_cycles_min                                                      The minimum count of the number of cycles within a range for a sm unit instance.                    
+sm__elapsed_cycles_sum                                                      The total count of the number of cycles within a range for a sm unit instance.                      
+sm__frequency                                                               The average frequency of the sm unit(s) in Hz. This is calculated as sm__elapsed_cycles_avg divided 
+                                                                            by gpu__time_duration. The value will be lower than expected if the measurement range contains GPU  
+                                                                            context switches.                                                                                   
+sm__inst_executed_avg                                                       The average number of instructions executed (and retired) by all SMs.                               
+sm__inst_executed_avg_per_active_cycle                                      The average number of instructions executed (and retired) in all SMs per average active cycles.     
+sm__inst_executed_avg_per_elapsed_cycle                                     The average number of instructions executed (and retired) in all SMs per average elapsed cycles.    
+sm__inst_executed_max                                                       The maximum number of instructions executed (and retired) by any SM.                                
+sm__inst_executed_min                                                       The minimum number of instructions executed (and retired) by any SM.                                
+sm__inst_executed_per_active_cycle_sol_pct                                  The active SOL of instructions executed (and retired) in the SM.                                    
+sm__inst_executed_per_elapsed_cycle_sol_pct                                 The elapsed SOL of instructions executed (and retired) in the SM.                                   
+sm__inst_executed_pipes_mem_per_active_cycle_sol_pct                        The active SOL percentage of the memory pipes in the SM.                                            
+sm__inst_executed_pipes_mem_per_elapsed_cycle_sol_pct                       The elapsed SOL percentage of the memory pipes in the SM.                                           
+sm__inst_executed_sum                                                       The total number of instructions executed (and retired) by all SMs.                                 
+sm__inst_executed_sum_per_active_cycle                                      The total number of instructions executed (and retired) in all SMs per average active cycles.       
+sm__inst_executed_sum_per_elapsed_cycle                                     The total number of instructions executed (and retired) in all SMs per average elapsed cycles.      
+sm__inst_issued_avg                                                         The average number of instructions issued (may not retire) by all SMs.                              
+sm__inst_issued_avg_per_active_cycle                                        The average number of instructions issued (may not retire) in all SMs per average active cycles.    
+sm__inst_issued_avg_per_elapsed_cycle                                       The average number of instructions issued (may not retire) in all SMs per average elapsed cycles.   
+sm__inst_issued_max                                                         The maximum number of instructions issued (may not retire) by any SM.                               
+sm__inst_issued_min                                                         The minimum number of instructions issued (may not retire) by any SM.                               
+sm__inst_issued_per_active_cycle_sol_pct                                    The active SOL of instructions issued (may not retire) in the SM.                                   
+sm__inst_issued_per_elapsed_cycle_sol_pct                                   The elapsed SOL of instructions issued (may not retire) in the SM.                                  
+sm__inst_issued_sum                                                         The total number of instructions issued (may not retire) by all SMs.                                
+sm__inst_issued_sum_per_active_cycle                                        The total number of instructions issued (may not retire) in all SMs per average active cycles.      
+sm__inst_issued_sum_per_elapsed_cycle                                       The total number of instructions issued (may not retire) in all SMs per average elapsed cycles.     
+sm__issue_active_avg                                                        The average number of cycles a SM scheduler issued at least one instruction by all SMs.             
+sm__issue_active_avg_per_active_cycle                                       The average number of cycles a SM scheduler issued at least one instruction in all SMs per average  
+                                                                            active cycles.                                                                                      
+sm__issue_active_avg_per_elapsed_cycle                                      The average number of cycles a SM scheduler issued at least one instruction in all SMs per average  
+                                                                            elapsed cycles.                                                                                     
+sm__issue_active_max                                                        The maximum number of cycles a SM scheduler issued at least one instruction by any SM.              
+sm__issue_active_min                                                        The minimum number of cycles a SM scheduler issued at least one instruction by any SM.              
+sm__issue_active_per_active_cycle_sol_pct                                   The active SOL of cycles a SM scheduler issued at least one instruction in the SM.                  
+sm__issue_active_per_elapsed_cycle_sol_pct                                  The elapsed SOL of cycles a SM scheduler issued at least one instruction in the SM.                 
+sm__issue_active_sum                                                        The total number of cycles a SM scheduler issued at least one instruction by all SMs.               
+sm__issue_active_sum_per_active_cycle                                       The total number of cycles a SM scheduler issued at least one instruction in all SMs per average    
+                                                                            active cycles.                                                                                      
+sm__issue_active_sum_per_elapsed_cycle                                      The total number of cycles a SM scheduler issued at least one instruction in all SMs per average    
+                                                                            elapsed cycles.                                                                                     
+sm__shmem_ld_bank_conflict_avg                                              The average number of bank conflicts while reading shared memory by all SMs.                        
+sm__shmem_ld_bank_conflict_avg_per_active_cycle                             The average number of bank conflicts while reading shared memory in all SMs per average active      
+                                                                            cycles.                                                                                             
+sm__shmem_ld_bank_conflict_avg_per_elapsed_cycle                            The average number of bank conflicts while reading shared memory in all SMs per average elapsed     
+                                                                            cycles.                                                                                             
+sm__shmem_ld_bank_conflict_max                                              The maximum number of bank conflicts while reading shared memory by any SM.                         
+sm__shmem_ld_bank_conflict_min                                              The minimum number of bank conflicts while reading shared memory by any SM.                         
+sm__shmem_ld_bank_conflict_per_active_cycle_sol_pct                         The active SOL of bank conflicts while reading shared memory in the SM.                             
+sm__shmem_ld_bank_conflict_per_elapsed_cycle_sol_pct                        The elapsed SOL of bank conflicts while reading shared memory in the SM.                            
+sm__shmem_ld_bank_conflict_sum                                              The total number of bank conflicts while reading shared memory by all SMs.                          
+sm__shmem_ld_bank_conflict_sum_per_active_cycle                             The total number of bank conflicts while reading shared memory in all SMs per average active cycles.
+sm__shmem_ld_bank_conflict_sum_per_elapsed_cycle                            The total number of bank conflicts while reading shared memory in all SMs per average elapsed       
+                                                                            cycles.                                                                                             
+sm__shmem_ld_count_avg                                                      The average number of read accesses to shared memory by all SMs.                                    
+sm__shmem_ld_count_avg_per_active_cycle                                     The average number of read accesses to shared memory in all SMs per average active cycles.          
+sm__shmem_ld_count_avg_per_elapsed_cycle                                    The average number of read accesses to shared memory in all SMs per average elapsed cycles.         
+sm__shmem_ld_count_max                                                      The maximum number of read accesses to shared memory by any SM.                                     
+sm__shmem_ld_count_min                                                      The minimum number of read accesses to shared memory by any SM.                                     
+sm__shmem_ld_count_per_active_cycle_sol_pct                                 The active SOL of read accesses to shared memory in the SM.                                         
+sm__shmem_ld_count_per_elapsed_cycle_sol_pct                                The elapsed SOL of read accesses to shared memory in the SM.                                        
+sm__shmem_ld_count_sum                                                      The total number of read accesses to shared memory by all SMs.                                      
+sm__shmem_ld_count_sum_per_active_cycle                                     The total number of read accesses to shared memory in all SMs per average active cycles.            
+sm__shmem_ld_count_sum_per_elapsed_cycle                                    The total number of read accesses to shared memory in all SMs per average elapsed cycles.           
+sm__shmem_st_bank_conflict_avg                                              The average number of bank conflicts while writing shared memory by all SMs.                        
+sm__shmem_st_bank_conflict_avg_per_active_cycle                             The average number of bank conflicts while writing shared memory in all SMs per average active      
+                                                                            cycles.                                                                                             
+sm__shmem_st_bank_conflict_avg_per_elapsed_cycle                            The average number of bank conflicts while writing shared memory in all SMs per average elapsed     
+                                                                            cycles.                                                                                             
+sm__shmem_st_bank_conflict_max                                              The maximum number of bank conflicts while writing shared memory by any SM.                         
+sm__shmem_st_bank_conflict_min                                              The minimum number of bank conflicts while writing shared memory by any SM.                         
+sm__shmem_st_bank_conflict_per_active_cycle_sol_pct                         The active SOL of bank conflicts while writing shared memory in the SM.                             
+sm__shmem_st_bank_conflict_per_elapsed_cycle_sol_pct                        The elapsed SOL of bank conflicts while writing shared memory in the SM.                            
+sm__shmem_st_bank_conflict_sum                                              The total number of bank conflicts while writing shared memory by all SMs.                          
+sm__shmem_st_bank_conflict_sum_per_active_cycle                             The total number of bank conflicts while writing shared memory in all SMs per average active cycles.
+sm__shmem_st_bank_conflict_sum_per_elapsed_cycle                            The total number of bank conflicts while writing shared memory in all SMs per average elapsed       
+                                                                            cycles.                                                                                             
+sm__shmem_st_count_avg                                                      The average number of write accesses to shared memory by all SMs.                                   
+sm__shmem_st_count_avg_per_active_cycle                                     The average number of write accesses to shared memory in all SMs per average active cycles.         
+sm__shmem_st_count_avg_per_elapsed_cycle                                    The average number of write accesses to shared memory in all SMs per average elapsed cycles.        
+sm__shmem_st_count_max                                                      The maximum number of write accesses to shared memory by any SM.                                    
+sm__shmem_st_count_min                                                      The minimum number of write accesses to shared memory by any SM.                                    
+sm__shmem_st_count_per_active_cycle_sol_pct                                 The active SOL of write accesses to shared memory in the SM.                                        
+sm__shmem_st_count_per_elapsed_cycle_sol_pct                                The elapsed SOL of write accesses to shared memory in the SM.                                       
+sm__shmem_st_count_sum                                                      The total number of write accesses to shared memory by all SMs.                                     
+sm__shmem_st_count_sum_per_active_cycle                                     The total number of write accesses to shared memory in all SMs per average active cycles.           
+sm__shmem_st_count_sum_per_elapsed_cycle                                    The total number of write accesses to shared memory in all SMs per average elapsed cycles.          
+sm__sol_max_pct                                                             Maximum SM SOL value from any SM instance.                                                          
+sm__sol_min_pct                                                             Minimum SM SOL value from any SM instance.                                                          
+sm__sol_pct                                                                 Maximum utilization percentage of any subunit of the SM.                                            
+sm__tex2sm_active_avg                                                       The average number of cycles the TEX to SM interface is active by all SMs.                          
+sm__tex2sm_active_avg_per_active_cycle                                      The average number of cycles the TEX to SM interface is active in all SMs per average active cycles.
+sm__tex2sm_active_avg_per_elapsed_cycle                                     The average number of cycles the TEX to SM interface is active in all SMs per average elapsed       
+                                                                            cycles.                                                                                             
+sm__tex2sm_active_max                                                       The maximum number of cycles the TEX to SM interface is active by any SM.                           
+sm__tex2sm_active_min                                                       The minimum number of cycles the TEX to SM interface is active by any SM.                           
+sm__tex2sm_active_per_active_cycle_sol_pct                                  The active SOL of cycles the TEX to SM interface is active in the SM.                               
+sm__tex2sm_active_per_elapsed_cycle_sol_pct                                 The elapsed SOL of cycles the TEX to SM interface is active in the SM.                              
+sm__tex2sm_active_sum                                                       The total number of cycles the TEX to SM interface is active by all SMs.                            
+sm__tex2sm_active_sum_per_active_cycle                                      The total number of cycles the TEX to SM interface is active in all SMs per average active cycles.  
+sm__tex2sm_active_sum_per_elapsed_cycle                                     The total number of cycles the TEX to SM interface is active in all SMs per average elapsed cycles. 
+sm__tex_utilization_pct                                                     Percentage utilization of the SM to TEX interface.                                                  
+sm__warps_cs_per_cycle_max                                                  The maximum number of compute shader warps per SM per cycle.                                        
+sm__warps_fs_per_cycle_max                                                  The maximum number of fragment shader warps per SM per cycle.                                       
+sm__warps_per_cycle_max                                                     The maximum number of warps per SM per cycle.                                                       
+sm__warps_vtg_per_cycle_max                                                 The maximum number of vertex, tesselation, and geometry shader warps per SM per cycle.              
+smsp__active_cycles_avg                                                     The avg number of cycles with at least 1 warp active over all SM schedulers.                        
+smsp__active_cycles_avg_per_elapsed_cycle                                   The average number of SM scheduler active cycles per elapsed cycle.                                 
+smsp__active_cycles_avg_per_elapsed_cycle_pct                               The percentage of average SM scheduler active cycles per elapsed cycle.                             
+smsp__active_cycles_max                                                     The max number of cycles with at least 1 warp active over all SM schedulers.                        
+smsp__active_cycles_min                                                     The min number of cycles with at least 1 warp active over all SM schedulers.                        
+smsp__active_cycles_sum                                                     The sum number of cycles with at least 1 warp active over all SM schedulers.                        
+smsp__active_cycles_sum_per_elapsed_cycle                                   The total number of SM scheduler active cycles per elapsed cycle.                                   
+smsp__active_warps_avg                                                      The avg number of warps active over all SM schedulers.                                              
+smsp__active_warps_avg_per_active_cycle                                     The average number of active warps per active cycle by a SM scheduler.                              
+smsp__active_warps_avg_per_active_cycle_pct                                 The percentage of active warps to maximum warps per SM scheduler per active cycle.                  
+smsp__active_warps_avg_per_elapsed_cycle                                    The average number of active warps per elapsed cycle by a SM scheduler.                             
+smsp__active_warps_avg_per_elapsed_cycle_pct                                The percentage of active warps to maximum warps per SM scheduler per elapsed cycle.                 
+smsp__active_warps_max                                                      The max number of warps active over all SM schedulers.                                              
+smsp__active_warps_min                                                      The min number of warps active over all SM schedulers.                                              
+smsp__active_warps_sum                                                      The sum number of warps active over all SM schedulers.                                              
+smsp__active_warps_sum_per_active_cycle                                     The total number of active warps per active cycle by a SM scheduler.                                
+smsp__active_warps_sum_per_elapsed_cycle                                    The total number of active warps per elapsed cycle by a SM scheduler.                               
+smsp__busy_cycles_avg                                                       Number of cycles the smsp unit is busy.                                                             
+smsp__busy_cycles_max                                                       Number of cycles the busiest smsp unit is busy.                                                     
+smsp__busy_pct_avg                                                          Percentage of elapsed cycles the smsp unit is busy.                                                 
+smsp__busy_pct_max                                                          Percentage of elapsed cycles the busiest smsp unit is busy.                                         
+smsp__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a smsp unit instance.                  
+smsp__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a smsp unit instance.                  
+smsp__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a smsp unit instance.                  
+smsp__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a smsp unit instance.                    
+smsp__eligible_warps_avg                                                    The avg number of eligible warps per SM Scheduler.                                                  
+smsp__eligible_warps_avg_per_active_cycle                                   The average number of eligible warps per active cycle by a SM scheduler.                            
+smsp__eligible_warps_avg_per_elapsed_cycle                                  The average number of eligible warps per elapsed cycle by a SM scheduler.                           
+smsp__eligible_warps_max                                                    The max number of eligible warps per SM Scheduler.                                                  
+smsp__eligible_warps_min                                                    The min number of eligible warps per SM Scheduler.                                                  
+smsp__eligible_warps_sum                                                    The sum number of eligible warps per SM Scheduler.                                                  
+smsp__frequency                                                             The average frequency of the smsp unit(s) in Hz. This is calculated as smsp__elapsed_cycles_avg     
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+smsp__inst_executed_avg                                                     The average number of instructions executed by a SM scheduler.                                      
+smsp__inst_executed_avg_per_active_cycle                                    The average number of instructions executed per active cycle by a SM scheduler.                     
+smsp__inst_executed_avg_per_elapsed_cycle                                   The average number of instructions executed per elapsed cycle by a SM scheduler.                    
+smsp__inst_executed_cs_avg                                                  The average number of cs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_cs_max                                                  The maximum number of cs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_cs_min                                                  The minimum number of cs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_cs_pct                                                  The percentage of instructions executed on a SM scheduler that were cs instructions.                
+smsp__inst_executed_cs_sum                                                  The total number of cs instructions executed by a SM scheduler.                                     
+smsp__inst_executed_fs_avg                                                  The average number of fs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_fs_max                                                  The maximum number of fs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_fs_min                                                  The minimum number of fs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_fs_pct                                                  The percentage of instructions executed on a SM scheduler that were fs instructions.                
+smsp__inst_executed_fs_sum                                                  The total number of fs instructions executed by a SM scheduler.                                     
+smsp__inst_executed_generic_loads_avg                                       The average number of LD instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_loads_max                                       The maximum number of LD instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_loads_min                                       The minimum number of LD instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_loads_sum                                       The total number of LD instructions executed by a SM scheduler.                                     
+smsp__inst_executed_generic_stores_avg                                      The average number of ST instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_stores_max                                      The maximum number of ST instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_stores_min                                      The minimum number of ST instructions executed by a SM scheduler.                                   
+smsp__inst_executed_generic_stores_sum                                      The total number of ST instructions executed by a SM scheduler.                                     
+smsp__inst_executed_global_atomics_avg                                      The average number of ATOM(ATOM.CAS) instructions executed by a SM scheduler.                       
+smsp__inst_executed_global_atomics_max                                      The maximum number of ATOM(ATOM.CAS) instructions executed by a SM scheduler.                       
+smsp__inst_executed_global_atomics_min                                      The minimum number of ATOM(ATOM.CAS) instructions executed by a SM scheduler.                       
+smsp__inst_executed_global_atomics_sum                                      The total number of ATOM(ATOM.CAS) instructions executed by a SM scheduler.                         
+smsp__inst_executed_global_loads_avg                                        The average number of LDG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_loads_max                                        The maximum number of LDG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_loads_min                                        The minimum number of LDG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_loads_sum                                        The total number of LDG instructions executed by a SM scheduler.                                    
+smsp__inst_executed_global_reductions_avg                                   The average number of RED instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_reductions_max                                   The maximum number of RED instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_reductions_min                                   The minimum number of RED instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_reductions_sum                                   The total number of RED instructions executed by a SM scheduler.                                    
+smsp__inst_executed_global_stores_avg                                       The average number of STG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_stores_max                                       The maximum number of STG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_stores_min                                       The minimum number of STG instructions executed by a SM scheduler.                                  
+smsp__inst_executed_global_stores_sum                                       The total number of STG instructions executed by a SM scheduler.                                    
+smsp__inst_executed_gs_avg                                                  The average number of gs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_gs_max                                                  The maximum number of gs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_gs_min                                                  The minimum number of gs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_gs_pct                                                  The percentage of instructions executed on a SM scheduler that were gs instructions.                
+smsp__inst_executed_gs_sum                                                  The total number of gs instructions executed by a SM scheduler.                                     
+smsp__inst_executed_local_loads_avg                                         The average number of LDL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_loads_max                                         The maximum number of LDL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_loads_min                                         The minimum number of LDL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_loads_sum                                         The total number of LDL instructions executed by a SM scheduler.                                    
+smsp__inst_executed_local_stores_avg                                        The average number of STL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_stores_max                                        The maximum number of STL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_stores_min                                        The minimum number of STL instructions executed by a SM scheduler.                                  
+smsp__inst_executed_local_stores_sum                                        The total number of STL instructions executed by a SM scheduler.                                    
+smsp__inst_executed_max                                                     The maximum number of instructions executed by a SM scheduler.                                      
+smsp__inst_executed_min                                                     The minimum number of instructions executed by a SM scheduler.                                      
+smsp__inst_executed_per_warp                                                The number of warp instructions executed per warp by a SM scheduler.                                
+smsp__inst_executed_shared_atomics_avg                                      The average number of ATOMS(ATOMS.CAS) instructions executed by a SM scheduler.                     
+smsp__inst_executed_shared_atomics_max                                      The maximum number of ATOMS(ATOMS.CAS) instructions executed by a SM scheduler.                     
+smsp__inst_executed_shared_atomics_min                                      The minimum number of ATOMS(ATOMS.CAS) instructions executed by a SM scheduler.                     
+smsp__inst_executed_shared_atomics_sum                                      The total number of ATOMS(ATOMS.CAS) instructions executed by a SM scheduler.                       
+smsp__inst_executed_shared_loads_avg                                        The average number of LDS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_loads_max                                        The maximum number of LDS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_loads_min                                        The minimum number of LDS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_loads_sum                                        The total number of LDS instructions executed by a SM scheduler.                                    
+smsp__inst_executed_shared_stores_avg                                       The average number of STS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_stores_max                                       The maximum number of STS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_stores_min                                       The minimum number of STS instructions executed by a SM scheduler.                                  
+smsp__inst_executed_shared_stores_sum                                       The total number of STS instructions executed by a SM scheduler.                                    
+smsp__inst_executed_sum                                                     The total number of instructions executed by a SM scheduler.                                        
+smsp__inst_executed_sum_per_active_cycle                                    The total number of instructions executed per active cycle by a SM scheduler.                       
+smsp__inst_executed_sum_per_elapsed_cycle                                   The total number of instructions executed per elapsed cycle by a SM scheduler.                      
+smsp__inst_executed_surface_atomics_avg                                     The average number of SUATOM(SUATOM.CAS) instructions executed by a SM scheduler.                   
+smsp__inst_executed_surface_atomics_max                                     The maximum number of SUATOM(SUATOM.CAS) instructions executed by a SM scheduler.                   
+smsp__inst_executed_surface_atomics_min                                     The minimum number of SUATOM(SUATOM.CAS) instructions executed by a SM scheduler.                   
+smsp__inst_executed_surface_atomics_sum                                     The total number of SUATOM(SUATOM.CAS) instructions executed by a SM scheduler.                     
+smsp__inst_executed_surface_loads_avg                                       The average number of SULD instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_loads_max                                       The maximum number of SULD instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_loads_min                                       The minimum number of SULD instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_loads_sum                                       The total number of SULD instructions executed by a SM scheduler.                                   
+smsp__inst_executed_surface_reductions_avg                                  The average number of SURED instructions executed by a SM scheduler.                                
+smsp__inst_executed_surface_reductions_max                                  The maximum number of SURED instructions executed by a SM scheduler.                                
+smsp__inst_executed_surface_reductions_min                                  The minimum number of SURED instructions executed by a SM scheduler.                                
+smsp__inst_executed_surface_reductions_sum                                  The total number of SURED instructions executed by a SM scheduler.                                  
+smsp__inst_executed_surface_stores_avg                                      The average number of SUST instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_stores_max                                      The maximum number of SUST instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_stores_min                                      The minimum number of SUST instructions executed by a SM scheduler.                                 
+smsp__inst_executed_surface_stores_sum                                      The total number of SUST instructions executed by a SM scheduler.                                   
+smsp__inst_executed_tcs_avg                                                 The average number of tcs instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tcs_max                                                 The maximum number of tcs instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tcs_min                                                 The minimum number of tcs instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tcs_pct                                                 The percentage of instructions executed on a SM scheduler that were tcs instructions.               
+smsp__inst_executed_tcs_sum                                                 The total number of tcs instructions executed by a SM scheduler.                                    
+smsp__inst_executed_tes_avg                                                 The average number of tes instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tes_max                                                 The maximum number of tes instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tes_min                                                 The minimum number of tes instructions executed by a SM scheduler.                                  
+smsp__inst_executed_tes_pct                                                 The percentage of instructions executed on a SM scheduler that were tes instructions.               
+smsp__inst_executed_tes_sum                                                 The total number of tes instructions executed by a SM scheduler.                                    
+smsp__inst_executed_tex_ops                                                 The total number of TEX, TEXS, TLD, TLDS, TLD4, TLD4S, TMML, TXA, TXD, and TXQ instructions         
+                                                                            executed over all SMs.                                                                              
+smsp__inst_executed_vs_avg                                                  The average number of vs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_vs_max                                                  The maximum number of vs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_vs_min                                                  The minimum number of vs instructions executed by a SM scheduler.                                   
+smsp__inst_executed_vs_pct                                                  The percentage of instructions executed on a SM scheduler that were vs instructions.                
+smsp__inst_executed_vs_sum                                                  The total number of vs instructions executed by a SM scheduler.                                     
+smsp__inst_issued0_active_avg                                               The avg number of cycles the SM scheduler is active and did not issue an instruction.               
+smsp__inst_issued0_active_avg_per_active_cycle                              The average number of cycles the SM scheduler was active and issued no instruction per active cycle.
+smsp__inst_issued0_active_avg_per_elapsed_cycle                             The average number of cycles the SM scheduler was active and issued no instruction per elapsed      
+                                                                            cycle.                                                                                              
+smsp__inst_issued0_active_max                                               The max number of cycles the SM scheduler is active and did not issue an instruction.               
+smsp__inst_issued0_active_min                                               The min number of cycles the SM scheduler is active and did not issue an instruction.               
+smsp__inst_issued0_active_per_active_cycle_pct                              The percentage of active cycles the SM scheduler issued no instruction.                             
+smsp__inst_issued0_active_per_elapsed_cycle_pct                             The percentage of elapsed cycles the SM scheduler issued no instruction.                            
+smsp__inst_issued0_active_sum                                               The sum number of cycles the SM scheduler is active and did not issue an instruction.               
+smsp__inst_issued0_active_sum_per_active_cycle                              The total number of cycles the SM scheduler was active and issued no instruction per active cycle.  
+smsp__inst_issued0_active_sum_per_elapsed_cycle                             The total number of cycles the SM scheduler was active and issued no instruction per elapsed cycle. 
+smsp__inst_issued_avg                                                       The average number of instructions issued by a SM scheduler.                                        
+smsp__inst_issued_avg_per_active_cycle                                      The average number of instructions issued per active cycle by a SM scheduler.                       
+smsp__inst_issued_avg_per_elapsed_cycle                                     The average number of instructions issued per elapsed cycle by a SM scheduler.                      
+smsp__inst_issued_max                                                       The maximum number of instructions issued by a SM scheduler.                                        
+smsp__inst_issued_min                                                       The minimum number of instructions issued by a SM scheduler.                                        
+smsp__inst_issued_per_issue_active                                          The average number of warp instructions issued per cycle if the SM scheduler issues at least one    
+                                                                            instruction. On architectures that support dual-issue the number is between 1 and 2.                
+smsp__inst_issued_sum                                                       The total number of instructions issued by a SM scheduler.                                          
+smsp__inst_issued_sum_per_active_cycle                                      The total number of instructions issued per active cycle by a SM scheduler.                         
+smsp__inst_issued_sum_per_elapsed_cycle                                     The total number of instructions issued per elapsed cycle by a SM scheduler.                        
+smsp__issue_active_avg                                                      The avg number of cycles the SM scheduler issued at least one instruction.                          
+smsp__issue_active_avg_per_active_cycle                                     The average number of cycles the SM scheduler issued at least one instruction per active cycle.     
+smsp__issue_active_avg_per_elapsed_cycle                                    The average number of cycles the SM scheduler issued at least one instruction per elapsed cycle.    
+smsp__issue_active_max                                                      The max number of cycles the SM scheduler issued at least one instruction.                          
+smsp__issue_active_min                                                      The min number of cycles the SM scheduler issued at least one instruction.                          
+smsp__issue_active_per_active_cycle_pct                                     The percentage of active cycles the SM scheduler issued at least one instruction.                   
+smsp__issue_active_per_elapsed_cycle_pct                                    The percentage of elapsed cycles the SM scheduler issued at least one instruction.                  
+smsp__issue_active_sum                                                      The sum number of cycles the SM scheduler issued at least one instruction.                          
+smsp__issue_active_sum_per_active_cycle                                     The total number of cycles the SM scheduler issued at least one instruction per active cycle.       
+smsp__issue_active_sum_per_elapsed_cycle                                    The total number of cycles the SM scheduler issued at least one instruction per elapsed cycle.      
+smsp__thread_inst_executed_avg                                              The average number of instructions executed by active threads by a SM scheduler.                    
+smsp__thread_inst_executed_max                                              The maximum number of instructions executed by active threads by a SM scheduler.                    
+smsp__thread_inst_executed_min                                              The minimum number of instructions executed by active threads by a SM scheduler.                    
+smsp__thread_inst_executed_not_pred_off_avg                                 The average number of thread instructions executed by active not predicated off threads by a SM     
+                                                                            scheduler.                                                                                          
+smsp__thread_inst_executed_not_pred_off_max                                 The maximum number of thread instructions executed by active not predicated off threads by a SM     
+                                                                            scheduler.                                                                                          
+smsp__thread_inst_executed_not_pred_off_min                                 The minimum number of thread instructions executed by active not predicated off threads by a SM     
+                                                                            scheduler.                                                                                          
+smsp__thread_inst_executed_not_pred_off_per_inst_executed                   The average number of active threads not predicated off per instruction executed.                   
+smsp__thread_inst_executed_not_pred_off_per_inst_executed_pct               The percentage of active not predicated off threads per instruction executed.                       
+smsp__thread_inst_executed_not_pred_off_sum                                 The total number of thread instructions executed by active not predicated off threads by a SM       
+                                                                            scheduler.                                                                                          
+smsp__thread_inst_executed_per_inst_executed                                The average number of active threads per instruction executed.                                      
+smsp__thread_inst_executed_per_inst_executed_pct                            The percentage of active threads per instruction executed.                                          
+smsp__thread_inst_executed_sum                                              The total number of instructions executed by active threads by a SM scheduler.                      
+smsp__warp_cycles_per_inst_executed                                         The average number of issue cycles a warp waits to execute an instruction.                          
+smsp__warp_cycles_per_inst_issued                                           The average number of issue cycles a warp waits to issue an instruction.                            
+smsp__warp_cycles_per_issue_active                                          The average number of issue cycles a warp waits to be selected to issue instructions.               
+smsp__warp_cycles_per_issue_stall_allocation_stall                          The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for a branch to resolve, waiting for all memory operations to retire, or waiting to be allocated    
+                                                                            to the micro-scheduler.                                                                             
+smsp__warp_cycles_per_issue_stall_barrier                                   The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for sibling warps at a CTA barrier.                                                                 
+smsp__warp_cycles_per_issue_stall_dispatch_stall                            The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            on a dispatch stall.                                                                                
+smsp__warp_cycles_per_issue_stall_drain                                     The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            after EXIT for all memory instructions to complete so that warp resources can be freed.             
+smsp__warp_cycles_per_issue_stall_imc_miss                                  The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for an immediate constant cache (IMC) miss.                                                         
+smsp__warp_cycles_per_issue_stall_long_scoreboard                           The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for a scoreboard dependency on a L1TEX (local, global, surface, tex) operation.                     
+smsp__warp_cycles_per_issue_stall_math_pipe_throttle                        The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for the execution pipe to be available.                                                             
+smsp__warp_cycles_per_issue_stall_membar                                    The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            on a memory barrier.                                                                                
+smsp__warp_cycles_per_issue_stall_mio_throttle                              The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for the MIO instruction queue to be not full.                                                       
+smsp__warp_cycles_per_issue_stall_misc                                      The average number of active cycles between instruction issue cycles that a warp is stalled on a    
+                                                                            miscellaneous hardware reason.                                                                      
+smsp__warp_cycles_per_issue_stall_no_instructions                           The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            to be selected to fetch an instruction or waiting on an icache miss.                                
+smsp__warp_cycles_per_issue_stall_not_selected                              The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for the microscheduler to select the warp to issue.                                                 
+smsp__warp_cycles_per_issue_stall_selected                                  The average number of active cycles between instruction issue cycles that a warp is selected by the 
+                                                                            microscheduler and issued an instruction.                                                           
+smsp__warp_cycles_per_issue_stall_short_scoreboard                          The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for a scoreboard dependency on a MIO operation (not to TEX or L1).                                  
+smsp__warp_cycles_per_issue_stall_tex_throttle                              The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for the TEX/L1 instruction queue to be not full.                                                    
+smsp__warp_cycles_per_issue_stall_tile_allocation_stall                     The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            for sibling warps at a batch barrier.                                                               
+smsp__warp_cycles_per_issue_stall_wait                                      The average number of active cycles between instruction issue cycles that a warp is stalled waiting 
+                                                                            on a fixed latency execution dependency.                                                            
+smsp__warp_stall_allocation_stall                                           Increments per active cycle by the number of active warps that were stalled waiting for a branch to 
+                                                                            resolve, waiting for all memory operations to retire, or waiting to be allocated to the             
+                                                                            micro-scheduler.                                                                                    
+smsp__warp_stall_allocation_stall_pct                                       The percentage of active warps that were stalled waiting for a branch to resolve, waiting for all   
+                                                                            memory operations to retire, or waiting to be allocated to the micro-scheduler.                     
+smsp__warp_stall_barrier                                                    Increments per active cycle by the number of active warps that were stalled waiting for sibling     
+                                                                            warps at a CTA barrier.                                                                             
+smsp__warp_stall_barrier_pct                                                The percentage of active warps that were stalled waiting for sibling warps at a CTA barrier.        
+smsp__warp_stall_dispatch_stall                                             Increments per active cycle by the number of active warps that were stalled waiting on a dispatch   
+                                                                            stall.                                                                                              
+smsp__warp_stall_dispatch_stall_pct                                         The percentage of active warps that were stalled waiting on a dispatch stall.                       
+smsp__warp_stall_drain                                                      Increments per active cycle by the number of active warps that were stalled waiting after EXIT for  
+                                                                            all memory instructions to complete so that warp resources can be freed.                            
+smsp__warp_stall_drain_pct                                                  The percentage of active warps that were stalled waiting after EXIT for all memory instructions to  
+                                                                            complete so that warp resources can be freed.                                                       
+smsp__warp_stall_imc_miss                                                   Increments per active cycle by the number of active warps that were stalled waiting for an          
+                                                                            immediate constant cache (IMC) miss.                                                                
+smsp__warp_stall_imc_miss_pct                                               The percentage of active warps that were stalled waiting for an immediate constant cache (IMC) miss.
+smsp__warp_stall_long_scoreboard                                            Increments per active cycle by the number of active warps that were stalled waiting for a           
+                                                                            scoreboard dependency on a L1TEX (local, global, surface, tex) operation.                           
+smsp__warp_stall_long_scoreboard_pct                                        The percentage of active warps that were stalled waiting for a scoreboard dependency on a L1TEX     
+                                                                            (local, global, surface, tex) operation.                                                            
+smsp__warp_stall_math_pipe_throttle                                         Increments per active cycle by the number of active warps that were stalled waiting for the         
+                                                                            execution pipe to be available.                                                                     
+smsp__warp_stall_math_pipe_throttle_pct                                     The percentage of active warps that were stalled waiting for the execution pipe to be available.    
+smsp__warp_stall_membar                                                     Increments per active cycle by the number of active warps that were stalled waiting on a memory     
+                                                                            barrier.                                                                                            
+smsp__warp_stall_membar_pct                                                 The percentage of active warps that were stalled waiting on a memory barrier.                       
+smsp__warp_stall_mio_throttle                                               Increments per active cycle by the number of active warps that were stalled waiting for the MIO     
+                                                                            instruction queue to be not full.                                                                   
+smsp__warp_stall_mio_throttle_pct                                           The percentage of active warps that were stalled waiting for the MIO instruction queue to be not    
+                                                                            full.                                                                                               
+smsp__warp_stall_misc                                                       Increments per active cycle by the number of active warps that were stalled on a miscellaneous      
+                                                                            hardware reason.                                                                                    
+smsp__warp_stall_misc_pct                                                   The percentage of active warps that were stalled on a miscellaneous hardware reason.                
+smsp__warp_stall_no_instructions                                            Increments per active cycle by the number of active warps that were stalled waiting to be selected  
+                                                                            to fetch an instruction or waiting on an icache miss.                                               
+smsp__warp_stall_no_instructions_pct                                        The percentage of active warps that were stalled waiting to be selected to fetch an instruction or  
+                                                                            waiting on an icache miss.                                                                          
+smsp__warp_stall_not_selected                                               Increments per active cycle by the number of active warps that were stalled waiting for the         
+                                                                            microscheduler to select the warp to issue.                                                         
+smsp__warp_stall_not_selected_pct                                           The percentage of active warps that were stalled waiting for the microscheduler to select the warp  
+                                                                            to issue.                                                                                           
+smsp__warp_stall_selected                                                   Increments per active cycle by the number of active warps that were selected by the microscheduler  
+                                                                            and issued an instruction.                                                                          
+smsp__warp_stall_selected_pct                                               The percentage of active warps that were selected by the microscheduler and issued an instruction.  
+smsp__warp_stall_short_scoreboard                                           Increments per active cycle by the number of active warps that were stalled waiting for a           
+                                                                            scoreboard dependency on a MIO operation (not to TEX or L1).                                        
+smsp__warp_stall_short_scoreboard_pct                                       The percentage of active warps that were stalled waiting for a scoreboard dependency on a MIO       
+                                                                            operation (not to TEX or L1).                                                                       
+smsp__warp_stall_tex_throttle                                               Increments per active cycle by the number of active warps that were stalled waiting for the TEX/L1  
+                                                                            instruction queue to be not full.                                                                   
+smsp__warp_stall_tex_throttle_pct                                           The percentage of active warps that were stalled waiting for the TEX/L1 instruction queue to be not 
+                                                                            full.                                                                                               
+smsp__warp_stall_tile_allocation_stall                                      Increments per active cycle by the number of active warps that were stalled waiting for sibling     
+                                                                            warps at a batch barrier.                                                                           
+smsp__warp_stall_tile_allocation_stall_pct                                  The percentage of active warps that were stalled waiting for sibling warps at a batch barrier.      
+smsp__warp_stall_wait                                                       Increments per active cycle by the number of active warps that were stalled waiting on a fixed      
+                                                                            latency execution dependency.                                                                       
+smsp__warp_stall_wait_pct                                                   The percentage of active warps that were stalled waiting on a fixed latency execution dependency.   
+smsp__warps_cs_per_cycle_max                                                The maximum number of compute shader warps per SMSP per cycle.                                      
+smsp__warps_fs_per_cycle_max                                                The maximum number of fragment shader warps per SMSP per cycle.                                     
+smsp__warps_launched_avg                                                    The avg number of warps launched excluding warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_cs_avg                                                 The avg number of compute warps launched over all SM schedulers.                                    
+smsp__warps_launched_cs_max                                                 The max number of compute warps launched over all SM schedulers.                                    
+smsp__warps_launched_cs_min                                                 The min number of compute warps launched over all SM schedulers.                                    
+smsp__warps_launched_cs_sum                                                 The sum number of compute warps launched over all SM schedulers.                                    
+smsp__warps_launched_max                                                    The max number of warps launched excluding warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_min                                                    The min number of warps launched excluding warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_sum                                                    The sum number of warps launched excluding warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_total_avg                                              The avg number of warps launched including warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_total_max                                              The max number of warps launched including warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_total_min                                              The min number of warps launched including warps restored from pre-emption over all SM schedulers.  
+smsp__warps_launched_total_sum                                              The sum number of warps launched including warps restored from pre-emption over all SM schedulers.  
+smsp__warps_per_cycle_max                                                   The maximum number of warps per SMSP per cycle.                                                     
+smsp__warps_restored_avg                                                    The avg number of warps restored as part of pre-emption restore over all SM schedulers.             
+smsp__warps_restored_max                                                    The max number of warps restored as part of pre-emption restore over all SM schedulers.             
+smsp__warps_restored_min                                                    The min number of warps restored as part of pre-emption restore over all SM schedulers.             
+smsp__warps_restored_sum                                                    The sum number of warps restored as part of pre-emption restore over all SM schedulers.             
+smsp__warps_vtg_per_cycle_max                                               The maximum number of vertex, tesselation, and geometry shader warps per SMSP per cycle.            
+tex__busy_cycles_avg                                                        Number of cycles the tex unit is busy.                                                              
+tex__busy_cycles_max                                                        Number of cycles the busiest tex unit is busy.                                                      
+tex__busy_pct_avg                                                           Percentage of elapsed cycles the tex unit is busy.                                                  
+tex__busy_pct_max                                                           Percentage of elapsed cycles the busiest tex unit is busy.                                          
+tex__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a tex unit instance.                   
+tex__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a tex unit instance.                   
+tex__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a tex unit instance.                   
+tex__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a tex unit instance.                     
+tex__frequency                                                              The average frequency of the tex unit(s) in Hz. This is calculated as tex__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+tex__hitrate_pct                                                            Percentage of tex requests that hit.                                                                
+tex__m_rd_bytes_global_atom                                                 Total number of bytes rd by global atom.                                                            
+tex__m_rd_bytes_global_atom_per_sec                                         Total number of bytes per second rd by global_atom.                                                 
+tex__m_rd_bytes_miss_global_ld_cached                                       Number of bytes TEX read from L2 for cached global ld requests.                                     
+tex__m_rd_bytes_miss_global_ld_uncached                                     Number of bytes TEX read from L2 for uncached global ld requests.                                   
+tex__m_rd_bytes_miss_local_ld_cached                                        Number of bytes TEX read from L2 for cached local ld requests.                                      
+tex__m_rd_bytes_miss_local_ld_uncached                                      Number of bytes TEX read from L2 for uncached local ld requests.                                    
+tex__m_rd_bytes_miss_surface_ld                                             Number of bytes TEX read from L2 for surface ld requests.                                           
+tex__m_rd_bytes_surface_atom                                                Total number of bytes rd by surface atom.                                                           
+tex__m_rd_bytes_surface_atom_per_sec                                        Total number of bytes per second rd by surface_atom.                                                
+tex__m_rd_sectors_atom_red                                                  Number of sectors TEX read LTS by atomic and reduction operations.                                  
+tex__m_rd_sectors_atom_red_pct                                              Percentage utilization of TEX read LTS by atomic and reduction operations.                          
+tex__m_rd_sectors_global_atom                                               Total number of sectors rd by global atom.                                                          
+tex__m_rd_sectors_global_atom_pct                                           Percentage of sectors rd by global atom.                                                            
+tex__m_rd_sectors_miss_global_ld_cached                                     Number of sectors TEX read from L2 for cached global ld requests.                                   
+tex__m_rd_sectors_miss_global_ld_cached_pct                                 Percentage of TEX cached global ld sectors returned from LTS to the total possible TEX return       
+                                                                            sectors over the range.                                                                             
+tex__m_rd_sectors_miss_global_ld_uncached                                   Number of sectors TEX read from L2 for uncached global ld requests.                                 
+tex__m_rd_sectors_miss_global_ld_uncached_pct                               Percentage of TEX uncached global ld sectors returned from LTS to the total possible TEX return     
+                                                                            sectors over the range.                                                                             
+tex__m_rd_sectors_miss_local_ld_cached                                      Number of sectors TEX read from L2 for cached local ld requests.                                    
+tex__m_rd_sectors_miss_local_ld_cached_pct                                  Percentage of TEX cached local ld sectors returned from LTS to the total possible TEX return        
+                                                                            sectors over the range.                                                                             
+tex__m_rd_sectors_miss_local_ld_uncached                                    Number of sectors TEX read from L2 for uncached local ld requests.                                  
+tex__m_rd_sectors_miss_local_ld_uncached_pct                                Percentage of TEX uncached local ld sectors returned from LTS to the total possible TEX return      
+                                                                            sectors over the range.                                                                             
+tex__m_rd_sectors_miss_surface_ld                                           Number of sectors TEX read from L2 for surface ld requests.                                         
+tex__m_rd_sectors_miss_surface_ld_pct                                       Percentage of TEX surface ld sectors returned from LTS to the total possible TEX return sectors     
+                                                                            over the range.                                                                                     
+tex__m_rd_sectors_surface_atom                                              Total number of sectors rd by surface atom.                                                         
+tex__m_rd_sectors_surface_atom_pct                                          Percentage of sectors rd by surface atom.                                                           
+tex__m_wr_bytes_global_atom                                                 Total number of bytes wr by global atom.                                                            
+tex__m_wr_bytes_global_atom_per_sec                                         Total number of bytes per second wr by global_atom.                                                 
+tex__m_wr_bytes_global_nonatom                                              Total number of bytes wr by global nonatom.                                                         
+tex__m_wr_bytes_global_nonatom_per_sec                                      Total number of bytes per second wr by global_nonatom.                                              
+tex__m_wr_bytes_global_red                                                  Total number of bytes wr by global red.                                                             
+tex__m_wr_bytes_global_red_per_sec                                          Total number of bytes per second wr by global_red.                                                  
+tex__m_wr_bytes_local_st                                                    Total number of bytes wr by local st.                                                               
+tex__m_wr_bytes_local_st_per_sec                                            Total number of bytes per second wr by local_st.                                                    
+tex__m_wr_bytes_surface_atom                                                Total number of bytes wr by surface atom.                                                           
+tex__m_wr_bytes_surface_atom_per_sec                                        Total number of bytes per second wr by surface_atom.                                                
+tex__m_wr_bytes_surface_nonatom                                             Total number of bytes wr by surface nonatom.                                                        
+tex__m_wr_bytes_surface_nonatom_per_sec                                     Total number of bytes per second wr by surface_nonatom.                                             
+tex__m_wr_bytes_surface_red                                                 Total number of bytes wr by surface red.                                                            
+tex__m_wr_bytes_surface_red_per_sec                                         Total number of bytes per second wr by surface_red.                                                 
+tex__m_wr_sectors_atom_red                                                  Number of sectors TEX written LTS by atomic and reduction operations.                               
+tex__m_wr_sectors_atom_red_pct                                              Percentage utilization of TEX write LTS by atomic and reduction operations.                         
+tex__m_wr_sectors_global_atom                                               Total number of sectors wr by global atom.                                                          
+tex__m_wr_sectors_global_atom_pct                                           Percentage of sectors wr by global atom.                                                            
+tex__m_wr_sectors_global_nonatom                                            Total number of sectors wr by global nonatom.                                                       
+tex__m_wr_sectors_global_nonatom_pct                                        Percentage of sectors wr by global nonatom.                                                         
+tex__m_wr_sectors_global_red                                                Total number of sectors wr by global red.                                                           
+tex__m_wr_sectors_global_red_pct                                            Percentage of sectors wr by global red.                                                             
+tex__m_wr_sectors_local_st                                                  Total number of sectors wr by local st.                                                             
+tex__m_wr_sectors_local_st_pct                                              Percentage of sectors wr by local st.                                                               
+tex__m_wr_sectors_surface_atom                                              Total number of sectors wr by surface atom.                                                         
+tex__m_wr_sectors_surface_atom_pct                                          Percentage of sectors wr by surface atom.                                                           
+tex__m_wr_sectors_surface_nonatom                                           Total number of sectors wr by surface nonatom.                                                      
+tex__m_wr_sectors_surface_nonatom_pct                                       Percentage of sectors wr by surface nonatom.                                                        
+tex__m_wr_sectors_surface_red                                               Total number of sectors wr by surface red.                                                          
+tex__m_wr_sectors_surface_red_pct                                           Percentage of sectors wr by surface red.                                                            
+tex__read_bytes                                                             Texture memory read in bytes.                                                                       
+tex__sm_utilization_pct                                                     Percentage utilization of the TEX to SM interface.                                                  
+tex__sol_pct                                                                SOL percentage of texture unit.                                                                     
+tex__t_bytes_hit_global_ld_cached                                           Number of TEX cache sector hit in bytes from cached global ld requests.                             
+tex__t_bytes_hit_global_ld_cached_per_sec                                   Throughput of TEX cache sector hit in bytes per second from cached global ld requests.              
+tex__t_bytes_hit_local_ld_cached                                            Number of TEX cache sector hit in bytes from cached local ld requests.                              
+tex__t_bytes_hit_local_ld_cached_per_sec                                    Throughput of TEX cache sector hit in bytes per second from cached local ld requests.               
+tex__t_bytes_miss_global_ld_cached                                          Number of TEX cache sector miss in bytes from cached global ld requests.                            
+tex__t_bytes_miss_global_ld_cached_per_sec                                  Throughput of TEX cache sector miss in bytes per second from cached global ld requests.             
+tex__t_bytes_miss_global_ld_uncached                                        Number of TEX cache sector miss in bytes from uncached global ld requests.                          
+tex__t_bytes_miss_global_ld_uncached_per_sec                                Throughput of TEX cache sector miss in bytes per second from uncached global ld requests.           
+tex__t_bytes_miss_local_ld_cached                                           Number of TEX cache sector miss in bytes from cached local ld requests.                             
+tex__t_bytes_miss_local_ld_cached_per_sec                                   Throughput of TEX cache sector miss in bytes per second from cached local ld requests.              
+tex__t_bytes_miss_local_ld_uncached                                         Number of TEX cache sector miss in bytes from uncached local ld requests.                           
+tex__t_bytes_miss_local_ld_uncached_per_sec                                 Throughput of TEX cache sector miss in bytes per second from uncached local ld requests.            
+tex__t_bytes_miss_surface_ld                                                Number of TEX cache sector miss in bytes from surface ld requests.                                  
+tex__t_bytes_miss_surface_ld_per_sec                                        Throughput of TEX cache sector miss in bytes per second from surface ld requests.                   
+tex__t_sectors_hit_global_ld_cached                                         Number of TEX cache sector hit from cached global ld requests.                                      
+tex__t_sectors_hit_local_ld_cached                                          Number of TEX cache sector hit from cached local ld requests.                                       
+tex__t_sectors_miss_global_ld_cached                                        Number of TEX cache sector miss from cached global ld requests.                                     
+tex__t_sectors_miss_global_ld_uncached                                      Number of TEX cache sector miss from uncached global ld requests.                                   
+tex__t_sectors_miss_local_ld_cached                                         Number of TEX cache sector miss from cached local ld requests.                                      
+tex__t_sectors_miss_local_ld_uncached                                       Number of TEX cache sector miss from uncached local ld requests.                                    
+tex__t_sectors_miss_surface_ld                                              Number of TEX cache sector miss from surface ld requests.                                           
+tex__tex2sm_tex_nonatomic_active                                            Number of cycles the TEX to SM interface is active for nonatomic operations.                        
+tex__tex2sm_tex_nonatomic_utilization                                       Percentage of cycles the TEX to SM interface is active for nonatomic operations.                    
+tex__texel_queries                                                          The total number of texels queried.                                                                 
+tex__texin_requests_global_atom                                             Number of global atom requests sent to TEX.                                                         
+tex__texin_requests_global_atom_per_active_cycle_pct                        Percentage utilization of TEX request interface for global atom.                                    
+tex__texin_requests_global_atom_per_elapsed_cycle_pct                       Percentage utilization of TEX request interface for global atom.                                    
+tex__texin_requests_global_atomcas                                          Number of global atomcas requests sent to TEX.                                                      
+tex__texin_requests_global_atomcas_per_active_cycle_pct                     Percentage utilization of TEX request interface for global atomcas.                                 
+tex__texin_requests_global_atomcas_per_elapsed_cycle_pct                    Percentage utilization of TEX request interface for global atomcas.                                 
+tex__texin_requests_global_ld_cached                                        Number of cached global ld requests sent to TEX.                                                    
+tex__texin_requests_global_ld_cached_per_active_cycle_pct                   Percentage utilization of TEX request interface for cached global ld.                               
+tex__texin_requests_global_ld_cached_per_elapsed_cycle_pct                  Percentage utilization of TEX request interface for cached global ld.                               
+tex__texin_requests_global_ld_uncached                                      Number of uncached global ld requests sent to TEX.                                                  
+tex__texin_requests_global_ld_uncached_per_active_cycle_pct                 Percentage utilization of TEX request interface for uncached global ld.                             
+tex__texin_requests_global_ld_uncached_per_elapsed_cycle_pct                Percentage utilization of TEX request interface for uncached global ld.                             
+tex__texin_requests_global_red                                              Number of global red requests sent to TEX.                                                          
+tex__texin_requests_global_red_per_active_cycle_pct                         Percentage utilization of TEX request interface for global red.                                     
+tex__texin_requests_global_red_per_elapsed_cycle_pct                        Percentage utilization of TEX request interface for global red.                                     
+tex__texin_requests_global_st                                               Number of global st requests sent to TEX.                                                           
+tex__texin_requests_global_st_per_active_cycle_pct                          Percentage utilization of TEX request interface for global st.                                      
+tex__texin_requests_global_st_per_elapsed_cycle_pct                         Percentage utilization of TEX request interface for global st.                                      
+tex__texin_requests_local_ld_cached                                         Number of cached local ld requests sent to TEX.                                                     
+tex__texin_requests_local_ld_cached_per_active_cycle_pct                    Percentage utilization of TEX request interface for cached local ld.                                
+tex__texin_requests_local_ld_cached_per_elapsed_cycle_pct                   Percentage utilization of TEX request interface for cached local ld.                                
+tex__texin_requests_local_ld_uncached                                       Number of uncached local ld requests sent to TEX.                                                   
+tex__texin_requests_local_ld_uncached_per_active_cycle_pct                  Percentage utilization of TEX request interface for uncached local ld.                              
+tex__texin_requests_local_ld_uncached_per_elapsed_cycle_pct                 Percentage utilization of TEX request interface for uncached local ld.                              
+tex__texin_requests_local_st                                                Number of local st requests sent to TEX.                                                            
+tex__texin_requests_local_st_per_active_cycle_pct                           Percentage utilization of TEX request interface for local st.                                       
+tex__texin_requests_local_st_per_elapsed_cycle_pct                          Percentage utilization of TEX request interface for local st.                                       
+tex__texin_requests_surface_atom                                            Number of surface atom requests sent to TEX.                                                        
+tex__texin_requests_surface_atom_per_active_cycle_pct                       Percentage utilization of TEX request interface for surface atom.                                   
+tex__texin_requests_surface_atom_per_elapsed_cycle_pct                      Percentage utilization of TEX request interface for surface atom.                                   
+tex__texin_requests_surface_atomcas                                         Number of surface atomcas requests sent to TEX.                                                     
+tex__texin_requests_surface_atomcas_per_active_cycle_pct                    Percentage utilization of TEX request interface for surface atomcas.                                
+tex__texin_requests_surface_atomcas_per_elapsed_cycle_pct                   Percentage utilization of TEX request interface for surface atomcas.                                
+tex__texin_requests_surface_ld                                              Number of surface ld requests sent to TEX.                                                          
+tex__texin_requests_surface_ld_per_active_cycle_pct                         Percentage utilization of TEX request interface for surface ld.                                     
+tex__texin_requests_surface_ld_per_elapsed_cycle_pct                        Percentage utilization of TEX request interface for surface ld.                                     
+tex__texin_requests_surface_red                                             Number of surface red requests sent to TEX.                                                         
+tex__texin_requests_surface_red_per_active_cycle_pct                        Percentage utilization of TEX request interface for surface red.                                    
+tex__texin_requests_surface_red_per_elapsed_cycle_pct                       Percentage utilization of TEX request interface for surface red.                                    
+tex__texin_requests_surface_st                                              Number of surface st requests sent to TEX.                                                          
+tex__texin_requests_surface_st_per_active_cycle_pct                         Percentage utilization of TEX request interface for surface st.                                     
+tex__texin_requests_surface_st_per_elapsed_cycle_pct                        Percentage utilization of TEX request interface for surface st.                                     
+tex__texin_tsl2_stall_cycles                                                Number of cycles the TEX TEXIN stage is stalled awaiting data from the texture header or sampler L2 
+                                                                            cache (TSL2).                                                                                       
+tex__texin_tsl2_stall_cycles_per_elapsed_cycle                              Number of cycles the TEX TEXIN stage is stalled awaiting data from the texture header or sampler L2 
+                                                                            cache (TSL2) per TEX elapsed cycle.                                                                 
+tex__texin_tsl2_stall_cycles_per_elapsed_cycle_pct                          Number of cycles the TEX TEXIN stage is stalled awaiting data from the texture header or sampler L2 
+                                                                            cache (TSL2) per TEX elapsed cycle, as a percentage.                                                
+tpc__elapsed_cycles_avg                                                     The average count of the number of cycles within a range for a tpc unit instance.                   
+tpc__elapsed_cycles_max                                                     The maximum count of the number of cycles within a range for a tpc unit instance.                   
+tpc__elapsed_cycles_min                                                     The minimum count of the number of cycles within a range for a tpc unit instance.                   
+tpc__elapsed_cycles_sum                                                     The total count of the number of cycles within a range for a tpc unit instance.                     
+tpc__frequency                                                              The average frequency of the tpc unit(s) in Hz. This is calculated as tpc__elapsed_cycles_avg       
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+xfb__lts_utilization_pct                                                    Percentage utilization of the xfb to lts interface.                                                 
+zrop__busy_cycles_avg                                                       Number of cycles the zrop unit is busy.                                                             
+zrop__busy_cycles_max                                                       Number of cycles the busiest zrop unit is busy.                                                     
+zrop__busy_pct_avg                                                          Percentage of elapsed cycles the zrop unit is busy.                                                 
+zrop__busy_pct_max                                                          Percentage of elapsed cycles the busiest zrop unit is busy.                                         
+zrop__elapsed_cycles_avg                                                    The average count of the number of cycles within a range for a zrop unit instance.                  
+zrop__elapsed_cycles_max                                                    The maximum count of the number of cycles within a range for a zrop unit instance.                  
+zrop__elapsed_cycles_min                                                    The minimum count of the number of cycles within a range for a zrop unit instance.                  
+zrop__elapsed_cycles_sum                                                    The total count of the number of cycles within a range for a zrop unit instance.                    
+zrop__frequency                                                             The average frequency of the zrop unit(s) in Hz. This is calculated as zrop__elapsed_cycles_avg     
+                                                                            divided by gpu__time_duration. The value will be lower than expected if the measurement range       
+                                                                            contains GPU context switches.                                                                      
+zrop__lts_read_utilization_pct                                              Percentage utilization of the zrop to lts interface used.                                           
+zrop__lts_write_utilization_pct                                             Percentage utilization of the zrop to lts interface used.                                           
+zrop__sol_pct                                                               SOL of zrop unit in percentage.                                                                     
+

@@ -68,7 +68,7 @@ impl PerKernel {
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
         if idx >= self.inner.len() {
             self.inner.resize_with(idx + 1, || Stats::new(&self.config));
@@ -76,7 +76,7 @@ impl PerKernel {
         &mut self.inner[idx]
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn reduce(self) -> Stats {
         let mut reduced = Stats::new(&self.config);

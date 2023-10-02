@@ -55,7 +55,7 @@ impl From<Error> for std::io::Error {
     }
 }
 
-#[inline]
+// #[inline]
 pub fn open_readable(path: impl AsRef<Path>) -> Result<std::io::BufReader<std::fs::File>, Error> {
     let path = path.as_ref();
     let file = std::fs::OpenOptions::new()
@@ -69,7 +69,7 @@ pub fn open_readable(path: impl AsRef<Path>) -> Result<std::io::BufReader<std::f
     Ok(reader)
 }
 
-#[inline]
+// #[inline]
 pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::fs::File>, Error> {
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     let mode: u32 = 0o777;
@@ -103,7 +103,7 @@ pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::f
     Ok(std::io::BufWriter::new(file))
 }
 
-#[inline]
+// #[inline]
 pub fn remove_dir(path: impl AsRef<Path>) -> Result<(), Error> {
     let path = path.as_ref();
     match std::fs::remove_dir_all(path) {
@@ -116,7 +116,7 @@ pub fn remove_dir(path: impl AsRef<Path>) -> Result<(), Error> {
     }
 }
 
-#[inline]
+// #[inline]
 pub fn create_dirs(path: impl AsRef<Path>) -> Result<(), Error> {
     use std::os::unix::fs::DirBuilderExt;
     let path = path.as_ref();

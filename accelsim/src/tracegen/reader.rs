@@ -44,12 +44,12 @@ pub fn parse_dim(value: &str) -> Option<Dim> {
     Some(Dim { x, y, z })
 }
 
-#[inline]
+// #[inline]
 fn missing(k: &str) -> eyre::Report {
     eyre::eyre!("missing {k}")
 }
 
-#[inline]
+// #[inline]
 pub fn parse_decimal<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: std::str::FromStr,
@@ -62,7 +62,7 @@ where
     Ok(value)
 }
 
-#[inline]
+// #[inline]
 pub fn parse_hex<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: num_traits::Num,
@@ -213,7 +213,7 @@ pub fn read_commands(
     Ok(commands)
 }
 
-#[inline]
+// #[inline]
 fn base_stride_decompress(
     addrs: &mut [u64],
     base_address: u64,
@@ -238,7 +238,7 @@ fn base_stride_decompress(
     }
 }
 
-#[inline]
+// #[inline]
 fn base_delta_decompress(
     addrs: &mut [u64],
     base_address: u64,
@@ -277,7 +277,7 @@ pub struct TraceInstruction {
     pub src_regs: Vec<u32>,
 }
 
-#[inline]
+// #[inline]
 pub fn parse_single_trace_instruction(
     line: &[&str],
     trace_version: usize,
@@ -394,7 +394,7 @@ pub fn parse_single_trace_instruction(
     })
 }
 
-#[inline]
+// #[inline]
 pub fn convert_instruction(
     trace_instruction: &TraceInstruction,
     block_id: Dim,

@@ -368,7 +368,7 @@ impl<C> ic::Connection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection
 where
     C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
 {
-    #[inline]
+    // #[inline]
     fn can_send(&self, packets: &[u32]) -> bool {
         // let request_size: u32 = packets
         //     .iter()
@@ -385,7 +385,7 @@ where
         // self.interconn.has_buffer(self.cluster_id, request_size)
     }
 
-    #[inline]
+    // #[inline]
     fn send(&mut self, packet: ic::Packet<mem_fetch::MemFetch>) {
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
@@ -852,31 +852,31 @@ where
         translated_addresses
     }
 
-    #[inline]
+    // #[inline]
     pub fn cache_flush(&mut self) {
         let mut unit = self.load_store_unit.try_lock();
         unit.flush();
     }
 
-    #[inline]
+    // #[inline]
     pub fn cache_invalidate(&mut self) {
         let mut unit = self.load_store_unit.try_lock();
         unit.invalidate();
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
         self.load_store_unit.try_lock().response_buffer_full()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn fetch_unit_response_buffer_full(&self) -> bool {
         false
     }
 
-    #[inline]
+    // #[inline]
     pub fn accept_fetch_response(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
         fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
         self.please_fill
@@ -884,7 +884,7 @@ where
             .push((FetchResponseTarget::ICache, fetch, time));
     }
 
-    #[inline]
+    // #[inline]
     pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch, time: u64) {
         self.please_fill
             .lock()
@@ -892,24 +892,24 @@ where
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn not_completed(&self) -> usize {
         self.num_active_threads
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn is_active(&self) -> bool {
         self.num_active_blocks > 0
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn num_active_blocks(&self) -> usize {
         self.num_active_blocks
     }
 
-    #[inline]
+    // #[inline]
     pub fn can_issue_block(&self, kernel: &Kernel) -> bool {
         let max_blocks = self.config.max_blocks(kernel).unwrap();
         if self.config.concurrent_kernel_sm {
@@ -924,13 +924,13 @@ where
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn id(&self) -> (usize, usize) {
         (self.cluster_id, self.core_id)
     }
 
     #[tracing::instrument(name = "core_reinit")]
-    #[inline]
+    // #[inline]
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
         if reset_not_completed {
             self.num_active_warps = 0;
@@ -1093,7 +1093,7 @@ impl<I> Core<I>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
-    #[inline]
+    // #[inline]
     fn init_operand_collector(
         operand_collector: &mut opcoll::RegisterFileUnit,
         config: &config::GPU,
@@ -1205,7 +1205,7 @@ where
         operand_collector.init(config.num_reg_banks);
     }
 
-    #[inline]
+    // #[inline]
     fn register_thread_in_block_exited(
         &mut self,
         block_hw_id: usize,
@@ -1246,7 +1246,7 @@ where
         }
     }
 
-    #[inline]
+    // #[inline]
     #[tracing::instrument]
     fn fetch(&mut self, cycle: u64) {
         log::debug!(
@@ -1504,7 +1504,7 @@ where
 
     /// Shader core decode
     #[tracing::instrument]
-    #[inline]
+    // #[inline]
     fn decode(&mut self, cycle: u64) {
         let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
 
@@ -1552,7 +1552,7 @@ where
         self.instr_fetch_buffer.valid = false;
     }
 
-    #[inline]
+    // #[inline]
     fn decode_instruction(&self, warp_id: usize, instr: WarpInstruction, slot: usize) {
         let warp = self.warps.get(warp_id).unwrap();
         let mut warp = warp.try_lock();
@@ -1569,7 +1569,7 @@ where
     }
 
     #[tracing::instrument]
-    #[inline]
+    // #[inline]
     fn issue(&mut self, cycle: u64) {
         // fair round robin issue between schedulers
         let num_schedulers = self.schedulers.len();
@@ -1583,7 +1583,7 @@ where
     }
 
     #[tracing::instrument]
-    #[inline]
+    // #[inline]
     fn writeback(&mut self, cycle: u64) {
         // from the functional units
         let mut exec_writeback_pipeline =
@@ -1643,7 +1643,7 @@ where
     }
 
     #[tracing::instrument]
-    #[inline]
+    // #[inline]
     fn execute(&mut self, cycle: u64) {
         let core_id = self.id();
         log::debug!(
@@ -1755,7 +1755,7 @@ where
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     fn find_available_hw_thread_id(
         &mut self,
         thread_block_size: usize,
@@ -1793,7 +1793,7 @@ where
     }
 
     #[tracing::instrument(name = "core_init_warps_from_traces")]
-    #[inline]
+    // #[inline]
     fn init_warps_from_traces(&mut self, kernel: &Arc<Kernel>, start_warp: usize, end_warp: usize) {
         debug_assert!(!self.warps.is_empty());
         let selected_warps = &mut self.warps[start_warp..end_warp];
@@ -1818,7 +1818,7 @@ where
     }
 
     #[tracing::instrument(name = "core_init_warps")]
-    #[inline]
+    // #[inline]
     fn init_warps(
         &mut self,
         block_hw_id: usize,

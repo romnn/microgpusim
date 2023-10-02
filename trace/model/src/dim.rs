@@ -63,40 +63,40 @@ impl Dim {
     pub const ZERO: Self = Self { x: 0, y: 0, z: 0 };
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn new(x: u32, y: u32, z: u32) -> Self {
         Self { x, y, z }
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn size(&self) -> u64 {
         u64::from(self.x) * u64::from(self.y) * u64::from(self.z)
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn into_tuple(&self) -> (u32, u32, u32) {
         (self.x, self.y, self.z)
     }
 }
 
 impl std::fmt::Display for Dim {
-    #[inline]
+    // #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "({},{},{})", self.x, self.y, self.z)
     }
 }
 
 impl From<Point> for Dim {
-    #[inline]
+    // #[inline]
     fn from(point: Point) -> Self {
         point.to_dim()
     }
 }
 
 impl From<nvbit_model::Dim> for Dim {
-    #[inline]
+    // #[inline]
     fn from(dim: nvbit_model::Dim) -> Self {
         let nvbit_model::Dim { x, y, z } = dim;
         Self { x, y, z }
@@ -104,14 +104,14 @@ impl From<nvbit_model::Dim> for Dim {
 }
 
 impl From<u32> for Dim {
-    #[inline]
+    // #[inline]
     fn from(dim: u32) -> Self {
         Self { x: dim, y: 1, z: 1 }
     }
 }
 
 impl From<(u32, u32)> for Dim {
-    #[inline]
+    // #[inline]
     fn from(dim: (u32, u32)) -> Self {
         let (x, y) = dim;
         Self { x, y, z: 1 }
@@ -119,7 +119,7 @@ impl From<(u32, u32)> for Dim {
 }
 
 impl From<(u32, u32, u32)> for Dim {
-    #[inline]
+    // #[inline]
     fn from(dim: (u32, u32, u32)) -> Self {
         let (x, y, z) = dim;
         Self { x, y, z }
@@ -133,7 +133,7 @@ impl PartialEq<Point> for Dim {
 }
 
 #[must_use]
-#[inline]
+// #[inline]
 pub fn accelsim_block_id(block_id: &Dim, grid: &Dim) -> u64 {
     let block_x = u64::from(block_id.x);
     let block_y = u64::from(block_id.y);
@@ -197,7 +197,7 @@ pub struct Iter {
 
 impl Iter {
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn size(&self) -> u64 {
         self.bounds.size()
     }

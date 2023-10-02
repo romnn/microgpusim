@@ -1,6 +1,6 @@
-from os import PathLike
+from os import PathLike, walk
 from pathlib import Path
-from sre_constants import IN
+import cxxfilt
 import typing
 import numpy as np
 import json
@@ -29,10 +29,13 @@ NVPROF_INDEX_COLS = [
 NSIGHT_INDEX_COLS = [
     "Stream",
     "Context",
+    "Process Name",
+    "Host Name",
     "device__attribute_display_name",
     "device__attribute_device_index",
     "Kernel Name",
     "ID",
+    "run",
 ]
 
 NVPROF_NUMERIC_METRIC_COLUMNS = [
@@ -202,77 +205,227 @@ class NsightStats(common.Stats):
         for r in range(self.repetitions):
             with open(self.path / f"profile.nsight.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
-                df = pd.DataFrame.from_records([{k: v["value"] for k, v in m.items()} for m in metrics])
+                # pprint(metrics)
+                df = pd.DataFrame.from_records(
+                    [{k: None if v is None else v["value"] for k, v in m.items()} for m in metrics]
+                )
+                df = df.drop(columns=["Kernel Time"])
                 df["run"] = r
                 # _units = pd.DataFrame.from_records([{k: v["unit"] for k, v in m.items()} for m in metrics])
                 dfs.append(df)
 
         self.df = pd.concat(dfs)
 
+        self.compute_native_result_df()
+
     def compute_native_result_df(self):
         self.result_df = pd.DataFrame()
         self._compute_cycles()
-        # self._compute_num_blocks()
-        # self._compute_exec_time_sec()
-        # self._compute_instructions()
-        # self._compute_warp_instructions()
-        #
-        # # DRAM
-        # self._compute_dram_reads()
-        # self._compute_dram_writes()
-        # self._compute_dram_accesses()
-        #
-        # # L2 rates
-        # self._compute_l2_read_hit_rate()
-        # self._compute_l2_write_hit_rate()
-        # self._compute_l2_read_miss_rate()
-        # self._compute_l2_write_miss_rate()
-        #
-        # # L2 accesses
-        # self._compute_l2_reads()
-        # self._compute_l2_writes()
-        # self._compute_l2_accesses()
-        #
-        # self._compute_l2_read_hits()
-        # self._compute_l2_write_hits()
-        # self._compute_l2_read_misses()
-        # self._compute_l2_write_misses()
-        # self._compute_l2_hits()
-        # self._compute_l2_misses()
-        #
-        # # L1 accesses
-        # self._compute_l1_accesses()
-        # self._compute_l1_reads()
-        # self._compute_l1_writes()
-        #
-        # # L1 rates
-        # self._compute_l1_hit_rate()
-        # self._compute_l1_miss_rate()
-        #
-        # # fix the index
-        # self.result_df = self.result_df.reset_index()
-        # self.result_df = self.result_df.rename(
-        #     columns={
-        #         "Stream": "stream_id",
-        #         "Context": "context_id",
-        #         "Device": "device",
-        #         "Kernel": "kernel_name_mangled",
-        #         "Correlation_ID": "kernel_launch_id",
-        #     }
-        # )
-        # self.result_df["kernel_name"] = np.nan
-        #
-        # # map sorted correlation ids to increasing launch ids
-        # launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())
-        # new_launch_ids = {old: new for new, old in enumerate(launch_ids)}
-        # self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
-        print(self.result_df)
+        self._compute_num_blocks()
+        self._compute_exec_time_sec()
+        self._compute_instructions()
+        self._compute_warp_instructions()
+
+        # DRAM
+        self._compute_dram_reads()
+        self._compute_dram_writes()
+        self._compute_dram_accesses()
+
+        # L2 rates
+        self._compute_l2_read_hit_rate()
+        self._compute_l2_write_hit_rate()
+        self._compute_l2_read_miss_rate()
+        self._compute_l2_write_miss_rate()
+
+        # L2 accesses
+        self._compute_l2_reads()
+        self._compute_l2_writes()
+        self._compute_l2_accesses()
+
+        self._compute_l2_read_hits()
+        self._compute_l2_write_hits()
+        self._compute_l2_read_misses()
+        self._compute_l2_write_misses()
+        self._compute_l2_hits()
+        self._compute_l2_misses()
+
+        # L1 accesses
+        self._compute_l1_accesses()
+        self._compute_l1_reads()
+        self._compute_l1_writes()
+
+        # L1 rates
+        self._compute_l1_hit_rate()
+        self._compute_l1_miss_rate()
+
+        # fix the index
+        self.result_df = self.result_df.reset_index()
+        self.result_df = self.result_df.rename(
+            columns={
+                "Stream": "stream_id",
+                "Context": "context_id",
+                "device__attribute_display_name": "device",
+                "Kernel Name": "kernel_name",
+                "ID": "kernel_launch_id",
+            }
+        )
+        self.result_df["kernel_name_mangled"] = np.nan
+        self.result_df["kernel_function_signature"] = np.nan
+        assert "run" in self.result_df.columns
+
+        # map sorted correlation ids to increasing launch ids
+        launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())
+        new_launch_ids = {old: new for new, old in enumerate(launch_ids)}
+        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
 
     def _compute_cycles(self):
+        # print(self.df.dropna(axis=1).groupby(NSIGHT_INDEX_COLS, dropna=False).mean().T)
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         sm_count = self.config.num_total_cores
-        self.result_df["cycles"] = grouped["sm__cycles_active.avg_cycle"].sum()
+        # print(grouped[["sm__cycles_active.avg", "sm__cycles_elapsed.sum"]].mean())
+        # print(grouped["sm__cycles_active.avg", "gpc__cycles_elapsed.avg"].mean().columns.tolist())
+        # sm__elapsed_cycles_sum
+        # sm__elapsed_cycles_avg
+        self.result_df["cycles"] = grouped["sm__active_cycles_avg"].sum()
         # self.result_df["cycles"] /= sm_count
+
+    def _kernel_durations_us(self):
+        # convert ns to us
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+
+        return grouped["gpu__time_duration"].sum() * 1e-3
+
+    def _compute_exec_time_sec(self):
+        # print(self._kernel_durations_us())
+        # print(self.result_df)
+        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
+
+    def _compute_num_blocks(self):
+        self.result_df["num_blocks"] = np.nan
+
+    def _compute_instructions(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        # there is also sm__inst_executed.sum_inst
+        # sm__sass_thread_inst_executed.sum_inst
+        # self.result_df["instructions"] = grouped["smsp__inst_executed_sum"].sum()
+        # self.result_df["instructions"] = grouped["sm__inst_executed_sum"].sum()
+        # self.result_df["instructions"] = grouped["smsp__thread_inst_executed_sum"].sum()
+        # self.result_df["instructions"] = grouped["smsp__thread_inst_executed_sum"].sum()
+        self.result_df["instructions"] = grouped["smsp__thread_inst_executed_not_pred_off_sum"].sum()
+
+    def _compute_warp_instructions(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["warp_inst"] = grouped["smsp__inst_executed_per_warp"].sum()
+
+    def _compute_dram_reads(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["dram_reads"] = grouped["dram__read_sectors"].sum()
+
+    def _compute_dram_writes(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["dram_writes"] = grouped["dram__write_sectors"].sum()
+
+    def _compute_dram_accesses(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        accesses = grouped[["dram__read_sectors", "dram__write_sectors"]]
+        self.result_df["dram_accesses"] = accesses.sum().astype(float).sum(axis=1)
+
+    def _compute_l2_reads(self):
+        # lts__request_tex_write_sectors
+        # lts__request_tex_read_sectors
+        # lts__request_tex_sectors
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["l2_reads"] = grouped["lts__request_tex_read_sectors"].sum()
+
+        # nsight_key = "lts__t_sectors_srcunit_tex_op_read.sum_sector"
+        # self.result_df[stat_cols("l2_reads")] = self.df[stat_cols(nsight_key)]
+
+    def _compute_l2_writes(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["l2_writes"] = grouped["lts__request_tex_write_sectors"].sum()
+
+    def _compute_l2_accesses(self):
+        accesses = self.df[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]]
+        # print(self.df["lts__request_tex_sectors"].fillna(0.0))
+        # print(accesses.fillna(0.0).sum(axis=1))
+        assert (self.df["lts__request_tex_sectors"].fillna(0.0) == accesses.fillna(0.0).sum(axis=1)).all()
+
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["l2_accesses"] = grouped["lts__request_tex_sectors"].sum()
+
+    def _compute_l2_read_hit_rate(self):
+        self.result_df["l2_read_hit_rate"] = np.nan
+
+    def _compute_l2_write_hit_rate(self):
+        self.result_df["l2_write_hit_rate"] = np.nan
+
+    def _compute_l2_read_miss_rate(self):
+        self.result_df["l2_read_miss_rate"] = np.nan
+
+    def _compute_l2_write_miss_rate(self):
+        self.result_df["l2_write_miss_rate"] = np.nan
+
+    def _compute_l2_read_hits(self):
+        self.result_df["l2_read_hits"] = np.nan
+
+    def _compute_l2_write_hits(self):
+        self.result_df["l2_write_hits"] = np.nan
+
+    def _compute_l2_read_misses(self):
+        self.result_df["l2_read_misses"] = np.nan
+
+    def _compute_l2_write_misses(self):
+        self.result_df["l2_write_misses"] = np.nan
+
+    def _compute_l2_hits(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["l2_hits"] = (
+            grouped[
+                [
+                    "tex__t_sectors_hit_global_ld_cached",
+                    "tex__t_sectors_hit_local_ld_cached",
+                ]
+            ]
+            .sum()
+            .astype(float)
+            .sum(axis=1)
+        )
+
+    def _compute_l2_misses(self):
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        self.result_df["l2_misses"] = (
+            grouped[
+                [
+                    "tex__t_sectors_miss_global_ld_cached",
+                    "tex__t_sectors_miss_global_ld_uncached",
+                    "tex__t_sectors_miss_local_ld_cached",
+                    "tex__t_sectors_miss_local_ld_uncached",
+                    "tex__t_sectors_miss_surface_ld",
+                ]
+            ]
+            .sum()
+            .astype(float)
+            .sum(axis=1)
+        )
+
+    def _compute_l1_accesses(self):
+        self.result_df["l1_accesses"] = np.nan
+
+    def _compute_l1_reads(self):
+        self.result_df["l1_reads"] = np.nan
+
+    def _compute_l1_writes(self):
+        self.result_df["l1_writes"] = np.nan
+
+    def _compute_l1_hit_rate(self):
+        # this is probably L2 cache
+        # tex__hitrate_pct
+        # lts__request_total_sectors_hitrate_pct
+        # lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum_sector
+        self.result_df["l1_hit_rate"] = np.nan
+
+    def _compute_l1_miss_rate(self):
+        self.result_df["l1_miss_rate"] = np.nan
 
 
 class NvprofStats(common.Stats):
@@ -443,7 +596,7 @@ class NvprofStats(common.Stats):
                 "Correlation_ID": "kernel_launch_id",
             }
         )
-        self.result_df["kernel_name"] = np.nan
+        self.result_df["kernel_name"] = self.result_df["kernel_name_mangled"].apply(lambda name: cxxfilt.demangle(name))
 
         # map sorted correlation ids to increasing launch ids
         launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())

@@ -377,7 +377,7 @@ impl LoadStoreUnit {
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     fn shared_cycle(
         &mut self,
         stall_kind: &mut MemStageStallKind,
@@ -426,7 +426,7 @@ impl LoadStoreUnit {
 
     #[allow(clippy::unused_self)]
     #[must_use]
-    #[inline]
+    // #[inline]
     fn constant_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
@@ -438,7 +438,7 @@ impl LoadStoreUnit {
 
     #[allow(clippy::unused_self)]
     #[must_use]
-    #[inline]
+    // #[inline]
     fn texture_cycle(
         &mut self,
         _rc_fail: &mut MemStageStallKind,
@@ -448,7 +448,7 @@ impl LoadStoreUnit {
         true
     }
 
-    #[inline]
+    // #[inline]
     fn memory_cycle(
         &mut self,
         rc_fail: &mut MemStageStallKind,

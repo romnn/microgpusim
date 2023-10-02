@@ -107,7 +107,7 @@ impl From<&config::Cache> for Config {
 }
 
 // impl CacheConfig {
-//     #[inline]
+//     // #[inline]
 //     #[must_use]
 //     fn total_lines(&self) -> usize {
 //         self.num_sets * self.associativity
@@ -135,13 +135,13 @@ pub mod sector {
     }
 
     // impl Config {
-    //     #[inline]
+    //     // #[inline]
     //     #[must_use]
     //     pub fn sector_size(&self) -> u32 {
     //         mem_sub_partition::SECTOR_SIZE
     //     }
     //
-    //     #[inline]
+    //     // #[inline]
     //     #[must_use]
     //     pub fn sector_size_log2(&self) -> u32 {
     //         addrdec::logb2(self.sector_size())

@@ -125,30 +125,30 @@ pub enum ValidationError {
 
 impl MemAccessTrace {
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn check_valid(&self) -> Result<(), ValidationError> {
         is_valid_trace(&self.0)
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
-    #[inline]
+    // #[inline]
     pub fn iter(&self) -> std::slice::Iter<MemAccessTraceEntry> {
         self.0.iter()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn to_warp_traces(self) -> WarpTraces {
         let mut warp_traces = WarpTraces::new();
         for entry in self.0 {
@@ -173,7 +173,7 @@ impl std::ops::Deref for MemAccessTrace {
 ///
 /// In order to pass, a trace must not contain any non-consecutive duplicate block or warp ids.
 #[must_use]
-#[inline]
+// #[inline]
 pub fn is_valid_trace(trace: &[MemAccessTraceEntry]) -> Result<(), ValidationError> {
     use itertools::Itertools;
 

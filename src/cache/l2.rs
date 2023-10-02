@@ -15,17 +15,17 @@ where
     MC: mcu::MemoryController,
     CC: cache::CacheController,
 {
-    #[inline]
+    // #[inline]
     fn tag(&self, addr: address) -> address {
         self.cache_controller.tag(addr)
     }
 
-    #[inline]
+    // #[inline]
     fn block_addr(&self, addr: address) -> address {
         self.cache_controller.block_addr(addr)
     }
 
-    #[inline]
+    // #[inline]
     fn set_index(&self, addr: address) -> u64 {
         #[allow(unused_variables)]
         let partition_addr = addr;
@@ -34,12 +34,12 @@ where
         self.cache_controller.set_index(partition_addr)
     }
 
-    #[inline]
+    // #[inline]
     fn set_bank(&self, addr: address) -> u64 {
         self.cache_controller.set_bank(addr)
     }
 
-    #[inline]
+    // #[inline]
     fn mshr_addr(&self, addr: address) -> address {
         self.cache_controller.mshr_addr(addr)
     }
@@ -96,7 +96,7 @@ impl DataL2 {
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
@@ -109,32 +109,32 @@ impl crate::engine::cycle::Component for DataL2 {
 }
 
 impl super::Cache<stats::cache::PerKernel> for DataL2 {
-    #[inline]
+    // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
-    #[inline]
+    // #[inline]
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.inner.stats
     }
 
-    #[inline]
+    // #[inline]
     fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
         self.inner.write_allocate_policy()
     }
 
-    #[inline]
+    // #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
-    #[inline]
+    // #[inline]
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.inner.ready_accesses()
     }
 
-    #[inline]
+    // #[inline]
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
@@ -143,7 +143,7 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     // filling the cache on cudamemcopies. We don't care about anything other than
     // L2 state after the memcopy - so just force the tag array to act as though
     // something is read or written without doing anything else.
-    #[inline]
+    // #[inline]
     fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: &mem_fetch::SectorMask) {
         let byte_mask = mem_fetch::ByteMask::ZERO;
         let is_write = true;
@@ -157,7 +157,7 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
     /// request could not be accepted (for any reason)
-    #[inline]
+    // #[inline]
     fn access(
         &mut self,
         addr: address,
@@ -168,22 +168,22 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
         self.inner.access(addr, fetch, events, time)
     }
 
-    #[inline]
+    // #[inline]
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
 
-    #[inline]
+    // #[inline]
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
     }
 
-    #[inline]
+    // #[inline]
     fn flush(&mut self) -> usize {
         self.inner.flush()
     }
 
-    #[inline]
+    // #[inline]
     fn invalidate(&mut self) {
         self.inner.invalidate();
     }

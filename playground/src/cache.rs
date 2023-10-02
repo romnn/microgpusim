@@ -13,7 +13,7 @@ pub struct Cache<'a> {
 impl<'a> std::ops::Deref for Cache<'a> {
     type Target = baseline_cache;
 
-    #[inline]
+    // #[inline]
     fn deref(&self) -> &'a Self::Target {
         unsafe { self.inner.inner().as_ref().unwrap() }
     }
@@ -21,7 +21,7 @@ impl<'a> std::ops::Deref for Cache<'a> {
 
 impl<'a> Cache<'a> {
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn new(inner: cxx::SharedPtr<cache_bridge>) -> Self {
         Self {
             inner,
@@ -30,7 +30,7 @@ impl<'a> Cache<'a> {
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn lines(&self) -> Vec<CacheBlock<'a>> {
         self.inner
             .get_lines()
@@ -55,7 +55,7 @@ impl<'a> CacheBlock<'a> {
     }
 
     // Get sector status
-    #[inline]
+    // #[inline]
     pub fn sector_status(&self) -> Vec<cache_block_state> {
         self.inner
             .get_sector_status()
@@ -65,7 +65,7 @@ impl<'a> CacheBlock<'a> {
     }
 
     // Get last sector access time
-    #[inline]
+    // #[inline]
     pub fn last_sector_access_time(&self) -> Vec<u64> {
         self.inner
             .get_last_sector_access_time()
@@ -79,7 +79,7 @@ impl<'a> CacheBlock<'a> {
 impl<'a> std::ops::Deref for CacheBlock<'a> {
     type Target = cache_block_t;
 
-    #[inline]
+    // #[inline]
     fn deref(&self) -> &'a Self::Target {
         unsafe { self.inner.inner().as_ref().unwrap() }
     }

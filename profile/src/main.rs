@@ -1,6 +1,5 @@
-use color_eyre::eyre;
-
 use clap::{CommandFactory, Parser, Subcommand};
+use color_eyre::eyre;
 use std::path::PathBuf;
 
 const HELP_TEMPLATE: &str = "{bin} {version} {author}

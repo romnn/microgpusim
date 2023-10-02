@@ -20,15 +20,8 @@ pub enum ParseError {
     #[error(transparent)]
     Csv(#[from] csv::Error),
 
-    // #[error("failed to parse `{path:?}`")]
     #[error(transparent)]
     Json(#[from] JsonError),
-    // JSON {
-    //     #[source]
-    //     source: serde_json::Error,
-    //     values: Option<std::collections::HashMap<String, Metric<String>>>,
-    //     path: Option<String>,
-    // },
 }
 
 #[derive(Debug)]
@@ -36,7 +29,6 @@ pub struct JsonError {
     pub source: serde_json::Error,
     pub values: Option<std::collections::HashMap<String, Metric<String>>>,
     pub path: Option<serde_path_to_error::Path>,
-    // pub path: Option<String>,
 }
 
 impl std::error::Error for JsonError {
@@ -104,7 +96,6 @@ pub enum Error {
     #[error("parse error: {source}")]
     Parse {
         raw_log: String,
-        // raw_values: std::collections::HashMap<String, String>,
         #[source]
         source: ParseError,
     },

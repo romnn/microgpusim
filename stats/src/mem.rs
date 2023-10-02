@@ -34,19 +34,19 @@ pub enum AccessKind {
 
 impl AccessKind {
     #[must_use]
-    #[inline]
+    // #[inline]
     pub const fn count() -> usize {
         Self::COUNT
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn reads() -> impl Iterator<Item = Self> {
         Self::iter().filter(|kind| !kind.is_write())
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn writes() -> impl Iterator<Item = Self> {
         Self::iter().filter(|kind| kind.is_write())
     }

@@ -168,18 +168,8 @@ where
         });
     }
 
-    // if !result.status.success() {
-    //     return Err(Error::Command(utils::CommandError::new(&cmd, result)));
-    // }
-
     log::debug!("profile stdout: {}", utils::decode_utf8!(result.stdout));
     log::debug!("profile stderr: {}", utils::decode_utf8!(result.stderr));
-
-    // let log_file = std::fs::OpenOptions::new()
-    //     .read(true)
-    //     .open(&log_file_path)?;
-
-    // let mut log_reader = std::io::BufReader::new(log_file);
 
     let mut raw_log = String::new();
     let mut log_reader = utils::fs::open_readable(log_file_path).map_err(std::io::Error::from)?;
@@ -190,10 +180,6 @@ where
     let mut log_reader = std::io::Cursor::new(&raw_log);
     match parse_nvprof_csv(&mut log_reader) {
         Err(source) => Err(Error::Parse { raw_log, source }),
-        // Ok(metrics) if metrics.len() != 1 => Err(Error::Parse {
-        //     raw_log,
-        //     source: ParseError::MissingMetrics,
-        // }),
         Ok(metrics) => Ok((raw_log, metrics)),
     }
 }

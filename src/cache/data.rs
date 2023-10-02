@@ -63,7 +63,7 @@ where
 }
 
 impl<MC, CC, S> Data<MC, CC, S> {
-    #[inline]
+    // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }

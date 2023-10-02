@@ -121,7 +121,7 @@ pub const SUCCESS_CODE: i32 = 0;
 pub const BAD_USAGE_CODE: i32 = 2;
 
 /// Exit with exit code.
-#[inline]
+// #[inline]
 pub fn safe_exit(code: i32) -> ! {
     use std::io::Write;
 
@@ -137,7 +137,7 @@ pub enum TraceDirError {
     MissingFileStem(PathBuf),
 }
 
-#[inline]
+// #[inline]
 pub fn debug_trace_dir(exec: impl AsRef<Path>, args: &[String]) -> Result<PathBuf, TraceDirError> {
     let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
     let results = manifest.join("../debug_results");

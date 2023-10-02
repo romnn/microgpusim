@@ -1,4 +1,8 @@
+mod lts;
 mod metrics;
+mod scheduler;
+mod sm;
+mod tex;
 
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
@@ -112,6 +116,95 @@ where
     Ok(entries)
 }
 
+pub const NSIGHT_METRICS: [&str; 84] = [
+    // nsight compute for compute <7.0
+    "gpu__time_duration",
+    "smsp__inst_executed_per_warp",
+    "smsp__inst_executed_sum",
+    "smsp__inst_issued_sum",
+    "smsp__thread_inst_executed_sum",
+    "smsp__thread_inst_executed_not_pred_off_sum",
+    "sm__active_cycles_avg",
+    "sm__inst_issued_sum",
+    "sm__inst_executed_sum",
+    "sm__inst_executed_avg",
+    "dram__read_sectors",
+    "dram__write_sectors",
+    "lts__request_tex_sectors",
+    "lts__request_tex_read_sectors",
+    "lts__request_tex_write_sectors",
+    "tex__t_sectors_hit_global_ld_cached",
+    "tex__t_sectors_hit_local_ld_cached",
+    "tex__t_sectors_miss_global_ld_cached",
+    "tex__t_sectors_miss_global_ld_uncached",
+    "tex__t_sectors_miss_local_ld_cached",
+    "tex__t_sectors_miss_local_ld_uncached",
+    "tex__t_sectors_miss_surface_ld",
+    // nsight compute for compute 7.0+
+    "gpc__cycles_elapsed.avg",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_ld_lookup_hit.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_st_lookup_hit.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_ld_lookup_hit.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_ld_lookup_miss.sum",
+    "l1tex__t_sectors_pipe_lsu_mem_global_op_st_lookup_miss.sum",
+    "lts__t_sector_op_read_hit_rate.pct", // ?
+    "lts__t_sector_op_write_hit_rate.pct",
+    "lts__t_sectors_srcunit_tex_op_read.sum",
+    "lts__t_sectors_srcunit_tex_op_write.sum",
+    "lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum",
+    "lts__t_sectors_srcunit_tex_op_write_lookup_hit.sum",
+    "lts__t_sectors_srcunit_tex_op_read.sum.per_second",
+    "lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum",
+    "lts__t_sectors_srcunit_tex_op_write_lookup_miss.sum",
+    "dram__sectors_read.sum",
+    "dram__sectors_write.sum",
+    "dram__bytes_read.sum",
+    "smsp__inst_executed.sum",
+    "smsp__thread_inst_executed_per_inst_executed.ratio",
+    "smsp__cycles_active.avg.pct_of_peak_sustained_elapsed",
+    "idc__requests.sum",
+    "idc__requests_lookup_hit.sum",
+    "sm__warps_active.avg.pct_of_peak_sustained_active",
+    "sm__pipe_alu_cycles_active.sum",
+    "sm__pipe_fma_cycles_active.sum",
+    "sm__pipe_fp64_cycles_active.sum",
+    "sm__pipe_shared_cycles_active.sum",
+    "sm__pipe_tensor_cycles_active.sum",
+    "sm__pipe_tensor_op_hmma_cycles_active.sum",
+    "sm__cycles_elapsed.sum",
+    "sm__cycles_active.sum",
+    "sm__cycles_active.avg",
+    "sm__cycles_elapsed.avg",
+    "sm__sass_thread_inst_executed_op_integer_pred_on.sum",
+    "sm__sass_thread_inst_executed_ops_dadd_dmul_dfma_pred_on.sum",
+    "sm__sass_thread_inst_executed_ops_fadd_fmul_ffma_pred_on.sum",
+    "sm__sass_thread_inst_executed_ops_hadd_hmul_hfma_pred_on.sum",
+    "sm__inst_executed.sum",
+    "sm__inst_executed_pipe_alu.sum",
+    "sm__inst_executed_pipe_fma.sum",
+    "sm__inst_executed_pipe_fp16.sum",
+    "sm__inst_executed_pipe_fp64.sum",
+    "sm__inst_executed_pipe_tensor.sum",
+    "sm__inst_executed_pipe_tex.sum",
+    "sm__inst_executed_pipe_xu.sum",
+    "sm__inst_executed_pipe_lsu.sum",
+    "sm__sass_thread_inst_executed_op_fp16_pred_on.sum",
+    "sm__sass_thread_inst_executed_op_fp32_pred_on.sum",
+    "sm__sass_thread_inst_executed_op_fp64_pred_on.sum",
+    "sm__sass_thread_inst_executed_op_dmul_pred_on.sum",
+    "sm__sass_thread_inst_executed_op_dfma_pred_on.sum",
+    "sm__sass_thread_inst_executed.sum",
+    "sm__sass_inst_executed_op_shared_st.sum",
+    "sm__sass_inst_executed_op_shared_ld.sum",
+    "sm__sass_inst_executed_op_memory_128b.sum",
+    "sm__sass_inst_executed_op_memory_64b.sum",
+    "sm__sass_inst_executed_op_memory_32b.sum",
+    "sm__sass_inst_executed_op_memory_16b.sum",
+    "sm__sass_inst_executed_op_memory_8b.sum",
+];
+
 pub async fn profile_all_metrics<A>(
     nsight: impl AsRef<Path>,
     executable: impl AsRef<Path>,
@@ -121,10 +214,15 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
+    let metrics = NSIGHT_METRICS.join(",");
     let mut cmd_args = vec![
+        "--metrics",
+        &metrics,
         "--csv",
         "--page",
         "raw",
+        "--kernel-regex-base",
+        "mangled",
         "--target-processes",
         "all",
         "--units",
@@ -246,34 +344,37 @@ mod tests {
         diff::assert_eq!(metrics.len(), 3);
 
         diff::assert_eq!(
-            metrics[0].device_attribute_display_name,
-            Metric::new("NVIDIA GeForce GTX 1080".to_string(), None)
+            metrics[0].device.attribute_display_name,
+            Some(Metric::new("NVIDIA GeForce GTX 1080".to_string(), None))
         );
         diff::assert_eq!(
             metrics[0].kernel_name,
-            Metric::new("vecAdd".to_string(), None)
+            Some(Metric::new("vecAdd".to_string(), None))
         );
-        diff::assert_eq!(metrics[0].context, Metric::new(1, None));
-        diff::assert_eq!(metrics[0].stream, Metric::new(7, None));
+        diff::assert_eq!(metrics[0].context, Some(Metric::new(1, None)));
+        diff::assert_eq!(metrics[0].stream, Some(Metric::new(7, None)));
         diff::assert_eq!(
-            metrics[0].device_attribute_clock_rate,
-            Metric::new(Float(1_759_000.0), None)
+            metrics[0].device.attribute_clock_rate,
+            Some(Metric::new(Float(1_759_000.0), None))
         );
         diff::assert_eq!(
-            metrics[0].dram_write_bytes_per_sec,
-            Metric::new(Float(141_176_470.59), "byte/second".to_string())
+            metrics[0].dram.write_bytes_per_sec,
+            Some(Metric::new(
+                Float(141_176_470.59),
+                "byte/second".to_string()
+            ))
         );
         diff::assert_eq!(
             metrics[0].gpu_time_duration,
-            Metric::new(Float(2_720.00), "nsecond".to_string())
+            Some(Metric::new(Float(2_720.00), "nsecond".to_string()))
         );
         diff::assert_eq!(
             metrics[0].gpc_elapsed_cycles_max,
-            Metric::new(Float(5_774.00), "cycle".to_string())
+            Some(Metric::new(Float(5_774.00), "cycle".to_string()))
         );
         diff::assert_eq!(
-            metrics[0].smsp_maximum_warps_avg_per_active_cycle,
-            Metric::new(Float(16.00), "warp/cycle".to_string())
+            metrics[0].sm_scheduler.maximum_warps_avg_per_active_cycle,
+            Some(Metric::new(Float(16.00), "warp/cycle".to_string()))
         );
         Ok(())
     }

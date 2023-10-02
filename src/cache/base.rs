@@ -314,7 +314,7 @@ impl<CC, S> Base<CC, S> {
         self.mshrs.next_access()
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.top_port = Some(port);
     }

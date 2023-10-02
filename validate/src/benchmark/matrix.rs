@@ -9,7 +9,7 @@ pub type Excludes = Vec<IndexMap<String, Value>>;
 pub type Inputs = IndexMap<String, Value>;
 pub type Input = IndexMap<String, Value>;
 
-#[inline]
+// #[inline]
 #[must_use]
 pub fn bool_true() -> bool {
     true

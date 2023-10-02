@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-#[inline]
+// #[inline]
 fn gather_simulation_state(
     box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
     // box_sim: &mut validate::simulate::config::GTX1080,

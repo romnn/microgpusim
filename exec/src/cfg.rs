@@ -30,7 +30,7 @@ impl std::fmt::Display for TraceNode {
 }
 
 impl TraceNode {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn id(&self) -> usize {
         match self {
@@ -38,7 +38,7 @@ impl TraceNode {
         }
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn instructions(&self) -> &[MemInstruction] {
         match self {
@@ -62,7 +62,7 @@ impl std::fmt::Display for Node {
 }
 
 impl Node {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn id(&self) -> usize {
         match self {

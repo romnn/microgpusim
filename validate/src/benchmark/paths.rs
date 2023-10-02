@@ -18,7 +18,7 @@ pub trait PathExt {
 }
 
 impl PathExt for Path {
-    #[inline]
+    // #[inline]
     #[must_use]
     fn resolve<P>(&self, base: P) -> PathBuf
     where
@@ -31,7 +31,7 @@ impl PathExt for Path {
         }
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     fn relative_to<P>(&self, base: P) -> PathBuf
     where
@@ -46,7 +46,7 @@ impl PathExt for Path {
         Ok(utils::fs::normalize_path(self))
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     fn normalize(&self) -> PathBuf {
         self.try_normalize().unwrap_or_else(|_| self.to_path_buf())

@@ -5,13 +5,13 @@ use playground_sys::core::core_bridge;
 pub struct Core<'a>(pub(crate) &'a core_bridge);
 
 impl<'a> Core<'a> {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn pending_register_writes(&self) -> super::vec::Owned<pending_register_writes> {
         super::vec::Owned(self.0.get_pending_register_writes())
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn functional_unit_issue_register_sets(&self) -> Vec<super::register_set::RegisterSet<'a>> {
         self.0
@@ -21,7 +21,7 @@ impl<'a> Core<'a> {
             .collect()
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn functional_unit_simd_pipeline_register_sets(
         &self,
@@ -33,7 +33,7 @@ impl<'a> Core<'a> {
             .collect()
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn functional_unit_occupied_slots(&self) -> Vec<String> {
         self.0
@@ -43,14 +43,14 @@ impl<'a> Core<'a> {
             .collect()
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn operand_collector(&self) -> super::operand_collector::OperandCollector<'a> {
         let operand_collector = self.0.get_operand_collector();
         super::operand_collector::OperandCollector::new(operand_collector)
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn schedulers(&self) -> Vec<super::scheduler_unit::SchedulerUnit<'a>> {
         self.0
@@ -60,13 +60,13 @@ impl<'a> Core<'a> {
             .collect()
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn l1_data_cache(&self) -> super::cache::Cache<'a> {
         super::cache::Cache::new(self.0.get_l1_data_cache())
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn l1_bank_latency_queue(&self) -> Vec<Vec<Option<super::mem_fetch::MemFetch<'a>>>> {
         self.0

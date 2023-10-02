@@ -62,20 +62,20 @@ impl MemoryPartitionUnit {
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn busy(&self) -> bool {
         self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
         let mut local_id = global_sub_partition_id;
         local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
         local_id
     }
 
-    #[inline]
+    // #[inline]
     pub fn handle_memcpy_to_gpu(
         &self,
         addr: address,
@@ -94,14 +94,14 @@ impl MemoryPartitionUnit {
             .force_l2_tag_update(addr, sector_mask, time);
     }
 
-    #[inline]
+    // #[inline]
     pub fn cache_cycle(&mut self, cycle: u64) {
         for mem_sub in &mut self.sub_partitions {
             mem_sub.try_lock().cache_cycle(cycle);
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         use mem_fetch::access::Kind as AccessKind;
         let global_spid = fetch.sub_partition_id();

@@ -10,14 +10,14 @@ use std::time::Instant;
 use crate::args::Args;
 use crate::common;
 
-#[inline]
+// #[inline]
 fn bool_env(name: &str) -> Option<bool> {
     std::env::var(name)
         .ok()
         .map(|value| value.to_lowercase() == "yes")
 }
 
-#[inline]
+// #[inline]
 fn sort_key(inst: &trace_model::MemAccessTraceEntry, grid: trace_model::Dim) -> (u64, u32) {
     (
         trace_model::Point::new(inst.block_id.clone(), grid).accelsim_id(),
@@ -25,18 +25,18 @@ fn sort_key(inst: &trace_model::MemAccessTraceEntry, grid: trace_model::Dim) -> 
     )
 }
 
-#[inline]
+// #[inline]
 fn kernel_trace_file_name(id: u64) -> String {
     format!("kernel-{id}.msgpack")
 }
 
-#[inline]
+// #[inline]
 fn rmp_serializer(path: &Path) -> rmp_serde::Serializer<std::io::BufWriter<std::fs::File>> {
     let trace_file = utils::fs::open_writable(path).unwrap();
     rmp_serde::Serializer::new(trace_file)
 }
 
-#[inline]
+// #[inline]
 fn json_serializer(
     path: &Path,
 ) -> serde_json::Serializer<std::io::BufWriter<std::fs::File>, serde_json::ser::PrettyFormatter> {

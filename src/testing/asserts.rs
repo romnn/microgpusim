@@ -14,7 +14,7 @@ macro_rules! status {
     }};
 }
 
-#[inline]
+// #[inline]
 pub fn stats_match(
     play_stats: &playground::stats::StatsBridge,
     mut box_stats: stats::Stats,

@@ -72,7 +72,7 @@ pub enum TraceProvider {
     Box,
 }
 
-#[inline]
+// #[inline]
 pub fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<std::fs::File>> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
@@ -82,7 +82,7 @@ pub fn open_writable(path: impl AsRef<Path>) -> eyre::Result<std::io::BufWriter<
     Ok(writer)
 }
 
-#[inline]
+// #[inline]
 #[must_use]
 pub fn bool_true() -> bool {
     true

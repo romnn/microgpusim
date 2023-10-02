@@ -2,8 +2,15 @@ import abc
 import typing
 import pandas as pd
 import numpy as np
+import re
 
 # from abc import abstractmethod
+
+
+def function_name_from_signature(sig: str) -> str:
+    pat = re.compile(r"\w+\s+(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)")
+    matches = re.findall(pat, sig)
+    return matches[0][0]
 
 
 # class Stats(abc.ABC):

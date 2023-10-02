@@ -12,7 +12,7 @@ use std::collections::{HashMap, VecDeque};
 use std::time::Instant;
 
 #[tracing::instrument]
-#[inline]
+// #[inline]
 fn interleaved_serial_cycle<I, C>(
     cycle: u64,
     // i: usize,
@@ -78,7 +78,7 @@ fn interleaved_serial_cycle<I, C>(
 }
 
 #[tracing::instrument]
-#[inline]
+// #[inline]
 fn new_serial_cycle<I>(
     cycle: u64,
     stats: &Arc<Mutex<stats::PerKernel>>,

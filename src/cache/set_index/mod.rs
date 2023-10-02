@@ -19,7 +19,7 @@ pub mod fermi {
     #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
-        #[inline]
+        // #[inline]
         fn compute_set_index(
             &self,
             addr: super::address,
@@ -66,7 +66,7 @@ pub mod bitwise_xor {
     #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
-        #[inline]
+        // #[inline]
         fn compute_set_index(
             &self,
             addr: super::address,
@@ -112,7 +112,7 @@ pub mod ipoly {
     /// exit in GPGPU applications and also show good performance for other
     /// strides.
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn hash(_higher_bits: super::address, _index: usize, _bank_set_num: usize) -> u64 {
         todo!("ipoly_hash_function");
     }
@@ -120,7 +120,7 @@ pub mod ipoly {
     #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
-        #[inline]
+        // #[inline]
         fn compute_set_index(
             &self,
             addr: super::address,
@@ -143,7 +143,7 @@ pub mod linear {
     #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {}
     impl super::SetIndexer for SetIndex {
-        #[inline]
+        // #[inline]
         fn compute_set_index(
             &self,
             addr: super::address,

@@ -7,7 +7,7 @@ use regex::Regex;
 ///
 /// Effectively the minium number of bits required to store n.
 #[must_use]
-#[inline]
+// #[inline]
 pub fn logb2(n: u32) -> u32 {
     n.max(1).ilog2()
 }
@@ -16,7 +16,7 @@ pub fn logb2(n: u32) -> u32 {
 ///
 /// see [here](https://www.techiedelight.com/round-next-highest-power-2/).
 #[must_use]
-#[inline]
+// #[inline]
 pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
@@ -37,7 +37,7 @@ pub fn next_power2(mut n: u32) -> u32 {
 }
 
 #[must_use]
-#[inline]
+// #[inline]
 pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
@@ -348,7 +348,7 @@ impl MemoryController for std::sync::Arc<dyn MemoryController + '_> {
 }
 
 impl MemoryController for MemoryControllerUnit {
-    #[inline]
+    // #[inline]
     fn memory_partition_address(&self, addr: address) -> address {
         if self.has_gap {
             // see addrdec_tlx for explanation
@@ -366,7 +366,7 @@ impl MemoryController for MemoryControllerUnit {
         }
     }
 
-    #[inline]
+    // #[inline]
     fn to_physical_address(&self, addr: address) -> PhysicalAddress {
         let mut tlx = PhysicalAddress::default();
         let num_channels = self.num_channels as u64;
@@ -415,19 +415,19 @@ impl MemoryController for MemoryControllerUnit {
         tlx
     }
 
-    #[inline]
+    // #[inline]
     fn num_memory_sub_partitions(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 
-    #[inline]
+    // #[inline]
     fn num_memory_partitions(&self) -> usize {
         self.num_channels
     }
 }
 
 #[must_use]
-#[inline]
+// #[inline]
 fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> super::address {
     let mut pos = 0;
     let mut res: super::address = 0;

@@ -17,9 +17,9 @@ from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 # pd.options.display.float_format = "{:.3f}".format
 pd.options.display.float_format = "{:.2f}".format
 pd.set_option("display.max_rows", 500)
-pd.set_option("display.max_columns", 500)
-pd.set_option("max_colwidth", 2000)
-pd.set_option("display.expand_frame_repr", False)
+# pd.set_option("display.max_columns", 500)
+# pd.set_option("max_colwidth", 2000)
+# pd.set_option("display.expand_frame_repr", False)
 np.seterr(all="raise")
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
@@ -114,8 +114,13 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 
     # only keep gold gpucachesim and other targets
     # selected_df = selected_df[gold_gpucachesim ^ non_gpucachesim]
-    kernels = selected_df[gold_gpucachesim]["kernel_name_mangled"].unique().tolist()
+    # kernels = selected_df[non_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates()
     # print(kernels)
+    #
+    print(selected_df[gold_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates())
+    # kernels = selected_df[gold_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates()
+    kernels = selected_df[gold_gpucachesim]["kernel_name"].unique().tolist()
+    print(kernels)
     # print(selected_df[gold_gpucachesim][["target", "benchmark", "input_id", "kernel_name_mangled", "cycles"]])
     # print(
     #     selected_df[non_gpucachesim][
@@ -123,8 +128,8 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     #     ].drop_duplicates()
     # )
 
-    no_kernel = selected_df["kernel_name_mangled"].isna() ^ (selected_df["kernel_name_mangled"] == "")
-    valid_kernel = selected_df["kernel_name_mangled"].isin(kernels)
+    no_kernel = selected_df["kernel_name"].isna() ^ (selected_df["kernel_name"] == "")
+    valid_kernel = selected_df["kernel_name"].isin(kernels)
     selected_df = selected_df[(gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)]
 
     if isinstance(targets, list):

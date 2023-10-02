@@ -8,7 +8,7 @@ pub struct MemFetch<'a> {
 }
 
 impl<'a> MemFetch<'a> {
-    #[inline]
+    // #[inline]
     pub(crate) unsafe fn wrap_ptr(ptr: *const mem_fetch) -> Self {
         use playground_sys::mem_fetch::new_mem_fetch_bridge;
         Self {
@@ -21,13 +21,13 @@ impl<'a> MemFetch<'a> {
 impl<'a> std::ops::Deref for MemFetch<'a> {
     type Target = mem_fetch;
 
-    #[inline]
+    // #[inline]
     fn deref(&self) -> &'a Self::Target {
         unsafe { self.inner.inner().as_ref().unwrap() }
     }
 }
 
-#[inline]
+// #[inline]
 pub(crate) fn get_mem_fetches<'a>(
     queue: &cxx::UniquePtr<cxx::CxxVector<mem_fetch_ptr_shim>>,
 ) -> Vec<MemFetch<'a>> {

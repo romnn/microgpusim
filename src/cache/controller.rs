@@ -66,7 +66,7 @@ pub mod pascal {
     }
 
     impl super::CacheController for DataCacheController {
-        #[inline]
+        // #[inline]
         fn tag(&self, addr: address) -> address {
             // For generality, the tag includes both index and tag.
             // This allows for more complex set index calculations that
@@ -82,13 +82,13 @@ pub mod pascal {
             addr & !address::from(self.config.line_size - 1)
         }
 
-        #[inline]
+        // #[inline]
         fn block_addr(&self, addr: address) -> address {
             self.tag(addr)
             // addr & !address::from(self.config.line_size - 1)
         }
 
-        #[inline]
+        // #[inline]
         fn set_index(&self, addr: address) -> u64 {
             use cache::set_index::SetIndexer;
             self.set_index_function.compute_set_index(
@@ -99,13 +99,13 @@ pub mod pascal {
             )
         }
 
-        #[inline]
+        // #[inline]
         fn set_bank(&self, _addr: address) -> u64 {
             // not banked by default
             0
         }
 
-        #[inline]
+        // #[inline]
         fn mshr_addr(&self, addr: address) -> address {
             addr & !address::from(self.config.atom_size - 1)
         }
@@ -146,17 +146,17 @@ pub mod pascal {
     }
 
     impl super::CacheController for L1DataCacheController {
-        #[inline]
+        // #[inline]
         fn tag(&self, addr: address) -> address {
             self.inner.tag(addr)
         }
 
-        #[inline]
+        // #[inline]
         fn block_addr(&self, addr: address) -> address {
             self.inner.block_addr(addr)
         }
 
-        #[inline]
+        // #[inline]
         fn set_index(&self, addr: address) -> u64 {
             use cache::set_index::SetIndexer;
             self.set_index_function.compute_set_index(
@@ -167,7 +167,7 @@ pub mod pascal {
             )
         }
 
-        #[inline]
+        // #[inline]
         fn mshr_addr(&self, addr: address) -> address {
             log::trace!(
                 "computing mshr addr for {}: atom size={}",
@@ -177,7 +177,7 @@ pub mod pascal {
             self.inner.mshr_addr(addr)
         }
 
-        #[inline]
+        // #[inline]
         fn set_bank(&self, addr: address) -> address {
             use cache::set_index::SetIndexer;
 

@@ -97,13 +97,13 @@ impl AsRef<Vec<Cache>> for PerKernel {
 }
 
 impl PerKernel {
-    #[inline]
+    // #[inline]
     pub fn get_mut(&mut self, idx: usize) -> &mut Cache {
         self.inner.resize_with(idx + 1, Cache::default);
         &mut self.inner[idx]
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn reduce(self) -> Cache {
         todo!()
@@ -305,7 +305,7 @@ impl Cache {
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn inc(
         &mut self,
         alloc_id: Option<usize>,

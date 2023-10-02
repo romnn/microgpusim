@@ -68,7 +68,7 @@ pub fn already_exist(
         .all(|path| path.is_file())
 }
 
-#[inline]
+// #[inline]
 pub fn write_csv_rows<R, T>(writer: impl std::io::Write, rows: R) -> color_eyre::eyre::Result<()>
 where
     R: IntoIterator<Item = T>,
@@ -83,7 +83,7 @@ where
     Ok(())
 }
 
-#[inline]
+// #[inline]
 pub fn write_stats_as_csv(
     stats_dir: impl AsRef<Path>,
     stats: &[stats::Stats],

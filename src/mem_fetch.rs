@@ -111,31 +111,31 @@ pub mod access {
 
     impl Kind {
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_global(&self) -> bool {
             matches!(self, Kind::GLOBAL_ACC_R | Kind::GLOBAL_ACC_W)
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_local(&self) -> bool {
             matches!(self, Kind::LOCAL_ACC_R | Kind::LOCAL_ACC_W)
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_texture(&self) -> bool {
             *self == Kind::TEXTURE_ACC_R
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_const(&self) -> bool {
             *self == Kind::CONST_ACC_R
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_write(&self) -> bool {
             match self {
                 Kind::GLOBAL_ACC_R
@@ -239,7 +239,7 @@ pub mod access {
     }
 
     impl MemAccess {
-        #[inline]
+        // #[inline]
         #[must_use]
         pub fn relative_addr(&self) -> Option<super::address> {
             self.allocation
@@ -248,14 +248,14 @@ pub mod access {
                 .and_then(|start| self.addr.checked_sub(start))
         }
 
-        #[inline]
+        // #[inline]
         #[must_use]
         pub fn allocation_id(&self) -> Option<usize> {
             self.allocation.as_ref().map(|alloc| alloc.id)
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn control_size(&self) -> u32 {
             if self.is_write {
                 u32::from(super::WRITE_PACKET_SIZE)
@@ -264,25 +264,25 @@ pub mod access {
             }
         }
 
-        #[inline]
+        // #[inline]
         pub fn kernel_launch_id(&self) -> Option<usize> {
             self.kernel_launch_id
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn is_write(&self) -> bool {
             self.kind.is_write()
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn data_size(&self) -> u32 {
             self.req_size_bytes
         }
 
         #[must_use]
-        #[inline]
+        // #[inline]
         pub fn size(&self) -> u32 {
             self.data_size() + self.control_size()
         }
@@ -413,13 +413,13 @@ impl From<Builder> for MemFetch {
 }
 
 impl MemFetch {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn allocation_id(&self) -> Option<usize> {
         self.access.allocation_id()
     }
 
-    #[inline]
+    // #[inline]
     pub fn is_atomic(&self) -> bool {
         self.instr
             .as_ref()
@@ -427,7 +427,7 @@ impl MemFetch {
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn is_texture(&self) -> bool {
         self.instr
             .as_ref()
@@ -435,7 +435,7 @@ impl MemFetch {
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn packet_size(&self) -> u32 {
         if self.is_write() || self.is_atomic() {
             self.size()
@@ -444,72 +444,72 @@ impl MemFetch {
         }
     }
 
-    #[inline]
+    // #[inline]
     pub fn kernel_launch_id(&self) -> Option<usize> {
         self.access.kernel_launch_id()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn is_write(&self) -> bool {
         self.access.is_write
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn addr(&self) -> address {
         self.access.addr
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn relative_addr(&self) -> Option<address> {
         self.access.relative_addr()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn data_size(&self) -> u32 {
         self.access.req_size_bytes
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn control_size(&self) -> u32 {
         self.access.control_size()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn size(&self) -> u32 {
         self.data_size() + self.control_size()
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn sub_partition_id(&self) -> usize {
         self.physical_addr.sub_partition as usize
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn access_kind(&self) -> access::Kind {
         self.access.kind
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_status(&mut self, status: Status, time: u64) {
         self.status = status;
         self.last_status_change = Some(time);
     }
 
     #[must_use]
-    #[inline]
+    // #[inline]
     pub fn is_reply(&self) -> bool {
         matches!(self.kind, Kind::READ_REPLY | Kind::WRITE_ACK)
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_reply(&mut self) {
         assert!(!matches!(
             self.access.kind,

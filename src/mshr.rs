@@ -65,7 +65,7 @@ pub trait MSHR<F> {
 }
 
 impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
-    #[inline]
+    // #[inline]
     fn full(&self, block_addr: address) -> bool {
         match self.entries.get(&block_addr) {
             Some(entry) => entry.requests.len() >= self.max_merged,
@@ -73,22 +73,22 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
         }
     }
 
-    #[inline]
+    // #[inline]
     fn clear(&mut self) {
         self.entries.clear();
     }
 
-    #[inline]
+    // #[inline]
     fn get(&self, block_addr: address) -> Option<&Entry<mem_fetch::MemFetch>> {
         self.entries.get(&block_addr)
     }
 
-    #[inline]
+    // #[inline]
     fn get_mut(&mut self, block_addr: address) -> Option<&mut Entry<mem_fetch::MemFetch>> {
         self.entries.get_mut(&block_addr)
     }
 
-    #[inline]
+    // #[inline]
     fn add(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) {
         let entry = self.entries.entry(block_addr).or_default();
 
@@ -100,7 +100,7 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
         debug_assert!(self.entries.len() <= self.num_entries);
     }
 
-    #[inline]
+    // #[inline]
     fn remove(&mut self, block_addr: address) {
         self.entries.remove(&block_addr);
     }

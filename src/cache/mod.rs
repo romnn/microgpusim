@@ -86,7 +86,7 @@ impl From<AccessStat> for stats::cache::AccessStat {
 ///
 /// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
 /// counted as a `HIT_RESERVED` in the caches.
-#[inline]
+// #[inline]
 pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
     match probe {
         RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => probe,

@@ -34,7 +34,7 @@ impl ReadOnly {
         Self { inner }
     }
 
-    #[inline]
+    // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
@@ -47,44 +47,44 @@ impl crate::engine::cycle::Component for ReadOnly {
 }
 
 impl cache::Bandwidth for ReadOnly {
-    #[inline]
+    // #[inline]
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }
 
-    #[inline]
+    // #[inline]
     fn has_free_fill_port(&self) -> bool {
         self.inner.has_free_data_port()
     }
 }
 
 impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
-    #[inline]
+    // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
-    // #[inline]
+    // // #[inline]
     // fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
     //     &self.inner.stats
     // }
 
-    #[inline]
+    // #[inline]
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.stats
     }
 
-    #[inline]
+    // #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
-    #[inline]
+    // #[inline]
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
 
-    #[inline]
+    // #[inline]
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.inner.ready_accesses()
     }
@@ -93,7 +93,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
     /// request could not be accepted (for any reason)
-    #[inline]
+    // #[inline]
     fn access(
         &mut self,
         addr: address,
@@ -202,7 +202,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         access_status
     }
 
-    #[inline]
+    // #[inline]
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
     }

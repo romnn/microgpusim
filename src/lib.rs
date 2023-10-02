@@ -488,7 +488,7 @@ where
     }
 
     #[tracing::instrument]
-    #[inline]
+    // #[inline]
     fn issue_block_to_core(&self, cycle: u64) {
         log::debug!("===> issue block to core");
         let mut last_cluster_issue = self.last_cluster_issue.try_lock();

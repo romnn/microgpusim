@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import cxxfilt
 import json
 from os import PathLike
 from pathlib import Path
@@ -265,6 +266,13 @@ class Stats(common.Stats):
         self.result_df["stream_id"] = np.nan
         self.result_df["context_id"] = np.nan
         self.result_df["device"] = np.nan
+        self.result_df["kernel_name_mangled"] = self.result_df["kernel_name_mangled"].bfill()
+        self.result_df["kernel_function_signature"] = self.result_df["kernel_name_mangled"].apply(
+            lambda name: np.nan if pd.isnull(name) else cxxfilt.demangle(name)
+        )
+        self.result_df["kernel_name"] = self.result_df["kernel_function_signature"].apply(
+            lambda sig: np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
+        )
 
     def _compute_l2_read_hit_rate(self):
         # df = self.l2_data_stats_df

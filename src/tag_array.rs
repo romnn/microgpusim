@@ -118,7 +118,7 @@ where
     B: cache::block::Block,
     T: cache::CacheController,
 {
-    #[inline]
+    // #[inline]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
         log::trace!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
@@ -215,7 +215,7 @@ where
         }
     }
 
-    #[inline]
+    // #[inline]
     fn flush(&mut self) -> usize {
         let mut flushed = 0;
         for line in &mut self.lines {
@@ -232,7 +232,7 @@ where
         flushed
     }
 
-    #[inline]
+    // #[inline]
     fn invalidate(&mut self) {
         for line in &mut self.lines {
             for i in 0..SECTOR_CHUNK_SIZE {
@@ -244,22 +244,22 @@ where
         self.num_dirty = 0;
     }
 
-    #[inline]
+    // #[inline]
     fn size(&self) -> usize {
         self.lines.len()
     }
 
-    #[inline]
+    // #[inline]
     fn get_block_mut(&mut self, idx: usize) -> &mut B {
         &mut self.lines[idx]
     }
 
-    #[inline]
+    // #[inline]
     fn get_block(&self, idx: usize) -> &B {
         &self.lines[idx]
     }
 
-    #[inline]
+    // #[inline]
     fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
         let addr = self.cache_controller.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
@@ -268,7 +268,7 @@ where
         }
     }
 
-    #[inline]
+    // #[inline]
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
         let addr = self.cache_controller.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);

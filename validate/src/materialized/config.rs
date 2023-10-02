@@ -131,7 +131,7 @@ pub struct AccelsimSimConfigFiles {
     pub config: PathBuf,
 }
 
-#[inline]
+// #[inline]
 fn template_or_default<T>(
     tmpl: &Option<T>,
     default: T::Value,

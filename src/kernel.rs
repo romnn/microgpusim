@@ -95,12 +95,12 @@ impl Kernel {
     //     *self.launched.try_lock()
     // }
 
-    #[inline]
+    // #[inline]
     pub fn launched(&self) -> bool {
         self.start_cycle.lock().is_some()
     }
 
-    #[inline]
+    // #[inline]
     pub fn completed(&self) -> bool {
         self.completed_cycle.lock().is_some()
     }
@@ -152,7 +152,7 @@ impl Kernel {
     //     *self.launched.try_lock() = true;
     // }
 
-    #[inline]
+    // #[inline]
     pub fn id(&self) -> u64 {
         self.config.id
     }
@@ -232,17 +232,17 @@ impl Kernel {
         true
     }
 
-    #[inline]
+    // #[inline]
     pub fn name(&self) -> &str {
         &self.config.unmangled_name
     }
 
-    #[inline]
+    // #[inline]
     pub fn running(&self) -> bool {
         self.num_cores_running > 0
     }
 
-    #[inline]
+    // #[inline]
     pub fn current_block(&self) -> Option<model::Point> {
         let traces_pos = self.trace_pos.try_read();
         let trace = self.trace.get(*traces_pos)?;
@@ -252,24 +252,24 @@ impl Kernel {
         ))
     }
 
-    #[inline]
+    // #[inline]
     pub fn done(&self) -> bool {
         self.no_more_blocks_to_run() && !self.running()
     }
 
-    #[inline]
+    // #[inline]
     pub fn num_blocks(&self) -> usize {
         let grid = &self.config.grid;
         grid.x as usize * grid.y as usize * grid.z as usize
     }
 
-    #[inline]
+    // #[inline]
     pub fn threads_per_block(&self) -> usize {
         let block = &self.config.block;
         block.x as usize * block.y as usize * block.z as usize
     }
 
-    #[inline]
+    // #[inline]
     pub fn no_more_blocks_to_run(&self) -> bool {
         self.current_block().is_none()
     }

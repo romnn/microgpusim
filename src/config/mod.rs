@@ -32,7 +32,7 @@ pub struct L2DCache {
 }
 
 impl L2DCache {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn set_index(&self, addr: address) -> u64 {
         let partition_addr = addr;
@@ -63,19 +63,19 @@ pub struct L1DCache {
 }
 
 impl L1DCache {
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn l1_banks_log2(&self) -> u32 {
         mcu::logb2(self.l1_banks as u32)
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn l1_banks_byte_interleaving_log2(&self) -> u32 {
         mcu::logb2(self.l1_banks_byte_interleaving as u32)
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn compute_set_bank(&self, addr: address) -> u64 {
         log::trace!(
@@ -146,7 +146,7 @@ impl Cache {
     /// The width if the port to the data array.
     ///
     /// todo: this can be replaced with the builder?
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn data_port_width(&self) -> usize {
         // default granularity is line size
@@ -156,58 +156,58 @@ impl Cache {
     }
 
     /// The total size of the cache in bytes.
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn total_bytes(&self) -> usize {
         self.line_size as usize * self.num_sets * self.associativity
     }
 
     /// Number of lines in total.
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn total_lines(&self) -> usize {
         self.num_sets * self.associativity
     }
 
     /// Maximum number of lines.
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn max_num_lines(&self) -> usize {
         self.max_cache_multiplier() as usize * self.num_sets * self.associativity
     }
 
     /// this is virtual (possibly different)
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn max_cache_multiplier(&self) -> u8 {
         MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn line_size_log2(&self) -> u32 {
         mcu::logb2(self.line_size)
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn num_sets_log2(&self) -> u32 {
         mcu::logb2(self.num_sets as u32)
     }
 
-    // #[inline]
+    // // #[inline]
     // #[must_use]
     // pub fn sector_size(&self) -> u32 {
     //     mem_sub_partition::SECTOR_SIZE
     // }
     //
-    // #[inline]
+    // // #[inline]
     // #[must_use]
     // pub fn sector_size_log2(&self) -> u32 {
     //     mcu::logb2(self.sector_size())
     // }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn atom_size(&self) -> u32 {
         if self.kind == CacheKind::Sector {
@@ -218,7 +218,7 @@ impl Cache {
     }
 
     // do not use enabled but options
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn set_index(&self, addr: address) -> u64 {
         self.set_index_function.compute_set_index(
@@ -236,7 +236,7 @@ impl Cache {
         // )
     }
 
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn tag(&self, addr: address) -> address {
         // For generality, the tag includes both index and tag.
@@ -251,14 +251,14 @@ impl Cache {
     }
 
     /// Block address
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn block_addr(&self, addr: address) -> address {
         addr & !u64::from(self.line_size - 1)
     }
 
     /// Mshr address
-    #[inline]
+    // #[inline]
     #[must_use]
     pub fn mshr_addr(&self, addr: address) -> address {
         addr & !u64::from(self.line_size - 1)

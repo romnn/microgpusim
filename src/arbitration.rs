@@ -83,12 +83,12 @@ pub trait Arbiter: std::fmt::Debug + Send + Sync + 'static {
 }
 
 impl Arbiter for ArbitrationUnit {
-    #[inline]
+    // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
-    #[inline]
+    // #[inline]
     fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
         if self.private_credit[inner_sub_partition_id] < self.private_credit_limit {
             return true;
@@ -96,7 +96,7 @@ impl Arbiter for ArbitrationUnit {
         self.shared_credit_limit == 0 || self.shared_credit < self.shared_credit_limit
     }
 
-    #[inline]
+    // #[inline]
     fn borrow_credit(&mut self, inner_sub_partition_id: usize) {
         // let private_before = self.private_credit[inner_sub_partition_id];
         // let shared_before = self.shared_credit;
@@ -115,7 +115,7 @@ impl Arbiter for ArbitrationUnit {
         self.last_borrower = inner_sub_partition_id;
     }
 
-    #[inline]
+    // #[inline]
     fn return_credit(&mut self, inner_sub_partition_id: usize) {
         // let private_before = self.private_credit[inner_sub_partition_id];
         // let shared_before = self.shared_credit;
@@ -135,7 +135,7 @@ impl Arbiter for ArbitrationUnit {
         // self.shared_credit, self.shared_credit_limit, shared_before, inner_sub_partition_id);
     }
 
-    #[inline]
+    // #[inline]
     fn last_borrower(&self) -> usize {
         self.last_borrower
     }
