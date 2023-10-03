@@ -82,22 +82,39 @@ impl std::ops::AddAssign for InstructionCounts {
 
 impl InstructionCounts {
     #[must_use]
-    pub fn into_csv_rows(self) -> Vec<CsvRow> {
-        self.inner
-            .into_iter()
-            // .sort_by_key(|(key, _)| *key)
-            .map(
-                |((allocation_id, memory_space, is_write), num_instructions)| CsvRow {
-                    kernel_name: self.kernel_info.name.clone(),
-                    kernel_name_mangled: self.kernel_info.mangled_name.clone(),
-                    kernel_launch_id: self.kernel_info.launch_id,
-                    allocation_id,
-                    memory_space,
-                    is_write,
-                    num_instructions,
-                },
-            )
-            .collect()
+    pub fn into_csv_rows(self, full: bool) -> Vec<CsvRow> {
+        let mut rows = Vec::new();
+        for ((allocation_id, memory_space, is_write), num_instructions) in self.inner {
+            let need_row = rows.is_empty();
+            if !full && !need_row && num_instructions < 1 {
+                continue;
+            }
+            rows.push(CsvRow {
+                kernel_name: self.kernel_info.name.clone(),
+                kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+                kernel_launch_id: self.kernel_info.launch_id,
+                allocation_id,
+                memory_space,
+                is_write,
+                num_instructions,
+            });
+        }
+        // self.inner
+        //     .into_iter()
+        //     // .sort_by_key(|(key, _)| *key)
+        //     .map(
+        //         |((allocation_id, memory_space, is_write), num_instructions)| CsvRow {
+        //             kernel_name: self.kernel_info.name.clone(),
+        //             kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+        //             kernel_launch_id: self.kernel_info.launch_id,
+        //             allocation_id,
+        //             memory_space,
+        //             is_write,
+        //             num_instructions,
+        //         },
+        //     )
+        //     .collect()
+        rows
     }
 
     #[must_use]

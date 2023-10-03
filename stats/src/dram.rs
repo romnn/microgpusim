@@ -63,11 +63,17 @@ impl DRAM {
     }
 
     #[must_use]
-    pub fn bank_accesses_csv(&self) -> Vec<BankAccessesCsvRow> {
+    pub fn bank_accesses_csv(&self, full: bool) -> Vec<BankAccessesCsvRow> {
         let mut out = Vec::new();
+
         for ((core_id, chip_id, bank_id, access_kind), num_accesses) in
             self.bank_accesses.indexed_iter()
         {
+            // add single row to prevent empty data frame
+            let need_row = out.is_empty();
+            if !full && !need_row && *num_accesses < 1 {
+                continue;
+            }
             out.push(BankAccessesCsvRow {
                 kernel_name: self.kernel_info.name.clone(),
                 kernel_name_mangled: self.kernel_info.mangled_name.clone(),

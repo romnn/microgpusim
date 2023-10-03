@@ -381,29 +381,48 @@ impl PerCache {
     }
 
     #[must_use]
-    pub fn into_csv_rows(self) -> Vec<CsvRow> {
+    pub fn into_csv_rows(self, full: bool) -> Vec<CsvRow> {
         let mut rows: Vec<_> = Vec::new();
         for (cache_id, cache) in self.inner.iter().cloned().enumerate() {
-            rows.extend(
-                cache
-                    .inner
-                    .into_iter()
-                    // .sort_by_key(|(key, _)| *key)
-                    .map(|((allocation_id, access), num_accesses)| {
-                        let (access_kind, access_status) = access.0;
-                        CsvRow {
-                            kernel_name: self.kernel_info.name.clone(),
-                            kernel_name_mangled: self.kernel_info.mangled_name.clone(),
-                            kernel_launch_id: self.kernel_info.launch_id,
-                            cache_id,
-                            allocation_id,
-                            access_kind,
-                            is_write: access_kind.is_write(),
-                            access_status,
-                            num_accesses,
-                        }
-                    }),
-            );
+            for ((allocation_id, access), num_accesses) in cache.inner {
+                let need_row = rows.is_empty();
+                if !full && !need_row && num_accesses < 1 {
+                    continue;
+                }
+                let (access_kind, access_status) = access.0;
+                rows.push(CsvRow {
+                    kernel_name: self.kernel_info.name.clone(),
+                    kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+                    kernel_launch_id: self.kernel_info.launch_id,
+                    cache_id,
+                    allocation_id,
+                    access_kind,
+                    is_write: access_kind.is_write(),
+                    access_status,
+                    num_accesses,
+                })
+            }
+            // rows.extend(
+            //     cache
+            //         .inner
+            //         .into_iter()
+            //         // .sort_by_key(|(key, _)| *key)
+            //         .map(|((allocation_id, access), num_accesses)| {
+            //             // let need_row =
+            //             let (access_kind, access_status) = access.0;
+            //             CsvRow {
+            //                 kernel_name: self.kernel_info.name.clone(),
+            //                 kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+            //                 kernel_launch_id: self.kernel_info.launch_id,
+            //                 cache_id,
+            //                 allocation_id,
+            //                 access_kind,
+            //                 is_write: access_kind.is_write(),
+            //                 access_status,
+            //                 num_accesses,
+            //             }
+            //         }),
+            // );
         }
         rows
     }

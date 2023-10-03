@@ -44,7 +44,7 @@ pub struct Config {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerKernel {
     pub inner: Vec<Stats>,
-    config: Config,
+    pub config: Config,
 }
 
 impl AsRef<Vec<Stats>> for PerKernel {

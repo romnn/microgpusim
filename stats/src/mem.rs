@@ -137,18 +137,35 @@ impl Accesses {
     }
 
     #[must_use]
-    pub fn into_csv_rows(self) -> Vec<CsvRow> {
-        self.inner
-            .into_iter()
-            .map(|((allocation_id, access_kind), num_accesses)| CsvRow {
+    pub fn into_csv_rows(self, full: bool) -> Vec<CsvRow> {
+        let mut rows = Vec::new();
+        for ((allocation_id, access_kind), num_accesses) in self.inner {
+            let need_row = rows.is_empty();
+            if !full && !need_row && num_accesses < 1 {
+                continue;
+            }
+            rows.push(CsvRow {
                 kernel_name: self.kernel_info.name.clone(),
                 kernel_name_mangled: self.kernel_info.mangled_name.clone(),
                 kernel_launch_id: self.kernel_info.launch_id,
                 allocation_id,
                 access_kind,
                 num_accesses,
-            })
-            .collect()
+            });
+        }
+
+        // self.inner
+        //     .into_iter()
+        //     .map(|((allocation_id, access_kind), num_accesses)| CsvRow {
+        //         kernel_name: self.kernel_info.name.clone(),
+        //         kernel_name_mangled: self.kernel_info.mangled_name.clone(),
+        //         kernel_launch_id: self.kernel_info.launch_id,
+        //         allocation_id,
+        //         access_kind,
+        //         num_accesses,
+        //     })
+        //     .collect()
+        rows
     }
 
     #[must_use]
