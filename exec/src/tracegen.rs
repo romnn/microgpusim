@@ -384,7 +384,10 @@ impl TraceGenerator for Tracer {
             log::debug!("==> block {:?} warp {:<3}", block_id, warp_id_in_block);
 
             let mut super_cfg = cfg::CFG::new();
-            let super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch(0));
+            let super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch {
+                id: 0,
+                branch_id: 0,
+            });
 
             let mut thread_graphs = [(); WARP_SIZE as usize].map(|_| cfg::ThreadCFG::default());
             for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
@@ -401,7 +404,7 @@ impl TraceGenerator for Tracer {
                 // each edge connects two distinct nodes, resulting in a
                 // single control flow path each thread takes
                 assert_eq!(paths.len(), 1);
-                log::debug!(
+                log::trace!(
                     "thread[{:2}] = {:?}",
                     ti,
                     cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
@@ -413,16 +416,23 @@ impl TraceGenerator for Tracer {
             // fill remaining edges (this should be optional step)
             cfg::add_missing_control_flow_edges(&mut super_cfg);
 
-            let super_cfg_final_reconvergence_id = super_cfg
-                .node_indices()
-                .filter_map(|idx| match super_cfg[idx] {
-                    cfg::Node::Reconverge(branch_id) => Some(branch_id),
-                    cfg::Node::Branch(_) => None,
-                })
-                .max()
-                .unwrap_or(0);
+            // let super_cfg_final_reconvergence_id = super_cfg
+            //     .node_indices()
+            //     .filter_map(|idx| match super_cfg[idx] {
+            //         cfg::Node::Reconverge{id, branch_id} => Some(branch_id),
+            //         cfg::Node::Branch{..} => None,
+            //     })
+            //     .max()
+            //     .unwrap_or(0);
+            // let super_cfg_sink_node_idx = super_cfg
+            //     .find_node(&cfg::Node::Reconverge{branch_id: super_cfg_final_reconvergence_id))
+            //     .unwrap();
+
             let super_cfg_sink_node_idx = super_cfg
-                .find_node(&cfg::Node::Reconverge(super_cfg_final_reconvergence_id))
+                .find_node(&cfg::Node::Reconverge {
+                    id: 0,
+                    branch_id: 0,
+                })
                 .unwrap();
 
             let unique_control_flow_paths = super::cfg::all_simple_paths::<Vec<_>, _>(
@@ -471,6 +481,17 @@ impl TraceGenerator for Tracer {
 
             for (edge_idx, node_idx) in iter {
                 let took_branch = super_cfg[edge_idx];
+
+                // useful for debugging
+                // for node_idx in thread_graphs[0].node_indices() {
+                //     let node = &thread_graphs[0][node_idx];
+                //     if node.instructions().is_empty() {
+                //         continue;
+                //     }
+                //     for inst in node.instructions() {
+                //         log::trace!("node {} instructions: {}", node, inst);
+                //     }
+                // }
 
                 // add the instructions
                 let active_threads: Vec<_> =
@@ -604,8 +625,11 @@ pub mod testing {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "{:<10}{:?}\t active={} \tpc={}",
-                self.opcode, self.first_addr, self.active_mask, self.pc,
+                "{:<10}{:<16}\t active={} \tpc={}",
+                self.opcode,
+                self.first_addr.to_string(),
+                self.active_mask,
+                self.pc,
             )
         }
     }
@@ -655,48 +679,7 @@ pub mod testing {
         warp_trace: &[trace_model::MemAccessTraceEntry],
     ) -> impl Iterator<Item = SimplifiedTraceInstruction> + '_ {
         warp_trace.iter().map(simplify_warp_instruction)
-        // .enumerate()
-        // .map(|(warp_instr_idx, warp_instr)| {
-        //     let human_readable_active_mask = warp_instr
-        //         .active_mask
-        //         .to_string()
-        //         .chars()
-        //         .rev()
-        //         .collect::<String>();
-        //
-        //     SimplifiedTraceInstruction {
-        //         opcode: warp_instr.instr_opcode.clone(),
-        //         first_addr: warp_instr
-        //             .addrs
-        //             .iter()
-        //             .enumerate()
-        //             .filter(|(ti, _)| warp_instr.active_mask[*ti])
-        //             .map(|(_, addr)| addr)
-        //             .next()
-        //             .copied()
-        //             .unwrap_or(0),
-        //         active_mask: human_readable_active_mask,
-        //         pc: warp_instr.instr_offset,
-        //         idx: warp_instr_idx,
-        //     }
-        // })
     }
-
-    // pub fn fmt_trace(trace: &trace_model::MemAccessTraceEntry) -> String {
-    //     format!(
-    //         "{:<10}{:?}\t active={} \tpc={} idx={}",
-    //         inst.opcode, inst.first_addr, inst.active_mask, inst.pc, inst.idx,
-    //     )
-    // }
-
-    // pub fn print_warp_trace(trace: &[trace_model::MemAccessTraceEntry]) {
-    //     for inst in simplify_warp_trace(trace) {
-    //         println!(
-    //             "{:<10}{:?}\t active={} \tpc={} idx={}",
-    //             inst.opcode, inst.first_addr, inst.active_mask, inst.pc, inst.idx,
-    //         );
-    //     }
-    // }
 }
 
 #[cfg(test)]
@@ -709,13 +692,58 @@ mod tests {
     use tokio::sync::Mutex;
     use utils::diff;
 
+    fn get_reference_warp_traces(kernel_name: &str) -> eyre::Result<trace_model::WarpTraces> {
+        use std::path::PathBuf;
+
+        let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let commands_file_path =
+            manifest.join("../test-apps/microbenches/trace-reconstruction/traces/commands.json");
+
+        let reader = utils::fs::open_readable(&commands_file_path)?;
+        let commands: Vec<trace_model::Command> = serde_json::from_reader(reader)?;
+
+        let have: Vec<String> = commands
+            .iter()
+            .filter_map(|cmd| match cmd {
+                trace_model::Command::KernelLaunch(launch) => Some(launch.mangled_name.clone()),
+                _ => None,
+            })
+            .collect();
+
+        let kernel_launch = commands
+            .into_iter()
+            .find_map(|cmd| match cmd {
+                trace_model::Command::KernelLaunch(launch)
+                    if launch.mangled_name.contains(kernel_name) =>
+                {
+                    Some(launch)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| {
+                eyre::eyre!("no kernel with name {:?} (have {:?})", kernel_name, have)
+            })?;
+
+        dbg!(&kernel_launch);
+
+        let kernel_trace_path = commands_file_path
+            .parent()
+            .unwrap()
+            .join(kernel_launch.trace_file);
+        dbg!(&kernel_trace_path);
+
+        let mut reader = utils::fs::open_readable(&kernel_trace_path)?;
+        let trace: trace_model::MemAccessTrace = rmp_serde::from_read(&mut reader)?;
+        Ok(trace.to_warp_traces())
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test_for_loop_kernel() -> eyre::Result<()> {
+    async fn test_single_for_loop_kernel() -> eyre::Result<()> {
         crate::tests::init_test();
 
-        struct ForLoopKernel {}
+        struct SingleForLoopKernel {}
         #[async_trait::async_trait]
-        impl super::Kernel for ForLoopKernel {
+        impl super::Kernel for SingleForLoopKernel {
             type Error = std::convert::Infallible;
             #[crate::inject_reconvergence_points]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
@@ -732,19 +760,26 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, ForLoopKernel {}).await?;
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in testing::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
+
+        let ref_warp_traces = get_reference_warp_traces("single_for_loop")?;
+        let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(ref_first_warp) {
+            println!("{}", inst);
+        }
+
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
-                ("LDG", 1, "11111111111111111111111111111111", 0),
-                ("LDG", 1, "10101010101010101010101010101010", 0),
-                ("LDG", 1, "10101010101010101010101010101010", 0),
-                ("LDG", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 1, "11111111111111111111111111111111", 0),
+                ("LDG.E", 1, "10101010101010101010101010101010", 0),
+                ("LDG.E", 1, "10101010101010101010101010101010", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
@@ -752,12 +787,12 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test_if_kernel() -> eyre::Result<()> {
+    async fn test_single_if_kernel() -> eyre::Result<()> {
         crate::tests::init_test();
 
-        struct IfKernel {}
+        struct SingleIfKernel {}
         #[async_trait::async_trait]
-        impl super::Kernel for IfKernel {
+        impl super::Kernel for SingleIfKernel {
             type Error = std::convert::Infallible;
             #[crate::inject_reconvergence_points]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
@@ -770,48 +805,118 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, IfKernel {}).await?;
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleIfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in testing::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
+        let ref_warp_traces = get_reference_warp_traces("single_if")?;
+        let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(ref_first_warp) {
+            println!("{}", inst);
+        }
+
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
-                ("LDG", 1, "11111111111111110000000000000000", 0),
+                ("LDG.E", 1, "11111111111111110000000000000000", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
     }
 
+    // #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    // async fn test_full_imbalance() -> eyre::Result<()> {
+    //     crate::tests::init_test();
+    //
+    //     struct FullImbalanceKernel {}
+    //     #[async_trait::async_trait]
+    //     impl super::Kernel for FullImbalanceKernel {
+    //         type Error = std::convert::Infallible;
+    //         #[crate::inject_reconvergence_points]
+    //         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+    //             if tid.thread_idx.x < 16 {
+    //                 if tid.thread_idx.x < 8 {
+    //                     let inst = mem_inst!(Load[Global]@1, 4);
+    //                     block.memory.push_thread_instruction(tid, inst.into());
+    //                 }
+    //                 let inst = mem_inst!(Load[Global]@2, 4);
+    //                 block.memory.push_thread_instruction(tid, inst.into());
+    //             } else {
+    //                 if tid.thread_idx.x < 24 {
+    //                     let inst = mem_inst!(Load[Global]@10, 4);
+    //                     block.memory.push_thread_instruction(tid, inst.into());
+    //                 }
+    //                 let inst = mem_inst!(Load[Global]@11, 4);
+    //                 block.memory.push_thread_instruction(tid, inst.into());
+    //             }
+    //             let inst = mem_inst!(Load[Global]@100, 4);
+    //             block.memory.push_thread_instruction(tid, inst.into());
+    //             Ok(())
+    //         }
+    //     }
+    //
+    //     let tracer = super::Tracer::new();
+    //     let (_launch_config, trace) = tracer.trace_kernel(1, 32, FullImbalanceKernel {}).await?;
+    //     let warp_traces = trace.clone().to_warp_traces();
+    //     let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+    //     for inst in testing::simplify_warp_trace(first_warp) {
+    //         println!("{}", inst);
+    //     }
+    //
+    //     let ref_warp_traces = get_reference_warp_traces("full_imbalance")?;
+    //     let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+    //     for inst in testing::simplify_warp_trace(ref_first_warp) {
+    //         println!("{}", inst);
+    //     }
+    //
+    //     diff::assert_eq!(
+    //         have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+    //         want: [
+    //             ("LDG.E", 1, "11111111000000000000000000000000", 0),
+    //             ("LDG.E", 2, "11111111111111110000000000000000", 0),
+    //             ("LDG.E", 10, "00000000000000001111111100000000", 0),
+    //             ("LDG.E", 11, "00000000000000001111111111111111", 0),
+    //             ("LDG.E", 100, "11111111111111111111111111111111", 0),
+    //             ("EXIT", 0, "11111111111111111111111111111111", 0),
+    //         ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
+    //     );
+    //     Ok(())
+    // }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test_full_imbalance() -> eyre::Result<()> {
+    async fn test_two_level_nested_for_loops_kernel() -> eyre::Result<()> {
         crate::tests::init_test();
 
-        struct FullImbalanceKernel {}
+        struct TwoLevelNestedForLoops {}
         #[async_trait::async_trait]
-        impl super::Kernel for FullImbalanceKernel {
+        impl super::Kernel for TwoLevelNestedForLoops {
             type Error = std::convert::Infallible;
             #[crate::inject_reconvergence_points]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-                if tid.thread_idx.x < 16 {
-                    if tid.thread_idx.x < 8 {
-                        let inst = mem_inst!(Load[Global]@1, 4);
+                // fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                for j in 0..2 {
+                    for i in 0..2 {
+                        let addr = j * 2 + i;
+                        let inst = mem_inst!(Store[Global]@addr, 4);
                         block.memory.push_thread_instruction(tid, inst.into());
                     }
-                    let inst = mem_inst!(Load[Global]@2, 4);
-                    block.memory.push_thread_instruction(tid, inst.into());
-                } else {
-                    if tid.thread_idx.x < 24 {
-                        let inst = mem_inst!(Load[Global]@10, 4);
-                        block.memory.push_thread_instruction(tid, inst.into());
-                    }
-                    let inst = mem_inst!(Load[Global]@11, 4);
-                    block.memory.push_thread_instruction(tid, inst.into());
                 }
+
+                // for j in 0..4 {
+                //     for i in 0..8 {
+                //         let inst = mem_inst!(Store[Global]@(j*8 + i), 4);
+                //         block.memory.push_thread_instruction(tid, inst.into());
+                //     }
+                // }
+
+                // have reconverged to fully parallel
                 let inst = mem_inst!(Load[Global]@100, 4);
                 block.memory.push_thread_instruction(tid, inst.into());
                 Ok(())
@@ -819,20 +924,30 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, FullImbalanceKernel {}).await?;
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, TwoLevelNestedForLoops {})
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in testing::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
+
+        // let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
+        // let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        // for inst in testing::simplify_warp_trace(ref_first_warp) {
+        //     println!("{}", inst);
+        // }
+
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
-                ("LDG", 1, "11111111000000000000000000000000", 0),
-                ("LDG", 2, "11111111111111110000000000000000", 0),
-                ("LDG", 10, "00000000000000001111111100000000", 0),
-                ("LDG", 11, "00000000000000001111111111111111", 0),
-                ("LDG", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("STG.E", 0, "11111111111111111111111111111111", 0),
+                ("STG.E", 1, "11111111111111111111111111111111", 0),
+                ("STG.E", 2, "11111111111111111111111111111111", 0),
+                ("STG.E", 3, "11111111111111111111111111111111", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
@@ -840,7 +955,147 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn test_two_level_nested_if_kernel() -> eyre::Result<()> {
+    async fn test_two_level_nested_multiple_serial_if_kernel() -> eyre::Result<()> {
+        crate::tests::init_test();
+
+        struct TwoLevelNestedMultipleSerialIf {}
+        #[async_trait::async_trait]
+        impl super::Kernel for TwoLevelNestedMultipleSerialIf {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                // fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                if tid.thread_idx.x < 16 {
+                    if tid.thread_idx.x < 8 {
+                        let inst = mem_inst!(Load[Global]@10, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                    if tid.thread_idx.x >= 8 {
+                        let inst = mem_inst!(Load[Global]@11, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                } else {
+                    // let inst = mem_inst!(Load[Global]@20, 4);
+                    // block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x < 24 {
+                        let inst = mem_inst!(Load[Global]@20, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                    if tid.thread_idx.x >= 24 {
+                        let inst = mem_inst!(Load[Global]@21, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                }
+
+                // have reconverged to fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+                Ok(())
+            }
+        }
+
+        let tracer = super::Tracer::new();
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, TwoLevelNestedMultipleSerialIf {})
+            .await?;
+        let warp_traces = trace.clone().to_warp_traces();
+        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
+
+        // let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
+        // let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        // for inst in testing::simplify_warp_trace(ref_first_warp) {
+        //     println!("{}", inst);
+        // }
+
+        diff::assert_eq!(
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            want: [
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 10, "11111111000000000000000000000000", 0),
+                ("LDG.E", 11, "00000000111111110000000000000000", 0),
+                ("LDG.E", 20, "00000000000000001111111100000000", 0),
+                ("LDG.E", 21, "00000000000000000000000011111111", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("EXIT", 0, "11111111111111111111111111111111", 0),
+            ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_two_level_nested_if_balanced_kernel() -> eyre::Result<()> {
+        crate::tests::init_test();
+
+        struct Balanced {}
+        #[async_trait::async_trait]
+        impl super::Kernel for Balanced {
+            type Error = std::convert::Infallible;
+            #[crate::inject_reconvergence_points]
+            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                // fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+
+                if tid.thread_idx.x < 16 {
+                    let inst = mem_inst!(Load[Global]@10, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x < 8 {
+                        let inst = mem_inst!(Load[Global]@11, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                } else {
+                    let inst = mem_inst!(Load[Global]@20, 4);
+                    block.memory.push_thread_instruction(tid, inst.into());
+                    if tid.thread_idx.x >= 24 {
+                        let inst = mem_inst!(Load[Global]@21, 4);
+                        block.memory.push_thread_instruction(tid, inst.into());
+                    }
+                }
+
+                // have reconverged to fully parallel
+                let inst = mem_inst!(Load[Global]@100, 4);
+                block.memory.push_thread_instruction(tid, inst.into());
+                Ok(())
+            }
+        }
+
+        let tracer = super::Tracer::new();
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, Balanced {}).await?;
+        let warp_traces = trace.clone().to_warp_traces();
+        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(first_warp) {
+            println!("{}", inst);
+        }
+
+        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
+        let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(ref_first_warp) {
+            println!("{}", inst);
+        }
+
+        diff::assert_eq!(
+            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            want: [
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 10, "11111111111111110000000000000000", 0),
+                ("LDG.E", 11, "11111111000000000000000000000000", 0),
+                ("LDG.E", 20, "00000000000000001111111111111111", 0),
+                ("LDG.E", 21, "00000000000000000000000011111111", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("EXIT", 0, "11111111111111111111111111111111", 0),
+            ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_two_level_nested_if_imbalanced_kernel() -> eyre::Result<()> {
         crate::tests::init_test();
 
         struct Imbalanced {}
@@ -870,39 +1125,6 @@ mod tests {
             }
         }
 
-        struct Balanced {}
-        #[async_trait::async_trait]
-        impl super::Kernel for Balanced {
-            type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
-            async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-                // fully parallel
-                let inst = mem_inst!(Load[Global]@100, 4);
-                block.memory.push_thread_instruction(tid, inst.into());
-
-                if tid.thread_idx.x < 16 {
-                    let inst = mem_inst!(Load[Global]@10, 4);
-                    block.memory.push_thread_instruction(tid, inst.into());
-                    if tid.thread_idx.x < 8 {
-                        let inst = mem_inst!(Load[Global]@11, 4);
-                        block.memory.push_thread_instruction(tid, inst.into());
-                    }
-                } else {
-                    let inst = mem_inst!(Load[Global]@20, 4);
-                    block.memory.push_thread_instruction(tid, inst.into());
-                    if tid.thread_idx.x < 8 {
-                        let inst = mem_inst!(Load[Global]@21, 4);
-                        block.memory.push_thread_instruction(tid, inst.into());
-                    }
-                }
-
-                // have reconverged to fully parallel
-                let inst = mem_inst!(Load[Global]@100, 4);
-                block.memory.push_thread_instruction(tid, inst.into());
-                Ok(())
-            }
-        }
-
         let tracer = super::Tracer::new();
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
@@ -910,13 +1132,20 @@ mod tests {
         for inst in testing::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
+
+        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_imbalanced")?;
+        let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
+        for inst in testing::simplify_warp_trace(ref_first_warp) {
+            println!("{}", inst);
+        }
+
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
-                ("LDG", 100, "11111111111111111111111111111111", 0),
-                ("LDG", 1, "11111111111111110000000000000000", 0),
-                ("LDG", 2, "11111111000000000000000000000000", 0),
-                ("LDG", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
+                ("LDG.E", 1, "11111111111111110000000000000000", 0),
+                ("LDG.E", 2, "11111111000000000000000000000000", 0),
+                ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
@@ -1020,9 +1249,9 @@ mod tests {
         diff::assert_eq!(
             have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
-                ("LDG", 0, "11111111111111111111000000000000", 0),
-                ("LDG", 512, "11111111111111111111000000000000", 0),
-                ("STG", 1024, "11111111111111111111000000000000", 0),
+                ("LDG.E", 0, "11111111111111111111000000000000", 0),
+                ("LDG.E", 512, "11111111111111111111000000000000", 0),
+                ("STG.E", 1024, "11111111111111111111000000000000", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
