@@ -28,6 +28,19 @@ type Contexts = HashMap<ContextHandle, Arc<Instrumentor<'static>>>;
 
 static mut CONTEXTS: Lazy<Contexts> = Lazy::new(HashMap::new);
 
+#[must_use]
+pub fn is_debug() -> bool {
+    #[cfg(all(feature = "debug_build", feature = "release_build"))]
+    compile_error!(r#"both feature "debug_build" or "release_build" are set."#);
+
+    #[cfg(feature = "debug_build")]
+    return true;
+    #[cfg(feature = "release_build")]
+    return false;
+    #[cfg(not(any(feature = "debug_build", feature = "release_build")))]
+    compile_error!(r#"neither feature "debug_build" or "release_build" is set."#);
+}
+
 #[no_mangle]
 #[inline(never)]
 pub extern "C" fn nvbit_at_init() {

@@ -1,3 +1,12 @@
+#[must_use]
+fn is_debug() -> bool {
+    match std::env::var("PROFILE").unwrap().as_str() {
+        "release" | "bench" => false,
+        "debug" => true,
+        other => panic!("unknown profile {other:?}"),
+    }
+}
+
 fn generate_bindings() {
     let builder = bindgen::Builder::default()
         .clang_args([
@@ -19,6 +28,14 @@ fn generate_bindings() {
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=instrumentation");
+
+    let build_profile = if is_debug() {
+        "debug_build"
+    } else {
+        "release_build"
+    };
+
+    println!("cargo:rustc-cfg=feature={build_profile:?}");
 
     generate_bindings();
 

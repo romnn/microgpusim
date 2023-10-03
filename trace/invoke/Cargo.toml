@@ -16,6 +16,7 @@ need_cuda = true
 [dependencies]
 color-eyre = "0"
 thiserror = "1"
+env_logger = "0"
 async-process = "1"
 log = "0"
 tokio = { version = "1", features = ["full"] }

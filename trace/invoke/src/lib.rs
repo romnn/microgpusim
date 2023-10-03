@@ -15,6 +15,9 @@ pub enum Error {
     #[error("executable {0:?} not found")]
     MissingExecutable(PathBuf),
 
+    #[error("{0:?} is not an executable")]
+    BadExecutable(PathBuf),
+
     #[error(transparent)]
     Command(#[from] utils::CommandError),
 
@@ -95,9 +98,24 @@ where
         .canonicalize()
         .map_err(|_| Error::MissingExecutable(executable.as_ref().into()))?;
 
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = executable.metadata()?;
+        let is_executable = metadata.permissions().mode() & 0o111 != 0;
+        if !is_executable || metadata.is_dir() {
+            return Err(Error::BadExecutable(executable.clone()));
+        }
+    }
+
     let mut cmd = Command::new(executable);
     // configure application
     cmd.args(args);
+
+    log::debug!("traces dir = {}", traces_dir.display());
+    log::debug!("tracer ld preload = {}", tracer_so.display());
+    log::debug!("full trace = {}", options.full_trace);
+    log::debug!("skip kernel prefixes = {:?}", options.skip_kernel_prefixes);
 
     // configure tracer
     cmd.env("TRACES_DIR", traces_dir.to_string_lossy().to_string());

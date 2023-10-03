@@ -106,16 +106,18 @@ impl Instrumentor<'static> {
             .unwrap_or("")
             .split(",")
             .map(str::trim)
+            .filter(|prefix| !prefix.is_empty())
             .map(str::to_string)
             .collect();
 
         log::debug!(
-            "ctx@{:X} traces_dir={} full={}, json={}, skip kernel prefixes={:?}",
+            "ctx@{:X} traces_dir={} full={}, json={}, skip kernel prefixes={:?} is_release={}",
             ctx.as_ptr() as u64,
             traces_dir.display(),
             full_trace,
             save_json,
             skip_kernel_prefixes,
+            crate::is_debug(),
         );
 
         let _ = utils::fs::create_dirs(&traces_dir).ok();

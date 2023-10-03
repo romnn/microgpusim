@@ -69,6 +69,7 @@ fn parse_args() -> Result<(PathBuf, Vec<String>, Options), clap::Error> {
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
+    env_logger::init();
 
     let start = std::time::Instant::now();
 
