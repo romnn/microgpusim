@@ -66,6 +66,8 @@ STAT_COLS = [
     "l2_write_hit_rate",
     "l2_read_miss_rate",
     "l2_write_miss_rate",
+    "l2_hit_rate",
+    "l2_miss_rate",
     "l2_read_hits",
     "l2_write_hits",
     "l2_read_misses",
@@ -140,10 +142,34 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     input_cols = BENCHMARK_INPUT_COLS[bench_name]
     # print(selected_df[input_cols].drop_duplicates())
 
-    grouped = selected_df.groupby(INDEX_COLS, dropna=False)
+    # INDEX_COLS = [
+    #     "kernel_name",
+    #     "kernel_name_mangled",
+    #     "kernel_launch_id",
+    #     "run",
+    # ]
+
+    # aggregate over all kernel launch ids in a single run
+    BENCH_TARGET_INDEX_COLS = ["target", "benchmark", "input_id"]
+    # grouped = selected_df.groupby(["kernel_name", "run"], dropna=False)
+
+    profile_df = selected_df[selected_df["target"] == "Profile"]
+    print(profile_df[BENCH_TARGET_INDEX_COLS + input_cols + ["l2_hits", "l2_misses"]])
+
+    per_kernel = (
+        selected_df.groupby(BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols, dropna=False)[STAT_COLS]
+        .mean()
+        .reset_index()
+    )
+    # print(per_kernel)
+    # return None
+
+    grouped = per_kernel.groupby(BENCH_TARGET_INDEX_COLS + input_cols, dropna=False)
     # print(selected_df[INDEX_COLS + input_cols + ["dram_writes", "l2_accesses"]].head(n=200))
     # print(grouped["dram_writes"].sum())
-    averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
+    averaged = grouped[STAT_COLS].mean().reset_index()
+    # print(per_kernel)
+    # averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
     # print(averaged)
     # print(averaged.drop_duplicates())
 
@@ -156,8 +182,9 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 @click.option("--path", help="Path to materialized benchmark config")
 # @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
+@click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
 # @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name):
+def view(path, bench_name, nvprof):
     # load the materialized benchmark config
     if bench_name is None:
         stats_file = REPO_ROOT_DIR / "results/combined.stats.csv"
@@ -170,22 +197,25 @@ def view(path, bench_name):
     # print(sim_df)
 
     per_target = benchmark_results(sim_df, bench_name)
-    per_target = per_target[
-        [
-            "num_blocks",
-            "exec_time_sec",
-            "cycles",
-            "instructions",
-            "dram_reads",
-            "dram_writes",
-            # l2 stats
-            "l2_accesses",
-            "l2_reads",
+    stat_cols = [
+        "num_blocks",
+        "exec_time_sec",
+        "cycles",
+        "instructions",
+        "dram_reads",
+        "dram_writes",
+        # l2 stats
+        "l2_accesses",
+        "l2_reads",
+        "l2_writes",
+    ]
+
+    if nvprof:
+        stat_cols += [
             "l2_read_hit_rate",
-            "l2_read_hits",
-            "l2_writes",
-            "l2_write_hits",
             "l2_write_hit_rate",
+            "l2_read_hits",
+            "l2_write_hits",
             # "l2_hits",
             # "l2_misses",
             # l1 stats
@@ -194,7 +224,16 @@ def view(path, bench_name):
             # "l1_hits",
             # "l1_misses",
         ]
-    ]
+    else:
+        stat_cols += [
+            "l2_hits",
+            "l2_misses",
+            "l2_hit_rate",
+            # "l2_miss_rate",
+            "l1_hit_rate",
+        ]
+
+    per_target = per_target[stat_cols]
     print(per_target.T.to_string())
     # print(per_target.T.head(n=100))
 
@@ -206,9 +245,10 @@ def view(path, bench_name):
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--input", "input_idx", type=int, help="Input index")
 @click.option("--limit", "limit", type=int, help="Limit number of benchmark configs generated")
-@click.option("--verbose", "verbose", type=bool, help="verbose output")
+@click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
+@click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
 @click.option("--out", "output_path", help="Output path for combined stats")
-def generate(path, config_path, bench_name, input_idx, limit, verbose, output_path):
+def generate(path, config_path, bench_name, input_idx, limit, verbose, output_path, nvprof):
     from pprint import pprint
     import wasabi
 
@@ -244,10 +284,15 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
         target = bench_config["target"]
         input_idx = bench_config["input_idx"]
         input_values = bench_config["values"]
+        target_name = f"[{target}]"
 
         match target.lower():
+            case "profile" if nvprof:
+                bench_stats = native.NvprofStats(config, bench_config)
+                target_name += "[nvprof]"
             case "profile":
                 bench_stats = native.NsightStats(config, bench_config)
+                target_name += "[nsight]"
             case "simulate":
                 if bench_config["values"]["mode"] != "serial":
                     continue
@@ -260,7 +305,7 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
                 print(f"WARNING: {name} has unknown target {other}")
                 continue
 
-        print(f" ===> [{target}] \t\t {name}@{input_idx} \t\t {input_values}")
+        print(f" ===> {target_name} \t\t {name}@{input_idx} \t\t {input_values}")
 
         values = pd.DataFrame.from_records([bench_config["values"]])
         values.columns = ["input_" + c for c in values.columns]

@@ -29,6 +29,7 @@ class Stats(stats.Stats):
         self.load_raw_stats()
 
         self.compute_result_df()
+        print(self.result_df[["kernel_name", "kernel_name_mangled", "kernel_function_signature"]].drop_duplicates())
 
         # add the input configs
 
@@ -44,9 +45,9 @@ class Stats(stats.Stats):
             # l2_cache_global_write_total == l2_cache_GLOBAL_ACC_W_TOTAL_ACCESS
             # l2_cache_global_read_total == l2_cache_GLOBAL_ACC_R_TOTAL_ACCESS
             # print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], ["HIT", "MISS", "SECTOR_MISS"]))
-            print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], stats.ACCESS_STATUSES))
-            print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], stats.ACCESS_STATUSES).sum().sum())
-            print(self.raw_stats_df["l2_cache_global_write_total"])
+            # print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], stats.ACCESS_STATUSES))
+            # print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], stats.ACCESS_STATUSES).sum().sum())
+            # print(self.raw_stats_df["l2_cache_global_write_total"])
             assert (
                 self._get_raw_l2_stats(["GLOBAL_ACC_W"], ["HIT", "HIT_RESERVED", "MISS", "SECTOR_MISS"]).sum().sum()
                 == self.raw_stats_df["l2_cache_global_write_total"].sum()
@@ -87,10 +88,13 @@ class Stats(stats.Stats):
                 index=["kernel", "kernel_id"],
                 columns=["stat"],
             )["value"]
+            # print(raw_stats_df)
             # only keep the final kernel info
-            raw_stats_df = raw_stats_df.loc["final_kernel", 0].reset_index()
-            raw_stats_df.columns = ["stat", "value"]
-            raw_stats_df = raw_stats_df.set_index("stat").T
+            # raw_stats_df = raw_stats_df.loc["final_kernel", 0].reset_index()
+            raw_stats_df = raw_stats_df.reset_index()
+            # print(raw_stats_df)
+            # raw_stats_df.columns = ["stat", "value"]
+            # raw_stats_df = raw_stats_df.set_index("stat").T
 
             raw_stats_dfs.append(raw_stats_df)
 
