@@ -87,5 +87,15 @@ cuda-driver-sys = { version = "0", optional = true }
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0"
 
+# this does not help unfortunately
+# [profile.dev.package.serde_yaml]
+# opt-level = 3
+#
+# [profile.dev.package.serde]
+# opt-level = 3
+#
+# [profile.dev.package.serde_json]
+# opt-level = 3
+
 [dev-dependencies]
 pretty_assertions_sorted = "1"

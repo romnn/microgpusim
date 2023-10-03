@@ -5,6 +5,7 @@ use crate::{
     RunError,
 };
 use color_eyre::{eyre, Help};
+use std::time::Duration;
 use utils::fs::create_dirs;
 
 pub async fn trace(
@@ -12,7 +13,7 @@ pub async fn trace(
     options: &Options,
     _trace_options: &options::Trace,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::Trace {
         ref traces_dir,
         save_json,
@@ -64,5 +65,5 @@ pub async fn trace(
     let trace_dur_file = traces_dir.join("trace_time.json");
     serde_json::to_writer_pretty(open_writable(trace_dur_file)?, &dur.as_millis())
         .map_err(eyre::Report::from)?;
-    Ok(())
+    Ok(dur)
 }

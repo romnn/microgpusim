@@ -48,7 +48,7 @@ pub async fn trace(
     options: &Options,
     _trace_opts: &options::AccelsimTrace,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::AccelsimTrace { ref traces_dir, .. } = bench.target_config else {
         unreachable!();
     };
@@ -73,7 +73,7 @@ pub async fn trace(
     // convert accelsim traces to JSON for us to easily inspect
     let mem_only = false;
     convert_traces_to_json(traces_dir, &kernelslist, mem_only)?;
-    Ok(())
+    Ok(dur)
 }
 
 impl From<materialized::config::AccelsimSimConfigFiles> for accelsim::SimConfig {
@@ -141,7 +141,7 @@ pub async fn simulate(
     options: &Options,
     _sim_options: &options::AccelsimSim,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::AccelsimSimulate { ref stats_dir, .. } = bench.target_config else {
         unreachable!();
     };
@@ -155,30 +155,19 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
+    let mut total_dur = Duration::ZERO;
     for repetition in 0..bench.common.repetitions {
         let (output, dur) = simulate_bench_config(bench).await?;
-        // let profile = if accelsim_sim::is_debug() {
-        //     "debug"
-        // } else {
-        //     "release"
-        // };
-
-        process_stats(
-            output.stdout,
-            &dur,
-            stats_dir,
-            // profile,
-            repetition,
-        )?;
+        total_dur += dur;
+        process_stats(output.stdout, &dur, stats_dir, repetition)?;
     }
-    Ok(())
+    Ok(total_dur)
 }
 
 pub fn process_stats(
     log: impl AsRef<Vec<u8>>,
     dur: &Duration,
     stats_dir: &Path,
-    // profile: &str,
     repetition: usize,
 ) -> Result<(), RunError> {
     // parse stats
@@ -200,22 +189,17 @@ pub fn process_stats(
         stats.iter().collect::<Vec<_>>(),
     )?;
 
-    let mut converted_stats: stats::Stats = stats.try_into()?;
-    converted_stats.sim.elapsed_millis = dur.as_millis();
+    let mut per_kernel_stats: stats::PerKernel = stats.try_into()?;
 
-    // cannot report per kernel for now..
-    let per_kernel_stats = vec![converted_stats];
-    // dbg!(&converted_stats);
-    crate::stats::write_stats_as_csv(stats_dir, &per_kernel_stats, repetition)?;
+    let num_kernels = per_kernel_stats.as_ref().len();
+    let per_kernel_dur = dur.as_millis() / num_kernels as u128;
+    for kernel_stats in per_kernel_stats.as_mut().iter_mut() {
+        kernel_stats.sim.elapsed_millis = per_kernel_dur;
+    }
 
-    // accelsim_sim::is_debug()
-    // #[cfg(debug_assertions)]
-    // let exec_time_file_path = stats_dir.join(format!("exec_time.debug.{repetition}.json"));
-    // #[cfg(not(debug_assertions))]
-    // let exec_time_file_path = stats_dir.join(format!("exec_time.release.{repetition}.json"));
+    // todo: how to handle this?
+    // converted_stats.sim.elapsed_millis = dur.as_millis();
 
-    // let exec_time_file_path = stats_dir.join(format!("exec_time.{profile}.{repetition}.json"));
-    // serde_json::to_writer_pretty(open_writable(exec_time_file_path)?, &dur.as_millis())
-    //     .map_err(eyre::Report::from)?;
+    crate::stats::write_stats_as_csv(stats_dir, per_kernel_stats.as_ref(), repetition)?;
     Ok(())
 }

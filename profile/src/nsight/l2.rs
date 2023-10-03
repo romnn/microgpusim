@@ -1,52 +1,53 @@
 use super::metrics::Float;
 use crate::Metric;
 
+/// A L2 cache slice (sub-partition).
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct LTS {
-    #[serde(rename = "lts__request_tex_atomic_sectors_global_atom_utilization_pct")]
-    pub lts_request_tex_atomic_sectors_global_atom_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_atomic_sectors_surface_atom_utilization_pct")]
-    pub lts_request_tex_atomic_sectors_surface_atom_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_read_sectors_global_ld_cached_utilization_pct")]
-    pub lts_request_tex_read_sectors_global_ld_cached_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_read_sectors_global_ld_uncached_utilization_pct")]
-    pub lts_request_tex_read_sectors_global_ld_uncached_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_read_sectors_local_ld_cached_utilization_pct")]
-    pub lts_request_tex_read_sectors_local_ld_cached_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_read_sectors_local_ld_uncached_utilization_pct")]
-    pub lts_request_tex_read_sectors_local_ld_uncached_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_read_sectors_surface_ld_utilization_pct")]
-    pub lts_request_tex_read_sectors_surface_ld_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_write_sectors_global_nonatom_utilization_pct")]
-    pub lts_request_tex_write_sectors_global_nonatom_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_write_sectors_global_red_utilization_pct")]
-    pub lts_request_tex_write_sectors_global_red_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_write_sectors_local_st_utilization_pct")]
-    pub lts_request_tex_write_sectors_local_st_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_write_sectors_surface_nonatom_utilization_pct")]
-    pub lts_request_tex_write_sectors_surface_nonatom_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_tex_write_sectors_surface_red_utilization_pct")]
-    pub lts_request_tex_write_sectors_surface_red_utilization_pct: Option<Metric<Float>>,
-    #[serde(rename = "lts__request_total_sectors_hitrate_pct")]
-    pub lts_request_total_sectors_hitrate_pct: Option<Metric<Float>>,
+pub struct L2CacheSlice {
+    // #[serde(rename = "lts__request_tex_atomic_sectors_global_atom_utilization_pct")]
+    // pub request_tex_atomic_sectors_global_atom_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_atomic_sectors_surface_atom_utilization_pct")]
+    // pub request_tex_atomic_sectors_surface_atom_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_read_sectors_global_ld_cached_utilization_pct")]
+    // pub request_tex_read_sectors_global_ld_cached_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_read_sectors_global_ld_uncached_utilization_pct")]
+    // pub request_tex_read_sectors_global_ld_uncached_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_read_sectors_local_ld_cached_utilization_pct")]
+    // pub request_tex_read_sectors_local_ld_cached_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_read_sectors_local_ld_uncached_utilization_pct")]
+    // pub request_tex_read_sectors_local_ld_uncached_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_read_sectors_surface_ld_utilization_pct")]
+    // pub request_tex_read_sectors_surface_ld_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_write_sectors_global_nonatom_utilization_pct")]
+    // pub request_tex_write_sectors_global_nonatom_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_write_sectors_global_red_utilization_pct")]
+    // pub request_tex_write_sectors_global_red_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_write_sectors_local_st_utilization_pct")]
+    // pub request_tex_write_sectors_local_st_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_write_sectors_surface_nonatom_utilization_pct")]
+    // pub request_tex_write_sectors_surface_nonatom_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_tex_write_sectors_surface_red_utilization_pct")]
+    // pub request_tex_write_sectors_surface_red_utilization_pct: Option<Metric<Float>>,
+    // #[serde(rename = "lts__request_total_sectors_hitrate_pct")]
+    // pub request_total_sectors_hitrate_pct: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sector_op_read_hit_rate.pct")]
-    pub lts_t_sector_op_read_hit_rate_pct: Option<Metric<Float>>,
+    pub t_sector_op_read_hit_rate_pct: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sector_op_write_hit_rate.pct")]
-    pub lts_t_sector_op_write_hit_rate_pct: Option<Metric<Float>>,
+    pub t_sector_op_write_hit_rate_pct: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_read.sum")]
-    pub lts_t_sectors_srcunit_tex_op_read_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_read_sum: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_write.sum")]
-    pub lts_t_sectors_srcunit_tex_op_write_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_write_sum: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum")]
-    pub lts_t_sectors_srcunit_tex_op_read_lookup_hit_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_read_lookup_hit_sum: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_write_lookup_hit.sum")]
-    pub lts_t_sectors_srcunit_tex_op_write_lookup_hit_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_write_lookup_hit_sum: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_read.sum.per_second")]
-    pub lts_t_sectors_srcunit_tex_op_read_sum_per_second: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_read_sum_per_second: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum")]
-    pub lts_t_sectors_srcunit_tex_op_read_lookup_miss_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_read_lookup_miss_sum: Option<Metric<Float>>,
     #[serde(rename = "lts__t_sectors_srcunit_tex_op_write_lookup_miss.sum")]
-    pub lts_t_sectors_srcunit_tex_op_write_lookup_miss_sum: Option<Metric<Float>>,
+    pub t_sectors_srcunit_tex_op_write_lookup_miss_sum: Option<Metric<Float>>,
     /// Number of cycles the lts is busy.
     #[serde(rename = "lts__busy_cycles_avg")]
     pub busy_cycles_avg: Option<Metric<Float>>,

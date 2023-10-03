@@ -7,117 +7,110 @@ pub struct SMScheduler {
     pub active_warps_avg_per_active_cycle: Option<Metric<Float>>,
     #[serde(rename = "smsp__eligible_warps_avg_per_active_cycle")]
     pub eligible_warps_avg_per_active_cycle: Option<Metric<Float>>,
-    // begin copy
-    #[serde(rename = "smsp__inst_executed_tex_ops")]
-    pub smsp_inst_executed_tex_ops: Option<Metric<Float>>,
     #[serde(rename = "smsp__inst_issued0_active_per_active_cycle_pct")]
-    pub smsp_inst_issued0_active_per_active_cycle_pct: Option<Metric<Float>>,
+    pub inst_issued0_active_per_active_cycle_pct: Option<Metric<Float>>,
     #[serde(rename = "smsp__inst_issued_avg")]
-    pub smsp_inst_issued_avg: Option<Metric<Float>>,
+    pub inst_issued_avg: Option<Metric<Float>>,
     #[serde(rename = "smsp__inst_issued_per_issue_active")]
-    pub smsp_inst_issued_per_issue_active: Option<Metric<Float>>,
+    pub inst_issued_per_issue_active: Option<Metric<Float>>,
     #[serde(rename = "smsp__inst_issued_sum")]
-    pub smsp_inst_issued_sum: Option<Metric<Float>>,
+    pub inst_issued_sum: Option<Metric<Float>>,
     #[serde(rename = "smsp__issue_active_avg_per_active_cycle")]
-    pub smsp_issue_active_avg_per_active_cycle: Option<Metric<Float>>,
+    pub issue_active_avg_per_active_cycle: Option<Metric<Float>>,
     #[serde(rename = "smsp__issue_active_per_active_cycle_pct")]
-    pub smsp_issue_active_per_active_cycle_pct: Option<Metric<Float>>,
+    pub issue_active_per_active_cycle_pct: Option<Metric<Float>>,
     #[serde(rename = "smsp__maximum_warps_avg_per_active_cycle")]
     pub maximum_warps_avg_per_active_cycle: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_aggregated_passes")]
-    pub smsp_pcsamp_aggregated_passes: Option<Metric<Float>>,
+    pub pcsamp_aggregated_passes: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_buffer_size_bytes")]
-    pub smsp_pcsamp_buffer_size_bytes: Option<Metric<Float>>,
+    pub pcsamp_buffer_size_bytes: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_dropped_bytes")]
-    pub smsp_pcsamp_dropped_bytes: Option<Metric<Float>>,
+    pub pcsamp_dropped_bytes: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_interval")]
-    pub smsp_pcsamp_interval: Option<Metric<Float>>,
+    pub pcsamp_interval: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_interval_cycles")]
-    pub smsp_pcsamp_interval_cycles: Option<Metric<Float>>,
+    pub pcsamp_interval_cycles: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_allocation_stall")]
-    pub smsp_pcsamp_warp_stall_allocation_stall: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_allocation_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_barrier")]
-    pub smsp_pcsamp_warp_stall_barrier: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_barrier: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_dispatch_stall")]
-    pub smsp_pcsamp_warp_stall_dispatch_stall: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_dispatch_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_drain")]
-    pub smsp_pcsamp_warp_stall_drain: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_drain: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_imc_miss")]
-    pub smsp_pcsamp_warp_stall_imc_miss: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_imc_miss: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_long_scoreboard")]
-    pub smsp_pcsamp_warp_stall_long_scoreboard: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_long_scoreboard: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_math_pipe_throttle")]
-    pub smsp_pcsamp_warp_stall_math_pipe_throttle: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_math_pipe_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_membar")]
-    pub smsp_pcsamp_warp_stall_membar: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_membar: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_mio_throttle")]
-    pub smsp_pcsamp_warp_stall_mio_throttle: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_mio_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_misc")]
-    pub smsp_pcsamp_warp_stall_misc: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_misc: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_no_instructions")]
-    pub smsp_pcsamp_warp_stall_no_instructions: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_no_instructions: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_not_selected")]
-    pub smsp_pcsamp_warp_stall_not_selected: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_not_selected: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_selected")]
-    pub smsp_pcsamp_warp_stall_selected: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_selected: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_short_scoreboard")]
-    pub smsp_pcsamp_warp_stall_short_scoreboard: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_short_scoreboard: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_tex_throttle")]
-    pub smsp_pcsamp_warp_stall_tex_throttle: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_tex_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_tile_allocation_stall")]
-    pub smsp_pcsamp_warp_stall_tile_allocation_stall: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_tile_allocation_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__pcsamp_warp_stall_wait")]
-    pub smsp_pcsamp_warp_stall_wait: Option<Metric<Float>>,
-    #[serde(rename = "smsp__thread_inst_executed_not_pred_off_per_inst_executed")]
-    pub smsp_thread_inst_executed_not_pred_off_per_inst_executed: Option<Metric<Float>>,
-    #[serde(rename = "smsp__thread_inst_executed_per_inst_executed")]
-    pub smsp_thread_inst_executed_per_inst_executed: Option<Metric<Float>>,
+    pub pcsamp_warp_stall_wait: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_inst_executed")]
-    pub smsp_warp_cycles_per_inst_executed: Option<Metric<Float>>,
+    pub warp_cycles_per_inst_executed: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_inst_issued")]
-    pub smsp_warp_cycles_per_inst_issued: Option<Metric<Float>>,
+    pub warp_cycles_per_inst_issued: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_active")]
-    pub smsp_warp_cycles_per_issue_active: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_active: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_allocation_stall")]
-    pub smsp_warp_cycles_per_issue_stall_allocation_stall: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_allocation_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_barrier")]
-    pub smsp_warp_cycles_per_issue_stall_barrier: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_barrier: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_dispatch_stall")]
-    pub smsp_warp_cycles_per_issue_stall_dispatch_stall: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_dispatch_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_drain")]
-    pub smsp_warp_cycles_per_issue_stall_drain: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_drain: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_imc_miss")]
-    pub smsp_warp_cycles_per_issue_stall_imc_miss: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_imc_miss: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_long_scoreboard")]
-    pub smsp_warp_cycles_per_issue_stall_long_scoreboard: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_long_scoreboard: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_math_pipe_throttle")]
-    pub smsp_warp_cycles_per_issue_stall_math_pipe_throttle: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_math_pipe_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_membar")]
-    pub smsp_warp_cycles_per_issue_stall_membar: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_membar: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_mio_throttle")]
-    pub smsp_warp_cycles_per_issue_stall_mio_throttle: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_mio_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_misc")]
-    pub smsp_warp_cycles_per_issue_stall_misc: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_misc: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_no_instructions")]
-    pub smsp_warp_cycles_per_issue_stall_no_instructions: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_no_instructions: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_not_selected")]
-    pub smsp_warp_cycles_per_issue_stall_not_selected: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_not_selected: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_selected")]
-    pub smsp_warp_cycles_per_issue_stall_selected: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_selected: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_short_scoreboard")]
-    pub smsp_warp_cycles_per_issue_stall_short_scoreboard: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_short_scoreboard: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_tex_throttle")]
-    pub smsp_warp_cycles_per_issue_stall_tex_throttle: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_tex_throttle: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_tile_allocation_stall")]
-    pub smsp_warp_cycles_per_issue_stall_tile_allocation_stall: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_tile_allocation_stall: Option<Metric<Float>>,
     #[serde(rename = "smsp__warp_cycles_per_issue_stall_wait")]
-    pub smsp_warp_cycles_per_issue_stall_wait: Option<Metric<Float>>,
+    pub warp_cycles_per_issue_stall_wait: Option<Metric<Float>>,
     #[serde(rename = "smsp__warps_per_cycle_max")]
-    pub smsp_warps_per_cycle_max: Option<Metric<Float>>,
+    pub warps_per_cycle_max: Option<Metric<Float>>,
     #[serde(rename = "smsp__thread_inst_executed_per_inst_executed.ratio")]
-    pub smsp_thread_inst_executed_per_inst_executed_ratio: Option<Metric<Float>>,
+    pub thread_inst_executed_per_inst_executed_ratio: Option<Metric<Float>>,
     #[serde(rename = "smsp__cycles_active.avg.pct_of_peak_sustained_elapsed")]
-    pub smsp_cycles_active_avg_pct_of_peak_sustained_elapsed: Option<Metric<Float>>,
+    pub cycles_active_avg_pct_of_peak_sustained_elapsed: Option<Metric<Float>>,
     /// The average number of instructions executed by a SM scheduler.
     #[serde(rename = "smsp__inst_executed_avg")]
     pub inst_executed_avg: Option<Metric<Float>>,

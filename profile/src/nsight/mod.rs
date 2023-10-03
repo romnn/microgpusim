@@ -1,5 +1,9 @@
-mod lts;
+mod device;
+mod dram;
+mod l1_tex;
+mod l2;
 mod metrics;
+mod profiler;
 mod scheduler;
 mod sm;
 mod tex;
@@ -100,7 +104,7 @@ where
         }
 
         // this is kind of hacky..
-        let serialized = serde_json::to_string(&metrics)?;
+        let serialized = serde_json::to_string_pretty(&metrics)?;
         let deser = &mut serde_json::Deserializer::from_str(&serialized);
         let metrics: M = serde_path_to_error::deserialize(deser).map_err(|source| {
             let path = source.path().clone();
@@ -116,7 +120,7 @@ where
     Ok(entries)
 }
 
-pub const NSIGHT_METRICS: [&str; 84] = [
+pub const NSIGHT_METRICS: [&str; 113] = [
     // nsight compute for compute <7.0
     "gpu__time_duration",
     "smsp__inst_executed_per_warp",
@@ -128,18 +132,59 @@ pub const NSIGHT_METRICS: [&str; 84] = [
     "sm__inst_issued_sum",
     "sm__inst_executed_sum",
     "sm__inst_executed_avg",
+    // dram reads
     "dram__read_sectors",
+    // dram writes
     "dram__write_sectors",
+    // l2 total accesses
     "lts__request_tex_sectors",
+    // l2 reads
     "lts__request_tex_read_sectors",
+    // l2 writes
     "lts__request_tex_write_sectors",
+    // l2 hit rate
+    "lts__request_total_sectors_hitrate_pct",
+    // l1 TAG hits
     "tex__t_sectors_hit_global_ld_cached",
     "tex__t_sectors_hit_local_ld_cached",
+    // l1 TAG misses
     "tex__t_sectors_miss_global_ld_cached",
     "tex__t_sectors_miss_global_ld_uncached",
     "tex__t_sectors_miss_local_ld_cached",
     "tex__t_sectors_miss_local_ld_uncached",
     "tex__t_sectors_miss_surface_ld",
+    // l1 MISS writes
+    "tex__m_wr_sectors_atom_red",
+    "tex__m_wr_sectors_global_atom",
+    "tex__m_wr_sectors_global_nonatom",
+    "tex__m_wr_sectors_global_red",
+    "tex__m_wr_sectors_local_st",
+    "tex__m_wr_sectors_surface_atom",
+    "tex__m_wr_sectors_surface_nonatom",
+    "tex__m_wr_sectors_surface_red",
+    // l1 MISS reads
+    "tex__m_rd_sectors_miss_surface_ld",
+    "tex__m_rd_sectors_miss_surface_ld_pct",
+    "tex__m_rd_sectors_miss_local_ld_uncached_pct",
+    "tex__m_rd_sectors_miss_local_ld_uncached",
+    "tex__m_rd_sectors_miss_local_ld_cached_pct",
+    "tex__m_rd_sectors_miss_local_ld_cached",
+    "tex__m_rd_sectors_miss_global_ld_uncached_pct",
+    "tex__m_rd_sectors_miss_global_ld_uncached",
+    "tex__m_rd_sectors_miss_global_ld_cached_pct",
+    "tex__m_rd_sectors_miss_global_ld_cached",
+    // l1 global hitrate
+    "tex__hitrate_pct",
+    // bytes
+    "tex__t_bytes_miss_global_ld",
+    "tex__t_bytes_miss_global_ld_cached",
+    "tex__t_bytes_miss_global_ld_uncached",
+    "tex__t_bytes_miss_local_ld",
+    "tex__t_bytes_miss_local_ld_cached",
+    "tex__t_bytes_miss_local_ld_uncached",
+    "tex__t_bytes_miss_surface_ld",
+    "tex__t_bytes_miss_surface_ld_cached",
+    "tex__t_bytes_miss_surface_ld_uncached",
     // nsight compute for compute 7.0+
     "gpc__cycles_elapsed.avg",
     "l1tex__t_sectors_pipe_lsu_mem_global_op_ld_lookup_hit.sum",

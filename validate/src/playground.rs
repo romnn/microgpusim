@@ -119,7 +119,7 @@ pub async fn simulate(
     options: &Options,
     _sim_options: &options::PlaygroundSim,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::PlaygroundSimulate { ref stats_dir, .. } = bench.target_config
     else {
         unreachable!();
@@ -141,6 +141,7 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
+    let mut total_dur = Duration::ZERO;
     for repetition in 0..bench.common.repetitions {
         let accelsim_compat_mode = true;
         let extra_args = vec!["-gpgpu_perf_sim_memcpy", "0"];
@@ -157,6 +158,7 @@ pub async fn simulate(
         .await
         .unwrap()?;
 
+        total_dur += dur;
         let mut converted_stats: stats::Stats = stats.into();
         converted_stats.sim.elapsed_millis = dur.as_millis();
         converted_stats.sim.is_release_build = playground::is_debug();
@@ -184,5 +186,5 @@ pub async fn simulate(
             repetition,
         )?;
     }
-    Ok(())
+    Ok(total_dur)
 }

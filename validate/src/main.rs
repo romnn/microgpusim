@@ -55,7 +55,7 @@ async fn run_make(
     bench: &BenchmarkConfig,
     options: &Options,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), validate::RunError> {
+) -> Result<Duration, validate::RunError> {
     if let Command::Build(_) = options.command {
         if !options.force && bench.executable.is_file() {
             return Err(validate::RunError::Skipped);
@@ -75,27 +75,30 @@ async fn run_make(
         cmd.arg("clean");
     }
     log::debug!("{:?}", &cmd);
+    let start = Instant::now();
     let result = cmd.output().await.map_err(eyre::Report::from)?;
     if !result.status.success() {
         return Err(validate::RunError::Failed(
             utils::CommandError::new(&cmd, result).into_eyre(),
         ));
     }
-    Ok(())
+    Ok(start.elapsed())
 }
+
+use std::time::Duration;
 
 async fn run_benchmark(
     command: &Command,
     bench: BenchmarkConfig,
     options: &Options,
     bar: &ProgressBar,
-) -> Result<(), validate::RunError> {
+) -> Result<Duration, validate::RunError> {
     bar.set_message(bench.name.clone());
     match command {
         Command::Full(ref _opts) => unreachable!(),
         Command::Expand(ref _opts) => {
             // println!("{:#?}", &bench);
-            Ok(())
+            Ok(Duration::ZERO)
         }
         Command::Profile(ref opts) => {
             validate::profile::profile(&bench, options, opts, bar).await
@@ -194,8 +197,8 @@ fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
 fn print_benchmark_result(
     command: &Command,
     bench_config: &BenchmarkConfig,
-    result: Option<&Error>,
-    elapsed: std::time::Duration,
+    result: Result<&Duration, &Error>,
+    approx_elapsed: std::time::Duration,
     bar: &ProgressBar,
     _options: &Options,
 ) {
@@ -209,7 +212,15 @@ fn print_benchmark_result(
     let op = match command {
         Command::Profile(opts) => format!(
             "profiling[{}]",
-            if opts.use_nvprof { "nvprof" } else { "nsight" }
+            match (
+                opts.use_nvprof.unwrap_or(true),
+                opts.use_nsight.unwrap_or(true)
+            ) {
+                (true, true) => "nvprof+nsight",
+                (true, false) => "nvprof",
+                (false, true) => "nsight",
+                (false, false) => "",
+            }
         ),
         Command::Trace(_) => format!(
             "tracing [gpucachesim][{}]",
@@ -241,13 +252,16 @@ fn print_benchmark_result(
         |cwd| bench_config.executable.relative_to(cwd),
     );
     let (color, status) = match result {
-        None => (Style::new().green(), format!("succeeded in {elapsed:?}")),
-        Some(Error::Canceled(_)) => (Style::new().color256(0), "canceled".to_string()),
-        Some(Error::Skipped(_)) => (
+        Ok(precise_elapsed) => (
+            Style::new().green(),
+            format!("succeeded in {precise_elapsed:?}"),
+        ),
+        Err(Error::Canceled(_)) => (Style::new().color256(0), "canceled".to_string()),
+        Err(Error::Skipped(_)) => (
             Style::new().yellow(),
             "skipped (already exists)".to_string(),
         ),
-        Some(Error::Failed { source, .. }) => {
+        Err(Error::Failed { source, .. }) => {
             static PREVIEW_LEN: usize = 75;
             let mut err_preview = source.to_string();
             if err_preview.len() > PREVIEW_LEN {
@@ -255,7 +269,7 @@ fn print_benchmark_result(
             }
             (
                 Style::new().red(),
-                format!("failed after {elapsed:?}: {err_preview}"),
+                format!("failed after {approx_elapsed:?}: {err_preview}"),
             )
         }
     };
@@ -504,7 +518,7 @@ async fn main() -> eyre::Result<()> {
                     print_benchmark_result(
                         &command,
                         &bench_config,
-                        res.as_ref().err(),
+                        res.as_ref(),
                         start.elapsed(),
                         &bar,
                         &options,

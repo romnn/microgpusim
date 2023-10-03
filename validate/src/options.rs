@@ -11,13 +11,13 @@ pub struct Clean {}
 #[derive(Parser, Debug, Default, Clone)]
 pub struct Profile {
     #[clap(long = "nvprof", help = "use nvprof")]
-    pub use_nvprof: bool,
+    pub use_nvprof: Option<bool>,
 
     #[clap(long = "nvprof-path", help = "path to nvprof installation")]
     pub nvprof_path: Option<PathBuf>,
 
     #[clap(long = "nsight", help = "use nsight")]
-    pub use_nsight: bool,
+    pub use_nsight: Option<bool>,
 
     #[clap(
         long = "nsight-path",

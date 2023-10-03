@@ -7,7 +7,7 @@ use color_eyre::{eyre, Help};
 pub use gpucachesim::config::{self, Parallelization};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use utils::fs::create_dirs;
 
 // #[derive(Debug, serde::Deserialize)]
@@ -185,7 +185,7 @@ pub async fn simulate(
     options: &Options,
     _sim_options: &options::Sim,
     _bar: &indicatif::ProgressBar,
-) -> Result<(), RunError> {
+) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::Simulate { ref stats_dir, .. } = bench.target_config else {
         unreachable!();
     };
@@ -200,6 +200,7 @@ pub async fn simulate(
         return Err(RunError::Skipped);
     }
 
+    let mut total_dur = Duration::ZERO;
     for repetition in 0..bench.common.repetitions {
         let bench = bench.clone();
         let (sim, dur) = tokio::task::spawn_blocking(move || {
@@ -210,10 +211,11 @@ pub async fn simulate(
         .await
         .map_err(eyre::Report::from)??;
 
+        total_dur += dur;
         let stats = sim.stats();
         process_stats(stats.as_ref(), &dur, stats_dir, repetition)?;
     }
-    Ok(())
+    Ok(total_dur)
 }
 
 pub mod exec {
@@ -225,6 +227,7 @@ pub mod exec {
     use color_eyre::{eyre, Help};
     use gpucachesim_benchmarks as benchmarks;
     use serde::Serialize;
+    use std::time::Duration;
     use utils::fs::create_dirs;
 
     pub async fn simulate(
@@ -232,7 +235,7 @@ pub mod exec {
         options: &Options,
         _sim_options: &options::Sim,
         _bar: &indicatif::ProgressBar,
-    ) -> Result<(), RunError> {
+    ) -> Result<Duration, RunError> {
         let (TargetBenchmarkConfig::Simulate { ref stats_dir, parallel, .. } | TargetBenchmarkConfig::ExecDrivenSimulate { ref stats_dir, parallel, .. }) = bench.target_config else {
             unreachable!();
         };
@@ -363,6 +366,7 @@ pub mod exec {
             println!("written {}", commands_path.display());
         }
 
+        let mut total_dur = Duration::ZERO;
         for repetition in 0..bench.common.repetitions {
             let bench = BenchmarkConfig {
                 target: Target::Simulate,
@@ -382,6 +386,7 @@ pub mod exec {
             .await
             .map_err(eyre::Report::from)??;
 
+            total_dur += dur;
             let stats = sim.stats();
             super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition)?;
         }
@@ -408,6 +413,6 @@ pub mod exec {
         //     dbg!(&stats.clone().reduce().sim);
         //     super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition)?;
         // }
-        Ok(())
+        Ok(total_dur)
     }
 }
