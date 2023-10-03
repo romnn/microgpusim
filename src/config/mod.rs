@@ -740,6 +740,8 @@ impl GPU {
                 assert!(total_shared_mem <= (*size as usize));
             }
 
+            unimplemented!("adaptive cache config")
+
             // Unified cache config is in KB. Converting to B
             // unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
             //

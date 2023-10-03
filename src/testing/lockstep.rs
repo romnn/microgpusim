@@ -432,6 +432,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
     box_config.fill_l2_on_memcopy = false;
+    box_config.flush_l1_cache = false;
+    box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;
     crate::init_deadlock_detector();
     let mut box_sim = crate::config::GTX1080::new(Arc::new(box_config));

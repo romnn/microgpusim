@@ -66,7 +66,7 @@ async fn validate_playground_accelsim_compat(
     // dbg!(&playground_stats);
 
     let filter_func =
-        |((_name, _kernel, stat_name), _value): &((String, u16, String), f64)| -> bool {
+        |((_name, _kernel, stat_name), _value): &((String, usize, String), f64)| -> bool {
             // we ignore rates and other stats that can vary per run
             !matches!(
                 stat_name.as_str(),

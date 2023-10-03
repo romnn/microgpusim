@@ -11,9 +11,6 @@ impl TextureL1 {
         Self { id, interconn }
     }
 
-    // pub fn new(name: String) -> Self {
-    //     Self { name }
-    // }
     pub fn cycle(&mut self) {}
 
     pub fn fill(&self, fetch: &mem_fetch::MemFetch) {}

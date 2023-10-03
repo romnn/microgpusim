@@ -21,17 +21,16 @@ use trace_model::ToBitString;
 // Volta max shmem size is 96kB
 pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);
 // Volta max local mem is 16kB
-pub const LOCAL_MEM_SIZE_MAX: usize = 1 << 14;
+pub const LOCAL_MEM_SIZE_MAX: usize = 16 * (1 << 10);
 // Volta Titan V has 80 SMs
 pub const MAX_STREAMING_MULTIPROCESSORS: usize = 80;
 // Max 2048 threads / SM
-pub const MAX_THREAD_PER_SM: usize = 1 << 11;
+pub const MAX_THREAD_PER_SM: usize = 2048;
 // MAX 64 warps / SM
-pub const MAX_WARP_PER_SM: usize = 1 << 6;
+pub const MAX_WARP_PER_SM: usize = 64;
 
 // todo: is this generic enough?
-// Set a hard limit of 32 CTAs per shader (cuda only has 8)
-pub const MAX_CTA_PER_SHADER: usize = 32;
+// pub const MAX_CTA_PER_SM: usize = 32;
 pub const MAX_BARRIERS_PER_CTA: usize = 16;
 
 pub const WARP_PER_CTA_MAX: usize = 64;
@@ -313,7 +312,8 @@ where
                 // Based on Nvidia Doc, at MEM barrier, we have to
                 //(1) wait for all pending writes till they are acked
                 //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
-                todo!("cache invalidate");
+                *self.need_l1_flush.lock() = true;
+                // todo!("cache invalidate");
                 // self.cache_invalidate();
                 // TO DO: you need to stall the SM for 5k cycles.
             }
@@ -454,6 +454,7 @@ pub struct Core<I> {
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub current_kernel: Mutex<Option<Arc<Kernel>>>,
+    pub current_kernel_max_blocks: usize,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
@@ -466,14 +467,16 @@ pub struct Core<I> {
     pub num_active_threads: usize,
     pub num_occupied_threads: usize,
 
-    pub max_blocks_per_shader: usize,
+    // pub max_blocks_per_shader: usize,
     pub thread_block_size: usize,
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
-    pub block_status: [usize; MAX_CTA_PER_SHADER],
+    // pub block_status: [usize; MAX_CTA_PER_SM],
+    pub block_status: Box<[usize]>,
 
     pub allocations: super::allocation::Ref,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
+    pub need_l1_flush: Mutex<bool>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<warp::Ref>,
     pub thread_state: Vec<Option<ThreadState>>,
@@ -734,6 +737,7 @@ where
             config,
             mem_controller,
             current_kernel: Mutex::new(None),
+            current_kernel_max_blocks: 0,
             last_warp_fetched: None,
             active_thread_mask: BitArray::ZERO,
             occupied_hw_thread_ids: BitArray::ZERO,
@@ -742,12 +746,13 @@ where
             num_active_warps: 0,
             num_active_threads: 0,
             num_occupied_threads: 0,
-            max_blocks_per_shader: 0,
             thread_block_size: 0,
             occupied_block_to_hw_thread_id: HashMap::new(),
-            block_status: [0; MAX_CTA_PER_SHADER],
+            // todo: add configuration option for MAX_CTA_PER_SM
+            block_status: utils::box_slice![0; 32],
             instr_l1_cache: Box::new(instr_l1_cache),
             please_fill: Mutex::new(Vec::new()),
+            need_l1_flush: Mutex::new(false),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
             mem_port,
@@ -796,13 +801,13 @@ where
             // from successive shader cores first, then by successive CTA in same
             // shader core
             let kernel_padded_threads_per_cta = self.thread_block_size;
-            let kernel_max_cta_per_shader = self.max_blocks_per_shader;
+            // let kernel_max_cta_per_sm = self.block_status.len();
 
             let temp = self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta);
             let rest = thread_id % kernel_padded_threads_per_cta;
             let thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
             let max_concurrent_threads =
-                kernel_padded_threads_per_cta * kernel_max_cta_per_shader * num_cores;
+                kernel_padded_threads_per_cta * self.current_kernel_max_blocks * num_cores;
             (thread_base, max_concurrent_threads)
         } else {
             // legacy mapping that maps the same address in the local memory
@@ -961,7 +966,6 @@ where
 
     #[tracing::instrument(name = "core_issue_block")]
     pub fn issue_block(&mut self, kernel: &Arc<Kernel>, cycle: u64) {
-        // pub fn issue_block(&mut self, kernel: &Kernel, cycle: u64) {
         log::debug!("core {:?}: issue block", self.id());
         if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
@@ -969,7 +973,8 @@ where
             unimplemented!("concurrent kernel sm");
         } else {
             // calculate the max cta count and cta size for local memory address mapping
-            self.max_blocks_per_shader = self.config.max_blocks(kernel).unwrap();
+            // self.max_blocks_per_sm = self.config.max_blocks(kernel).unwrap();
+            self.current_kernel_max_blocks = self.config.max_blocks(kernel).unwrap();
             self.thread_block_size = self.config.threads_per_block_padded(kernel);
         }
 
@@ -980,7 +985,7 @@ where
             unimplemented!("concurrent kernel sm");
             // self.config.max_concurrent_blocks_per_core
         } else {
-            self.max_blocks_per_shader
+            self.block_status.len()
         };
         log::debug!(
             "core {:?}: free block status: {:?}",
@@ -1212,7 +1217,7 @@ where
         kernel: &Option<Arc<Kernel>>,
     ) {
         let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
-        debug_assert!(block_hw_id < MAX_CTA_PER_SHADER);
+        debug_assert!(block_hw_id < self.block_status.len());
         debug_assert!(self.block_status[block_hw_id] > 0);
         self.block_status[block_hw_id] -= 1;
 
@@ -1334,7 +1339,7 @@ where
 
                     let block_hw_id = warp.block_id as usize;
                     debug_assert!(
-                        block_hw_id < MAX_CTA_PER_SHADER,
+                        block_hw_id < self.block_status.len(),
                         "block id is the hw block id for this core"
                     );
 
@@ -1892,6 +1897,17 @@ where
             self.not_completed(),
             self.load_store_unit.lock().response_fifo.len()
         );
+
+        // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
+        let need_l1_flush = {
+            let mut need_l1_flush_lock = self.need_l1_flush.lock();
+            let need_l1_flush = *need_l1_flush_lock;
+            *need_l1_flush_lock = false;
+            need_l1_flush
+        };
+        if need_l1_flush {
+            self.cache_invalidate();
+        }
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {
             match target {
