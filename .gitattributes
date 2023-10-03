@@ -4,4 +4,4 @@ playground/sys/src/ref/** linguist-vendored
 playground/sys/src/fmt/** linguist-vendored
 playground/sys/src/spdlog/** linguist-vendored
 playground/sys/src/include/** linguist-vendored
-test-apps/cuda-samples-10.2/** linguist-vendored
+test-apps/** linguist-vendored

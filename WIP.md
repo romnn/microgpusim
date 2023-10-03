@@ -51,6 +51,18 @@ A miss does not imply that all sectors in the cache line will be filled.
 
 [source](https://forums.developer.nvidia.com/t/pascal-l1-cache/49571)
 
+### Volta L1 cache
+
+The Volta L1 data cache has 128 byte cache lines divided into 4 sectors. For local and global accesses the tag stage can compare all 32 threads at a time. The tag stage can look up 4 tags per cycle resolving a maximum of 16 sectors (4 tags x 4 sectors). On miss the cache will only fetch the unique 32 byte sectors that missed. The full cache line is not automatically fetched from L2.
+
+The Maxwell/Pascal L1 data cache had similar tag stage performance but local and global instructions were broken into multiple requests prior to the tag lookup
+
+<=32-bit 8 threads/request
+64-bit 4 threads/request
+128-bit 2 threads/request
+
+[source](https://forums.developer.nvidia.com/t/pascal-l1-cache/49571/12)
+
 - today:
 
 - TODO:
