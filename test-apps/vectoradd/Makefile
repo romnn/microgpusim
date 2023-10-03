@@ -14,10 +14,10 @@
 all: vectoradd_l1_enabled vectoradd_l1_disabled
 
 vectoradd_l1_enabled:
-	nvcc -ccbin=$(CXX) -O3 -lineinfo -Xptxas="-dlcm=ca" vectoradd.cu -o vectoradd_l1_enabled
+	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -dlcm=ca" vectoradd.cu -o vectoradd_l1_enabled
 
 vectoradd_l1_disabled:
-	nvcc -ccbin=$(CXX) -O3 -lineinfo -Xptxas="-dlcm=cg" vectoradd.cu -o vectoradd_l1_disabled
+	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -dlcm=cg" vectoradd.cu -o vectoradd_l1_disabled
 
 clean:
 	rm -f vectoradd_l1_enabled

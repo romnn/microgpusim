@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Number of threads in each thread block
+const unsigned BLOCK_SIZE = 1024;
+
 #define CUDA_SAFECALL(call)                                                    \
   {                                                                            \
     call;                                                                      \
@@ -105,13 +108,24 @@ void flush_l2_cache() {
 }
 
 // CUDA kernel. Each thread takes care of one element of c
-template <typename T> __global__ void vecAdd(T *a, T *b, T *c, int n) {
+template <typename T>
+// __global__ void vecAdd(const T *__restrict__ a, T *b, T *c, int n) {
+__global__ void vecAdd(T *a, T *b, T *c, int n) {
+  // __shared__ int dummy_shared[BLOCK_SIZE * 32];
+  // dummy_shared[threadIdx.x] = a[0];
+
   // Get our global thread ID
-  int id = blockIdx.x * blockDim.x + threadIdx.x;
+  // __volatile__ size_t id = blockIdx.x * blockDim.x + threadIdx.x;
+  __volatile__ size_t id = threadIdx.x;
 
   // Make sure we do not go out of bounds
-  if (id < n)
-    c[id] = a[id] + b[id];
+  if (id < n) {
+    // __volatile__ size_t test = a[id] + b[id];
+    // printf("c[%lu] = a[%lu] + b[%lu] = %f\n", id, id, id, a[id] + b[id]);
+    // c[id] = a[id] + b[id];
+
+    c[id] = a[id] + 32.0;
+  }
 }
 
 template <typename T> int vectoradd(int n) {
@@ -151,24 +165,20 @@ template <typename T> int vectoradd(int n) {
   // Copy host vectors to device
   CUDA_SAFECALL(cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
-  // CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
+  CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
   // invalidate all caches
   // invalidate_caches();
 
-  int blockSize, gridSize;
-
-  // Number of threads in each thread block
-  blockSize = 1024;
-
   // Number of thread blocks in grid
-  gridSize = (int)ceil((float)n / blockSize);
+  unsigned gridSize = (unsigned)ceil((float)n / BLOCK_SIZE);
   printf("grid: (%d,1,1)\n", gridSize);
-  printf("threads: (%d,1,1)\n", blockSize);
+  printf("threads: (%d,1,1)\n", BLOCK_SIZE);
 
   // Execute the kernel
-  for (int i = 0; i < 3; i++) {
-    CUDA_SAFECALL((vecAdd<T><<<gridSize, blockSize>>>(d_a, d_b, d_c, n)));
+  size_t repetitions = 1;
+  for (size_t i = 0; i < repetitions; i++) {
+    CUDA_SAFECALL((vecAdd<T><<<gridSize, BLOCK_SIZE>>>(d_a, d_b, d_c, n)));
 
     // reset the result vector
     // CUDA_SAFECALL(cudaMemset(d_c, 0, bytes));
@@ -177,11 +187,11 @@ template <typename T> int vectoradd(int n) {
     // flush_l2_cache();
 
     // Copy array back to host
-    CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
+    // CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
   }
 
   // Copy array back to host
-  // CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
+  CUDA_SAFECALL(cudaMemcpy(h_c, d_c, bytes, cudaMemcpyDeviceToHost));
 
   // Sum up vector c and print result divided by n, this should equal 1 within
   // error
