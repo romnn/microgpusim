@@ -4,6 +4,7 @@ mod coverage;
 mod cuda;
 mod docs;
 mod format;
+mod purge;
 mod trace;
 mod util;
 
@@ -15,6 +16,7 @@ pub enum Command {
     Coverage(coverage::Options),
     Format(format::Options),
     Accelsim(self::accelsim::Options),
+    Purge(purge::Options),
     Trace(trace::Options),
     #[cfg(feature = "cuda")]
     Cuda(cuda::Options),
@@ -35,6 +37,7 @@ fn main() -> eyre::Result<()> {
         Command::Coverage(ref opts) => coverage::coverage(opts),
         Command::Format(opts) => format::format(opts),
         Command::Accelsim(opts) => accelsim::run(opts),
+        Command::Purge(opts) => purge::run(&opts),
         Command::Trace(opts) => trace::run(&opts),
         #[cfg(feature = "cuda")]
         Command::Cuda(opts) => cuda::run(&opts),
