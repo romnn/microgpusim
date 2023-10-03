@@ -1,16 +1,29 @@
 use super::read::BufReadLine;
 use super::stats::Stats;
-use color_eyre::eyre;
+use color_eyre::eyre::{self, WrapErr};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Options {
+    /// Aggregate stats for each named kernel
     pub per_kernel: bool,
+    /// Aggregate stats for each individual named kernel instance
     pub kernel_instance: bool,
+    /// Enable strict parsing
     pub strict: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            per_kernel: true,
+            kernel_instance: true,
+            strict: true,
+        }
+    }
 }
 
 macro_rules! stat {
@@ -148,12 +161,12 @@ pub fn parse_stats(
         stat!(
             "occupancy",
             StatKind::Aggregate,
-            r"gpu_occupancy\s*=\s*(.*)"
+            r"gpu_occupancy\s*=\s*(.*)%"
         ),
         stat!(
             "total_occupancy",
             StatKind::Aggregate,
-            r"gpu_tot_occupancy\s*=\s*(.*)"
+            r"gpu_tot_occupancy\s*=\s*(.*)%"
         ),
         // stat!(
         //     "max_total_param_size",
@@ -183,18 +196,6 @@ pub fn parse_stats(
         ("SECTOR_MISS", "sector_miss"),
         ("MSHR_HIT", "mshr_hit"),
     ];
-    // let total_access_mappings = [
-    //     ("inst_read_total", "INST_ACC_R"),
-    //     ("global_read_total", "GLOBAL_ACC_R"),
-    //     ("global_write_total", "GLOBAL_ACC_W"),
-    //     ("local_read_total", "LOCAL_ACC_R"),
-    //     ("local_write_total", "LOCAL_ACC_W"),
-    //     ("const_read_total", "CONST_ACC_R"),
-    //     ("const_write_total", "CONST_ACC_W"),
-    //     ("tex_read_total", "TEXTURE_ACC_R"),
-    //     ("l1_writeback", "L1_WRBK_ACC"),
-    //     ("l2_write_allocate_read_total", "L1_WR_ALLOC_R"),
-    // ];
 
     let mut l2_cache_stats: Vec<_> = mem_space
         .iter()
@@ -607,17 +608,17 @@ pub fn parse_stats(
         eprintln!("invalid: termination message from GPGPU-Sim not found");
     }
 
-    let mut all_named_kernels: HashSet<(String, u16)> = HashSet::new();
+    let mut all_named_kernels: HashSet<(String, usize)> = HashSet::new();
 
     let mut stat_found: HashSet<String> = HashSet::new();
 
     let mut stat_map = Stats::default();
 
     if options.per_kernel {
-        let mut current_kernel = String::new();
+        let mut current_kernel = (String::new(), 0);
         let mut last_kernel = (String::new(), 0);
         let mut raw_last: HashMap<String, f64> = HashMap::new();
-        let mut running_kcount = HashMap::new();
+        let mut running_kcount: HashMap<String, usize> = HashMap::new();
 
         let mut reader = std::io::BufReader::new(reader);
         let mut buffer = String::new();
@@ -628,70 +629,99 @@ pub fn parse_stats(
             // (only appies if we are doing kernel-by-kernel stats)
 
             if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
-                eprintln!("found max instructions - ignoring last kernel");
+                log::warn!("found max instructions - ignoring last kernel");
                 // remove
                 for stat_name in stats.keys() {
                     stat_map.remove(&(
-                        current_kernel.to_string(),
-                        running_kcount[&current_kernel],
+                        current_kernel.0.to_string(),
+                        current_kernel.1,
+                        // running_kcount[&current_kernel.0],
+                        // running_kcount[&current_kernel.0],
                         stat_name.to_string(),
                     ));
+                    assert_eq!(
+                        current_kernel.1,
+                        running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
+                    );
                 }
             }
 
-            if let Some(kernel_name) = KERNEL_NAME_REGEX
-                .captures(line)
-                .and_then(|c| c.get(1))
-                .map(|m| m.as_str().trim().to_string())
-            {
-                let last_kernel_kcount = running_kcount.get(&current_kernel).copied().unwrap_or(0);
-                last_kernel = (current_kernel, last_kernel_kcount);
-                current_kernel = kernel_name;
+            if let Some(kernel_name) = KERNEL_NAME_REGEX.captures(line).and_then(|c| c.get(1)) {
+                let kernel_name = kernel_name.as_str().trim().to_string();
+                // let last_kernel_kcount = running_kcount.get(&current_kernel).copied().unwrap_or(0);
+                last_kernel = current_kernel;
+                // last_kernel = (current_kernel, last_kernel_kcount);
 
                 if options.kernel_instance {
-                    if !running_kcount.contains_key(&current_kernel) {
-                        running_kcount.insert(current_kernel.clone(), 0);
-                    } else if let Some(c) = running_kcount.get_mut(&current_kernel) {
-                        *c += 1;
-                    }
+                    running_kcount
+                        .entry(kernel_name.clone())
+                        .and_modify(|count| *count += 1)
+                        .or_insert(0);
+                    // *count += 1;
+                    // if !running_kcount.contains_key(&current_kernel) {
+                    //     running_kcount.insert(current_kernel.clone(), 0);
+                    // } else if let Some(c) = running_kcount.get_mut(&current_kernel) {
+                    //     *c += 1;
+                    // }
                 }
 
+                current_kernel = (
+                    kernel_name.clone(),
+                    running_kcount.get(&kernel_name).copied().unwrap_or(0),
+                );
+
+                assert_eq!(
+                    current_kernel.1,
+                    running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
+                );
                 all_named_kernels.insert((
-                    current_kernel.clone(),
-                    running_kcount.get(&current_kernel).copied().unwrap_or(0),
+                    current_kernel.0.clone(),
+                    current_kernel.1,
+                    // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
                 ));
 
-                let k_count = stat_map
-                    .entry((
-                        current_kernel.to_string(),
-                        running_kcount.get(&current_kernel).copied().unwrap_or(0),
-                        "k-count".to_string(),
-                    ))
-                    .or_insert(0.0);
-                *k_count += 1.0;
+                // makes no sense when doing per kernel instance
+                if !options.kernel_instance {
+                    let k_count = stat_map
+                        .entry((
+                            current_kernel.0.clone(),
+                            current_kernel.1,
+                            // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
+                            "k-count".to_string(),
+                        ))
+                        .or_insert(0.0);
+                    *k_count += 1.0;
+                }
                 continue;
             }
 
             for (stat_name, (stat_kind, stat_regex)) in &stats {
-                if let Some(value) = stat_regex
-                    .captures(line)
-                    .and_then(|c| c.get(1))
-                    .and_then(|m| m.as_str().trim().parse::<f64>().ok())
+                if let Some(value) = stat_regex.captures(line).and_then(|c| c.get(1))
+                // .and_then(|m| m.as_str().trim().parse::<f64>().ok())
                 {
+                    let value = value.as_str().trim();
+                    let value = value.parse::<f64>().wrap_err_with(|| {
+                        eyre::eyre!("invalid value {:?} for {:?}", value, stat_name)
+                    })?;
                     stat_found.insert(stat_name.clone());
                     let key = (
-                        current_kernel.to_string(),
-                        running_kcount.get(&current_kernel).copied().unwrap_or(0),
+                        current_kernel.0.to_string(),
+                        current_kernel.1,
+                        // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
                         stat_name.to_string(),
                     );
-                    if stat_kind != &StatKind::Aggregate {
+                    assert_eq!(
+                        current_kernel.1,
+                        running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
+                    );
+
+                    if *stat_kind != StatKind::Aggregate {
                         stat_map.insert(key.clone(), value);
                     } else if stat_map.contains_key(&key) {
-                        let stat_last_kernel = raw_last.get(stat_name).copied().unwrap_or(0.0);
+                        // aggregate: compute diff with last kernel
+                        let last_kernel_stat = raw_last.get(stat_name).copied().unwrap_or(0.0);
                         raw_last.insert(stat_name.clone(), value);
-                        if let Some(v) = stat_map.get_mut(&key) {
-                            *v += value - stat_last_kernel;
-                        }
+                        stat_map[&key] += value - last_kernel_stat;
                     } else {
                         let last_kernel_key =
                             (last_kernel.0.clone(), last_kernel.1, stat_name.to_string());
@@ -737,11 +767,17 @@ pub fn parse_stats(
         }
     }
 
-    // fill in missing values
-    for (stat_name, _) in &stats {
-        stat_map
-            .entry(("final_kernel".to_string(), 0, stat_name.to_string()))
-            .or_insert(0.0);
+    // fill in default values
+    for (kernel_name, kernel_launch_id) in all_named_kernels.iter() {
+        for (stat_name, _) in &stats {
+            stat_map
+                .entry((
+                    kernel_name.clone(),
+                    *kernel_launch_id,
+                    stat_name.to_string(),
+                ))
+                .or_insert(0.0);
+        }
     }
 
     stat_map.sort_keys();
