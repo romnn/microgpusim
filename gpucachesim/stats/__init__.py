@@ -3,6 +3,7 @@ import yaml
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from pprint import pprint
 
 import gpucachesim.stats.stats as stats
 import gpucachesim.stats.native as native
@@ -136,6 +137,26 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 
     if isinstance(targets, list):
         selected_df = selected_df[selected_df["target"].isin(targets)]
+
+    # restrict inputs to fit screen
+    assert (selected_df["benchmark"] == bench_name).all()
+    if bench_name == "simple_matrixmul":
+        # m: [32, 64, 128]
+        # n: [32, 64, 128]
+        # p: [32, 64, 128]
+
+        subset = pd.DataFrame.from_records([(32, 32, 32), (128, 128, 128)], columns=["input_m", "input_n", "input_p"])
+        # print(subset.index)
+        # print(selected_df.index)
+        selected_df = selected_df.merge(subset, how="inner")
+        # selected_df = selected_df.merge(subset, on=["input_m", "input_n", "input_p"], how="inner")
+        # selected_df = selected_df.join(subset, on=["input_m", "input_n", "input_p"], how="left")
+        # subset = [(32, 32, 32), (128, 128, 128)]
+        # pprint([c for c in selected_df.columns if "input_" in c])
+        # print(selected_df[["input_m", "input_n", "input_p"]])
+        # selected_df = selected_df[selected_df[["input_m", "input_n", "input_p"]].isin(subset)]
+
+    # assert False
 
     # assert (selected_df["is_release_build"] == True).all()
 
@@ -285,6 +306,16 @@ def generate(path, config_path, bench_name, input_idx, limit, verbose, output_pa
         input_idx = bench_config["input_idx"]
         input_values = bench_config["values"]
         target_name = f"[{target}]"
+
+        # pprint(input_values)
+        if input_values.get("mode") not in ["serial", None]:
+            continue
+        if input_values.get("memory_only") not in [False, None]:
+            continue
+        if input_values.get("cores_per_cluster") not in [1, None]:
+            continue
+        if input_values.get("num_clusters") not in [20, None]:
+            continue
 
         match target.lower():
             case "profile" if nvprof:

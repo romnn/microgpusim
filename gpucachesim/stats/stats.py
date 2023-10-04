@@ -314,8 +314,11 @@ class Stats(common.Stats):
         self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"]
 
     def _compute_l2_hit_rate(self):
-        print(self.result_df[["l2_accesses", "l2_hits"]])
-        self.result_df["l2_hit_rate"] = self.result_df["l2_hits"] / self.result_df["l2_accesses"]
+        # print(self.result_df[["l2_accesses", "l2_hits"]].T)
+        hits = self.result_df["l2_hits"].fillna(0.0)
+        accesses = self.result_df["l2_accesses"].fillna(0.0)
+        # print((hits / accesses).T)
+        self.result_df["l2_hit_rate"] = (hits / accesses).fillna(0.0)
 
     def _compute_l2_miss_rate(self):
         self.result_df["l2_miss_rate"] = np.nan
@@ -373,8 +376,11 @@ class Stats(common.Stats):
         # total_reads = self.result_df["l1_data_cache_global_read_total"]
         # self.result_df["l1_hit_rate"] = (read_hits + write_hits) / (total_writes + total_reads)
 
-        print(self.result_df[["l1_accesses", "l1_hits"]])
-        self.result_df["l1_hit_rate"] = self.result_df["l1_hits"] / self.result_df["l1_accesses"]
+        # print(self.result_df[["l1_accesses", "l1_hits"]].T)
+        hits = self.result_df["l1_hits"].fillna(0.0)
+        accesses = self.result_df["l1_accesses"].fillna(0.0)
+        # print((hits/ accesses).T)
+        self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
 
     def _compute_l1_miss_rate(self):
         self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]

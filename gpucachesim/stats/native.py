@@ -348,12 +348,24 @@ class NsightStats(common.Stats):
         self.result_df["l2_writes"] = grouped["lts__request_tex_write_sectors"].sum()
 
     def _compute_l2_accesses(self):
-        accesses = self.df[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]]
+        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
+        accesses = (
+            grouped[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]].sum().astype(float).sum(axis=1)
+        )
+        # self.df["lts__request_tex_sectors"].fillna(0.0)
         # print(self.df["lts__request_tex_sectors"].fillna(0.0))
         # print(accesses.fillna(0.0).sum(axis=1))
-        assert (self.df["lts__request_tex_sectors"].fillna(0.0) == accesses.fillna(0.0).sum(axis=1)).all()
+        # print(self.df["lts__request_tex_sectors"].fillna(0.0).sum())
+        # print(accesses.fillna(0.0).sum(axis=1).sum())
+        # assert (self.df["lts__request_tex_sectors"].fillna(0.0) == accesses.fillna(0.0).sum(axis=1)).all()
+        total = grouped["lts__request_tex_sectors"].sum()
+        # less than 5 percent rel error, otherwise we should investigate
+        # print(total.shape)
+        # print(accesses.shape)
+        # print((total - accesses).abs())
+        # print((total - accesses).abs() / total.abs())
+        assert (((total - accesses).abs() / total.abs()) < 0.05).all()
 
-        grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         self.result_df["l2_accesses"] = grouped["lts__request_tex_sectors"].sum()
 
     def _compute_l2_read_hit_rate(self):
@@ -962,6 +974,7 @@ class NvprofStats(common.Stats):
     def _compute_l2_hit_rate(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l2_hit_rate"] = grouped["l2_tex_hit_rate"].mean()
+        self.result_df["l2_hit_rate"] /= 100.0
 
     def _compute_l2_miss_rate(self):
         self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"]

@@ -67,7 +67,8 @@ __global__ void mult_gpu(T const *mat_a, T const *mat_b, T *mat_c, size_t m,
   size_t i = blockIdx.y * blockDim.y + threadIdx.y;
   size_t j = blockIdx.x * blockDim.x + threadIdx.x;
 
-  printf("thread idx = (%u, %u, %u)\n", threadIdx.x, threadIdx.y, threadIdx.z);
+  // printf("thread idx = (%u, %u, %u)\n", threadIdx.x, threadIdx.y,
+  // threadIdx.z);
 
   // do not process outside the matrix.
   // do not forget the equal sign!
@@ -116,6 +117,7 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
   // run matrix multiplication on GPU
   dim3 block_size(BLOCK_DIM, BLOCK_DIM);
   printf("block=(%d, %d, %d)\n", block_size.x, block_size.y, block_size.z);
+
   size_t grid_x =
       std::ceil(static_cast<double>(p) / static_cast<double>(block_size.x));
   size_t grid_y =
@@ -152,7 +154,7 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
   // print_matrix<T>(c_cpu, m, p);
 
   // verification
-  printf("Verifying... \n");
+  printf("verifying... \n");
   bool correct = true;
   for (int mi = 0; mi < m; mi++) {
     for (int pi = 0; pi < p; pi++) {
