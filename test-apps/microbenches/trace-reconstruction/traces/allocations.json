@@ -1,0 +1,58 @@
+[
+    {
+        "device_ptr": 140186884243456,
+        "num_bytes": 2000
+    },
+    {
+        "device_ptr": 140186884245504,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884246016,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884246528,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884247040,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884247552,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884248064,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884248576,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884249088,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884249600,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884250112,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884250624,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884251136,
+        "num_bytes": 32
+    },
+    {
+        "device_ptr": 140186884251648,
+        "num_bytes": 32
+    }
+]

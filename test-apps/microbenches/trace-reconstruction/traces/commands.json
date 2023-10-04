@@ -1,0 +1,298 @@
+[
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884243456,
+            "num_bytes": 2000
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884243456,
+            "num_bytes": 2000
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884245504,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884245504,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884246016,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884246016,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884246528,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884246528,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884247040,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884247040,
+            "num_bytes": 32
+        }
+    },
+    {
+        "KernelLaunch": {
+            "mangled_name": "_Z37two_level_nested_if_imbalanced_kernelPf",
+            "unmangled_name": "two_level_nested_if_imbalanced_kernel(float*)",
+            "trace_file": "kernel-0.msgpack",
+            "id": 0,
+            "grid": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "block": {
+                "x": 32,
+                "y": 1,
+                "z": 1
+            },
+            "shared_mem_bytes": 0,
+            "num_registers": 2,
+            "binary_version": 61,
+            "stream_id": 0,
+            "shared_mem_base_addr": 140187598323712,
+            "local_mem_base_addr": 140187564769280,
+            "nvbit_version": "1.5.5"
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884247552,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884247552,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884248064,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884248064,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884248576,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884248576,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884249088,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884249088,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884249600,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884249600,
+            "num_bytes": 32
+        }
+    },
+    {
+        "KernelLaunch": {
+            "mangled_name": "_Z35two_level_nested_if_balanced_kernelPf",
+            "unmangled_name": "two_level_nested_if_balanced_kernel(float*)",
+            "trace_file": "kernel-1.msgpack",
+            "id": 1,
+            "grid": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "block": {
+                "x": 32,
+                "y": 1,
+                "z": 1
+            },
+            "shared_mem_bytes": 0,
+            "num_registers": 2,
+            "binary_version": 61,
+            "stream_id": 0,
+            "shared_mem_base_addr": 140187598323712,
+            "local_mem_base_addr": 140187564769280,
+            "nvbit_version": "1.5.5"
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884250112,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884250112,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884250624,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884250624,
+            "num_bytes": 32
+        }
+    },
+    {
+        "KernelLaunch": {
+            "mangled_name": "_Z9single_ifPf",
+            "unmangled_name": "single_if(float*)",
+            "trace_file": "kernel-2.msgpack",
+            "id": 2,
+            "grid": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "block": {
+                "x": 32,
+                "y": 1,
+                "z": 1
+            },
+            "shared_mem_bytes": 0,
+            "num_registers": 2,
+            "binary_version": 61,
+            "stream_id": 0,
+            "shared_mem_base_addr": 140187598323712,
+            "local_mem_base_addr": 140187564769280,
+            "nvbit_version": "1.5.5"
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884251136,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884251136,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemAlloc": {
+            "allocation_name": null,
+            "device_ptr": 140186884251648,
+            "num_bytes": 32
+        }
+    },
+    {
+        "MemcpyHtoD": {
+            "allocation_name": null,
+            "dest_device_addr": 140186884251648,
+            "num_bytes": 32
+        }
+    },
+    {
+        "KernelLaunch": {
+            "mangled_name": "_Z15single_for_loopPf",
+            "unmangled_name": "single_for_loop(float*)",
+            "trace_file": "kernel-3.msgpack",
+            "id": 3,
+            "grid": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "block": {
+                "x": 32,
+                "y": 1,
+                "z": 1
+            },
+            "shared_mem_bytes": 0,
+            "num_registers": 2,
+            "binary_version": 61,
+            "stream_id": 0,
+            "shared_mem_base_addr": 140187598323712,
+            "local_mem_base_addr": 140187564769280,
+            "nvbit_version": "1.5.5"
+        }
+    }
+]

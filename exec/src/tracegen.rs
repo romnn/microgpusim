@@ -416,18 +416,6 @@ impl TraceGenerator for Tracer {
             // fill remaining edges (this should be optional step)
             cfg::add_missing_control_flow_edges(&mut super_cfg);
 
-            // let super_cfg_final_reconvergence_id = super_cfg
-            //     .node_indices()
-            //     .filter_map(|idx| match super_cfg[idx] {
-            //         cfg::Node::Reconverge{id, branch_id} => Some(branch_id),
-            //         cfg::Node::Branch{..} => None,
-            //     })
-            //     .max()
-            //     .unwrap_or(0);
-            // let super_cfg_sink_node_idx = super_cfg
-            //     .find_node(&cfg::Node::Reconverge{branch_id: super_cfg_final_reconvergence_id))
-            //     .unwrap();
-
             let super_cfg_sink_node_idx = super_cfg
                 .find_node(&cfg::Node::Reconverge {
                     id: 0,

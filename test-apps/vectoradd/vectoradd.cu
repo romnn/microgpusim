@@ -115,16 +115,16 @@ __global__ void vecAdd(T *a, T *b, T *c, int n) {
   // dummy_shared[threadIdx.x] = a[0];
 
   // Get our global thread ID
+  size_t id = blockIdx.x * blockDim.x + threadIdx.x;
   // __volatile__ size_t id = blockIdx.x * blockDim.x + threadIdx.x;
-  __volatile__ size_t id = threadIdx.x;
+  // __volatile__ size_t id = threadIdx.x;
 
   // Make sure we do not go out of bounds
   if (id < n) {
     // __volatile__ size_t test = a[id] + b[id];
     // printf("c[%lu] = a[%lu] + b[%lu] = %f\n", id, id, id, a[id] + b[id]);
-    // c[id] = a[id] + b[id];
-
-    c[id] = a[id] + 32.0;
+    c[id] = a[id] + b[id];
+    // c[id] = a[id] + 32.0;
   }
 }
 
