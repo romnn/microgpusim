@@ -21,7 +21,8 @@
 // const static size_t SHMEM_SIZE_BYTES = 0xC000;
 // const static size_t NUM_LOADS = (SHMEM_SIZE_BYTES / 2) / sizeof(unsigned
 // int);
-const static int NUM_LOADS = 512;
+// const static int NUM_LOADS = 512;
+const static int NUM_LOADS = 4096;
 
 __global__ void global_latency(unsigned int *my_array, int array_length,
                                int iterations, unsigned int *duration,
@@ -208,6 +209,17 @@ int main(int argc, char *argv[]) {
   //          sizeof(unsigned int) * (float)N / 1024);
   //   printf("Stride = %d element, %d byte\n", stride,
   //          stride * sizeof(unsigned int));
+
+  // The `cudaDeviceSetCacheConfig` function can be used to set preference for
+  // shared memory or L1 cache globally for all CUDA kernels in your code and
+  // even those used by Thrust.
+  // The option cudaFuncCachePreferShared prefers shared memory, that is,
+  // it sets 48 KB for shared memory and 16 KB for L1 cache.
+  //
+  // `cudaFuncCachePreferL1` prefers L1, that is, it sets 16 KB for
+  // shared memory and 48 KB for L1 cache.
+  //
+  // `cudaFuncCachePreferNone` uses the preference set for the device or thread.
 
   parametric_measure_global(size, stride, iterations);
 
