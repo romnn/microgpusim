@@ -19,6 +19,9 @@
 
 // have 96 KB shared memory, sizeof(unsigned)
 // const static size_t SHMEM_SIZE_BYTES = 0xC000;
+
+// have only 48KB shared mem because we test the 16KB L1?
+const static size_t SHMEM_SIZE_BYTES = 16 * (1 << 10);
 // const static size_t NUM_LOADS = (SHMEM_SIZE_BYTES / 2) / sizeof(unsigned
 // int);
 // const static int NUM_LOADS = 512;
@@ -30,10 +33,13 @@ __global__ void global_latency(unsigned int *my_array, int array_length,
   unsigned int start_time, end_time;
   unsigned int j = 0;
 
-  __shared__ unsigned int s_tvalue[NUM_LOADS];
-  __shared__ unsigned int s_index[NUM_LOADS];
+  // __shared__ unsigned int s_tvalue[NUM_LOADS];
+  // __shared__ unsigned int s_index[NUM_LOADS];
+  const int ITER_SIZE = SHMEM_SIZE_BYTES / sizeof(unsigned int);
+  __shared__ unsigned int s_tvalue[ITER_SIZE];
+  __shared__ unsigned int s_index[ITER_SIZE];
 
-  for (size_t k = 0; k < NUM_LOADS; k++) {
+  for (size_t k = 0; k < ITER_SIZE; k++) {
     s_index[k] = 0;
     s_tvalue[k] = 0;
   }
@@ -75,11 +81,12 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
 
   // allocate arrays on CPU
   unsigned int *h_a;
-  h_a = (unsigned int *)malloc(sizeof(unsigned int) * (N + 2));
+  h_a = (unsigned int *)malloc(sizeof(unsigned int) * iterations * (N + 2));
 
   // allocate arrays on GPU
   unsigned int *d_a;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_a, sizeof(unsigned int) * (N + 2)));
+  CUDA_SAFECALL(
+      cudaMalloc((void **)&d_a, sizeof(unsigned int) * iterations * (N + 2)));
 
   // initialize array elements on CPU with pointers into d_a
   for (size_t i = 0; i < N; i++) {
@@ -108,7 +115,6 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
       cudaMalloc((void **)&d_index, sizeof(unsigned int) * NUM_LOADS));
 
   cudaDeviceSynchronize();
-  // cudaThreadSynchronize();
   // launch kernel
   dim3 block_dim = dim3(1);
   dim3 grid_dim = dim3(1, 1, 1);
@@ -116,13 +122,11 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
   CUDA_SAFECALL((global_latency<<<grid_dim, block_dim>>>(d_a, N, iterations,
                                                          duration, d_index)));
 
-  // cudaThreadSynchronize();
   cudaDeviceSynchronize();
 
   CUDA_SAFECALL(cudaGetLastError());
 
   // copy results from GPU to CPU
-  // cudaThreadSynchronize();
   cudaDeviceSynchronize();
 
   CUDA_SAFECALL(cudaMemcpy((void *)h_timeinfo, (void *)duration,
@@ -132,7 +136,6 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
                            sizeof(unsigned int) * NUM_LOADS,
                            cudaMemcpyDeviceToHost));
 
-  // cudaThreadSynchronize();
   cudaDeviceSynchronize();
 
   for (size_t i = 0; i < NUM_LOADS; i++) {
@@ -220,6 +223,8 @@ int main(int argc, char *argv[]) {
   // shared memory and 48 KB for L1 cache.
   //
   // `cudaFuncCachePreferNone` uses the preference set for the device or thread.
+
+  cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 
   parametric_measure_global(size, stride, iterations);
 

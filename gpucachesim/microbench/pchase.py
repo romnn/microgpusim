@@ -23,6 +23,7 @@ pd.set_option("display.max_rows", 500)
 # pd.set_option("max_colwidth", 2000)
 # pd.set_option("display.expand_frame_repr", False)
 np.seterr(all="raise")
+np.set_printoptions(suppress=True)
 
 
 @click.group()
@@ -32,25 +33,189 @@ def main():
     pass
 
 
-def predict_is_hit(latencies):
-    km = KMeans(n_clusters=2, random_state=1, n_init=5)
+def predict_is_hit(latencies, fit=None):
+    km = KMeans(n_clusters=3, random_state=1, n_init=5)
     # km = KMedoids(n_clusters=2, random_state=0)
-    km.fit(latencies)
-    predicted_clusters = km.predict(latencies)
+    if fit is None:
+        km.fit(latencies)
+    else:
+        km.fit(fit)
 
-    # print(km.cluster_centers_)
-    assert km.cluster_centers_[0] != km.cluster_centers_[1]
-    hit_latency_centroid = np.min(km.cluster_centers_)
-    miss_latency_centroid = np.max(km.cluster_centers_)
-    hit_cluster_idx = 0 if km.cluster_centers_[0] < km.cluster_centers_[1] else 1
+    predicted_clusters = km.predict(latencies).ravel()
 
-    df = pd.DataFrame()
-    df["is_hit"] = pd.Series(predicted_clusters)
-    df["is_hit"] = df["is_hit"].apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
-    df["hit_latency_centroid"] = hit_latency_centroid
-    df["miss_latency_centroid"] = miss_latency_centroid
-    # df["hit_confidence"] = np.abs(km.cluster_centers_[0][0] - km.cluster_centers_[1][0])
-    # df[["is_hit", "hit_latency_centroid", "miss_latency_centroid"]] = predict_is_hit(latencies)
+    # sorted_cluster_centroids = np.sort(km.cluster_centers_)
+    cluster_centroids = km.cluster_centers_.ravel()
+    # print(cluster_centroids)
+    sorted_cluster_centroid_indices = np.argsort(cluster_centroids)
+    sorted_cluster_centroids = cluster_centroids[sorted_cluster_centroid_indices]
+    # print(sorted_cluster_centroid_indices)
+    # print(sorted_cluster_centroids)
+
+    hit_latency_centroid = sorted_cluster_centroids[0]
+    miss_latency_centroids = sorted_cluster_centroids[1:]
+    assert len(miss_latency_centroids) == len(cluster_centroids) - 1
+
+    # hit_cluster_idx = np.argmin(km.cluster_centers_)
+    # hit_latency_centroid = np.min(km.cluster_centers_)
+    # miss_latency_centroids = np.sort(np.delete(km.cluster_centers_, [hit_cluster_idx]))
+    # assert len(miss_latency_centroids) == len(km.cluster_centers_) - 1
+
+    # print(predicted_clusters)
+    # print(predicted_clusters.shape)
+    sorted_predicted_clusters = sorted_cluster_centroid_indices[predicted_clusters]
+    # print(sorted_predicted_clusters)
+    # print(sorted_predicted_clusters.shape)
+    assert sorted_predicted_clusters.shape == predicted_clusters.shape
+    # print(np.unique(predicted_clusters))
+    # print(np.unique(sorted_predicted_clusters))
+
+    # df = pd.DataFrame()
+    # df["hit_cluster"] =
+    # df["hit_cluster"] = df["is_hit"].apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
+    # df["hit_cluster"] = df["is_hit"].apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
+    # .apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
+    return pd.Series(sorted_predicted_clusters), (
+        hit_latency_centroid,
+        miss_latency_centroids,
+    )
+
+
+def compute_hits(df, force_misses=True):
+    latencies = df["latency"].to_numpy()
+    fit_latencies = latencies.copy()
+
+    if force_misses:
+        miss_latencies_df = l1_p_chase(size_bytes=2 * MB, stride_bytes=128, iters=1)
+        miss_latencies = miss_latencies_df["latency"].to_numpy()
+        fit_latencies = np.hstack([latencies, miss_latencies])
+        # fit_latencies = pd.concat([latencies, miss_latencies_df["latency"]])
+
+    latencies = np.abs(latencies)
+    fit_latencies = np.abs(fit_latencies)
+
+    latencies = latencies.reshape(-1, 1)
+    fit_latencies = fit_latencies.reshape(-1, 1)
+
+    # print("BEFORE: latency median", df["latency"].median())
+    # print("BEFORE: latency min", df["latency"].min())
+    # print("BEFORE: latency max", df["latency"].max())
+
+    bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
+    bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
+    hist, _ = np.histogram(fit_latencies, bins=bins)
+    hist_df = pd.DataFrame(hist.reshape(1, -1), columns=bin_cols).T
+    print("=== LATENCY HISTOGRAM (fitting)")
+    print(hist_df)
+    # print(hist_df / hist_df.sum())
+    print("===")
+
+    # find the top 3 bins and infer the bounds for outlier detection
+    # hist_percent = hist / np.sum(hist)
+    # valid_latency_bins = hist[hist_percent > 0.5]
+    # latency_cutoff = np.min(valid_latency_bins)
+
+    print("BEFORE: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+
+    # latency_abs_z_score = np.abs(latencies - np.median(fit_latencies))
+    # outliers = latency_abs_z_score > 1000
+    outliers = fit_latencies > 1000
+
+    num_outliers = outliers.sum()
+    print("found {} outliers ({:1.4}%)".format(num_outliers, num_outliers / len(df)))
+
+    fit_latencies[outliers] = np.amax(fit_latencies[~outliers])
+    # df.loc[outliers, "latency"] = np.nan
+    #
+    # df["latency"] = df["latency"].bfill()
+    # assert df["latency"].isnull().sum() == 0
+
+    print("AFTER: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+
+    df["hit_cluster"], (
+        hit_latency_centroid,
+        miss_latency_centroids,
+    ) = predict_is_hit(latencies, fit=fit_latencies)
+    df["is_hit"] = df["hit_cluster"] == 0
+    print(df)
+
+    print("hit_latency_centroid   = {}".format(np.array(hit_latency_centroid)))
+    print("miss_latency_centroids = {}".format(np.array(miss_latency_centroids)))
+
+    # hit_confidences = combined["hit_confidence"]
+    # hit_confidences = hit_confidences[hit_confidences > 10
+    # median_confidence = combined["hit_confidence"].mean()
+    # median_confidence = combined["hit_confidence"].mean()
+    # print(median_confidence)
+
+    # remove outliers (important)
+    # print(combined["latency"].min())
+    # print(combined["latency"].max())
+    # print(combined["latency"].mean())
+
+    # latency_z_score = np.abs(zscore(combined["latency"]))
+    # outliers = latency_z_score > 100
+
+    # print(latency_z_score.min())
+    # print(latency_z_score.max())
+    # print(combined["latency"].mean())
+    # print(combined["latency"].median())
+    # print(latency_z_score.mean())
+    # print(combined[["latency"]].drop_duplicates())
+    # print("AFTER: latency mean", df["latency"].mean())
+    # print("AFTER: latency median", df["latency"].median())
+    # print("AFTER: latency min", df["latency"].min())
+    # print("AFTER: latency max", df["latency"].max())
+
+    # z = np.abs(stats.zscore(df_diabetics["age"]))
+
+    # print(combined[["latency"]].drop_duplicates())
+
+    # latencies = combined["latency"].to_numpy().reshape(-1, 1)
+    # kmedoids = KMedoids(n_clusters=2, random_state=0)
+    # kmedoids.fit(latencies)
+
+    # dbscan = DBSCAN(eps=5.0, min_samples=20)
+    # dbscan.fit(latencies)
+    # labels = dbscan.labels_
+    # num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    # print("num clusters", num_clusters)
+    # print("outliers", (labels == -1).sum())
+    # return
+
+    # Q1 = np.percentile(combined["latency"], 49, method="midpoint")
+    # Q3 = np.percentile(combined["latency"], 50, method="midpoint")
+    # Q1 = np.percentile(combined["latency"], 1, method="linear")
+    # Q3 = np.percentile(combined["latency"], 99, method="linear")
+    # IQR = Q3 - Q1
+    # print(Q1, Q3)
+    # print(Q1, Q3, IQR)
+    #
+    # lower = Q1 - 1.5 * IQR
+    # upper = Q3 + 1.5 * IQR
+    # print(upper, lower)
+    #
+    # return
+
+    # print(combined)
+    # print(combined.index)
+
+    # lets recompute hits and misses here, now that we have more data
+    # latencies = df["latency"].to_numpy().reshape(-1, 1)
+
+    # df["n"] = n
+    # combined.append(df)
+    # combined = pd.concat(combined, ignore_index=True)
+
+    # print(np.min(latencies))
+
+    # print(np.mean(latencies))
+    # print(np.max(latencies))
+    # before = combined.copy()
+    # hit_cols = ["is_hit", "hit_latency_centroid", "miss_latency_centroid"]
+
+    # print("hit_latency_centroid   = {:10.3f}".format(hit_latency_centroid))
+    # , ",".join({:10.3f}".format(miss_latency_centroids)
+    # print("miss_latency_centroid_2 = {:10.3f}".format(miss_latency_centroid_2))
     return df
 
 
@@ -110,6 +275,191 @@ assoc           = 6
 """
 
 KB = 1024
+MB = 1024**2
+
+
+@main.command()
+# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
+# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
+def find_cache_replacement_policy():
+    """
+    Determine cache replacement policy.
+
+    As mentioned before, if the cache replacement policy is LRU, then the
+    memory access process should be periodic and all the
+    cache ways in the cache set are missed. If memory
+    access process is aperiodic, then the replacement policy
+    cannot be LRU.
+
+    Under this circumstance, we set N = C + b, s = b with a
+    considerable large k (k >> N/s) so that we can traverse
+    the array multiple times. All cache misses are from one cache set.
+    Every cache miss is caused by its former cache replacement because we
+    overflow the cache by only one cache line. We have the
+    accessed data indices thus we can reproduce the full
+    memory access process and find how the cache lines
+    are updated.
+    """
+    pass
+
+
+@main.command()
+# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
+# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
+def find_cache_sets():
+    """
+    Determine number of cache sets T.
+
+    We set s to b.
+    We then start with N = C and increase N at the granularity of b.
+    Every increment causes cache misses of a new cache set.
+    When N > C + (T − 1)b, all cache sets are missed.
+    We can then deduce T from cache miss patterns accordingly.
+    """
+    iters = 1
+    stride_bytes = 4
+    line_size_bytes = 128
+    max_sets = 10
+
+    # cache_size_bytes = 16 * KB - 2 * line_size_bytes
+    cache_size_bytes = 24 * KB - 2 * line_size_bytes
+    # cache_size_bytes = 12 * KB
+
+    combined = []
+    for n in range(cache_size_bytes, cache_size_bytes + max_sets * line_size_bytes, 32):
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=iters)
+        df["n"] = n
+        combined.append(df)
+
+    combined = pd.concat(combined, ignore_index=True)
+    combined = compute_hits(combined)
+
+    i = 0
+    for n, df in combined.groupby("n"):
+        # reindex the numeric index
+        df = df.reset_index()
+        assert df.index.start == 0
+
+        # count hits and misses
+        num_hits = df["is_hit"].sum()
+        num_misses = (~df["is_hit"]).sum()
+
+        # extract miss pattern
+        miss_pattern = df.index[df["is_hit"] == False].tolist()
+        # assert len(miss_pattern) == num_misses
+
+        human_size = humanize.naturalsize(n, binary=True)
+        print(
+            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} miss pattern={}".format(
+                i,
+                human_size,
+                n % 128,
+                num_hits,
+                num_misses,
+                miss_pattern[:10] + [".."] + miss_pattern[-10:],
+            )
+        )
+        i += 1
+
+    print(combined[combined["is_hit"] == False])
+
+
+@main.command()
+# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
+# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
+def find_cache_line_size():
+    """
+    Step 2.
+
+    Determine cache line size b. We set s to 1.
+    We begin with `N = C + 1` and increase N gradually again.
+    When `N < C + b + 1`, the numbers of cache misses are close.
+    When N is increased to `C + b + 1`, there is a sudden
+    increase on the number of cache misses, despite that
+    we only increase N by 1. Accordingly we can find b.
+    Based on the memory access patterns, we can also have
+    a general idea on the cache replacement policy.
+    """
+    iters = 1
+    cache_size_bytes = 16 * KB - 32
+    end_size_bytes = cache_size_bytes
+
+    step_bytes = 16  # 4
+    stride_bytes = 4  # 1 float
+    num_lines = 1
+    combined = []
+
+    for n in range(cache_size_bytes, end_size_bytes + num_lines * 128, step_bytes):
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=iters)
+        df["n"] = n
+        combined.append(df)
+
+    combined = pd.concat(combined, ignore_index=True)
+    combined = compute_hits(combined)
+
+    i = 0
+    for n, df in combined.groupby("n"):
+        # reset numeric index
+        df = df.reset_index()
+        assert df.index.start == 0
+
+        # count hits and misses
+        num_hits = df["is_hit"].sum()
+        num_misses = (~df["is_hit"]).sum()
+
+        # extract miss pattern
+        miss_pattern = df.index[df["is_hit"] == False].tolist()
+        # assert len(miss_pattern) == num_misses
+
+        human_size = humanize.naturalsize(n, binary=True)
+        print(
+            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} miss pattern={}..".format(
+                i,
+                human_size,
+                n % 128,
+                num_hits,
+                num_misses,
+                miss_pattern[:10],
+            )
+        )
+        i += 1
+
+    # print(combined[combined["is_hit"] == False])
+
+
+@main.command()
+# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
+# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
+# def compute_latency_n_graph(start_size, end_size):
+def latency_n_graph():
+    """
+    Compute latency-N graph.
+
+    This is not by itself sufficient to deduce cache parameters but our simulator should match
+    this behaviour.
+    """
+    cache_line_bytes = 128
+    # size_bytes = 16 * KB - cache_line_bytes
+    cache_size_bytes = 24 * KB - cache_line_bytes
+    # size_bytes = 48 * KB - cache_line_bytes
+    stride_bytes = 4
+    max_ways = 10
+
+    combined = []
+    for n in range(cache_size_bytes, cache_size_bytes + max_ways * cache_line_bytes, 16):
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=1)
+        df["n"] = n
+        combined.append(df)
+
+    combined = pd.concat(combined, ignore_index=True)
+    # print(combined)
+
+    # group by n and compute mean latency
+    # print(combined[["index"]].drop_duplicates())
+    # combined = combined[(combined["index"] * stride_bytes) > (cache_size_bytes - cache_line_bytes)]
+    grouped = combined.groupby("n")
+    mean_latency = grouped["latency"].mean().reset_index()
+    print(mean_latency)
 
 
 @main.command()
@@ -125,7 +475,6 @@ def find_cache_size(start_size, end_size):
     where all memory accesses are cache hits.
     """
 
-    # check 45KB to 50KB
     # check 1KB to 20KB
     default_range = (1 * KB, 20 * KB)
     start_size = start_size or default_range[0]
@@ -139,78 +488,6 @@ def find_cache_size(start_size, end_size):
 
     combined = pd.concat(combined, ignore_index=True)
 
-    # hit_confidences = combined["hit_confidence"]
-    # hit_confidences = hit_confidences[hit_confidences > 10
-    # median_confidence = combined["hit_confidence"].mean()
-    # median_confidence = combined["hit_confidence"].mean()
-    # print(median_confidence)
-
-    # remove outliers (important)
-    # print(combined["latency"].min())
-    # print(combined["latency"].max())
-    # print(combined["latency"].mean())
-
-    # latency_z_score = np.abs(zscore(combined["latency"]))
-    # outliers = latency_z_score > 100
-
-    # print(latency_z_score.min())
-    # print(latency_z_score.max())
-    # print(combined["latency"].mean())
-    # print(combined["latency"].median())
-    # print(latency_z_score.mean())
-    # print(combined[["latency"]].drop_duplicates())
-
-    latency_abs_z_score = np.abs(combined["latency"] - combined["latency"].mean())
-    outliers = latency_abs_z_score > 1000
-
-    num_outliers = outliers.sum()
-    print("found {} outliers ({:1.4}%)".format(num_outliers, num_outliers / len(combined)))
-    combined.loc[outliers, "latency"] = np.nan
-
-    combined["latency"] = combined["latency"].bfill()
-    assert combined["latency"].isnull().sum() == 0
-
-    # z = np.abs(stats.zscore(df_diabetics["age"]))
-
-    # print(combined[["latency"]].drop_duplicates())
-
-    # latencies = combined["latency"].to_numpy().reshape(-1, 1)
-    # kmedoids = KMedoids(n_clusters=2, random_state=0)
-    # kmedoids.fit(latencies)
-
-    # dbscan = DBSCAN(eps=5.0, min_samples=20)
-    # dbscan.fit(latencies)
-    # labels = dbscan.labels_
-    # num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    # print("num clusters", num_clusters)
-    # print("outliers", (labels == -1).sum())
-    # return
-
-    # Q1 = np.percentile(combined["latency"], 49, method="midpoint")
-    # Q3 = np.percentile(combined["latency"], 50, method="midpoint")
-    # Q1 = np.percentile(combined["latency"], 1, method="linear")
-    # Q3 = np.percentile(combined["latency"], 99, method="linear")
-    # IQR = Q3 - Q1
-    # print(Q1, Q3)
-    # print(Q1, Q3, IQR)
-    #
-    # lower = Q1 - 1.5 * IQR
-    # upper = Q3 + 1.5 * IQR
-    # print(upper, lower)
-    #
-    # return
-
-    # print(combined)
-    # print(combined.index)
-
-    # lets recompute hits and misses here, now that we have more data
-    latencies = combined["latency"].to_numpy().reshape(-1, 1)
-    # print(np.min(latencies))
-    # print(np.mean(latencies))
-    # print(np.max(latencies))
-    # before = combined.copy()
-    hit_cols = ["is_hit", "hit_latency_centroid", "miss_latency_centroid"]
-    combined[hit_cols] = predict_is_hit(latencies)
     # combined.loc[:, hit_cols] = predict_is_hit(latencies).reset_index()
     # after = combined.copy()
     # assert (before["is_hit"] != after["is_hit"]).any()
@@ -232,6 +509,8 @@ def find_cache_size(start_size, end_size):
     # bad_hits = (hit_confidence < 10) ^ (hit_confidence > 1000)
     # combined.loc[bad_hits, "is_hit"] = np.nan
     # combined["is_hit"] = combined["is_hit"].bfill()
+
+    combined = compute_hits(combined)
 
     for size, df in combined.groupby("size"):
         # print(df)
