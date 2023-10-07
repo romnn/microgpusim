@@ -8,6 +8,7 @@ from io import StringIO
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn_extra.cluster import KMedoids
 from scipy.stats import zscore
+from wasabi import color
 
 
 from gpucachesim.benchmarks import REPO_ROOT_DIR
@@ -26,230 +27,11 @@ np.seterr(all="raise")
 np.set_printoptions(suppress=True)
 
 
-@click.group()
-# @click.pass_context
-def main():
-    # ctx.ensure_object(dict)
-    pass
+"""
+Generations:
+Tesla < Fermi < Kepler < Maxwell < Pascal < Turing < Ampere < Lovelace
 
-
-def predict_is_hit(latencies, fit=None):
-    km = KMeans(n_clusters=3, random_state=1, n_init=5)
-    # km = KMedoids(n_clusters=2, random_state=0)
-    if fit is None:
-        km.fit(latencies)
-    else:
-        km.fit(fit)
-
-    predicted_clusters = km.predict(latencies).ravel()
-
-    # sorted_cluster_centroids = np.sort(km.cluster_centers_)
-    cluster_centroids = km.cluster_centers_.ravel()
-    # print(cluster_centroids)
-    sorted_cluster_centroid_indices = np.argsort(cluster_centroids)
-    sorted_cluster_centroids = cluster_centroids[sorted_cluster_centroid_indices]
-    # print(sorted_cluster_centroid_indices)
-    # print(sorted_cluster_centroids)
-
-    hit_latency_centroid = sorted_cluster_centroids[0]
-    miss_latency_centroids = sorted_cluster_centroids[1:]
-    assert len(miss_latency_centroids) == len(cluster_centroids) - 1
-
-    # hit_cluster_idx = np.argmin(km.cluster_centers_)
-    # hit_latency_centroid = np.min(km.cluster_centers_)
-    # miss_latency_centroids = np.sort(np.delete(km.cluster_centers_, [hit_cluster_idx]))
-    # assert len(miss_latency_centroids) == len(km.cluster_centers_) - 1
-
-    # print(predicted_clusters)
-    # print(predicted_clusters.shape)
-    sorted_predicted_clusters = sorted_cluster_centroid_indices[predicted_clusters]
-    # print(sorted_predicted_clusters)
-    # print(sorted_predicted_clusters.shape)
-    assert sorted_predicted_clusters.shape == predicted_clusters.shape
-    # print(np.unique(predicted_clusters))
-    # print(np.unique(sorted_predicted_clusters))
-
-    # df = pd.DataFrame()
-    # df["hit_cluster"] =
-    # df["hit_cluster"] = df["is_hit"].apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
-    # df["hit_cluster"] = df["is_hit"].apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
-    # .apply(lambda cluster_idx: cluster_idx == hit_cluster_idx)
-    return pd.Series(sorted_predicted_clusters), (
-        hit_latency_centroid,
-        miss_latency_centroids,
-    )
-
-
-def compute_hits(df, force_misses=True):
-    latencies = df["latency"].to_numpy()
-    fit_latencies = latencies.copy()
-
-    if force_misses:
-        miss_latencies_df = l1_p_chase(size_bytes=2 * MB, stride_bytes=128, iters=1)
-        miss_latencies = miss_latencies_df["latency"].to_numpy()
-        fit_latencies = np.hstack([latencies, miss_latencies])
-        # fit_latencies = pd.concat([latencies, miss_latencies_df["latency"]])
-
-    latencies = np.abs(latencies)
-    fit_latencies = np.abs(fit_latencies)
-
-    latencies = latencies.reshape(-1, 1)
-    fit_latencies = fit_latencies.reshape(-1, 1)
-
-    # print("BEFORE: latency median", df["latency"].median())
-    # print("BEFORE: latency min", df["latency"].min())
-    # print("BEFORE: latency max", df["latency"].max())
-
-    bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
-    bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
-    hist, _ = np.histogram(fit_latencies, bins=bins)
-    hist_df = pd.DataFrame(hist.reshape(1, -1), columns=bin_cols).T
-    print("=== LATENCY HISTOGRAM (fitting)")
-    print(hist_df)
-    # print(hist_df / hist_df.sum())
-    print("===")
-
-    # find the top 3 bins and infer the bounds for outlier detection
-    # hist_percent = hist / np.sum(hist)
-    # valid_latency_bins = hist[hist_percent > 0.5]
-    # latency_cutoff = np.min(valid_latency_bins)
-
-    print("BEFORE: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
-
-    # latency_abs_z_score = np.abs(latencies - np.median(fit_latencies))
-    # outliers = latency_abs_z_score > 1000
-    outliers = fit_latencies > 1000
-
-    num_outliers = outliers.sum()
-    print("found {} outliers ({:1.4}%)".format(num_outliers, num_outliers / len(df)))
-
-    fit_latencies[outliers] = np.amax(fit_latencies[~outliers])
-    # df.loc[outliers, "latency"] = np.nan
-    #
-    # df["latency"] = df["latency"].bfill()
-    # assert df["latency"].isnull().sum() == 0
-
-    print("AFTER: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
-
-    df["hit_cluster"], (
-        hit_latency_centroid,
-        miss_latency_centroids,
-    ) = predict_is_hit(latencies, fit=fit_latencies)
-    df["is_hit"] = df["hit_cluster"] == 0
-    print(df)
-
-    print("hit_latency_centroid   = {}".format(np.array(hit_latency_centroid)))
-    print("miss_latency_centroids = {}".format(np.array(miss_latency_centroids)))
-
-    # hit_confidences = combined["hit_confidence"]
-    # hit_confidences = hit_confidences[hit_confidences > 10
-    # median_confidence = combined["hit_confidence"].mean()
-    # median_confidence = combined["hit_confidence"].mean()
-    # print(median_confidence)
-
-    # remove outliers (important)
-    # print(combined["latency"].min())
-    # print(combined["latency"].max())
-    # print(combined["latency"].mean())
-
-    # latency_z_score = np.abs(zscore(combined["latency"]))
-    # outliers = latency_z_score > 100
-
-    # print(latency_z_score.min())
-    # print(latency_z_score.max())
-    # print(combined["latency"].mean())
-    # print(combined["latency"].median())
-    # print(latency_z_score.mean())
-    # print(combined[["latency"]].drop_duplicates())
-    # print("AFTER: latency mean", df["latency"].mean())
-    # print("AFTER: latency median", df["latency"].median())
-    # print("AFTER: latency min", df["latency"].min())
-    # print("AFTER: latency max", df["latency"].max())
-
-    # z = np.abs(stats.zscore(df_diabetics["age"]))
-
-    # print(combined[["latency"]].drop_duplicates())
-
-    # latencies = combined["latency"].to_numpy().reshape(-1, 1)
-    # kmedoids = KMedoids(n_clusters=2, random_state=0)
-    # kmedoids.fit(latencies)
-
-    # dbscan = DBSCAN(eps=5.0, min_samples=20)
-    # dbscan.fit(latencies)
-    # labels = dbscan.labels_
-    # num_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-    # print("num clusters", num_clusters)
-    # print("outliers", (labels == -1).sum())
-    # return
-
-    # Q1 = np.percentile(combined["latency"], 49, method="midpoint")
-    # Q3 = np.percentile(combined["latency"], 50, method="midpoint")
-    # Q1 = np.percentile(combined["latency"], 1, method="linear")
-    # Q3 = np.percentile(combined["latency"], 99, method="linear")
-    # IQR = Q3 - Q1
-    # print(Q1, Q3)
-    # print(Q1, Q3, IQR)
-    #
-    # lower = Q1 - 1.5 * IQR
-    # upper = Q3 + 1.5 * IQR
-    # print(upper, lower)
-    #
-    # return
-
-    # print(combined)
-    # print(combined.index)
-
-    # lets recompute hits and misses here, now that we have more data
-    # latencies = df["latency"].to_numpy().reshape(-1, 1)
-
-    # df["n"] = n
-    # combined.append(df)
-    # combined = pd.concat(combined, ignore_index=True)
-
-    # print(np.min(latencies))
-
-    # print(np.mean(latencies))
-    # print(np.max(latencies))
-    # before = combined.copy()
-    # hit_cols = ["is_hit", "hit_latency_centroid", "miss_latency_centroid"]
-
-    # print("hit_latency_centroid   = {:10.3f}".format(hit_latency_centroid))
-    # , ",".join({:10.3f}".format(miss_latency_centroids)
-    # print("miss_latency_centroid_2 = {:10.3f}".format(miss_latency_centroid_2))
-    return df
-
-
-def l1_p_chase(size_bytes, stride_bytes, iters):
-    cmd = [
-        str(P_CHASE_EXECUTABLE.absolute()),
-        str(int(size_bytes)),
-        str(int(stride_bytes)),
-        str(int(iters)),
-    ]
-    cmd = " ".join(cmd)
-    print(cmd)
-
-    _, stdout, stderr, _ = cmd_utils.run_cmd(
-        cmd,
-        timeout_sec=10 * 60,
-    )
-    # print("stdout:")
-    # print(stdout)
-    # print("stderr:")
-    # print(stderr)
-
-    stdout_reader = StringIO(stdout)
-    df = pd.read_csv(
-        stdout_reader,
-        header=0,
-    )
-
-    # print(df)
-    # latencies = df["latency"].to_numpy().reshape(-1, 1)
-    # df[["is_hit", "hit_latency_centroid", "miss_latency_centroid"]] = predict_is_hit(latencies)
-    # df[["is_hit", "hit_confidence"]] = predict_is_hit(latencies)
-    return df
-
+"""
 
 """
 L1D cache: 48 KB
@@ -278,6 +60,240 @@ KB = 1024
 MB = 1024**2
 
 
+@click.group()
+# @click.pass_context
+def main():
+    # ctx.ensure_object(dict)
+    pass
+
+
+def compute_dbscan_clustering(values):
+    values = np.array(values)
+    labels = DBSCAN(eps=3, min_samples=2).fit_predict(values.reshape(-1, 1))
+    # clustering_df = pd.DataFrame(
+    #     np.array([values.ravel(), labels.ravel()]).T,
+    #     columns=["latency", "cluster"],
+    # )
+    # print(clustering_df)
+    return labels
+
+
+def predict_is_hit(latencies, fit=None):
+    km = KMeans(n_clusters=3, random_state=1, n_init=5)
+    # km = KMedoids(n_clusters=2, random_state=0)
+    if fit is None:
+        km.fit(latencies)
+    else:
+        km.fit(fit)
+
+    predicted_clusters = km.predict(latencies)
+
+    cluster_centroids = km.cluster_centers_.ravel()
+    sorted_cluster_centroid_indices = np.argsort(cluster_centroids)
+    # sorted_cluster_centroid_indices = np.array([2, 0, 1])
+    sorted_cluster_centroid_indices_inv = np.argsort(sorted_cluster_centroid_indices)
+    # print(sorted_cluster_centroid_indices_inv)
+    # print(np.arange(3))
+    # print(np.arange(3)[sorted_cluster_centroid_indices[::-1]])
+    # print(np.arange(3).where(np.arange(3) == sorted_cluster_centroid_indices))
+    # sorted_cluster_centroid_new_indices = cluster_centroids.where()
+    sorted_cluster_centroids = cluster_centroids[sorted_cluster_centroid_indices]
+    # print(km.cluster_centers_)
+    # print(cluster_centroids)
+    # print(predicted_clusters)
+    #
+    # print(sorted_cluster_centroid_indices)
+    # print(sorted_cluster_centroids)
+    # print(np.sort(cluster_centroids))
+    assert (np.sort(cluster_centroids) == sorted_cluster_centroids).all()
+
+    # hit_latency_centroid = sorted_cluster_centroids[0]
+    # miss_latency_centroids = sorted_cluster_centroids[1:]
+    # assert len(miss_latency_centroids) == len(cluster_centroids) - 1
+
+    # print(predicted_clusters)
+    # sorted_predicted_clusters = np.put(
+    #     predicted_clusters,
+    #     cluster_centroid_indices * sorted_cluster_centroid_indices,
+    # )
+    sorted_predicted_clusters = sorted_cluster_centroid_indices_inv[predicted_clusters]
+    # print(sorted_predicted_clusters)
+    assert sorted_predicted_clusters.shape == predicted_clusters.shape
+
+    return pd.Series(sorted_predicted_clusters), sorted_cluster_centroids
+    # (
+    #     hit_latency_centroid,
+    #     miss_latency_centroids,
+    # )
+
+
+def compute_hits(df, force_misses=True):
+    latencies = df["latency"].to_numpy()
+    fit_latencies = latencies.copy()
+
+    if force_misses or True:
+        hit_latencies_df = l1_p_chase(size_bytes=128, stride_bytes=4, warmup=1)
+        hit_latencies = hit_latencies_df["latency"].to_numpy()
+
+        miss_latencies_df = l1_p_chase(size_bytes=512 * KB, stride_bytes=32, warmup=1)
+        miss_latencies = miss_latencies_df["latency"].to_numpy()
+
+        long_miss_latencies_df = l1_p_chase(size_bytes=2 * MB, stride_bytes=128, warmup=0)
+        long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
+
+        fit_latencies = np.hstack([latencies, hit_latencies, miss_latencies, long_miss_latencies])
+
+    latencies = np.abs(latencies)
+    fit_latencies = np.abs(fit_latencies)
+
+    latencies = latencies.reshape(-1, 1)
+    fit_latencies = fit_latencies.reshape(-1, 1)
+
+    bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
+    bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
+
+    pred_hist, _ = np.histogram(latencies, bins=bins)
+    pred_hist_df = pd.DataFrame(pred_hist.reshape(1, -1), columns=bin_cols).T
+
+    fit_hist, _ = np.histogram(fit_latencies, bins=bins)
+    fit_hist_df = pd.DataFrame(fit_hist.reshape(1, -1), columns=bin_cols).T
+
+    print("=== LATENCY HISTOGRAM (prediction)")
+    print(pred_hist_df)
+    print("")
+    print("=== LATENCY HISTOGRAM (fitting)")
+    print(fit_hist_df)
+    print("")
+
+    clustering_bins = fit_hist[bins[:-1] <= 1000.0]
+    print(clustering_bins)
+
+    # find the top 3 bins and infer the bounds for outlier detection
+    # hist_percent = hist / np.sum(hist)
+    # valid_latency_bins = hist[hist_percent > 0.5]
+    # latency_cutoff = np.min(valid_latency_bins)
+
+    print("BEFORE: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+
+    # latency_abs_z_score = np.abs(latencies - np.median(fit_latencies))
+    # outliers = latency_abs_z_score > 1000
+    outliers = fit_latencies > 1000
+
+    num_outliers = outliers.sum()
+    print("found {} outliers ({:1.4}%)".format(num_outliers, num_outliers / len(df)))
+    fit_latencies[outliers] = np.amax(fit_latencies[~outliers])
+    print("AFTER: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+
+    # df["hit_cluster"], (
+    #     hit_latency_centroid,
+    #     miss_latency_centroids,
+    # ) = predict_is_hit(latencies, fit=fit_latencies)
+    df["hit_cluster"], latency_centroids = predict_is_hit(latencies, fit=fit_latencies)
+
+    # df["is_hit"] = df["hit_cluster"] == 0
+    # df["is_miss"] = ~df["is_hit"]
+
+    print("latency_centroids = {}".format(latency_centroids))
+    # print("hit_latency_centroid   = {}".format(np.array(hit_latency_centroid)))
+    # print("miss_latency_centroids = {}".format(np.array(miss_latency_centroids)))
+    return df
+
+
+def l1_p_chase(size_bytes, stride_bytes, warmup, verbose=False):
+    cmd = [
+        str(P_CHASE_EXECUTABLE.absolute()),
+        str(int(size_bytes)),
+        str(int(stride_bytes)),
+        str(int(warmup)),
+    ]
+    cmd = " ".join(cmd)
+    print(cmd)
+
+    _, stdout, stderr, _ = cmd_utils.run_cmd(
+        cmd,
+        timeout_sec=10 * 60,
+    )
+    # print("stdout:")
+    # print(stdout)
+    # print("stderr:")
+    if verbose:
+        print(stderr)
+
+    stdout_reader = StringIO(stdout)
+    df = pd.read_csv(
+        stdout_reader,
+        header=0,
+    )
+    return df
+
+
+@main.command()
+@click.option("--warmup", "warmup", type=int, help="cache warmup")
+def find_l2_prefetch_size(warmup):
+    warmup = warmup or 0
+
+    total_l2_cache_size_bytes = 2 * MB
+    step_bytes = 100 * KB
+    start_cache_size_bytes = step_bytes
+    # start_cache_size_bytes = 800 * KB
+    end_cache_size_bytes = 8 * MB
+    # end_cache_size_bytes = 900 * KB
+    # stride_bytes = 10 * KB
+
+    # strides = [2**i for i in range(int(np.floor(np.log2(start_cache_size_bytes))))]
+    # print(strides)
+
+    combined = []
+    for n in range(start_cache_size_bytes, end_cache_size_bytes, step_bytes):
+        # compute stride that is sufficient to traverse N twice
+        num_loads = 6 * 1024
+        min_stride = np.floor(np.log2((2 * n) / (num_loads * 4)))
+        # print(2**stride)
+        # print(2**stride)
+        # stride = n / (6 * 1024 * 4)
+        stride_bytes = 2**min_stride * 4
+        print(stride_bytes)
+        rounds = float(num_loads) / (float(n) / float(stride_bytes))
+        assert rounds >= 1.0
+        # print(num_loads / (n / stride_bytes))
+
+        # stride_bytes = ((2 * n / 4) / (6 * 1024)) * 4
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=warmup)
+        df["n"] = n
+        combined.append(df)
+
+    combined = pd.concat(combined, ignore_index=True)
+    combined = compute_hits(combined)
+
+    for n, df in combined.groupby("n"):
+        # reindex the numeric index
+        df = df.reset_index()
+        assert df.index.start == 0
+
+        # count hits and misses
+        # print(df[["hit_cluster", "latency"]])
+
+        hits = df["hit_cluster"] == 1  # l1 miss & l2 hit
+        misses = df["hit_cluster"] > 1  # l1 miss & l2 miss
+
+        num_hits = hits.sum()
+        num_misses = misses.sum()
+
+        human_size = humanize.naturalsize(n, binary=True)
+        miss_rate = float(num_misses) / float(len(df))
+        hit_rate = float(num_hits) / float(len(df))
+        print(
+            "size={:>15} ({:>3.1f}%) \t\thits={:<4} ({}) misses={:<4} ({})".format(
+                human_size,
+                float(n) / float(total_l2_cache_size_bytes) * 100.0,
+                color(num_hits, fg="green", bold=True),
+                color("{:>3.1f}%".format(hit_rate * 100.0), fg="green"),
+                color(num_misses, fg="red", bold=True),
+                color("{:>3.1f}%".format(miss_rate * 100.0), fg="red"),
+            )
+        )
+
+
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
@@ -300,7 +316,213 @@ def find_cache_replacement_policy():
     memory access process and find how the cache lines
     are updated.
     """
-    pass
+    cache_size_bytes = 16 * KB
+    # cache_size_bytes = 19 * KB
+    cache_size_bytes = 24 * KB
+    cache_line_bytes = 32
+    num_total_cache_lines = cache_size_bytes / cache_line_bytes
+    num_sets = 4
+    # terminology: num ways == cache lines per set == associativity
+    # terminology: way size == num sets
+    num_ways = cache_size_bytes / (cache_line_bytes * num_sets)
+    print("num ways = {:<3}".format(num_ways))
+
+    assert cache_size_bytes == num_sets * num_ways * cache_line_bytes
+    # assert cache_lines_per_set == 128
+    # assert num_ways == 192
+
+    # size_bytes = (cache_lines_per_set + 1) * num_sets * cache_line_bytes
+    cache_size_bytes = num_sets * num_ways * cache_line_bytes
+
+    # overflow by one cache line
+    # stride_bytes = 16  # 4 * 32, so end up in the same set
+    stride_bytes = 32  # 4 * 32, so end up in the same set
+    # stride_bytes = 128  # 4 * 32, so end up in the same set
+
+    num_sets = 4
+    # num_sets = 20
+
+    combined = []
+    for set_idx in range(1, num_sets + 1):
+        n = cache_size_bytes + set_idx * num_sets * cache_line_bytes
+        # (num_ways / 2)
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1, verbose=True)
+        # df = compute_hits(df, force_misses=False)
+        df["n"] = n
+        df["set"] = set_idx
+        combined.append(df)
+
+    combined = pd.concat(combined, ignore_index=True)
+    combined = compute_hits(combined)
+
+    combined["round"] = 0
+    combined["cache_line"] = combined["index"] // cache_line_bytes
+
+    for n, df in combined.groupby("n"):
+        print("number of unique indices = {:<4}".format(len(df["index"].unique().tolist())))
+        unique_cache_lines = df["cache_line"].unique()
+        print("number of unique cache lines = {}".format(len(unique_cache_lines)))
+        print("unique cache lines = {}".format(unique_cache_lines))
+        assert len(unique_cache_lines) <= num_total_cache_lines
+
+        # count hits and misses
+        num_hits = (df["hit_cluster"] == 0).sum()
+        num_misses = (df["hit_cluster"] != 0).sum()
+        # hit_pattern = df.index[df["hit_cluster"] == 0].tolist()
+
+        # extract miss pattern
+        # miss_pattern = df.index[df["hit_cluster"] != 0].tolist()
+        # assert len(miss_pattern) == num_misses
+
+        # miss_pattern1 = df.index[df["hit_cluster"] == 1].tolist()
+        # miss_pattern2 = df.index[df["hit_cluster"] == 2].tolist()
+
+        human_size = humanize.naturalsize(n, binary=True)
+        print(
+            "size={:<10} cache lines={:<3} hits={:<4} ({:2.2f}%) misses={:<4} ({:2.2f}%)".format(
+                human_size,
+                n / (num_sets * cache_line_bytes),
+                color(num_hits, fg="green", bold=True),
+                float(num_hits) / float(len(df)) * 100.0,
+                color(num_misses, fg="red", bold=True),
+                float(num_misses) / float(len(df)) * 100.0,
+            )
+        )
+
+        # compute mean occurences per index
+        mean_rounds = df["index"].value_counts().mean()
+        print("mean occurences per index (ROUNDS) = {:3.3f}".format(mean_rounds))
+
+    for n, _ in combined.groupby("n"):
+        mask = combined["n"] == n
+        df = combined[mask]
+        arr_indices = df["index"].values
+        round_start_indices = np.array(df.index[arr_indices == arr_indices[0]])
+        round_end_indices = np.hstack([round_start_indices[1:], df.index.max()])
+        for round, (start_idx, end_idx) in enumerate(zip(round_start_indices, round_end_indices)):
+            # print("n={:>5}, start_idx={:>5}, end_idx={:>5}, round={:>3}".format(n, start_idx, end_idx, round))
+            combined.loc[start_idx:end_idx, "round"] = round
+
+    # print(combined[["n", "set", "round"]].drop_duplicates())
+
+    # check if pattern is periodic
+    for n, df in combined.groupby("n"):
+        unique_miss_indices_per_round = []
+        unique_miss_cache_lines_per_round = []
+
+        for round, round_df in df.groupby("round"):
+            human_size = humanize.naturalsize(n, binary=True)
+            print("\n========== {:<15} round[{:>2}] ===========".format(human_size, round))
+
+            misses = round_df[round_df["hit_cluster"] != 0]
+            print("num misses = {}".format(len(misses)))
+            miss_indices = misses["index"].tolist()
+            miss_cache_lines = misses["cache_line"].tolist()
+            print("miss cache indices = {}..".format(miss_indices[:25]))
+            print("miss cache lines = {}..".format(miss_cache_lines[:25]))
+
+            unique_miss_indices_per_round.append(miss_indices)
+            unique_miss_cache_lines_per_round.append(miss_cache_lines)
+
+        def is_periodic(patterns) -> bool:
+            for pattern1 in patterns:
+                for pattern2 in patterns:
+                    l = np.amin(np.array([len(pattern1), len(pattern2)]))
+                    if pattern1[:l] != pattern2[:l]:
+                        return False
+            return True
+
+        if is_periodic(unique_miss_indices_per_round):
+            print(
+                "{} {}".format(
+                    color("IS PERIODIC (LRU)", fg="green"),
+                    unique_miss_cache_lines_per_round[0][:25],
+                )
+            )
+        else:
+            print(color("IS NON-PERIODIC (NOT LRU)", fg="red"))
+            for round, miss_lines in enumerate(unique_miss_cache_lines_per_round):
+                print("round {:>2}: miss lines={}".format(round, miss_lines))
+
+    # reverse engineer the cache set mapping
+    combined["mapped_set"] = np.nan
+    combined["is_hit"] = combined["hit_cluster"] == 0
+
+    set_misses = combined.groupby("set")["is_hit"].mean().reset_index()
+    set_misses = set_misses.sort_values(["is_hit"], ascending=True)
+    print(set_misses)
+
+    for set_idx in set_misses["set"]:
+        set_mask = combined["set"] == set_idx
+        miss_mask = combined["is_hit"] == False
+        combined.loc[set_mask & miss_mask, "mapped_set"] = set_idx
+
+        # set_df = combined[combined["set"] == set_idx]
+        # set_df = combined[combined["set"] == set_idx]
+        # set_df_misses
+    # for set_idx, set_df in (
+    #     combined.groupby("set")["is_hit"].mean().reset_index().sort_values(["is_hit"], ascending=True)
+    # ):
+    #     print(set_idx)
+    #     print(set_df)
+    # for set_idx, set_df in combined.sort_values("is_hit", ascending=True)["set"].unique():
+    # for set_idx in combined.sort_values("is_hit", ascending=True)["set"].unique():
+    #     print(set_idx, combined[combined["set"] == set_idx]["is_hit"].sum())
+    #     # combined["mapped_set"] =
+
+    return
+    for n, _ in combined.groupby(["n", "set"]):
+        # print("short miss pattern = {}..".format(miss_pattern1[:25]))
+        # print("long miss pattern  = {}..".format(miss_pattern2[:25]))
+        # print("hit pattern", hit_pattern[:35])
+        # print("miss pattern", miss_pattern1[:35])
+        # print(miss_pattern1)
+        # print(miss_pattern2)
+
+        # print(df.index)
+        repetition_start_indices = np.array(df.index[df["index"] == df["index"][0]])
+        # print("repetition indices", repetition_start_indices.tolist())
+
+        # indices = df["index"]
+        # cache_lines = df["cache_line"]
+        # print("short miss pattern = {}..".format(indices[miss_pattern1[:25]].tolist()))
+        # print("long miss pattern  = {}..".format(indices[miss_pattern2[:25]].tolist()))
+
+        # print(df.index[~df["is_hit"]].max())
+        # misses = ~df["is_hit"]
+        # miss_indices = indices[misses]
+        # miss_cache_lines = cache_lines[misses]
+        # print("unique miss indices = {}..".format(miss_indices.unique()))
+
+        # for i in range(len(repetition_indices) - 1):
+        # print(repetition_indices[1:] + [df.index.stop])
+
+        repetition_end_indices = np.hstack([repetition_start_indices[1:], df.index.stop])
+        for repetition, (start_idx, end_idx) in enumerate(zip(repetition_start_indices, repetition_end_indices)):
+            print("\n========== repetition[{:>2}] {:>4} to {:<4} ===========".format(repetition, start_idx, end_idx))
+            df.iloc[start_idx:end_idx]["round"] = repetition
+            repetition_df = df.iloc[start_idx:end_idx]
+
+            misses = repetition_df[repetition_df["hit_cluster"] != 0]
+            print("num misses = {}".format(len(misses)))
+            # print("miss cache lines = {}".format(misses["cache_line"].tolist()))
+            print("unique miss cache indices = {}".format(misses["index"].unique().tolist()))
+            print("unique miss cache lines = {}".format(misses["cache_line"].unique().tolist()))
+
+        # compute the
+
+        # missed_cache_lines = indices[~df["is_hit"]] / stride_bytes
+        # print("miss indices = {}..".format(missed_cache_lines.unique()))
+
+        # find_number_of_sets(df)
+
+
+"""
+Set-associative cache.
+The whole cache is divided into sets and each set contains n cache lines (hence n-way cache).
+So the relationship stands like this:
+    cache size = number of sets in cache * number of cache lines in each set * cache line size
+"""
 
 
 @main.command()
@@ -316,18 +538,25 @@ def find_cache_sets():
     When N > C + (T − 1)b, all cache sets are missed.
     We can then deduce T from cache miss patterns accordingly.
     """
-    iters = 1
-    stride_bytes = 4
+    stride_bytes = 8
+    step_bytes = 8
     line_size_bytes = 128
-    max_sets = 10
+    max_sets = 8
 
-    # cache_size_bytes = 16 * KB - 2 * line_size_bytes
-    cache_size_bytes = 24 * KB - 2 * line_size_bytes
-    # cache_size_bytes = 12 * KB
+    # L1/TEX and L2 have 128B cache lines.
+    # Cache lines consist of 4 32B sectors.
+    # The tag lookup is at 128B granularity.
+    # A miss does not imply that all sectors in the cache line will be filled.
+
+    # 16KB is fully direct-mapped? equal number of misses for consecutive 32B
+    cache_size_bytes = 16 * KB - 1 * line_size_bytes
+    # 24KB tag lookup is at 128B granularity, have a total of 4 sets
+    # after 24KB + 4 * 128B all cache sets are missed and the number of misses does not change
+    cache_size_bytes = 24 * KB - 1 * line_size_bytes
 
     combined = []
-    for n in range(cache_size_bytes, cache_size_bytes + max_sets * line_size_bytes, 32):
-        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=iters)
+    for n in range(cache_size_bytes, cache_size_bytes + max_sets * line_size_bytes, step_bytes):
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
         df["n"] = n
         combined.append(df)
 
@@ -336,32 +565,55 @@ def find_cache_sets():
 
     i = 0
     for n, df in combined.groupby("n"):
+        if n % KB == 0:
+            print("==> {} KB".format(n / KB))
+
         # reindex the numeric index
         df = df.reset_index()
         assert df.index.start == 0
 
         # count hits and misses
-        num_hits = df["is_hit"].sum()
-        num_misses = (~df["is_hit"]).sum()
+        num_hits = (df["hit_cluster"] == 0).sum()
+        num_misses = (df["hit_cluster"] != 0).sum()
 
         # extract miss pattern
-        miss_pattern = df.index[df["is_hit"] == False].tolist()
-        # assert len(miss_pattern) == num_misses
+        miss_pattern = df.index[df["hit_cluster"] != 0].tolist()
+        assert len(miss_pattern) == num_misses
+
+        miss_pattern1 = df.index[df["hit_cluster"] == 1].tolist()
+        miss_pattern2 = df.index[df["hit_cluster"] == 2].tolist()
 
         human_size = humanize.naturalsize(n, binary=True)
         print(
-            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} miss pattern={}".format(
+            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} short miss pattern={}.. long miss pattern = {}..".format(
                 i,
                 human_size,
                 n % 128,
-                num_hits,
-                num_misses,
-                miss_pattern[:10] + [".."] + miss_pattern[-10:],
+                color(num_hits, fg="green", bold=True),
+                color(num_misses, fg="red", bold=True),
+                miss_pattern1[:10],
+                miss_pattern2[:10],
             )
         )
         i += 1
 
-    print(combined[combined["is_hit"] == False])
+    find_number_of_sets(combined)
+
+
+def find_number_of_sets(combined):
+    # use DBscan clustering to find the number of sets
+    num_misses_per_n = combined.groupby("n")["is_miss"].sum().reset_index()
+    num_misses_per_n = num_misses_per_n.rename(columns={"is_miss": "num_misses"})
+    num_misses_per_n["set_cluster"] = compute_dbscan_clustering(num_misses_per_n["num_misses"])
+
+    misses_per_set = num_misses_per_n.groupby(["set_cluster"])["num_misses"].mean().reset_index()
+    print(misses_per_set)
+
+    set_clusters = misses_per_set["set_cluster"]
+    set_clusters = set_clusters[set_clusters >= 0]
+    num_clusters = len(set_clusters.unique())
+    num_sets = num_clusters - 1
+    print("num sets = {:<3}".format(num_sets))
 
 
 @main.command()
@@ -380,17 +632,17 @@ def find_cache_line_size():
     Based on the memory access patterns, we can also have
     a general idea on the cache replacement policy.
     """
-    iters = 1
-    cache_size_bytes = 16 * KB - 32
+    cache_size_bytes = 16 * KB - 128
+    # cache_size_bytes = 24 * KB - 128
     end_size_bytes = cache_size_bytes
 
-    step_bytes = 16  # 4
-    stride_bytes = 4  # 1 float
-    num_lines = 1
+    step_bytes = 4
+    stride_bytes = 4
+    num_lines = 3
     combined = []
 
     for n in range(cache_size_bytes, end_size_bytes + num_lines * 128, step_bytes):
-        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=iters)
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
         df["n"] = n
         combined.append(df)
 
@@ -399,32 +651,39 @@ def find_cache_line_size():
 
     i = 0
     for n, df in combined.groupby("n"):
+        if n % KB == 0:
+            print("==> {} KB".format(n / KB))
+
         # reset numeric index
         df = df.reset_index()
         assert df.index.start == 0
 
         # count hits and misses
-        num_hits = df["is_hit"].sum()
-        num_misses = (~df["is_hit"]).sum()
+        num_hits = (df["hit_cluster"] == 0).sum()
+        num_misses = (df["hit_cluster"] != 0).sum()
 
         # extract miss pattern
-        miss_pattern = df.index[df["is_hit"] == False].tolist()
-        # assert len(miss_pattern) == num_misses
+        miss_pattern = df.index[df["hit_cluster"] != 0].tolist()
+        assert len(miss_pattern) == num_misses
+
+        miss_pattern1 = df.index[df["hit_cluster"] == 1].tolist()
+        miss_pattern2 = df.index[df["hit_cluster"] == 2].tolist()
 
         human_size = humanize.naturalsize(n, binary=True)
         print(
-            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} miss pattern={}..".format(
+            "i={:<3} size={:<10} lsbs={:<3} hits={:<4} misses={:<4} short miss pattern ={}.. long miss pattern = {}..".format(
                 i,
                 human_size,
                 n % 128,
-                num_hits,
-                num_misses,
-                miss_pattern[:10],
+                color(num_hits, fg="green", bold=True),
+                color(num_misses, fg="red", bold=True),
+                miss_pattern1[:12],
+                miss_pattern2[:12],
             )
         )
         i += 1
 
-    # print(combined[combined["is_hit"] == False])
+    # print(combined[combined["hit_cluster"] != 0])
 
 
 @main.command()
@@ -447,7 +706,7 @@ def latency_n_graph():
 
     combined = []
     for n in range(cache_size_bytes, cache_size_bytes + max_ways * cache_line_bytes, 16):
-        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, iters=1)
+        df = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
         df["n"] = n
         combined.append(df)
 
@@ -482,7 +741,7 @@ def find_cache_size(start_size, end_size):
 
     combined = []
     for size in range(start_size, end_size, KB):
-        df = l1_p_chase(size_bytes=size, stride_bytes=4, iters=1)
+        df = l1_p_chase(size_bytes=size, stride_bytes=4, warmup=1)
         df["size"] = size
         combined.append(df)
 
@@ -513,11 +772,16 @@ def find_cache_size(start_size, end_size):
     combined = compute_hits(combined)
 
     for size, df in combined.groupby("size"):
-        # print(df)
-        num_hits = df["is_hit"].sum()
-        num_misses = (~df["is_hit"]).sum()
+        num_hits = (df["hit_cluster"] == 0).sum()
+        num_misses = (df["hit_cluster"] != 0).sum()
         human_size = humanize.naturalsize(size, binary=True)
-        print("size={:<10} hits={:<4} misses={:<4}".format(human_size, num_hits, num_misses))
+        print(
+            "size={:<10} hits={:<4} misses={:<4}".format(
+                human_size,
+                color(num_hits, fg="green", bold=True),
+                color(num_misses, fg="red", bold=True),
+            )
+        )
 
     # for size in range(start_size, end_size, KB):
     #     combined[combined["size"] == size]
@@ -535,20 +799,25 @@ def find_cache_size(start_size, end_size):
 
 
 @main.command()
-@click.option("--iters", type=int, help="number of interations")
+def test():
+    print(16 * KB, 128 * 32 * 4)
+
+
+@main.command()
+@click.option("--warmup", type=int, help="number of warmup interations")
 @click.option("--size", type=int, help="size in bytes")
 @click.option("--stride", type=int, help="stride in bytes")
 # @click.option("--stride", type=int, is_flag=True, help="use nvprof")
-def run(iters, size, stride):
-    if iters is None:
-        iters = 1
+def run(warmup, size, stride):
+    if warmup is None:
+        warmup = 1
     if stride is None:
         stride = 4  # byte
     if size is None:
         size = 16 * 1024  # byte
 
     # try:
-    df = l1_p_chase(size_bytes=size, stride_bytes=stride, iters=iters)
+    df = l1_p_chase(size_bytes=size, stride_bytes=stride, warmup=warmup)
     print(df)
     # except cmd_utils.ExecError as e:
     #     raise e

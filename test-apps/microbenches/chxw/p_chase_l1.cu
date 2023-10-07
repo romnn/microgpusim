@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cstdlib>
 #include <stdint.h>
 #include <stdio.h>
@@ -21,37 +22,29 @@
 // const static size_t SHMEM_SIZE_BYTES = 0xC000;
 
 // have only 48KB shared mem because we test the 16KB L1?
-const static size_t SHMEM_SIZE_BYTES = 16 * (1 << 10);
-// const static size_t NUM_LOADS = (SHMEM_SIZE_BYTES / 2) / sizeof(unsigned
-// int);
-// const static int NUM_LOADS = 512;
-const static int NUM_LOADS = 4096;
+// const size_t SHMEM_SIZE_BYTES = 16 * (1 << 10);
+// const int NUM_LOADS = 512;
+// const int NUM_LOADS = 4 * 1024;
+// const int NUM_LOADS = 8 * 1024;
+const int NUM_LOADS = 6 * 1024;
+// const int ITER_SIZE = (SHMEM_SIZE_BYTES / 2) / sizeof(unsigned int);
+const int ITER_SIZE = NUM_LOADS;
 
-__global__ void global_latency(unsigned int *my_array, int array_length,
-                               int iterations, unsigned int *duration,
-                               unsigned int *index) {
+__global__ void global_latency_l1_data(unsigned int *my_array, int array_length,
+                                       unsigned int *duration,
+                                       unsigned int *index, size_t warmup) {
   unsigned int start_time, end_time;
-  unsigned int j = 0;
+  uint32_t j = 0;
 
-  // __shared__ unsigned int s_tvalue[NUM_LOADS];
-  // __shared__ unsigned int s_index[NUM_LOADS];
-  const int ITER_SIZE = SHMEM_SIZE_BYTES / sizeof(unsigned int);
-  __shared__ unsigned int s_tvalue[ITER_SIZE];
-  __shared__ unsigned int s_index[ITER_SIZE];
+  __shared__ uint32_t s_tvalue[ITER_SIZE];
+  __shared__ uint32_t s_index[ITER_SIZE];
 
   for (size_t k = 0; k < ITER_SIZE; k++) {
     s_index[k] = 0;
     s_tvalue[k] = 0;
   }
 
-  // first round
-  //	for (k = 0; k < iterations*256; k++)
-  //		j = my_array[j];
-
-  // printf("k=%d..%d\n", -iterations * NUM_LOADS, iterations * NUM_LOADS);
-
-  // second round
-  for (int k = -iterations * NUM_LOADS; k < iterations * NUM_LOADS; k++) {
+  for (int k = (int)warmup * -NUM_LOADS; k < NUM_LOADS; k++) {
     if (k >= 0) {
       start_time = clock();
       j = my_array[j];
@@ -59,9 +52,9 @@ __global__ void global_latency(unsigned int *my_array, int array_length,
       end_time = clock();
 
       s_tvalue[k] = end_time - start_time;
-
-    } else
+    } else {
       j = my_array[j];
+    }
   }
 
   my_array[array_length] = j;
@@ -73,7 +66,46 @@ __global__ void global_latency(unsigned int *my_array, int array_length,
   }
 }
 
-void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
+__global__ void
+global_latency_l1_readonly(const unsigned int *__restrict__ my_array,
+                           int array_length, unsigned int *duration,
+                           unsigned int *index, size_t warmup) {
+  unsigned int start_time, end_time;
+  uint32_t j = threadIdx.x;
+
+  __shared__ uint32_t s_tvalue[ITER_SIZE];
+  __shared__ uint32_t s_index[ITER_SIZE];
+
+  for (size_t k = 0; k < ITER_SIZE; k++) {
+    s_index[k] = 0;
+    s_tvalue[k] = 0;
+  }
+
+  for (int it = (int)warmup * -NUM_LOADS; it < NUM_LOADS; it++) {
+    if (it >= 0) {
+      int k = it * blockDim.x + threadIdx.x;
+      start_time = clock();
+      j = __ldg(&my_array[j]);
+      s_index[k] = j;
+      end_time = clock();
+
+      s_tvalue[k] = end_time - start_time;
+    } else {
+      j = __ldg(&my_array[j]);
+    }
+  }
+
+  // my_array[array_length] = j;
+  // my_array[array_length + 1] = my_array[j];
+
+  for (size_t it = 0; it < NUM_LOADS; it++) {
+    int k = it * blockDim.x + threadIdx.x;
+    index[k] = s_index[k];
+    duration[k] = s_tvalue[k];
+  }
+}
+
+void parametric_measure_global(size_t N, size_t stride, size_t warmup) {
   cudaDeviceReset();
 
   // print CSV header
@@ -81,12 +113,11 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
 
   // allocate arrays on CPU
   unsigned int *h_a;
-  h_a = (unsigned int *)malloc(sizeof(unsigned int) * iterations * (N + 2));
+  h_a = (unsigned int *)malloc(sizeof(unsigned int) * (N + 2));
 
   // allocate arrays on GPU
   unsigned int *d_a;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&d_a, sizeof(unsigned int) * iterations * (N + 2)));
+  CUDA_SAFECALL(cudaMalloc((void **)&d_a, sizeof(unsigned int) * (N + 2)));
 
   // initialize array elements on CPU with pointers into d_a
   for (size_t i = 0; i < N; i++) {
@@ -119,8 +150,8 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
   dim3 block_dim = dim3(1);
   dim3 grid_dim = dim3(1, 1, 1);
 
-  CUDA_SAFECALL((global_latency<<<grid_dim, block_dim>>>(d_a, N, iterations,
-                                                         duration, d_index)));
+  CUDA_SAFECALL((global_latency<<<grid_dim, block_dim>>>(d_a, N, duration,
+                                                         d_index, warmup)));
 
   cudaDeviceSynchronize();
 
@@ -158,21 +189,23 @@ void parametric_measure_global(size_t N, size_t stride, size_t iterations) {
 
 int main(int argc, char *argv[]) {
   cudaSetDevice(0);
-  size_t size_bytes, iterations, stride_bytes;
+  size_t size_bytes, stride_bytes, warmup;
 
   // parse arguments
   if (argc > 2) {
     size_bytes = atoi(argv[1]);
     stride_bytes = atoi(argv[2]);
-    iterations = atoi(argv[3]);
+    warmup = atoi(argv[3]);
   } else {
     fprintf(stderr,
-            "usage: p_chase_l1 <SIZE_BYTES> <STRIDE_BYTES> <ITERATIONS> \n");
+            "usage: p_chase_l1 <SIZE_BYTES> <STRIDE_BYTES> <WARMUP> \n");
     return EXIT_FAILURE;
   }
 
   // the number of resulting patterns P (full iterations through size) is
   // P = NUM_LOADS / stride
+  float one_round = (float)size_bytes / (float)stride_bytes;
+  float num_rounds = (float)NUM_LOADS / one_round;
 
   size_t size = size_bytes / sizeof(uint32_t);
   size_t stride = stride_bytes / sizeof(uint32_t);
@@ -181,7 +214,13 @@ int main(int argc, char *argv[]) {
           size_bytes, size, (float)size_bytes / 1024.0);
   fprintf(stderr, "\tSTRIDE     = %10lu bytes (%10lu uint32)\n ", stride_bytes,
           stride);
-  fprintf(stderr, "\tITERATIONS = %lu\n", iterations);
+  fprintf(stderr, "\tROUNDS     = %3.3f\n", num_rounds);
+  fprintf(stderr, "\tONE ROUND  = %3.3f (have %5d)\n", one_round, NUM_LOADS);
+  fprintf(stderr, "\tWARMUP     = %lu\n", warmup);
+
+  // assert(num_rounds > 1 &&
+  //        "array size is too big (rounds should be at least two)");
+  // assert(NUM_LOADS > size / stride);
 
   // validate parameters
   if (size < stride) {
@@ -190,13 +229,13 @@ int main(int argc, char *argv[]) {
     fflush(stderr);
     return EXIT_FAILURE;
   }
-  if (size % stride != 0) {
-    fprintf(stderr,
-            "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
-            size, stride);
-    fflush(stderr);
-    return EXIT_FAILURE;
-  }
+  // if (size % stride != 0) {
+  //   fprintf(stderr,
+  //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
+  //           size, stride);
+  //   fflush(stderr);
+  //   return EXIT_FAILURE;
+  // }
   if (size < 1) {
     fprintf(stderr, "ERROR: size is < 1 (%lu)\n", size);
     fflush(stderr);
@@ -207,6 +246,8 @@ int main(int argc, char *argv[]) {
     fflush(stderr);
     return EXIT_FAILURE;
   }
+
+  assert(ITER_SIZE >= NUM_LOADS);
 
   // printf("\n=====%10.4f KB array, warm TLB, read NUM_LOADS element====\n",
   //          sizeof(unsigned int) * (float)N / 1024);
@@ -224,25 +265,14 @@ int main(int argc, char *argv[]) {
   //
   // `cudaFuncCachePreferNone` uses the preference set for the device or thread.
 
-  cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+  cudaFuncCache want_cache_config = cudaFuncCachePreferShared;
+  // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+  cudaDeviceSetCacheConfig(want_cache_config);
+  cudaFuncCache have_cache_config;
+  CUDA_SAFECALL(cudaDeviceGetCacheConfig(&have_cache_config));
+  assert(want_cache_config == have_cache_config);
 
-  parametric_measure_global(size, stride, iterations);
-
-  // stride in element
-  // iterations = 1;
-
-  // 1. overflow cache with 1 element. stride=1, N=4097
-  // 2. overflow cache with cache lines. stride=32, N_min=16*256, N_max=24*256
-  // stride = 128 / sizeof(unsigned int);
-  //
-  // for (N = 16 * 256; N <= 24 * 256; N += stride) {
-  //   printf("\n=====%10.4f KB array, warm TLB, read NUM_LOADS element====\n",
-  //          sizeof(unsigned int) * (float)N / 1024);
-  //   printf("Stride = %d element, %d byte\n", stride,
-  //          stride * sizeof(unsigned int));
-  //   parametric_measure_global(N, iterations, stride);
-  //   printf("===============================================\n\n");
-  // }
+  parametric_measure_global(size, stride, warmup);
 
   cudaDeviceReset();
   fflush(stdout);
