@@ -120,9 +120,6 @@ where
 {
     let tracer = Tracer::new();
 
-    assert_eq!(matrix_a.len(), matrix_b.len());
-    assert_eq!(matrix_b.len(), result.len());
-
     // allocate memory for each vector on simulated GPU device
     let dev_a = tracer
         .allocate(matrix_a, MemorySpace::Global, Some("a"))

@@ -9,6 +9,7 @@
 // #![allow(warnings)]
 
 pub mod matrixmul;
+pub mod pchase;
 pub mod simple_matrixmul;
 pub mod transpose;
 pub mod vectoradd;
@@ -20,3 +21,15 @@ pub type Result = color_eyre::eyre::Result<(
         trace_model::MemAccessTrace,
     )>,
 )>;
+
+#[cfg(test)]
+pub mod tests {
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    pub fn init_test() {
+        INIT.call_once(|| {
+            env_logger::builder().is_test(true).init();
+            color_eyre::install().unwrap();
+        });
+    }
+}
