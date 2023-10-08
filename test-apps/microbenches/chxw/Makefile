@@ -1,5 +1,5 @@
 CUDA_PATH ?= /usr/local/cuda
-NVFLAGS = -lineinfo -Xptxas="-O3 -dlcm=ca"
+NVFLAGS = -g -lineinfo -Xptxas="-O3 -dlcm=ca"
 
 HOST_COMPILER ?= $(CXX)
 NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
