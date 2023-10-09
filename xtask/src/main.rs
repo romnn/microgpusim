@@ -31,6 +31,8 @@ pub struct Options {
 
 fn main() -> eyre::Result<()> {
     color_eyre::install()?;
+    env_logger::init();
+
     let options = Options::parse();
     dbg!(&options);
     match options.command {
