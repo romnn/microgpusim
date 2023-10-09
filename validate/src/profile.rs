@@ -29,12 +29,6 @@ pub async fn profile(
         unreachable!();
     };
 
-    // if profile_options.use_nvprof && profile_options.use_nsight {
-    //     return Err(RunError::Failed(eyre::eyre!(
-    //         "cannot use both nvprof and nsight"
-    //     )));
-    // }
-
     if let (Some(false), Some(false)) = (profile_options.use_nvprof, profile_options.use_nsight) {
         return Err(RunError::Failed(eyre::eyre!(
             "must use either nvprof or nsight"
@@ -44,14 +38,6 @@ pub async fn profile(
     if options.clean {
         utils::fs::remove_dir(profile_dir).map_err(eyre::Report::from)?;
     }
-
-    // let mut profilers_to_use = vec![];
-    // if profile_options.use_nvprof.unwrap_or(true) {
-    //     profilers_to_use.push(Profiler::Nvprof);
-    // }
-    // if profile_options.use_nsight.unwrap_or(true) {
-    //     profilers_to_use.push(Profiler::Nsight);
-    // }
 
     create_dirs(profile_dir).map_err(eyre::Report::from)?;
 

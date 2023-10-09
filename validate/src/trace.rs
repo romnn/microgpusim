@@ -25,6 +25,10 @@ pub async fn trace(
         unreachable!();
     };
 
+    if options.clean {
+        utils::fs::remove_dir(traces_dir).map_err(eyre::Report::from)?;
+    }
+
     create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
     if !options.force && traces_dir.join("commands.json").is_file() {

@@ -88,6 +88,7 @@ pub fn write_stats_as_csv(
     stats_dir: impl AsRef<Path>,
     stats: &[stats::Stats],
     repetition: usize,
+    full: bool,
 ) -> eyre::Result<()> {
     let stats_dir = stats_dir.as_ref();
     // sim stats
@@ -103,7 +104,7 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .flat_map(|(_kernel_launch_id, kernel_stats)| {
-                kernel_stats.dram.bank_accesses_csv().into_iter()
+                kernel_stats.dram.bank_accesses_csv(full).into_iter()
             }),
     )?;
 
@@ -114,7 +115,7 @@ pub fn write_stats_as_csv(
             .iter()
             .enumerate()
             .flat_map(|(_kernel_launch_id, kernel_stats)| {
-                kernel_stats.accesses.clone().into_csv_rows()
+                kernel_stats.accesses.clone().into_csv_rows(full)
             }),
     )?;
 
@@ -126,7 +127,9 @@ pub fn write_stats_as_csv(
             .map(|stats| &stats.instructions)
             .cloned()
             .enumerate()
-            .flat_map(|(_kernel_launch_id, cache_stats)| cache_stats.into_csv_rows().into_iter()),
+            .flat_map(|(_kernel_launch_id, cache_stats)| {
+                cache_stats.into_csv_rows(full).into_iter()
+            }),
     )?;
 
     // cache stats
@@ -161,7 +164,7 @@ pub fn write_stats_as_csv(
                 .cloned()
                 .enumerate()
                 .flat_map(|(_kernel_launch_id, cache_stats)| {
-                    cache_stats.into_csv_rows().into_iter()
+                    cache_stats.into_csv_rows(full).into_iter()
                 }),
         )?;
     }

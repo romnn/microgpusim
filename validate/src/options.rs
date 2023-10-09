@@ -31,7 +31,10 @@ pub struct Profile {
 pub struct Trace {}
 
 #[derive(Parser, Debug, Default, Clone)]
-pub struct AccelsimTrace {}
+pub struct AccelsimTrace {
+    #[clap(long = "save-json", help = "convert and save traces as JSON")]
+    pub save_json: Option<bool>,
+}
 
 #[derive(Parser, Debug, Default, Clone)]
 pub struct Sim {}
@@ -71,6 +74,28 @@ pub enum Command {
     Clean(Clean),
     Expand(Expand),
     Full(Full),
+}
+
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Profile(_) => "profile",
+                Self::Trace(_) => "trace",
+                Self::AccelsimTrace(_) => "trace[accelsim]",
+                Self::Simulate(_) => "simulate[gpucachesim]",
+                Self::ExecSimulate(_) => "exec-simulate[gpucachesim]",
+                Self::AccelsimSimulate(_) => "simulate[accelsim]",
+                Self::PlaygroundSimulate(_) => "simulate[playground]",
+                Self::Build(_) => "build",
+                Self::Clean(_) => "clean",
+                Self::Expand(_) => "expand",
+                Self::Full(_) => "full",
+            }
+        )
+    }
 }
 
 impl Command {

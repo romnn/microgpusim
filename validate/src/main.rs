@@ -484,6 +484,14 @@ async fn main() -> eyre::Result<()> {
         .flat_map(|(_command, bench_configs)| bench_configs)
         .count();
 
+    for (command, bench_configs) in per_command_bench_configs.iter() {
+        log::info!(
+            "command {:>30}  =>  {:<4} configurations",
+            command.to_string(),
+            bench_configs.len()
+        );
+    }
+
     // create progress bar
     let bar = Arc::new(ProgressBar::new(num_bench_configs as u64));
     if options.no_progress {
@@ -564,7 +572,11 @@ async fn main() -> eyre::Result<()> {
                 num_failed += 1;
                 eprintln!(
                     "============ {} ============",
-                    style(format!("{} failed", &bench)).red()
+                    style(format!(
+                        "{:?}: {}@{} failed",
+                        bench.target, bench.name, bench.input_idx
+                    ))
+                    .red()
                 );
                 eprintln!("{source:?}\n");
             }

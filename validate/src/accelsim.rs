@@ -46,12 +46,17 @@ fn convert_traces_to_json(
 pub async fn trace(
     bench: &BenchmarkConfig,
     options: &Options,
-    _trace_opts: &options::AccelsimTrace,
+    trace_opts: &options::AccelsimTrace,
     _bar: &indicatif::ProgressBar,
 ) -> Result<Duration, RunError> {
     let TargetBenchmarkConfig::AccelsimTrace { ref traces_dir, .. } = bench.target_config else {
         unreachable!();
     };
+
+    if options.clean {
+        utils::fs::remove_dir(traces_dir).map_err(eyre::Report::from)?;
+    }
+
     utils::fs::create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
     let kernelslist = traces_dir.join("kernelslist.g");
@@ -71,8 +76,10 @@ pub async fn trace(
         .map_err(eyre::Report::from)?;
 
     // convert accelsim traces to JSON for us to easily inspect
-    let mem_only = false;
-    convert_traces_to_json(traces_dir, &kernelslist, mem_only)?;
+    if trace_opts.save_json.unwrap_or(false) {
+        let mem_only = false;
+        convert_traces_to_json(traces_dir, &kernelslist, mem_only)?;
+    }
     Ok(dur)
 }
 
@@ -200,6 +207,7 @@ pub fn process_stats(
     // todo: how to handle this?
     // converted_stats.sim.elapsed_millis = dur.as_millis();
 
-    crate::stats::write_stats_as_csv(stats_dir, per_kernel_stats.as_ref(), repetition)?;
+    let full = false;
+    crate::stats::write_stats_as_csv(stats_dir, per_kernel_stats.as_ref(), repetition, full)?;
     Ok(())
 }

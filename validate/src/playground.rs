@@ -39,8 +39,6 @@ where
     let kernelslist = match trace_provider {
         TraceProvider::Native | TraceProvider::Accelsim => traces_dir.join("kernelslist.g"),
         TraceProvider::Box => {
-            // this is a hotfix
-
             accelsim::tracegen::convert_box_to_accelsim_traces(&accelsim::tracegen::Conversion {
                 native_commands_path: &traces_dir.join("../trace/commands.json"),
                 box_traces_dir: &traces_dir.join("../trace"),
@@ -164,26 +162,17 @@ pub async fn simulate(
         converted_stats.sim.is_release_build = playground::is_debug();
 
         // cannot report per kernel for now...
+        // however, we process per kernel stats from the log file the same as for accelsim
         let per_kernel_stats = vec![converted_stats];
 
-        // let profile = if playground::is_debug() {
-        //     "debug"
-        // } else {
-        //     "release"
-        // };
-        super::accelsim::process_stats(
-            log.into_bytes(),
-            &dur,
-            stats_dir,
-            // profile,
-            repetition,
-        )?;
+        super::accelsim::process_stats(log.into_bytes(), &dur, stats_dir, repetition)?;
+        let full = false;
         super::simulate::process_stats(
             &per_kernel_stats,
             &dur,
             detailed_stats_dir,
-            // profile,
             repetition,
+            full,
         )?;
     }
     Ok(total_dur)
