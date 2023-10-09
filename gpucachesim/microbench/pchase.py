@@ -1,5 +1,6 @@
 import click
 import humanize
+import typing
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -69,7 +70,7 @@ def main():
 
 def compute_dbscan_clustering(values):
     values = np.array(values)
-    labels = DBSCAN(eps=3, min_samples=2).fit_predict(values.reshape(-1, 1))
+    labels = DBSCAN(eps=2, min_samples=3).fit_predict(values.reshape(-1, 1))
     # clustering_df = pd.DataFrame(
     #     np.array([values.ravel(), labels.ravel()]).T,
     #     columns=["latency", "cluster"],
@@ -132,13 +133,13 @@ def compute_hits(df, force_misses=True):
     fit_latencies = latencies.copy()
 
     if force_misses or True:
-        hit_latencies_df, _ = l1_p_chase(size_bytes=128, stride_bytes=4, warmup=1)
+        hit_latencies_df, _ = p_chase(mem="l1data", size_bytes=128, stride_bytes=4, warmup=1)
         hit_latencies = hit_latencies_df["latency"].to_numpy()
 
-        miss_latencies_df, _ = l1_p_chase(size_bytes=512 * KB, stride_bytes=32, warmup=1)
+        miss_latencies_df, _ = p_chase(mem="l1data", size_bytes=512 * KB, stride_bytes=32, warmup=1)
         miss_latencies = miss_latencies_df["latency"].to_numpy()
 
-        long_miss_latencies_df, _ = l1_p_chase(size_bytes=2 * MB, stride_bytes=128, warmup=0)
+        long_miss_latencies_df, _ = p_chase(mem="l2", size_bytes=2 * MB, stride_bytes=128, warmup=0)
         long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
 
         fit_latencies = np.hstack([latencies, hit_latencies, miss_latencies, long_miss_latencies])
@@ -201,9 +202,10 @@ def compute_hits(df, force_misses=True):
     return df
 
 
-def l1_p_chase(size_bytes, stride_bytes, warmup):
+def p_chase(mem, size_bytes, stride_bytes, warmup):
     cmd = [
         str(P_CHASE_EXECUTABLE.absolute()),
+        str(mem.lower()),
         str(int(size_bytes)),
         str(int(stride_bytes)),
         str(int(warmup)),
@@ -265,7 +267,7 @@ def find_l2_prefetch_size(warmup, repetitiions):
             stride_bytes = 128
 
             # stride_bytes = ((2 * n / 4) / (6 * 1024)) * 4
-            df, (_, stderr) = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=warmup)
+            df, (_, stderr) = p_chase(mem="l2", size_bytes=n, stride_bytes=stride_bytes, warmup=warmup)
             print(stderr)
             df["n"] = n
             df["r"] = repetition
@@ -275,7 +277,7 @@ def find_l2_prefetch_size(warmup, repetitiions):
     # compute the mean latency
     combined = combined.groupby(["n", "r", "index"]).mean().reset_index()
     combined = compute_hits(combined)
-    combined = find_rounds(combined)
+    combined = compute_rounds(combined)
 
     # # remove incomplete rounds
     # round_sizes = combined["round"].value_counts()
@@ -334,10 +336,12 @@ def find_l2_prefetch_size(warmup, repetitiions):
         print("\n")
 
 
-def find_rounds(df):
+def compute_rounds(df):
     df["round"] = np.nan
-    for n, _ in df.groupby("n"):
-        mask = df["n"] == n
+    if "r" not in df:
+        df["r"] = 0
+    for (n, r), _ in df.groupby(["n", "r"]):
+        mask = (df["n"] == n) & (df["r"] == r)
         arr_indices = df.loc[mask, "index"].values
 
         intra_round_start_index = 0
@@ -363,8 +367,9 @@ def find_rounds(df):
     return df
 
 
-def find_number_of_sets(combined):
+def compute_number_of_sets(combined):
     # use DBscan clustering to find the number of sets
+    combined["is_miss"] = combined["hit_cluster"] != 0
     num_misses_per_n = combined.groupby("n")["is_miss"].sum().reset_index()
     num_misses_per_n = num_misses_per_n.rename(columns={"is_miss": "num_misses"})
     num_misses_per_n["set_cluster"] = compute_dbscan_clustering(num_misses_per_n["num_misses"])
@@ -376,14 +381,17 @@ def find_number_of_sets(combined):
     set_clusters = set_clusters[set_clusters >= 0]
     num_clusters = len(set_clusters.unique())
     num_sets = num_clusters - 1
-    print("num sets = {:<3}".format(num_sets))
+    print("DBSCAN clustering found ", color(f"{num_sets} sets", fg="blue", bold=True))
+    return num_sets, misses_per_set 
 
 
 
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-def find_cache_replacement_policy():
+@click.option("--repetitions", "repetitions", default=1, type=int, help="number of repetitions")
+@click.option("--mem", "mem", default="l1data", type=str, help="memory to microbenchmark")
+def find_cache_replacement_policy(repetitions,mem):
     """
     Determine cache replacement policy.
 
@@ -402,39 +410,58 @@ def find_cache_replacement_policy():
     memory access process and find how the cache lines
     are updated.
     """
+    repetitions = max(1, repetitions)
+
     known_cache_size_bytes = 24 * KB
     known_cache_line_bytes = 128
     derived_total_cache_lines = known_cache_size_bytes / known_cache_line_bytes
-    print("total cache lines = {:<3}".format(derived_total_cache_lines))  # 768 cache lines
+
+    # 768 cache lines
+    print("total cache lines = {:<3}".format(derived_total_cache_lines))  
 
     known_num_sets = 4
+
+    # 48 ways
     # terminology: num ways == cache lines per set == associativity
     # terminology: way size == num sets
     derived_num_ways = known_cache_size_bytes / (known_cache_line_bytes * known_num_sets)
-    print("num ways = {:<3}".format(derived_num_ways)) # 48 ways
+    print("num ways = {:<3}".format(derived_num_ways)) 
 
     assert known_cache_size_bytes == known_num_sets * derived_num_ways * known_cache_line_bytes
 
     derived_cache_lines_per_set = derived_total_cache_lines / known_num_sets
 
-    # overflow by one cache line
-    # stride_bytes = 16  # 4 * 32, so end up in the same set
-    # stride_bytes = 4  # 4 * 32, so end up in the same set
-    stride_bytes = known_cache_line_bytes
-    # stride_bytes = 8  # 4 * 32, so end up in the same set
-    # stride_bytes = 128  # 4 * 32, so end up in the same set
+    # stride_bytes = known_cache_line_bytes
+    stride_bytes = 32
+
+    match mem.lower():
+        case "l1readonly":
+            stride_bytes = known_cache_line_bytes
+            pass
+
 
     combined = []
-    for set_idx in range(1, known_num_sets + 1):
-        n = known_cache_size_bytes + set_idx * known_num_sets * known_cache_line_bytes
-        df, (_, stderr) = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
-        print(stderr)
-        df["n"] = n
-        df["set"] = set_idx
-        combined.append(df)
+    for repetition in range(repetitions):
+        for set_idx in range(1, known_num_sets + 1):
+            # overflow by mulitples of the cache line
+            n = known_cache_size_bytes + set_idx * known_cache_line_bytes
+            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set
+            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * known_cache_line_bytes
+            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * 32
+            # n = known_cache_size_bytes + set_idx * derived_num_ways * known_cache_line_bytes
+            # n = known_cache_size_bytes + set_idx * derived_num_ways
+            df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=2)
+            print(stderr)
+            df["n"] = n
+            df["r"] = repetition
+            df["set"] = set_idx
+            combined.append(df)
 
     combined = pd.concat(combined, ignore_index=True)
+    # print(combined.columns)
+    # combined = combined.groupby(["n", "set", "latency", "index"]).mean().reset_index()
     combined = compute_hits(combined)
+    combined = compute_rounds(combined)
 
     # combined["cache_line"] = combined["index"] // cache_line_bytes
     # combined["cache_line"] = (combined["index"] // cache_line_bytes) % num_total_cache_lines
@@ -453,7 +480,6 @@ def find_cache_replacement_policy():
     # filter out the overflow cache lines
     # combined = combined[combined["cache_line"] < num_total_cache_lines]
 
-    combined = find_rounds(combined)
 
     # # remove incomplete rounds
     # round_sizes = combined["round"].value_counts()
@@ -472,10 +498,22 @@ def find_cache_replacement_policy():
     predicted_set = combined["index"].astype(int).to_numpy() >> line_size_address_bits
     combined["predicted_set"] = predicted_set & set_address_bits
 
+    sector_size = 32
+    combined["cache_line"] = combined["index"] // sector_size
+    # assert known_cache_size_bytes == known_num_sets * derived_num_ways * known_cache_line_bytes
+    # combined["cache_line"] = combined["index"] // known_cache_line_bytes # works but random
+    # combined["cache_line"] = combined["index"] % (known_num_sets * derived_num_ways) # wrong
+    # combined["cache_line"] = combined["index"] % (derived_num_ways * derived_cache_lines_per_set) # wrong
+    # combined["cache_line"] = combined["index"] % (known_num_sets * derived_cache_lines_per_set) # wrong
+    combined["cache_line"] = (combined["index"] % known_cache_size_bytes) // sector_size
+
     for round, _ in combined.groupby("round"):
-        round_mask = combined["round"] == round
-        combined.loc[round_mask, "new_index"] = np.arange(len(combined[round_mask])) * stride_bytes
-        combined.loc[round_mask, "cache_line"] = combined.loc[round_mask, "new_index"] // known_cache_line_bytes
+        # round_mask = combined["round"] == round
+        # lines = combined.loc[round_mask, "index"] // known_cache_line_bytes
+        # combined.loc[round_mask, "cache_line"] = 
+        # combined.loc[round_mask, "new_index"] = np.arange(len(combined[round_mask])) * stride_bytes
+        # combined.loc[round_mask, "cache_line"] = combined.loc[round_mask, "new_index"] // known_cache_line_bytes
+        pass
 
     for n, df in combined.groupby("n"):
         print("number of unique indices = {:<4}".format(len(df["index"].unique().tolist())))
@@ -497,6 +535,7 @@ def find_cache_replacement_policy():
         # miss_pattern2 = df.index[df["hit_cluster"] == 2].tolist()
 
         human_size = humanize.naturalsize(n, binary=True)
+
         print(
             "size={:<10} cache lines={:<3.1f} hits={:<4} ({:2.2f}%) misses={:<4} ({:2.2f}%)".format(
                 human_size,
@@ -510,21 +549,33 @@ def find_cache_replacement_policy():
 
         # compute mean occurences per index
         mean_rounds = df["index"].value_counts().mean()
+        print(mean_rounds)
         print("mean occurences per index (ROUNDS) = {:3.3f}".format(mean_rounds))
+        assert mean_rounds >= 1.0
 
     # check if pattern is periodic
-    for n, df in combined.groupby("n"):
-        unique_miss_indices_per_round = []
-        unique_miss_cache_lines_per_round = []
+    for (set_idx, n), df in combined.groupby(["set", "n"]):
+        human_size = humanize.naturalsize(n, binary=True)
+        miss_indices_per_round = []
+        miss_cache_lines_per_round = []
+        miss_rounds = []
+        num_rounds = len(df["round"].unique())
+        max_round = df["round"].max()
+        print("set={: <2} has {: >2} rounds".format(set_idx, num_rounds))
 
-        for (set_idx, round), round_df in df.groupby(["set", "round"]):
+        for round, round_df in df.groupby("round"):
+            if (round == 0 or round == max_round) and num_rounds > 2:
+                # skip 
+                print(color("skip set={: <2} round={: <2}".format(set_idx, round), fg="info"))
+                continue
+
             human_size = humanize.naturalsize(n, binary=True)
-            print("\n========== set={:<2} round[{:>2}] ===========".format(set_idx, round))
             misses = round_df[round_df["hit_cluster"] != 0]
-            miss_indices = misses["index"]
-            miss_cache_lines = misses["cache_line"]
+            miss_indices = misses["index"].astype(int)
+            miss_cache_lines = misses["cache_line"].astype(int)
+            print("set={: <2} round={: <2} has {: >4} misses".format(set_idx, round, len(miss_cache_lines)))
 
-            if round == 0:
+            if False:
                 print("num misses = {}".format(len(misses)))
                 print("miss cache indices = {}..".format(miss_indices.tolist()[:25]))
                 print("miss cache lines = {}..".format(miss_cache_lines.tolist()[:25]))
@@ -532,29 +583,118 @@ def find_cache_replacement_policy():
                 print("mean missed cache line = {}".format(miss_cache_lines.mean()))
                 print("min missed cache line = {}".format(miss_cache_lines.min()))
 
-            unique_miss_indices_per_round.append(miss_indices.tolist())
-            unique_miss_cache_lines_per_round.append(miss_cache_lines.tolist())
+            miss_rounds.append(round)
+            miss_indices_per_round.append(miss_indices.tolist())
+            miss_cache_lines_per_round.append(miss_cache_lines.tolist())
 
-        def is_periodic(patterns) -> bool:
+        def is_periodic(patterns, strict=True, max_rel_err=0.05) -> typing.Tuple[list, int]:
+            matches = []
             for pattern1 in patterns:
+                num_matches = 0
                 for pattern2 in patterns:
                     l = np.amin(np.array([len(pattern1), len(pattern2)]))
-                    if pattern1[:l] != pattern2[:l]:
-                        return False
-            return True
+                    if pattern1[:l] == pattern2[:l]:
+                        num_matches += 1
+                    elif strict == False:
+                        # try soft match: allow removing up to rel_err percent items from pattern2
+                        # this will not affet the ordering of elements
+                        remove = set(pattern2) - set(pattern1)
+                        occurences = len([i for i in pattern2 if i in remove])
+                        rel_err = occurences / len(pattern2)
+                        # print("soft match: need to remove {:2.4f}% elements".format(rel_err))
+                        if rel_err <= max_rel_err:
+                            new_pattern2 = [i for i in pattern2 if i not in remove]
+                            l = np.amin(np.array([len(pattern1), len(new_pattern2)]))
+                            if pattern1[:l] == new_pattern2[:l]:
+                                num_matches += 1
 
-        if is_periodic(unique_miss_indices_per_round):
+                matches.append((pattern1, num_matches))
+
+            matches = sorted(matches, key=lambda m: m[1], reverse=True)
+            assert matches[0][1] >= matches[-1][1]
+            (best_match, num_matches) = matches[0]
+            return sorted(best_match), num_matches
+
+        # miss_patterns = miss_indices_per_round
+        miss_patterns = miss_cache_lines_per_round
+        assert len(miss_patterns) > 0, "set {} has no miss patterns".format(set_idx)
+
+        strict_pattern_match, num_strict_matches = is_periodic(miss_patterns, strict=True)
+        soft_pattern_match, num_soft_matches = is_periodic(miss_patterns, strict=False)
+        assert num_soft_matches >= num_strict_matches
+        valid_miss_count = len(strict_pattern_match)
+
+        print("set={: <2} best match has {: >4} misses".format(set_idx, valid_miss_count))
+
+        # filter out bad rounds
+        before = len(combined)
+        invalid = 0
+        for round, misses in zip(miss_rounds, miss_patterns):
+            if sorted(misses) != sorted(strict_pattern_match):
+            # if len(misses) != valid_miss_count:
+                print(color("set={: <2} round={: <2} SKIP (too many misses)".format(set_idx, round), fg="warn"))
+                combined = combined.loc[~((combined["set"] == set_idx) & (combined["round"] == round)),:]
+                invalid += 1
+        after = len(combined)
+        if invalid > 0:
+            assert before > after
+
+        info = "[{: <2}/{: <2} strict match, {: <2}/{: <2} soft match, {: >4} unqiue miss lines]\n".format(num_strict_matches, len(miss_patterns), num_soft_matches, len(miss_patterns), len(combined.loc[(combined["set"] == set_idx) & (combined["hit_cluster"] != 0), "cache_line"].unique()))
+
+
+        # if num_strict_matches == len(miss_patterns):
+        if len(miss_patterns) > 1 and float(num_strict_matches) / float(len(miss_patterns)) > 0.7:
+            # # filter out bad rounds
+            # before = len(combined)
+            # invalid = 0
+            # for round, misses in zip(miss_rounds, miss_patterns):
+            #     if len(misses) != valid_miss_count:
+            #         print(color("set={: <2} round={: <2} SKIP (too many misses)".format(set_idx, round), fg="warn"))
+            #         combined = combined.loc[~((combined["set"] == set_idx) & (combined["round"] == round)),:]
+            #         invalid += 1
+            # after = len(combined)
+            # if invalid > 0:
+            #     assert before > after
+
             print(
-                "{} {}".format(
-                    color("IS PERIODIC (LRU)", fg="green"),
-                    unique_miss_cache_lines_per_round[0][:25],
-                )
+                "set={: >2} size={: <10}".format(set_idx, human_size), 
+                color("IS PERIODIC (LRU) \t", fg="green"),
+                info,
+                np.array(strict_pattern_match[:32]),
+            )
+        elif num_soft_matches == len(miss_patterns):
+            # # filter out bad rounds
+            # before = len(combined)
+            # invalid = 0
+            # for round, misses in zip(miss_rounds, miss_patterns):
+            #     if len(misses) != valid_miss_count:
+            #         print("set={: <2} round={: <2} SKIP".format(set_idx, round))
+            #         combined = combined.loc[~((combined["set"] == set_idx) & (combined["round"] == round)),:]
+            #         invalid += 1
+            # after = len(combined)
+            # if invalid > 0:
+            #     assert before > after
+
+            print(
+                "size={: <10}".format(human_size), 
+                color("IS PERIODIC (LRU) \t", fg="warn"),
+                info,
+                np.array(soft_pattern_match[:32]),
             )
         else:
-            print(color("IS NON-PERIODIC (NOT LRU)", fg="red"))
-            for round, miss_lines in enumerate(unique_miss_cache_lines_per_round):
-                # print("round {:>2}: miss lines={}".format(round, miss_lines))
-                pass
+            print(
+                "size={: <10}".format(human_size),
+                color("IS NON-PERIODIC (NOT LRU) \t", fg="red"), 
+                info
+            )
+            for round, miss_lines in enumerate(miss_patterns):
+                print("========== set={: <2} round[{: <2}] ===========\t {: >5} missed lines:\n{}".format(set_idx, round, len(miss_lines), miss_lines))
+
+    for (set_idx, n), set_df in combined.groupby(["set", "n"]):
+        set_misses = set_df.loc[set_df["hit_cluster"] != 0, "cache_line"]
+        print("set={: <2} has {: <4} missed cache lines ({: >4} unique)".format(set_idx, len(set_misses), len(set_misses.unique())))
+
+    # combined = combined[combined["round"] == 1]
 
     # reverse engineer the cache set mapping
     combined["mapped_set"] = np.nan
@@ -564,10 +704,13 @@ def find_cache_replacement_policy():
     set_misses = set_misses.sort_values(["is_hit"], ascending=True)
     print(set_misses)
 
-    print("total unique indices {}".format(len(combined["index"].unique())))
-    print("total unique cache lines {}".format(len(combined["cache_line"].unique())))
+    total_unique_indices = combined["index"].unique()
+    total_unique_cache_lines = combined["cache_line"].unique()
+    print("total unique indices {}".format(len(total_unique_indices)))
+    print("total unique cache lines {}".format(len(total_unique_cache_lines)))
 
-    cache_line_set_mapping = pd.DataFrame(np.array(combined["cache_line"].unique()), columns=["cache_line"])
+    cache_line_set_mapping = pd.DataFrame(
+            np.array(combined["cache_line"].unique()), columns=["cache_line"])
     # cache_line_set_mapping = combined["cache_line"].unique().to_frame()
     # print(cache_line_set_mapping)
     cache_line_set_mapping["mapped_set"] = np.nan
@@ -585,8 +728,11 @@ def find_cache_replacement_policy():
         set_mask = combined["set"] == set_idx
         miss_mask = combined["is_hit"] == False
 
-        miss_indices = combined.loc[set_mask & miss_mask, "index"].unique()
-        miss_cache_lines = combined.loc[set_mask & miss_mask, "cache_line"].unique()
+        miss_indices = combined.loc[set_mask & miss_mask, "index"].astype(int).unique()
+        miss_cache_lines = combined.loc[set_mask & miss_mask, "cache_line"].astype(int).unique()
+        print("\n=== set={: <2}\t {: >4} miss lines {: >4} miss indices".format(set_idx, len(miss_cache_lines), len(miss_indices)))
+        # print("miss indices = {}".format(sorted(miss_indices)))
+        print("miss lines   = {}".format(sorted(miss_cache_lines)))
 
         unique_miss_indices = combined.loc[set_mask & miss_mask, "index"].unique()
         # print("set {} unique miss indices {}".format(set_idx, len(unique_miss_indices)))
@@ -606,11 +752,16 @@ def find_cache_replacement_policy():
         for miss_cache_line in unique_miss_cache_lines:
             combined.loc[combined["cache_line"] == miss_cache_line, "mapped_set"] = set_idx
 
+            cache_line_set_mapping.loc[cache_line_set_mapping["cache_line"] == miss_cache_line, "mapped_set"] = set_idx
+
             # cache_line_set_mapping.loc[cache_line_set_mapping["cache_line"] == miss_cache_line, "mapped_set"] = set_idx
-        set_df = combined.loc[set_mask, "is_hit"].copy()
-        set_df = set_df.reset_index()
+        # set_df = combined.loc[set_mask, "is_hit"].copy()
+        # set_df = set_df.reset_index()
         # print(set_df.index)
-        cache_line_set_mapping.loc[~set_df["is_hit"], "mapped_set"] = set_idx
+        # print(set_idx)
+        # print(cache_line_set_mapping)
+        # print(set_df["is_hit"])
+        # cache_line_set_mapping.loc[~set_df["is_hit"], "mapped_set"] = set_idx
 
         # print(cache_line_set_mapping["mapped_set"].value_counts())
 
@@ -637,7 +788,12 @@ def find_cache_replacement_policy():
         print("set 2 - 1", set2_1_diff)
 
     # print(cache_line_set_mapping)
-    # print(cache_line_set_mapping["mapped_set"].value_counts())
+    set_probability = cache_line_set_mapping["mapped_set"].value_counts().reset_index()
+    set_probability["prob"] = set_probability["count"] / set_probability["count"].sum()
+    print(set_probability)
+    print("sum of cache lines per set = {: >4}/{: <4}".format(set_probability["count"].sum(), len(total_unique_cache_lines)))
+    assert set_probability["count"].sum() == len(total_unique_cache_lines)
+
 
     mapped_sets = combined.loc[~combined["is_hit"], "mapped_set"]
     unmapped_sets_percent = mapped_sets.isnull().sum() / float(len(mapped_sets))
@@ -661,11 +817,12 @@ def find_cache_replacement_policy():
     # print(set_mapping[["index", "mapped_set"]].value_counts().reset_index()["mapped_set"].value_counts())
     # print(set_mapping["mapped_set"].value_counts())
     # set_probability = set_mapping["mapped_set"].value_counts().reset_index()
-    for set_col in ["set", "mapped_set", "predicted_set"]:
-        set_probability = set_mapping[set_col].value_counts().reset_index()
-        set_probability["prob"] = set_probability["count"] / set_probability["count"].sum()
-        print(set_col)
-        print(set_probability)
+    if False:
+        for set_col in ["set", "mapped_set", "predicted_set"]:
+            set_probability = set_mapping[set_col].value_counts().reset_index()
+            set_probability["prob"] = set_probability["count"] / set_probability["count"].sum()
+            print(set_col)
+            print(set_probability)
 
     # print(full_round_size)
     # print(int(set_probability["count"].sum()))
@@ -675,7 +832,7 @@ def find_cache_replacement_policy():
     # print(set_mapping.groupby("index")["mapped_set"].value_counts())
     # ["mapped_set"].value_counts())
 
-    min_set_bits = int(np.ceil(np.log2(num_sets)))
+    min_set_bits = int(np.ceil(np.log2(known_num_sets)))
     max_set_bits = 64  # 64 bit memory addresses
     max_set_bits = min_set_bits + 1  # 64 bit memory addresses
     for set_bits in range(min_set_bits, max_set_bits):
@@ -743,7 +900,7 @@ def find_cache_replacement_policy():
         # missed_cache_lines = indices[~df["is_hit"]] / stride_bytes
         # print("miss indices = {}..".format(missed_cache_lines.unique()))
 
-        # find_number_of_sets(df)
+        # compute_number_of_sets(df)
 
 
 """
@@ -757,7 +914,8 @@ So the relationship stands like this:
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-def find_cache_sets():
+@click.option("--mem", "mem", type=str, default="l1data", help="memory to microbenchmark")
+def find_cache_sets(mem):
     """
     Determine number of cache sets T.
 
@@ -783,26 +941,27 @@ def find_cache_sets():
     # after 24KB + 4 * 128B all cache sets are missed and the number of misses does not change
     known_cache_line_bytes = 128
     known_cache_size_bytes = 24 * KB
+
+    match mem.lower():
+        case "l1readonly":
+            stride_bytes = 16
+            pass
+
+
     start_cache_size_bytes = known_cache_size_bytes - 1 * known_cache_line_bytes
     end_cache_size_bytes = known_cache_size_bytes + predicted_max_sets * known_cache_line_bytes
 
     combined = []
     for n in range(start_cache_size_bytes, end_cache_size_bytes, step_bytes):
-        df, _ = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        print(stderr)
         df["n"] = n
         combined.append(df)
 
     combined = pd.concat(combined, ignore_index=True)
     combined = compute_hits(combined)
 
-    i = 0
     for n, df in combined.groupby("n"):
-        if n % KB == 0:
-            print("==> {} KB".format(n / KB))
-        if n % known_cache_line_bytes == 0:
-            human_cache_line_bytes = humanize.naturalsize(known_cache_line_bytes, binary=True)
-            print("==> start of predicted cache line ({})".format(human_cache_line_bytes ))
-
         # reindex the numeric index
         df = df.reset_index()
         assert df.index.start == 0
@@ -810,36 +969,48 @@ def find_cache_sets():
         # count hits and misses
         num_hits = (df["hit_cluster"] == 0).sum()
         num_misses = (df["hit_cluster"] != 0).sum()
+        num_l1_misses = (df["hit_cluster"] == 1).sum()
+        num_l2_misses = (df["hit_cluster"] == 2).sum()
+
+        hit_rate = float(num_hits) / float(len(df)) * 100.0
+        miss_rate = float(num_misses) / float(len(df)) * 100.0
 
         # extract miss pattern
         miss_pattern = df.index[df["hit_cluster"] != 0].tolist()
         assert len(miss_pattern) == num_misses
 
-        miss_pattern1 = df.index[df["hit_cluster"] == 1].tolist()
-        miss_pattern2 = df.index[df["hit_cluster"] == 2].tolist()
+        l1_misses = df.index[df["hit_cluster"] == 1].tolist()
+        l2_misses = df.index[df["hit_cluster"] == 2].tolist()
 
         human_size = humanize.naturalsize(n, binary=True)
         print(
-            "i={: <3} size={: <10} lsbs={: <3} hits={: <4} misses={: <4} short miss pattern={}.. long miss pattern = {}..".format(
-                i,
+            "size={: <10} lsbs={: <3} hits={: <4} ({}) l1 misses={: <4} l2 misses={: <4} (miss rate={}) l1 misses={}.. l2 misses= {}..".format(
                 human_size,
                 n % 128,
-                color(num_hits, fg="green", bold=True),
-                color(num_misses, fg="red", bold=True),
-                miss_pattern1[:10],
-                miss_pattern2[:10],
+                str(color(num_hits, fg="green", bold=True)),
+                color("{: >2.2f}%".format(hit_rate), fg="green"),
+                str(color(num_l1_misses, fg="red", bold=True)),
+                str(color(num_l2_misses, fg="red", bold=True)),
+                color("{: >2.2f}%".format(miss_rate), fg="red"),
+                l1_misses[:10],
+                l2_misses[:10],
             )
         )
-        i += 1
 
-    find_number_of_sets(combined)
+        if n % KB == 0:
+            print("==> {} KB".format(n / KB))
+        if n % known_cache_line_bytes == 0:
+            human_cache_line_bytes = humanize.naturalsize(known_cache_line_bytes, binary=True)
+            print("==> start of predicted cache line ({})".format(human_cache_line_bytes ))
+
+    compute_number_of_sets(combined)
 
 
 
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
-# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-def find_cache_line_size():
+@click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
+def find_cache_line_size(mem):
     """
     Step 2.
 
@@ -852,26 +1023,31 @@ def find_cache_line_size():
     Based on the memory access patterns, we can also have
     a general idea on the cache replacement policy.
     """
-    cache_size_bytes = 16 * KB - 128
-    cache_size_bytes = 24 * KB - 128
-
-    step_bytes = 4
-    stride_bytes = 4
-
+    known_cache_size_bytes = 24 * KB
     predicted_cache_line_bytes = 128
+
+    step_bytes = 8
+    stride_bytes = 8
     num_lines = 8
-    start_size_bytes = cache_size_bytes - 2 * predicted_cache_line_bytes
-    end_size_bytes = cache_size_bytes + num_lines * predicted_cache_line_bytes
+
+    match mem.lower():
+        case "l1readonly":
+            # stride_bytes = 8
+            pass
+    
+    start_size_bytes = known_cache_size_bytes - 2 * predicted_cache_line_bytes
+    end_size_bytes = known_cache_size_bytes + num_lines * predicted_cache_line_bytes
 
     combined = []
     for n in range(start_size_bytes, end_size_bytes, step_bytes):
-        df, _ = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        print(stderr)
         df["n"] = n
         combined.append(df)
 
     combined = pd.concat(combined, ignore_index=True)
     combined = compute_hits(combined)
-    combined = find_rounds(combined)
+    combined = compute_rounds(combined)
 
     num_unique_indices = len(combined["index"].unique())
 
@@ -954,8 +1130,8 @@ def quantize_latency(latency, bin_size=50):
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-# def compute_latency_n_graph(start_size, end_size):
-def latency_n_graph():
+@click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
+def latency_n_graph(mem):
     """
     Compute latency-N graph.
 
@@ -966,21 +1142,26 @@ def latency_n_graph():
     known_cache_size_bytes = 24 * KB
     known_cache_sets = 4
 
-    stride_bytes = 8
+    stride_bytes = 16
     step_size_bytes = 32
+
+    match mem.lower():
+        case "l1readonly":
+            pass
 
     start_cache_size_bytes = known_cache_size_bytes - 1 * known_cache_line_bytes
     end_cache_size_bytes = known_cache_size_bytes + (known_cache_sets + 1) * known_cache_line_bytes
 
     combined = []
     for n in range(start_cache_size_bytes, end_cache_size_bytes, step_size_bytes):
-        df, _ = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        print(stderr)
         df["n"] = n
         combined.append(df)
 
     combined = pd.concat(combined, ignore_index=True)
     combined = compute_hits(combined)
-    combined = find_rounds(combined)
+    combined = compute_rounds(combined)
 
     # remove incomplete rounds
     # round_sizes = combined["round"].value_counts()
@@ -1014,7 +1195,8 @@ def latency_n_graph():
 @main.command()
 @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-def find_cache_size(start_size, end_size):
+@click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
+def find_cache_size(start_size, end_size, mem):
     """
     Step 1.
 
@@ -1023,24 +1205,31 @@ def find_cache_size(start_size, end_size):
     the first cache miss appears. C equals the maximum N
     where all memory accesses are cache hits.
     """
-
+    
     predicted_cache_size_bytes = 24 * KB
-    search_interval_bytes = 4 * KB
 
-    start_size = start_size or predicted_cache_size_bytes - search_interval_bytes
-    end_size = end_size or predicted_cache_size_bytes + search_interval_bytes
     step_size_bytes = 1 * KB
     stride_bytes = 4
 
+    match mem.lower():
+        case "l1readonly":
+            stride_bytes = 16
+
+    search_interval_bytes = 4 * KB
+    start_size = start_size or predicted_cache_size_bytes - search_interval_bytes
+    end_size = end_size or predicted_cache_size_bytes + search_interval_bytes
+
     combined = []
     for n in range(start_size, end_size, step_size_bytes):
-        df, _ = l1_p_chase(size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=1)
+        print(stderr)
         df["n"] = n
         combined.append(df)
 
     combined = pd.concat(combined, ignore_index=True)
     combined = compute_hits(combined)
-    combined = find_rounds(combined)
+    combined = compute_rounds(combined)
+    print("number of unqiue indices = {: <4}".format(len(combined["index"].unique())))
 
     for n, df in combined.groupby("n"):
         if n % KB == 0:
@@ -1069,12 +1258,13 @@ def test():
 
 
 @main.command()
+@click.option("--mem", "mem", type=str, default="l1data", help="memory to microbenchmark")
 @click.option("--warmup", type=int, help="number of warmup interations")
 @click.option("--size", type=int, help="size in bytes")
 @click.option("--stride", type=int, help="stride in bytes")
 @click.option("--verbose", type=bool, is_flag=True, help="verbose output")
 # @click.option("--stride", type=int, is_flag=True, help="use nvprof")
-def run(warmup, size, stride, verbose):
+def run(mem, warmup, size, stride, verbose):
     if warmup is None:
         warmup = 1
     if stride is None:
@@ -1082,7 +1272,7 @@ def run(warmup, size, stride, verbose):
     if size is None:
         size = 16 * KB
 
-    df, (stdout, stderr) = l1_p_chase(size_bytes=size, stride_bytes=stride, warmup=warmup)
+    df, (stdout, stderr) = p_chase(mem=mem, size_bytes=size, stride_bytes=stride, warmup=warmup)
     # print(stdout)
     print(stderr)
     print(df)
