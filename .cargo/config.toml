@@ -10,6 +10,7 @@ sim = "run --release --"
 accelsim-trace = "run --release --package accelsim-trace --"
 accelsim-sim = "run --release --package accelsim-sim --"
 playground-sim = "run --release --package playground-sim --"
+pchase = "run --release --package gpucachesim-benchmarks --bin pchase --"
 
 t = "test -- --test-threads=1"
 tt = "test --release -- --test-threads=1"

@@ -602,7 +602,7 @@ impl TraceGenerator for Tracer {
                 }
 
                 // here we have the warp_trace ready to be added into the global trace
-                for inst in testing::simplify_warp_trace(&branch_trace) {
+                for inst in fmt::simplify_warp_trace(&branch_trace) {
                     log::trace!("{}", inst);
                 }
 
@@ -649,7 +649,7 @@ impl TraceGenerator for Tracer {
     }
 }
 
-pub mod testing {
+pub mod util {
     #[macro_export]
     macro_rules! mem_inst {
         ($kind:ident[$space:ident]@$addr:expr, $size:expr) => {{
@@ -662,7 +662,9 @@ pub mod testing {
         }};
     }
     pub use mem_inst;
+}
 
+pub mod fmt {
     #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct SimplifiedTraceInstruction {
         opcode: String,
@@ -735,7 +737,8 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use super::testing::{self, mem_inst, SimplifiedTraceInstruction};
+    use super::fmt::{self, SimplifiedTraceInstruction};
+    use super::util::mem_inst;
     use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
     use crate::model::MemorySpace;
     use color_eyre::eyre;
@@ -814,18 +817,18 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("single_for_loop")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 1, "11111111111111111111111111111111", 0),
                 ("LDG.E", 1, "10101010101010101010101010101010", 0),
@@ -859,18 +862,18 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleIfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("single_if")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 1, "11111111111111110000000000000000", 0),
                 ("EXIT", 0, "11111111111111111111111111111111", 0),
@@ -980,7 +983,7 @@ mod tests {
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
@@ -991,7 +994,7 @@ mod tests {
         // }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("STG.E", 0, "11111111111111111111111111111111", 0),
@@ -1054,7 +1057,7 @@ mod tests {
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
@@ -1065,7 +1068,7 @@ mod tests {
         // }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("LDG.E", 10, "11111111000000000000000000000000", 0),
@@ -1120,18 +1123,18 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Balanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("LDG.E", 10, "11111111111111110000000000000000", 0),
@@ -1180,18 +1183,18 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_imbalanced")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in testing::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 100, "11111111111111111111111111111111", 0),
                 ("LDG.E", 1, "11111111111111110000000000000000", 0),
@@ -1294,11 +1297,11 @@ mod tests {
 
         reference_vectoradd(&a, &b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
-        for inst in testing::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp) {
             println!("{}", inst);
         }
         diff::assert_eq!(
-            have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", 0, "11111111111111111111000000000000", 0),
                 ("LDG.E", 512, "11111111111111111111000000000000", 0),

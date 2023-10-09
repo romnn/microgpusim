@@ -6,14 +6,24 @@ use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex
 
 use tokio::sync::Mutex;
 
-// struct FineGrainPChase<'a, T> {
+#[derive(
+    Debug, Clone, Copy, strum::EnumIter, strum::EnumString, Hash, PartialEq, Eq, PartialOrd, Ord,
+)]
+#[strum(ascii_case_insensitive)]
+pub enum Memory {
+    L1Data,
+    L1ReadOnly,
+    L1Texture,
+    L2,
+}
 
 /// Fine-grain p-chase kernel.
-struct FineGrainPChase<'a> {
+pub struct FineGrainPChase<'a> {
     dev_array: Mutex<DevicePtr<&'a mut Vec<u32>>>,
     size: usize,
     stride: usize,
     warmup_iterations: usize,
+    iter_size: usize,
 }
 
 #[async_trait::async_trait]
@@ -38,9 +48,8 @@ impl<'a> Kernel for FineGrainPChase<'a>
 
         let mut dev_array = self.dev_array.lock().await;
 
-        const NUM_LOADS: i64 = 6 * 1024;
-        let iter_start = (self.warmup_iterations as i64 * -NUM_LOADS);
-        let iter_end = NUM_LOADS;
+        let iter_start = (self.warmup_iterations as i64 * -(self.iter_size as i64));
+        let iter_end = self.iter_size as i64;
         log::debug!(
             "p-chase: {} .. {} [n={}, stride={}]",
             iter_start,
@@ -86,9 +95,11 @@ impl<'a> Kernel for FineGrainPChase<'a>
 
 /// Fine-grain p-chase application.
 pub async fn pchase(
+    memory: Memory,
     size_bytes: usize,
     stride_bytes: usize,
     warmup_iterations: usize,
+    iter_size: usize,
 ) -> super::Result {
     let tracer = Tracer::new();
 
@@ -115,6 +126,7 @@ pub async fn pchase(
         size,
         stride,
         warmup_iterations,
+        iter_size,
     };
     let grid_size = 1;
     let block_size = 1;
@@ -137,14 +149,21 @@ mod tests {
     async fn test_correctness() -> eyre::Result<()> {
         crate::tests::init_test();
 
+        let iter_size = ((48 * KB) / 2) / std::mem::size_of::<u32>();
         let size_bytes = 16 * KB;
         let stride_bytes = 4;
         let warmup_iterations = 1;
 
         assert_eq!(stride_bytes, std::mem::size_of::<u32>());
 
-        let (_commands, kernel_traces) =
-            super::pchase(size_bytes, stride_bytes, warmup_iterations).await?;
+        let (_commands, kernel_traces) = super::pchase(
+            super::Memory::L1Data,
+            size_bytes,
+            stride_bytes,
+            warmup_iterations,
+            iter_size,
+        )
+        .await?;
         assert_eq!(kernel_traces.len(), 1);
         let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         let warp_traces = trace.clone().to_warp_traces();

@@ -3,20 +3,29 @@ name = "gpucachesim-benchmarks"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "pchase"
+
 [dependencies]
 num-traits = "0"
 async-trait = "0"
 tokio = { version = "1", features = ["full"] }
 color-eyre = "0"
+thiserror = "1"
+env_logger = "0"
 log = "0"
 rand = "0"
+tempfile = "3"
+parse-size = { version = "1", features = ["std"] }
+human_bytes = "0"
 serde = { version = "1", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
+strum = { version = "0", features = ["derive"] }
 
 gpucachesim = { path = "../" }
 trace-model = { path = "../trace/model" }
 
 [dev-dependencies]
-env_logger = "0"
 approx = "0.5"
 ndarray = { version = "0", features = ["approx-0_5"] }
 utils = { path = "../utils" }
