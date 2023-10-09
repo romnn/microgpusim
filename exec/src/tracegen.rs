@@ -6,6 +6,7 @@ use futures::StreamExt;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::sync::{atomic, Arc};
+use std::time::Instant;
 use tokio::sync::Mutex;
 
 pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
@@ -197,10 +198,12 @@ impl Tracer {
         K: Kernel + Send + Sync,
         <K as Kernel>::Error: Send,
     {
+        let start = Instant::now();
         let kernel = Arc::new(kernel);
 
         let block_ids: Vec<_> = grid.clone().into_iter().collect();
-        log::debug!("launching {} blocks", block_ids.len());
+        let num_blocks = block_ids.len();
+        log::debug!("launching {} blocks", num_blocks);
 
         // loop over the grid
         futures::stream::iter(block_ids)
@@ -272,6 +275,13 @@ impl Tracer {
             // .buffered(1)
             .collect::<Vec<_>>()
             .await;
+
+        log::debug!(
+            "ran {} blocks of kernel {:?} in {:?}",
+            num_blocks,
+            kernel.name(),
+            start.elapsed()
+        );
     }
 }
 
@@ -378,10 +388,31 @@ impl TraceGenerator for Tracer {
                 block_id,
                 warp_id_in_block,
             },
-            warp_instructions,
+            per_thread_instructions,
         ) in traced_instructions.into_iter()
         {
-            log::debug!("==> block {:?} warp {:<3}", block_id, warp_id_in_block);
+            if log::log_enabled!(log::Level::Debug) {
+                let per_thread_instruction_count: Vec<_> = per_thread_instructions
+                    .iter()
+                    .map(|per_thread| per_thread.iter().map(|inst| inst.is_access()).count())
+                    .collect();
+                let total_thread_instruction_count =
+                    per_thread_instruction_count.iter().sum::<usize>();
+                let mean_thread_instruction_count =
+                    per_thread_instruction_count.iter().sum::<usize>() as f32
+                        / per_thread_instruction_count
+                            .iter()
+                            .filter(|n| **n > 0)
+                            .count() as f32;
+
+                log::debug!(
+                    "==> block {:?} warp {:<3} has {} trace instructions ({:.2} per thread)",
+                    block_id,
+                    warp_id_in_block,
+                    total_thread_instruction_count,
+                    mean_thread_instruction_count,
+                );
+            }
 
             let mut super_cfg = cfg::CFG::new();
             let super_cfg_root_node_idx = super_cfg.add_unique_node(cfg::Node::Branch {
@@ -389,53 +420,80 @@ impl TraceGenerator for Tracer {
                 branch_id: 0,
             });
 
+            let start = Instant::now();
             let mut thread_graphs = [(); WARP_SIZE as usize].map(|_| cfg::ThreadCFG::default());
-            for (ti, thread_instructions) in warp_instructions.iter().enumerate() {
+            for (ti, thread_instructions) in per_thread_instructions.iter().enumerate() {
                 let (thread_cfg, (thread_cfg_root_node_idx, thread_cfg_sink_node_idx)) =
                     cfg::build_control_flow_graph(thread_instructions, &mut super_cfg);
 
-                let paths: Vec<Vec<_>> = cfg::all_simple_paths(
-                    &thread_cfg,
-                    thread_cfg_root_node_idx,
-                    thread_cfg_sink_node_idx,
-                )
-                .collect();
+                #[cfg(debug_assertions)]
+                {
+                    let paths: Vec<Vec<_>> = cfg::all_simple_paths(
+                        &thread_cfg,
+                        thread_cfg_root_node_idx,
+                        thread_cfg_sink_node_idx,
+                    )
+                    .collect();
 
-                // each edge connects two distinct nodes, resulting in a
-                // single control flow path each thread takes
-                assert_eq!(paths.len(), 1);
-                log::trace!(
-                    "thread[{:2}] = {:?}",
-                    ti,
-                    cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
-                );
+                    // each edge connects two distinct nodes, resulting in a
+                    // single control flow path each thread takes
+                    debug_assert_eq!(paths.len(), 1);
+                    log::trace!(
+                        "thread[{:2}] = {:?}",
+                        ti,
+                        cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
+                    );
+                }
 
                 thread_graphs[ti] = thread_cfg;
             }
 
+            if log::log_enabled!(log::Level::Debug) {
+                let per_thread_cfg_node_count: Vec<_> =
+                    thread_graphs.iter().map(|tg| tg.node_count()).collect();
+                log::debug!(
+                    "==> block {:?} warp {:<3} built thread graphs in {:?} (nodes: mean={:.2} max={} min={})",
+                    block_id,
+                    warp_id_in_block,
+                    start.elapsed(),
+                    per_thread_cfg_node_count.iter().sum::<usize>() as f32 / WARP_SIZE as f32,
+                    per_thread_cfg_node_count.iter().max().copied().unwrap_or(0),
+                    per_thread_cfg_node_count.iter().min().copied().unwrap_or(0),
+                );
+            }
+
             // fill remaining edges (this should be optional step)
-            cfg::add_missing_control_flow_edges(&mut super_cfg);
+            // cfg::add_missing_control_flow_edges(&mut super_cfg);
 
-            let super_cfg_sink_node_idx = super_cfg
-                .find_node(&cfg::Node::Reconverge {
-                    id: 0,
-                    branch_id: 0,
-                })
-                .unwrap();
+            let mut unique_control_flow_path_count: Option<usize> = None;
+            #[cfg(debug_assertions)]
+            if false {
+                let super_cfg_sink_node_idx = super_cfg
+                    .find_node(&cfg::Node::Reconverge {
+                        id: 0,
+                        branch_id: 0,
+                    })
+                    .unwrap();
 
-            let unique_control_flow_paths = super::cfg::all_simple_paths::<Vec<_>, _>(
-                &super_cfg,
-                super_cfg_root_node_idx,
-                super_cfg_sink_node_idx,
-            )
-            .collect::<Vec<_>>();
+                unique_control_flow_path_count = Some(
+                    super::cfg::all_simple_paths::<Vec<_>, _>(
+                        &super_cfg,
+                        super_cfg_root_node_idx,
+                        super_cfg_sink_node_idx,
+                    )
+                    .count(),
+                );
+            };
 
             log::debug!(
                 "super CFG: {} nodes, {} edges, {} edge weights, {} unique control flow paths",
                 super_cfg.node_count(),
                 super_cfg.edge_count(),
                 super_cfg.edge_weights().count(),
-                unique_control_flow_paths.len(),
+                unique_control_flow_path_count
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .unwrap_or("?".to_string()),
             );
 
             let warp_instruction = trace_model::MemAccessTraceEntry {
@@ -469,6 +527,11 @@ impl TraceGenerator for Tracer {
 
             for (edge_idx, node_idx) in iter {
                 let took_branch = super_cfg[edge_idx];
+                log::trace!(
+                    "trace assembly: node={} took branch={}",
+                    super_cfg[node_idx],
+                    took_branch
+                );
 
                 // useful for debugging
                 // for node_idx in thread_graphs[0].node_indices() {

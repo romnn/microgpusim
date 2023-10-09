@@ -66,6 +66,21 @@ impl From<MemInstruction> for ThreadInstruction {
     }
 }
 
+impl ThreadInstruction {
+    #[must_use]
+    pub fn is_access(&self) -> bool {
+        matches!(self, ThreadInstruction::Access(_))
+    }
+
+    #[must_use]
+    pub fn instruction(&self) -> Option<&MemInstruction> {
+        match self {
+            ThreadInstruction::Access(access) => Some(access),
+            _ => None,
+        }
+    }
+}
+
 impl std::fmt::Display for ThreadInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

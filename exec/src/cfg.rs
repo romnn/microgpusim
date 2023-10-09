@@ -352,6 +352,7 @@ where
     D: petgraph::EdgeType,
 {
     use std::collections::HashSet;
+    let mut added = 0;
     for node_idx in graph.node_indices() {
         let Node::Branch{id, branch_id} = graph[node_idx] else {
             continue;
@@ -368,11 +369,14 @@ where
             .unwrap();
         if !edges.contains(&true) {
             graph.add_unique_edge(node_idx, reconvergence_node_idx, true);
+            added += 1;
         }
         if !edges.contains(&false) {
             graph.add_unique_edge(node_idx, reconvergence_node_idx, false);
+            added += 1;
         }
     }
+    log::trace!("added {} missing control flow graph edges", added);
 }
 
 pub mod visit {
