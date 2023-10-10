@@ -8,6 +8,7 @@
 /target
 /debug.*
 /debug*.*
+*debug-trace
 .ipynb_checkpoints
 Pipfile.lock
 

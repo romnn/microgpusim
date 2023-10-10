@@ -399,7 +399,6 @@ pub fn convert_instruction(
     trace_instruction: &TraceInstruction,
     block_id: Dim,
     warp_id: u32,
-    kernel: &trace_model::command::KernelLaunch,
     mem_only: bool,
 ) -> eyre::Result<Option<trace_model::MemAccessTraceEntry>> {
     let opcode_tokens: Vec<_> = trace_instruction.opcode.split('.').collect();
@@ -441,9 +440,9 @@ pub fn convert_instruction(
     }
 
     Ok(Some(trace_model::MemAccessTraceEntry {
-        cuda_ctx: 0, // cannot infer that (not required)
-        sm_id: 0,    // cannot infer that (not required)
-        kernel_id: kernel.id,
+        cuda_ctx: 0,  // cannot infer that (not required)
+        sm_id: 0,     // cannot infer that (not required)
+        kernel_id: 0, // added later
         block_id,
         warp_id_in_sm: warp_id, // accelsim does not record warp_id_in_sm (not required)
         warp_id_in_block: warp_id,
@@ -478,7 +477,7 @@ pub fn read_trace_instructions(
     trace_version: usize,
     line_info: bool,
     mem_only: bool,
-    kernel: &trace_model::command::KernelLaunch,
+    kernel: Option<&trace_model::command::KernelLaunch>,
 ) -> eyre::Result<Vec<trace_model::MemAccessTraceEntry>> {
     let mut instructions = Vec::new();
     let mut lines = reader.lines();
@@ -541,15 +540,11 @@ pub fn read_trace_instructions(
                 let trace_instruction =
                     parse_single_trace_instruction(instruction, trace_version, line_info)
                         .wrap_err_with(|| format!("bad instruction: {instruction:?}"))?;
-                let parsed_instruction = convert_instruction(
-                    &trace_instruction,
-                    block.clone(),
-                    warp_id,
-                    kernel,
-                    mem_only,
-                )
-                .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?;
+                let parsed_instruction =
+                    convert_instruction(&trace_instruction, block.clone(), warp_id, mem_only)
+                        .wrap_err_with(|| format!("bad instruction: {trace_instruction:?}"))?;
                 if let Some(mut parsed_instruction) = parsed_instruction {
+                    parsed_instruction.kernel_id = kernel.map(|k| k.id).unwrap_or(0);
                     parsed_instruction.instr_idx = instruction_idx;
                     instructions.push(parsed_instruction);
                     instruction_idx += 1;
@@ -557,12 +552,14 @@ pub fn read_trace_instructions(
             }
         }
     }
-    // sort instructions like the accelsim tracer
-    instructions.sort_by_key(|inst| {
-        let block_sort_key = trace_model::dim::accelsim_block_id(&inst.block_id, &kernel.grid);
-        (block_sort_key, inst.warp_id_in_block)
-    });
 
+    if let Some(kernel) = kernel {
+        // sort instructions like the accelsim tracer
+        instructions.sort_by_key(|inst| {
+            let block_sort_key = trace_model::dim::accelsim_block_id(&inst.block_id, &kernel.grid);
+            (block_sort_key, inst.warp_id_in_block)
+        });
+    }
     Ok(instructions)
 }
 
@@ -594,7 +591,7 @@ pub fn read_command_traces(
                     metadata.trace_version,
                     metadata.line_info,
                     mem_only,
-                    &kernel,
+                    Some(&kernel),
                 )?;
 
                 Ok::<_, eyre::Report>((
@@ -711,7 +708,7 @@ mod tests {
             metadata.trace_version,
             metadata.line_info,
             mem_only,
-            kernel,
+            Some(kernel),
         )?;
         dbg!(&trace[..5]);
         dbg!(trace.len());

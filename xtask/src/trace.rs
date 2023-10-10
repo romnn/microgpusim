@@ -1,6 +1,6 @@
 use accelsim::tracegen;
 use clap::Parser;
-use color_eyre::eyre;
+use color_eyre::{eyre, Section, SectionExt};
 use console::style;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
@@ -9,7 +9,15 @@ use utils::diff;
 
 #[derive(Parser, Debug, Clone)]
 pub enum Command {
-    Info,
+    Info {
+        #[clap(long = "block", help = "get trace for specific block only")]
+        block_id: Option<trace_model::Dim>,
+        #[clap(
+            long = "instruction-limit",
+            help = "limit the number of instructions printed"
+        )]
+        instruction_limit: Option<usize>,
+    },
     Compare {
         #[clap(long = "print", help = "print matching traces")]
         print: bool,
@@ -39,12 +47,88 @@ pub struct Options {
     pub command: Command,
 }
 
+use once_cell::sync::Lazy;
+use regex::Regex;
+use std::ffi::OsStr;
+
+static ACCELSIM_KERNEL_TRACE_FILE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"kernel-(\d+).*").unwrap());
+
 fn parse_accelsim_traces(
     trace_dir: &Path,
-    commands: &Path,
+    commands_or_trace: &Path,
     mem_only: bool,
 ) -> eyre::Result<tracegen::reader::CommandTraces> {
-    let mut command_traces = tracegen::reader::read_command_traces(trace_dir, commands, mem_only)?;
+    use accelsim::tracegen::reader::Command as AccelsimCommand;
+    let mut command_traces = if commands_or_trace
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        == Some("traceg")
+    {
+        let extract_kernel_launch_id = || {
+            // extract kernel launch id from file name similar to "kernel-1.traceg"
+            let file_name = commands_or_trace.file_stem().map(OsStr::to_str).flatten()?;
+            let captures = ACCELSIM_KERNEL_TRACE_FILE_REGEX.captures(file_name)?;
+            captures
+                .get(0)
+                .as_ref()
+                .map(regex::Match::as_str)
+                .map(str::parse)
+                .map(Result::ok)
+                .flatten()
+        };
+
+        let find_kernel_launch = |kernel_launch_id: u64| {
+            let reader = utils::fs::open_readable(trace_dir.join("kernelslist.g"))?;
+            let accelsim_commands = accelsim::tracegen::reader::read_commands(trace_dir, reader)?;
+
+            // find matching launch
+            let kernel_launch = accelsim_commands.into_iter().find_map(|cmd| match cmd {
+                AccelsimCommand::KernelLaunch((kernel, metadata))
+                    if kernel.id == kernel_launch_id =>
+                {
+                    Some((kernel, metadata))
+                }
+                _ => None,
+            });
+            Ok::<_, eyre::Report>(kernel_launch)
+        };
+
+        let kernel_launch = extract_kernel_launch_id()
+            .and_then(|launch_id| find_kernel_launch(launch_id).ok())
+            .flatten();
+
+        let reader = utils::fs::open_readable(commands_or_trace)?;
+        let trace_version = kernel_launch
+            .as_ref()
+            .map(|(_, metadata)| metadata.trace_version)
+            .unwrap_or(4);
+        let line_info = kernel_launch
+            .as_ref()
+            .map(|(_, metadata)| metadata.line_info)
+            .unwrap_or(false);
+
+        let trace = accelsim::tracegen::reader::read_trace_instructions(
+            reader,
+            trace_version,
+            line_info,
+            mem_only,
+            kernel_launch.as_ref().map(|(kernel, _)| kernel),
+        )?;
+
+        Ok::<_, eyre::Report>(vec![(
+            kernel_launch
+                .map(|(kernel, _)| kernel)
+                .map(trace_model::Command::KernelLaunch),
+            Some(trace_model::MemAccessTrace(trace)),
+        )])
+    } else {
+        tracegen::reader::read_command_traces(trace_dir, commands_or_trace, mem_only)
+    }?;
+
+    if command_traces.is_empty() {
+        return Err(eyre::eyre!("command list is empty"));
+    }
 
     // note: accelsim kernel launch ids start at index 1
     for (cmd, _) in &mut command_traces {
@@ -76,7 +160,7 @@ fn parse_box_traces(
     if commands_or_trace
         .extension()
         .and_then(std::ffi::OsStr::to_str)
-        == Some(".json")
+        == Some("json")
     {
         let commands: Vec<trace_model::Command> = {
             let reader = utils::fs::open_readable(commands_or_trace)?;
@@ -115,12 +199,15 @@ fn parse_trace(
     let traces = match (box_trace, accelsim_trace) {
         (Ok(box_trace), Err(_)) => Ok(box_trace),
         (Err(_), Ok(accelsim_trace)) => Ok(accelsim_trace),
-        (Err(box_err), Err(accelsim_err)) => Err(eyre::Report::from(box_err)
-            .wrap_err(accelsim_err)
-            .wrap_err(eyre::eyre!(
+        (Err(box_err), Err(accelsim_err)) => {
+            let err = eyre::eyre!(
                 "trace {} is neither a valid accelsim or box trace",
                 commands_or_trace.display()
-            ))),
+            )
+            .with_section(|| box_err.header("box error:"))
+            .with_section(|| accelsim_err.header("accelsim error:"));
+            Err(err)
+        }
         (Ok(_), Ok(_)) => {
             unreachable!(
                 "trace {} is both a valid accelsim and box trace",
@@ -241,7 +328,33 @@ impl std::fmt::Display for InstructionComparator {
 
 impl std::fmt::Debug for InstructionComparator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self, f)
+        let inst = &self.0;
+        let addrs = inst
+            .addrs
+            .iter()
+            .enumerate()
+            .filter_map(|(tid, addr)| {
+                if inst.active_mask[tid] {
+                    Some(addr)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        write!(
+            f,
+            "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:>10} [{:<10?}]\t {:>20} => {:<2}\t\t active={} adresses={:?}",
+            inst.block_id,
+            inst.warp_id_in_block,
+            inst.instr_idx,
+            inst.instr_offset,
+            inst.instr_opcode,
+            inst.instr_mem_space,
+            inst.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            inst.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            inst.active_mask,
+            addrs,
+        )
     }
 }
 
@@ -295,36 +408,86 @@ impl From<trace_model::WarpTraces> for WarpTraces {
     }
 }
 
-fn print_trace(warp_traces: &WarpTraces, verbose: bool) {
-    for ((block_id, warp_id), trace) in &warp_traces.0 {
-        println!(
-            "#### block={:<10} warp={:<2}",
-            block_id.to_string(),
-            warp_id
-        );
-        for (_trace_idx, entry) in trace.iter().enumerate() {
-            if verbose {
-                println!("{:#?}", &entry.as_ref());
-            } else {
-                println!("{}", &entry.as_ref());
-            }
-        }
-    }
-}
-
-fn trace_info(commands_or_trace: &Path, mem_only: bool, verbose: bool) -> eyre::Result<()> {
+fn trace_info(
+    commands_or_trace: &Path,
+    mem_only: bool,
+    block_id: Option<&trace_model::Dim>,
+    verbose: bool,
+    inst_limit: Option<usize>,
+) -> eyre::Result<()> {
     let trace_dir = commands_or_trace.parent().unwrap();
     let command_traces = parse_trace(trace_dir, commands_or_trace, mem_only)?;
 
+    let mut total_instructions = 0;
     for (i, (cmd, warp_traces)) in command_traces.iter().enumerate() {
         println!("command {i}: {cmd:?}");
         let Some(warp_traces) = warp_traces else {
             continue;
         };
 
-        print_trace(warp_traces, verbose);
+        let mut warps: Vec<_> = warp_traces
+            .0
+            .keys()
+            .sorted_by_key(|(warp_id, _)| warp_id.clone())
+            .collect();
+
+        if let Some(block_id) = block_id {
+            warps.retain(|(trace_block_id, _)| trace_block_id == block_id)
+        }
+
+        for warp_id in warps.iter() {
+            let (block_id, warp_id_in_block) = warp_id;
+            let warp_trace: Vec<_> = get_warp_instructions(warp_traces, warp_id, mem_only);
+            let (valid, filtered): (Vec<_>, Vec<_>) = partition_instructions(warp_trace);
+
+            println!(
+                "\t=> block {: <10} warp={: <3}\t {} instructions ({} filtered)",
+                block_id.to_string(),
+                warp_id_in_block,
+                valid.len(),
+                filtered.len(),
+            );
+            for (_trace_idx, inst) in valid.iter().enumerate() {
+                if verbose {
+                    println!("{:#?}", inst.0);
+                } else {
+                    println!("{:?}", inst);
+                }
+                total_instructions += 1;
+                if let Some(inst_limit) = inst_limit {
+                    if total_instructions >= inst_limit {
+                        return Ok(());
+                    }
+                }
+            }
+        }
     }
     Ok(())
+}
+
+pub type WarpId = (trace_model::Dim, u32);
+
+fn get_warp_instructions(
+    warp_traces: &WarpTraces,
+    warp_id: &WarpId,
+    mem_only: bool,
+) -> Vec<TraceInstruction> {
+    warp_traces
+        .0
+        .get(warp_id)
+        .unwrap_or(&vec![])
+        .iter()
+        .cloned()
+        .map(|inst| {
+            if mem_only && !inst.as_ref().0.is_memory_instruction() {
+                TraceInstruction::Filtered(inst.into_inner())
+            } else if inst.as_ref().0.active_mask.not_any() {
+                TraceInstruction::Filtered(inst.into_inner())
+            } else {
+                inst
+            }
+        })
+        .collect()
 }
 
 fn compare_trace(
@@ -381,32 +544,10 @@ fn compare_trace(
                 all_warps.retain(|(trace_block_id, _)| trace_block_id == block_id)
             }
 
-            pub type WarpId = (trace_model::Dim, u32);
-
-            let get_warp_instructions =
-                |warp_traces: &WarpTraces, warp_id: &WarpId| -> Vec<TraceInstruction> {
-                    warp_traces
-                        .0
-                        .get(warp_id)
-                        .unwrap_or(&vec![])
-                        .iter()
-                        .cloned()
-                        .map(|inst| {
-                            if mem_only && !inst.as_ref().0.is_memory_instruction() {
-                                TraceInstruction::Filtered(inst.into_inner())
-                            } else if inst.as_ref().0.active_mask.not_any() {
-                                TraceInstruction::Filtered(inst.into_inner())
-                            } else {
-                                inst
-                            }
-                        })
-                        .collect()
-                };
-
             for warp_id in all_warps.iter() {
                 let (block_id, warp_id_in_block) = warp_id;
-                let left_warp_trace: Vec<_> = get_warp_instructions(left, warp_id);
-                let right_warp_trace: Vec<_> = get_warp_instructions(right, warp_id);
+                let left_warp_trace: Vec<_> = get_warp_instructions(left, warp_id, mem_only);
+                let right_warp_trace: Vec<_> = get_warp_instructions(right, warp_id, mem_only);
 
                 let (mut left_valid, left_filtered): (Vec<_>, Vec<_>) =
                     partition_instructions(left_warp_trace);
@@ -702,9 +843,18 @@ where
 
 pub fn run(options: &Options) -> eyre::Result<()> {
     match options.command {
-        Command::Info => {
+        Command::Info {
+            ref block_id,
+            instruction_limit,
+        } => {
             for trace in &options.traces {
-                trace_info(trace, options.memory_only, options.verbose)?;
+                trace_info(
+                    trace,
+                    options.memory_only,
+                    block_id.as_ref(),
+                    options.verbose,
+                    instruction_limit,
+                )?;
             }
         }
         Command::Compare {

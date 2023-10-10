@@ -2,6 +2,7 @@
 
 use clap::{CommandFactory, Parser};
 use color_eyre::eyre;
+use console::style;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -76,11 +77,15 @@ async fn main() -> eyre::Result<()> {
         terminate_upon_limit,
     } = options;
 
-    let traces_dir = if let Some(ref traces_dir) = traces_dir {
-        traces_dir.clone()
-    } else {
-        utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("accel-trace")
-    };
+    let temp_dir = tempfile::tempdir()?;
+    let traces_dir = traces_dir
+        .clone()
+        .map(Result::<PathBuf, utils::TraceDirError>::Ok)
+        .unwrap_or_else(|| {
+            // Ok(utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("accel-trace"))
+            Ok(temp_dir.path().to_path_buf())
+        })?;
+
     let traces_dir = utils::fs::normalize_path(traces_dir);
     utils::fs::create_dirs(&traces_dir)?;
     log::info!("trace dir: {}", traces_dir.display());
@@ -93,10 +98,9 @@ async fn main() -> eyre::Result<()> {
     };
 
     accelsim_trace::trace(&exec, &exec_args, &trace_options).await?;
-    log::info!(
-        "tracing {} {} took {:?}",
-        exec.display(),
-        exec_args.join(" "),
+    println!(
+        "tracing {} took {:?}",
+        style(format!("{} {}", exec.display(), exec_args.join(" "))).cyan(),
         start.elapsed()
     );
     Ok(())

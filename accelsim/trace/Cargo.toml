@@ -21,6 +21,7 @@ console = "0"
 log = "0"
 env_logger = "0"
 async-process = "1"
+tempfile = "3"
 tokio = { version = "1", features = ["full"] }
 clap = { version = "4", features = ["derive"] }
 

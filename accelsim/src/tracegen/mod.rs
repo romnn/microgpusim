@@ -94,7 +94,7 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
                     metadata.trace_version,
                     metadata.line_info,
                     mem_only,
-                    &kernel,
+                    Some(&kernel),
                 )?;
 
                 let generated_kernel_trace_name = format!("accelsim-kernel-{}.msgpack", kernel.id);
@@ -104,12 +104,9 @@ pub fn convert_accelsim_to_box_traces(options: &Conversion<'_>) -> eyre::Result<
                 rmp_serde::encode::write(&mut writer, &parsed_trace)?;
 
                 // also save as json for inspection
-                if false {
-                    let mut writer = utils::fs::open_writable(
-                        generated_kernel_trace_path.with_extension("json"),
-                    )?;
-                    serde_json::to_writer_pretty(&mut writer, &parsed_trace)?;
-                }
+                let mut writer =
+                    utils::fs::open_writable(generated_kernel_trace_path.with_extension("json"))?;
+                serde_json::to_writer_pretty(&mut writer, &parsed_trace)?;
 
                 // update the kernel trace path
                 kernel.trace_file = generated_kernel_trace_name;
