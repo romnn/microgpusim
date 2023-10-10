@@ -9,18 +9,6 @@ use std::sync::{Arc, Mutex};
 const KB: usize = 1024;
 const DEFAULT_ITER_SIZE: usize = ((48 * KB) / 2) / std::mem::size_of::<u32>();
 
-// #[derive(thiserror::Error, Debug)]
-// pub struct InvalidSizeError {
-//     value: String,
-//     err: parse_size::Error,
-// }
-//
-// impl std::fmt::Display for InvalidSizeError {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "invalid size {:?}: {}", self.value, self.err)
-//     }
-// }
-
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub u64);
 
@@ -30,14 +18,6 @@ impl std::fmt::Display for Bytes {
     }
 }
 
-// impl TryFrom<&str> for Bytes {
-//     type Error = parse_size::Error;
-//
-//     fn try_from(value: &str) -> Result<Self, Self::Error> {
-//         Ok(Self(parse_size::parse_size(value)?))
-//     }
-// }
-
 impl std::str::FromStr for Bytes {
     type Err = parse_size::Error;
 
@@ -45,18 +25,6 @@ impl std::str::FromStr for Bytes {
         Ok(Self(parse_size::parse_size(value)?))
     }
 }
-
-// impl std::str::FromStr for Bytes {
-//     type Err = InvalidSizeError;
-//
-//     fn from_str(value: &str) -> Result<Self, Self::Err> {
-//         let bytes = parse_size::parse_size(value).map_err(|err| InvalidSizeError {
-//             err,
-//             value: value.to_string(),
-//         })?;
-//         Ok(Self(bytes))
-//     }
-// }
 
 #[derive(Parser, Debug, Clone)]
 #[clap(

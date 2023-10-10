@@ -137,7 +137,7 @@ pub async fn pchase(
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::testing::{self, SimplifiedTraceInstruction};
+    use gpucachesim::exec::tracegen::fmt::{self, SimplifiedTraceInstruction};
     use ndarray::Array1;
     use utils::diff;
 
@@ -169,7 +169,7 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        let simplified_trace = fmt::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
         for inst in &simplified_trace {
             println!("{}", inst);
         }
