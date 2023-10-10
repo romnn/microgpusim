@@ -83,6 +83,14 @@ impl MemAccessTraceEntry {
         let is_barrier = self.instr_opcode.to_uppercase() == "MEMBAR";
         self.instr_is_mem || self.instr_is_store || self.instr_is_load || is_exit || is_barrier
     }
+
+    pub fn source_registers(&self) -> &[u32] {
+        &self.src_regs[0..self.num_src_regs as usize]
+    }
+
+    pub fn dest_registers(&self) -> &[u32] {
+        &self.dest_regs[0..self.num_dest_regs as usize]
+    }
 }
 
 impl std::cmp::Ord for MemAccessTraceEntry {

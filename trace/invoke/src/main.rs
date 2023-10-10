@@ -86,11 +86,14 @@ async fn main() -> eyre::Result<()> {
         tracer,
     } = options;
 
-    let traces_dir = if let Some(ref traces_dir) = traces_dir {
-        traces_dir.clone()
-    } else {
-        utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("trace")
-    };
+    let temp_dir = tempfile::tempdir()?;
+    let traces_dir = traces_dir
+        .clone()
+        .map(Result::<PathBuf, utils::TraceDirError>::Ok)
+        .unwrap_or_else(|| {
+            // Ok(utils::debug_trace_dir(&exec, exec_args.as_slice())?.join("trace"))
+            Ok(temp_dir.path().to_path_buf())
+        })?;
 
     let traces_dir = utils::fs::normalize_path(&traces_dir);
     utils::fs::create_dirs(&traces_dir)?;
@@ -108,6 +111,9 @@ async fn main() -> eyre::Result<()> {
     invoke_trace::trace(exec, exec_args, &trace_options)
         .await
         .map_err(invoke_trace::Error::into_eyre)?;
+
+    // print trace
+
     println!("tracing done in {:?}", start.elapsed());
     Ok(())
 }

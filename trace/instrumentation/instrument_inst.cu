@@ -19,7 +19,8 @@
 // Note: CUDA functions only allowf or at most 11 arguments of <= 256 bytes
 // each. For more or larger arguments fall back to passing device allocated
 // pointers.
-extern "C" __device__ __noinline__ void
+// extern "C" __device__ __noinline__ void
+extern "C" __attribute__((visibility("default"))) __device__ __noinline__ void
 instrument_inst(uint32_t pred, uint32_t instr_data_width,
                 uint32_t instr_opcode_id, uint32_t instr_offset,
                 uint32_t instr_idx, uint32_t line_num, uint32_t instr_mem_space,
