@@ -96,42 +96,48 @@ impl<'a> Kernel for FineGrainPChase<'a>
 /// Fine-grain p-chase application.
 pub async fn pchase(
     memory: Memory,
-    size_bytes: usize,
+    start_size_bytes: usize,
+    end_size_bytes: usize,
+    step_size_bytes: usize,
     stride_bytes: usize,
     warmup_iterations: usize,
     iter_size: usize,
 ) -> super::Result {
+    let mut traces = vec![];
     let tracer = Tracer::new();
 
-    let size = size_bytes / std::mem::size_of::<u32>();
-    let stride = stride_bytes / std::mem::size_of::<u32>();
+    for size_bytes in (start_size_bytes..end_size_bytes).step_by(step_size_bytes) {
+        let size = size_bytes / std::mem::size_of::<u32>();
+        let stride = stride_bytes / std::mem::size_of::<u32>();
 
-    // initialize host array with pointers into dev_array
-    let mut array: Vec<u32> = vec![0; size as usize + 2];
-    for i in 0..size {
-        array[i] = ((i + stride) % size) as u32;
+        // initialize host array with pointers into dev_array
+        let mut array: Vec<u32> = vec![0; size as usize + 2];
+        for i in 0..size {
+            array[i] = ((i + stride) % size) as u32;
+        }
+
+        array[size] = 0;
+        array[size + 1] = 0;
+
+        // allocate memory for each vector on simulated GPU device
+        let dev_array = tracer
+            .allocate(&mut array, MemorySpace::Global, Some("array"))
+            .await;
+
+        // number of thread blocks in grid
+        let kernel = FineGrainPChase {
+            dev_array: Mutex::new(dev_array),
+            size,
+            stride,
+            warmup_iterations,
+            iter_size,
+        };
+        let grid_size = 1;
+        let block_size = 1;
+        let trace = tracer.trace_kernel(grid_size, block_size, kernel).await?;
+        traces.push(trace);
     }
-
-    array[size] = 0;
-    array[size + 1] = 0;
-
-    // allocate memory for each vector on simulated GPU device
-    let dev_array = tracer
-        .allocate(&mut array, MemorySpace::Global, Some("array"))
-        .await;
-
-    // number of thread blocks in grid
-    let kernel = FineGrainPChase {
-        dev_array: Mutex::new(dev_array),
-        size,
-        stride,
-        warmup_iterations,
-        iter_size,
-    };
-    let grid_size = 1;
-    let block_size = 1;
-    let trace = tracer.trace_kernel(grid_size, block_size, kernel).await?;
-    Ok((tracer.commands().await, vec![trace]))
+    Ok((tracer.commands().await, traces))
 }
 
 #[cfg(test)]
@@ -146,7 +152,7 @@ mod tests {
     const EPSILON: f32 = 0.0001;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn test_correctness() -> eyre::Result<()> {
+    async fn test_generate_trace() -> eyre::Result<()> {
         crate::tests::init_test();
 
         let iter_size = ((48 * KB) / 2) / std::mem::size_of::<u32>();
@@ -159,6 +165,8 @@ mod tests {
         let (_commands, kernel_traces) = super::pchase(
             super::Memory::L1Data,
             size_bytes,
+            size_bytes,
+            1,
             stride_bytes,
             warmup_iterations,
             iter_size,
@@ -169,63 +177,10 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = fmt::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        let simplified_trace = fmt::simplify_warp_trace(&first_warp, true).collect::<Vec<_>>();
         for inst in &simplified_trace {
             println!("{}", inst);
         }
-
-        // create host vectors
-        // let n = 100;
-        // let mut a: Vec<f32> = vec![0.0; n];
-        // let mut b: Vec<f32> = vec![0.0; n];
-        // let mut result: Vec<f32> = vec![0.0; n];
-        // let mut ref_result: Vec<f32> = vec![0.0; n];
-        //
-        // // initialize vectors
-        // for i in 0..n {
-        //     let angle = i as f32;
-        //     a[i] = angle.sin() * angle.sin();
-        //     b[i] = angle.cos() * angle.cos();
-        // }
-        //
-        // let ndarray_result = {
-        //     let ref_a = Array1::from_shape_vec(n, a.clone())?;
-        //     let ref_b = Array1::from_shape_vec(n, b.clone())?;
-        //     ref_a + ref_b
-        // };
-        // let (_commands, kernel_traces) = super::vectoradd(&a, &b, &mut result).await?;
-        // assert_eq!(kernel_traces.len(), 1);
-        // let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
-        // super::reference(&a, &b, &mut ref_result);
-        //
-        // let ref_result = Array1::from_shape_vec(n, ref_result)?;
-        // let result = Array1::from_shape_vec(n, result)?;
-        // dbg!(&ref_result);
-        // dbg!(&result);
-        //
-        // if !approx::abs_diff_eq!(ref_result, ndarray_result, epsilon = EPSILON) {
-        //     diff::assert_eq!(have: ref_result, want: ndarray_result);
-        // }
-        // if !approx::abs_diff_eq!(result, ndarray_result, epsilon = EPSILON) {
-        //     diff::assert_eq!(have: result, want: ndarray_result);
-        // }
-        //
-        // let warp_traces = trace.clone().to_warp_traces();
-        // let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        //
-        // let simplified_trace = testing::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
-        // for inst in &simplified_trace {
-        //     println!("{}", inst);
-        // }
-        // diff::assert_eq!(
-        //     have: simplified_trace,
-        //     want: [
-        //         ("LDG", 0, "11111111111111111111111111111111", 0),
-        //         ("LDG", 512, "11111111111111111111111111111111", 0),
-        //         ("STG", 1024, "11111111111111111111111111111111", 0),
-        //         ("EXIT", 0, "11111111111111111111111111111111", 0),
-        //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
-        // );
         Ok(())
     }
 }

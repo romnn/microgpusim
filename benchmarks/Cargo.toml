@@ -16,6 +16,7 @@ env_logger = "0"
 log = "0"
 rand = "0"
 tempfile = "3"
+itertools = "0"
 parse-size = { version = "1", features = ["std"] }
 human_bytes = "0"
 serde = { version = "1", features = ["derive"] }

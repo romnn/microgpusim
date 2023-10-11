@@ -25,10 +25,11 @@ const int KB = 1024;
 
 const int ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
-__global__ void global_latency_l1_data(unsigned int *array, int array_length,
-                                       unsigned int *duration,
-                                       unsigned int *index,
-                                       size_t warmup_iterations) {
+__global__ __noinline__ void global_latency_l1_data(unsigned int *array,
+                                                    int array_length,
+                                                    unsigned int *duration,
+                                                    unsigned int *index,
+                                                    size_t warmup_iterations) {
   unsigned int start_time, end_time;
   uint32_t j = 0;
 
@@ -88,10 +89,10 @@ const static unsigned int LATENCY_BIN_SIZE = 16;
 // const int ITER_SIZE_COMPRESSED = 12 * 1024;
 const int ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
 
-__global__ void global_latency_compressed(unsigned int *array, int array_length,
-                                          unsigned int *duration,
-                                          unsigned int *index,
-                                          size_t warmup_iterations) {
+__global__ __noinline__ void
+global_latency_compressed(unsigned int *array, int array_length,
+                          unsigned int *duration, unsigned int *index,
+                          size_t warmup_iterations) {
   unsigned int start_time, end_time, dur;
   uint32_t j = 0;
 
@@ -153,7 +154,7 @@ __global__ void global_latency_compressed(unsigned int *array, int array_length,
 
 const int READONLY_ITER_SIZE = (48 * KB) / sizeof(uint32_t);
 
-__global__ void
+__global__ __noinline__ void
 global_latency_l1_readonly(const unsigned int *__restrict__ array,
                            int array_length, unsigned int *duration,
                            unsigned int *index, size_t warmup_iterations) {
@@ -203,7 +204,7 @@ global_latency_l1_readonly(const unsigned int *__restrict__ array,
 // declare the texture
 // texture<int, 1, cudaReadModeElementType> tex_ref;
 
-__global__ void
+__global__ __noinline__ void
 global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
                           int array_length, unsigned int *duration,
                           unsigned int *index, size_t warmup_iterations) {
@@ -265,9 +266,6 @@ const char *memory_str[NUM_MEMORIES] = {
 int parametric_measure_global(memory mem, size_t N, size_t stride,
                               size_t warmup_iterations) {
   cudaDeviceReset();
-
-  // print CSV header
-  fprintf(stdout, "index,latency\n");
 
   // allocate arrays on CPU
   unsigned int *h_a;
@@ -424,7 +422,7 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
         mean_latency += (float)h_timeinfo[k * 32];
       }
       mean_latency /= 32.0;
-      fprintf(stdout, "%4d,%4.10f\n", index, mean_latency);
+      fprintf(stdout, "%8lu,%4d,%4.10f\n", N, index, mean_latency);
     }
     break;
   default:
@@ -436,7 +434,7 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
           j = h_a[j];
           unsigned int index = j;
           unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
-          fprintf(stdout, "%4d,%4d\n", index, binned_latency);
+          fprintf(stdout, "%8lu,%4d,%4d\n", N, index, binned_latency);
         } else {
           j = h_a[j];
         }
@@ -445,7 +443,7 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
       for (size_t k = 0; k < iter_size; k++) {
         unsigned int index = h_index[k];
         unsigned int latency = h_timeinfo[k];
-        fprintf(stdout, "%4d,%4d\n", index, latency);
+        fprintf(stdout, "%8lu,%4d,%4d\n", N, index, latency);
       }
     }
     break;
@@ -498,10 +496,11 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
 int main(int argc, char *argv[]) {
   cudaSetDevice(0);
   memory mem;
-  size_t size_bytes, stride_bytes, warmup_iterations;
+  size_t stride_bytes, warmup_iterations;
+  size_t start_size_bytes, end_size_bytes, step_size_bytes;
 
   // parse arguments
-  if (argc >= 5) {
+  if (argc == 5 || argc == 7) {
     char *mem_name = argv[1];
 
     // make mem name lowercase
@@ -523,12 +522,27 @@ int main(int argc, char *argv[]) {
     }
 
     mem = (memory)(*mem_found);
-    size_bytes = atoi(argv[2]);
-    stride_bytes = atoi(argv[3]);
-    warmup_iterations = atoi(argv[4]);
+
+    if (argc == 5) {
+      start_size_bytes = atoi(argv[2]);
+      end_size_bytes = start_size_bytes;
+      step_size_bytes = 1;
+      stride_bytes = atoi(argv[3]);
+      warmup_iterations = atoi(argv[4]);
+    } else if (argc == 7) {
+      start_size_bytes = atoi(argv[2]);
+      end_size_bytes = atoi(argv[3]);
+      step_size_bytes = atoi(argv[4]);
+      stride_bytes = atoi(argv[5]);
+      warmup_iterations = atoi(argv[6]);
+    }
   } else {
     fprintf(stderr,
-            "usage: p_chase_l1 <MEM> <SIZE_BYTES> <STRIDE_BYTES> <WARMUP>\n\n");
+            "usage:  p_chase_l1 <MEM> <SIZE_BYTES> <STRIDE_BYTES> <WARMUP>\n");
+    fprintf(stderr,
+            "        p_chase_l1 <MEM> <START_SIZE_BYTES> <END_SIZE_BYTES> "
+            "<STEP_SIZE_BYTES> <STRIDE_BYTES> <WARMUP>\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "    <MEM>:\t");
     for (int k = 0; k < NUM_MEMORIES; k++) {
       fprintf(stderr, "%s", memory_str[k]);
@@ -540,91 +554,107 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  if (step_size_bytes < 1) {
+    fprintf(stderr, "ERROR: step size < 1 (%lu) will lead to infinite loop\n",
+            step_size_bytes);
+    fflush(stderr);
+    return EXIT_FAILURE;
+  }
+
+  // print CSV header
+  fprintf(stdout, "n,index,latency\n");
+
+  int exit_code = EXIT_SUCCESS;
   size_t iter_size = USE_COMPRESSION ? ITER_SIZE_COMPRESSED : ITER_SIZE;
 
-  // the number of resulting patterns P (full iterations through size) is
-  // P = iter_size / stride
-  float one_round = (float)size_bytes / (float)stride_bytes;
-  float num_rounds = (float)iter_size / one_round;
+  for (size_t size_bytes = start_size_bytes; size_bytes <= end_size_bytes;
+       size_bytes += step_size_bytes) {
+    // the number of resulting patterns P (full iterations through size) is
+    // P = iter_size / stride
+    float one_round = (float)size_bytes / (float)stride_bytes;
+    float num_rounds = (float)iter_size / one_round;
 
-  size_t size = size_bytes / sizeof(uint32_t);
-  size_t stride = stride_bytes / sizeof(uint32_t);
+    size_t size = size_bytes / sizeof(uint32_t);
+    size_t stride = stride_bytes / sizeof(uint32_t);
 
-  fprintf(stderr, "\tMEMORY             = %s\n", memory_str[mem]);
-  fprintf(stderr,
-          "\tSIZE               = %10lu bytes (%10lu uint32, %10.4f KB)\n",
-          size_bytes, size, (float)size_bytes / 1024.0);
-  fprintf(stderr, "\tSTRIDE             = %10lu bytes (%10lu uint32)\n",
-          stride_bytes, stride);
-  fprintf(stderr, "\tROUNDS             = %3.3f\n", num_rounds);
-  fprintf(stderr, "\tONE ROUND          = %3.3f (have %5lu)\n", one_round,
-          iter_size);
-  fprintf(stderr, "\tITERATIONS         = %lu\n", iter_size);
-  fprintf(stderr, "\tWARMUP ITERATIONS  = %lu\n", warmup_iterations);
+    fprintf(stderr, "\tMEMORY             = %s\n", memory_str[mem]);
+    fprintf(stderr,
+            "\tSIZE               = %10lu bytes (%10lu uint32, %10.4f KB)\n",
+            size_bytes, size, (float)size_bytes / 1024.0);
+    fprintf(stderr, "\tSTRIDE             = %10lu bytes (%10lu uint32)\n",
+            stride_bytes, stride);
+    fprintf(stderr, "\tROUNDS             = %3.3f\n", num_rounds);
+    fprintf(stderr, "\tONE ROUND          = %3.3f (have %5lu)\n", one_round,
+            iter_size);
+    fprintf(stderr, "\tITERATIONS         = %lu\n", iter_size);
+    fprintf(stderr, "\tWARMUP ITERATIONS  = %lu\n", warmup_iterations);
 
-  // assert(num_rounds > 1 &&
-  //        "array size is too big (rounds should be at least two)");
-  // assert(iter_size > size / stride);
+    // assert(num_rounds > 1 &&
+    //        "array size is too big (rounds should be at least two)");
+    // assert(iter_size > size / stride);
 
-  // validate parameters
-  if (size < stride) {
-    fprintf(stderr, "ERROR: size (%lu) is smaller than stride (%lu)\n", size,
-            stride);
-    fflush(stderr);
-    return EXIT_FAILURE;
+    // validate parameters
+    if (size < stride) {
+      fprintf(stderr, "ERROR: size (%lu) is smaller than stride (%lu)\n", size,
+              stride);
+      fflush(stderr);
+      return EXIT_FAILURE;
+    }
+    // if (size % stride != 0) {
+    //   fprintf(stderr,
+    //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
+    //           size, stride);
+    //   fflush(stderr);
+    //   return EXIT_FAILURE;
+    // }
+    if (size < 1) {
+      fprintf(stderr, "ERROR: size is < 1 (%lu)\n", size);
+      fflush(stderr);
+      return EXIT_FAILURE;
+    }
+    // if (stride < 1) {
+    //   fprintf(stderr, "ERROR: stride is < 1 (%lu)\n", stride);
+    //   fflush(stderr);
+    //   return EXIT_FAILURE;
+    // }
+
+    // The `cudaDeviceSetCacheConfig` function can be used to set preference for
+    // shared memory or L1 cache globally for all CUDA kernels in your code and
+    // even those used by Thrust.
+    // The option cudaFuncCachePreferShared prefers shared memory, that is,
+    // it sets 48 KB for shared memory and 16 KB for L1 cache.
+    //
+    // `cudaFuncCachePreferL1` prefers L1, that is, it sets 16 KB for
+    // shared memory and 48 KB for L1 cache.
+    //
+    // `cudaFuncCachePreferNone` uses the preference set for the device or
+    // thread.
+
+    cudaFuncCache want_cache_config = cudaFuncCachePreferShared;
+    // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+    CUDA_SAFECALL(cudaDeviceSetCacheConfig(want_cache_config));
+    CUDA_SAFECALL(
+        cudaFuncSetCacheConfig(global_latency_compressed, want_cache_config));
+    cudaFuncCache have_cache_config;
+    CUDA_SAFECALL(cudaDeviceGetCacheConfig(&have_cache_config));
+    assert(want_cache_config == have_cache_config);
+
+    // CUDA_SAFECALL(cudaFuncSetAttribute(
+    //     global_latency_compressed,
+    //     cudaFuncAttributeMaxDynamicSharedMemorySize, 12 * 1024));
+
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    fprintf(stderr, "\tSHMEM PER BLOCK   = %lu\n", prop.sharedMemPerBlock);
+    fprintf(stderr, "\tSHMEM PER SM      = %lu\n",
+            prop.sharedMemPerMultiprocessor);
+    fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
+
+    exit_code = parametric_measure_global(mem, size, stride, warmup_iterations);
+    if (exit_code != EXIT_SUCCESS) {
+      break;
+    }
   }
-  // if (size % stride != 0) {
-  //   fprintf(stderr,
-  //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
-  //           size, stride);
-  //   fflush(stderr);
-  //   return EXIT_FAILURE;
-  // }
-  if (size < 1) {
-    fprintf(stderr, "ERROR: size is < 1 (%lu)\n", size);
-    fflush(stderr);
-    return EXIT_FAILURE;
-  }
-  if (stride < 1) {
-    fprintf(stderr, "ERROR: stride is < 1 (%lu)\n", stride);
-    fflush(stderr);
-    return EXIT_FAILURE;
-  }
-
-  // The `cudaDeviceSetCacheConfig` function can be used to set preference for
-  // shared memory or L1 cache globally for all CUDA kernels in your code and
-  // even those used by Thrust.
-  // The option cudaFuncCachePreferShared prefers shared memory, that is,
-  // it sets 48 KB for shared memory and 16 KB for L1 cache.
-  //
-  // `cudaFuncCachePreferL1` prefers L1, that is, it sets 16 KB for
-  // shared memory and 48 KB for L1 cache.
-  //
-  // `cudaFuncCachePreferNone` uses the preference set for the device or
-  // thread.
-
-  cudaFuncCache want_cache_config = cudaFuncCachePreferShared;
-  // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-  CUDA_SAFECALL(cudaDeviceSetCacheConfig(want_cache_config));
-  CUDA_SAFECALL(
-      cudaFuncSetCacheConfig(global_latency_compressed, want_cache_config));
-  cudaFuncCache have_cache_config;
-  CUDA_SAFECALL(cudaDeviceGetCacheConfig(&have_cache_config));
-  assert(want_cache_config == have_cache_config);
-
-  // CUDA_SAFECALL(cudaFuncSetAttribute(
-  //     global_latency_compressed, cudaFuncAttributeMaxDynamicSharedMemorySize,
-  //     12 * 1024));
-
-  cudaDeviceProp prop;
-  cudaGetDeviceProperties(&prop, 0);
-  fprintf(stderr, "\tSHMEM PER BLOCK   = %lu\n", prop.sharedMemPerBlock);
-  fprintf(stderr, "\tSHMEM PER SM      = %lu\n",
-          prop.sharedMemPerMultiprocessor);
-  fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
-
-  int exit_code =
-      parametric_measure_global(mem, size, stride, warmup_iterations);
 
   cudaDeviceReset();
   fflush(stdout);

@@ -1,8 +1,9 @@
 CUDA_PATH ?= /usr/local/cuda
 NVFLAGS = -g -lineinfo -Xptxas="-O3 -dlcm=ca"
 
-HOST_COMPILER ?= $(CXX)
-NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
+# NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(CXX)
+# NVCC          := nvcc -ccbin $(CXX)
+NVCC          := nvcc -ccbin gcc
 
 # List of all .cu files in the source directory
 CUFILES := $(wildcard *.cu)

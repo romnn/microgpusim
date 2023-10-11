@@ -152,17 +152,17 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = fmt::simplify_warp_trace(&first_warp).collect::<Vec<_>>();
+        let simplified_trace = fmt::simplify_warp_trace(&first_warp, true).collect::<Vec<_>>();
         for inst in &simplified_trace {
             println!("{}", inst);
         }
         diff::assert_eq!(
             have: simplified_trace,
             want: [
-                ("LDG", 0, "11111111111111111111111111111111", 0),
-                ("LDG", 512, "11111111111111111111111111111111", 0),
-                ("STG", 1024, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG", Some(0), "11111111111111111111111111111111", 0),
+                ("LDG", Some(512), "11111111111111111111111111111111", 1),
+                ("STG", Some(1024), "11111111111111111111111111111111", 2),
+                ("EXIT", None, "11111111111111111111111111111111", 3),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
 

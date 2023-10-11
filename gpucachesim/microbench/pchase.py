@@ -202,14 +202,31 @@ def compute_hits(df, force_misses=True):
     return df
 
 
-def p_chase(mem, size_bytes, stride_bytes, warmup):
+def p_chase(mem, stride_bytes, warmup, size_bytes=None, start_size_bytes=None, end_size_bytes=None, step_size_bytes=None):
     cmd = [
         str(P_CHASE_EXECUTABLE.absolute()),
         str(mem.lower()),
-        str(int(size_bytes)),
+    ]
+    if end_size_bytes is None:
+        # run for single size
+        assert size_bytes is not None
+        cmd += [ str(int(size_bytes)) ]
+    else:
+        # run for multiple sizes
+        assert start_size_bytes is not None
+        assert end_size_bytes is not None
+        assert step_size_bytes is not None
+        cmd += [
+            str(int(start_size_bytes)),
+            str(int(end_size_bytes)),
+            str(int(step_size_bytes)),
+        ]
+
+    cmd += [
         str(int(stride_bytes)),
         str(int(warmup)),
     ]
+
     cmd = " ".join(cmd)
     print(cmd)
 
@@ -224,7 +241,9 @@ def p_chase(mem, size_bytes, stride_bytes, warmup):
         header=0,
         dtype=float,
     )
-    df["index"] = df["index"] * 4  # index base unit is u32 integers
+    # base units are 32 bit integers
+    df["n"] = df["n"] * 4
+    df["index"] = df["index"] * 4  
     return df, (stdout, stderr)
 
 
@@ -440,24 +459,42 @@ def find_cache_replacement_policy(repetitions,mem):
             pass
 
 
-    combined = []
-    for repetition in range(repetitions):
-        for set_idx in range(1, known_num_sets + 1):
-            # overflow by mulitples of the cache line
-            n = known_cache_size_bytes + set_idx * known_cache_line_bytes
-            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set
-            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * known_cache_line_bytes
-            # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * 32
-            # n = known_cache_size_bytes + set_idx * derived_num_ways * known_cache_line_bytes
-            # n = known_cache_size_bytes + set_idx * derived_num_ways
-            df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=2)
-            print(stderr)
-            df["n"] = n
-            df["r"] = repetition
-            df["set"] = set_idx
-            combined.append(df)
+    if False:
+        combined = []
+        for repetition in range(repetitions):
+            for set_idx in range(1, known_num_sets + 1):
+                # overflow by mulitples of the cache line
+                n = known_cache_size_bytes + set_idx * known_cache_line_bytes
+                # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set
+                # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * known_cache_line_bytes
+                # n = known_cache_size_bytes + set_idx * derived_cache_lines_per_set * 32
+                # n = known_cache_size_bytes + set_idx * derived_num_ways * known_cache_line_bytes
+                # n = known_cache_size_bytes + set_idx * derived_num_ways
+                df, (_, stderr) = p_chase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=2)
+                print(stderr)
+                df["n"] = n
+                df["r"] = repetition
+                df["set"] = set_idx
+                combined.append(df)
 
-    combined = pd.concat(combined, ignore_index=True)
+        combined = pd.concat(combined, ignore_index=True)
+    else:
+        step_size_bytes = known_cache_line_bytes
+        start_size_bytes = known_cache_size_bytes + 1 * step_size_bytes
+        end_size_bytes = known_cache_size_bytes + known_num_sets * step_size_bytes
+        combined, (_, stderr) = p_chase(
+                mem=mem,
+                start_size_bytes=start_size_bytes,
+                end_size_bytes=end_size_bytes,
+                step_size_bytes=step_size_bytes,
+                stride_bytes=stride_bytes,
+                warmup=5)
+        print(stderr)
+        combined["r"] = 0
+        combined["set"] = (combined["n"] % known_cache_size_bytes) // step_size_bytes
+
+    # print(combined[["n", "set"]].drop_duplicates())
+
     # print(combined.columns)
     # combined = combined.groupby(["n", "set", "latency", "index"]).mean().reset_index()
     combined = compute_hits(combined)
@@ -561,7 +598,7 @@ def find_cache_replacement_policy(repetitions,mem):
         miss_rounds = []
         num_rounds = len(df["round"].unique())
         max_round = df["round"].max()
-        print("set={: <2} has {: >2} rounds".format(set_idx, num_rounds))
+        print("################ set={: <2} has {: >2} rounds".format(set_idx, num_rounds))
 
         for round, round_df in df.groupby("round"):
             if (round == 0 or round == max_round) and num_rounds > 2:
