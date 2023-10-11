@@ -124,9 +124,27 @@ impl std::fmt::Debug for ActiveMask {
     }
 }
 
+pub fn colorize_bits(mask: impl ToString, style: Option<console::Style>) -> String {
+    let style = style.unwrap_or(console::Style::new().green());
+    mask.to_string()
+        .chars()
+        .map(|c| {
+            if c == '1' {
+                style.apply_to(c)
+            } else {
+                console::style(c)
+            }
+        })
+        .map(|c| c.to_string())
+        .collect::<String>()
+}
+
 /// Format as a binary string.
 pub trait ToBitString {
     fn to_bit_string(&self) -> String;
+    fn to_bit_string_colored(&self, style: Option<console::Style>) -> String {
+        colorize_bits(self.to_bit_string(), style)
+    }
 }
 
 impl<A, O> ToBitString for bitvec::slice::BitSlice<A, O>
@@ -142,3 +160,4 @@ where
             .join("")
     }
 }
+

@@ -224,6 +224,7 @@ impl<'c> Instrumentor<'c> {
 
             let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
+                device_id: packet.device_id,
                 sm_id: packet.sm_id,
                 kernel_id: *self.kernel_id.lock().unwrap() - 1,
                 block_id,
@@ -326,6 +327,13 @@ impl<'c> Instrumentor<'c> {
 
             let num_registers = func.num_registers().unwrap();
 
+            // initialize context for device
+            // let device = Device::get_device(device_id.unwrap_or(0))?;
+            // let context =
+            //     Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)?;
+            // CurrentContext::set_current(&context)?;
+            // dbg!(device.get_attribute(DeviceAttribute::GlobalL1CacheSupported)? != 0);
+
             let kernel_info = trace_model::command::KernelLaunch {
                 mangled_name: func_name_mangled.to_string(),
                 unmangled_name: func_name_unmangled.to_string(),
@@ -338,8 +346,11 @@ impl<'c> Instrumentor<'c> {
                 binary_version: func.binary_version().unwrap(),
                 stream_id: h_stream.as_ptr() as u64,
                 shared_mem_base_addr: nvbit_rs::shmem_base_addr(ctx),
+                shared_mem_addr_limit: nvbit_rs::shmem_addr_limit(ctx),
                 local_mem_base_addr: nvbit_rs::local_mem_base_addr(ctx),
+                local_mem_addr_limit: nvbit_rs::local_mme_addr_limit(ctx),
                 nvbit_version: nvbit_rs::version().to_string(),
+                device_properties: trace_model::DeviceProperties::default(),
             };
             log::info!("KERNEL LAUNCH: {:#?}", &kernel_info);
             self.kernels.lock().unwrap().push(kernel_info.clone());

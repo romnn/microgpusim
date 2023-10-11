@@ -8,8 +8,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [features]
-default  = ["parallel"]
+default  = ["parallel", "cuda"]
 parallel = ["dep:rayon"]
+cuda = ["dep:rustacuda", "dep:cuda-driver-sys"]
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
@@ -36,7 +37,12 @@ clap = { version = "4", features = ["derive"] }
 trace-model = { path = "./model" }
 utils = { path = "../utils" }
 
+# optional: parallel
 rayon = { version = "1", optional = true }
+
+# optional: cuda
+rustacuda = { version = "0", optional = true }
+cuda-driver-sys = { version = "0", optional = true }
 
 [build-dependencies]
 nvbit-build = "0"

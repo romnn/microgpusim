@@ -71,6 +71,14 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
   int unique_thread_id = (threadIdx.z * (blockDim.x * blockDim.y)) +
                          (threadIdx.y * blockDim.x) + threadIdx.x;
 
+  // this does not work
+  // cudaError_t err = cudaGetDevice((int *)&ma.device_id);
+  // if (err != cudaSuccess) {
+  //   printf("kernel cuda error: %d, %s\n", (int)err, cudaGetErrorString(err));
+  // }
+  // assert(err == cudaSuccess);
+
+  ma.device_id = 0;
   ma.warp_id_in_block = unique_thread_id / warpSize;
   ma.warp_id_in_sm = get_warpid();
   ma.warp_size = warpSize;

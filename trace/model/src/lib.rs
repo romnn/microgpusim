@@ -1,14 +1,23 @@
 pub mod active_mask;
 pub mod allocation;
 pub mod command;
+pub mod device;
 pub mod dim;
 
-pub use active_mask::{ActiveMask, ToBitString};
+pub use active_mask::{colorize_bits, ActiveMask, ToBitString};
 pub use allocation::MemAllocation;
 pub use command::Command;
+pub use device::Properties as DeviceProperties;
 pub use dim::{Dim, Point};
 
 use serde::{Deserialize, Serialize};
+
+/// Start address of the global heap on device.
+///
+/// Note that the precise value is not actually very important.
+/// However, the goal is to split addresses into different memory spaces to avoid clashes.
+/// Moreover, requests to zero addresses are treated as no request.
+pub const DEVICE_GLOBAL_HEAP_START_ADDR: u64 = 0xC000_0000;
 
 /// Warp size.
 ///
@@ -29,23 +38,68 @@ pub struct Predicate {
 }
 
 /// Identifier of GPU memory space.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Hash,
+    strum::EnumCount,
+    strum::EnumIter,
+    strum::FromRepr,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
+#[repr(usize)]
 pub enum MemorySpace {
-    None = 0,
-    Local = 1,
-    Generic = 2,
-    Global = 3,
-    Shared = 4,
-    Constant = 5,
-    GlobalToShared = 6,
-    Surface = 7,
-    Texture = 8,
+    None,
+    Local,
+    Generic,
+    Global,
+    Shared,
+    Constant,
+    GlobalToShared,
+    Surface,
+    Texture,
+}
+
+impl MemorySpace {
+    pub fn base_addr(&self) -> u64 {
+        match self {
+            Self::None => todo!(),
+            Self::Local => todo!(),
+            Self::Generic => todo!(),
+            Self::Global => DEVICE_GLOBAL_HEAP_START_ADDR,
+            Self::Shared => todo!(),
+            Self::Constant => todo!(),
+            Self::GlobalToShared => todo!(),
+            Self::Surface => todo!(),
+            Self::Texture => todo!(),
+        }
+    }
+
+    #[must_use]
+    // #[inline]
+    pub const fn count() -> usize {
+        use strum::EnumCount;
+        Self::COUNT
+    }
+
+    #[must_use]
+    // #[inline]
+    pub fn iter() -> <Self as strum::IntoEnumIterator>::Iterator {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct MemAccessTraceEntry {
     pub cuda_ctx: u64,
+    pub device_id: u32,
     pub sm_id: u32,
     pub kernel_id: u64,
     pub block_id: Dim,
@@ -71,7 +125,12 @@ pub struct MemAccessTraceEntry {
     pub num_src_regs: u32,
     // pub active_mask: u32,
     pub active_mask: ActiveMask,
-    /// Accessed address per thread of a warp
+    /// Accessed address per thread of a warp.
+    ///
+    /// We use u64 to capture the full 64bit addressing space.
+    /// Instead of using i64 and encoding "no address" as -1, we encode as 0.
+    /// We note that addresses are split into different memory adress spaces,
+    /// which means that accesses to address 0 should generally not occur.
     pub addrs: [u64; 32],
 }
 
@@ -82,6 +141,20 @@ impl MemAccessTraceEntry {
         let is_exit = self.instr_opcode.to_uppercase() == "EXIT";
         let is_barrier = self.instr_opcode.to_uppercase() == "MEMBAR";
         self.instr_is_mem || self.instr_is_store || self.instr_is_load || is_exit || is_barrier
+    }
+
+    pub fn valid_addresses(&self) -> impl Iterator<Item = u64> + '_ {
+        self.addrs
+            .iter()
+            .enumerate()
+            .filter_map(|(tid, addr)| {
+                if self.is_memory_instruction() && self.active_mask[tid] {
+                    Some(addr)
+                } else {
+                    None
+                }
+            })
+            .copied()
     }
 
     pub fn source_registers(&self) -> &[u32] {

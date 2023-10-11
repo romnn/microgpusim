@@ -15,6 +15,7 @@ typedef struct {
   int block_id_x;
   int block_id_y;
   int block_id_z;
+  uint32_t device_id;
   uint32_t sm_id;
   int warp_id_in_block;
   int warp_id_in_sm;

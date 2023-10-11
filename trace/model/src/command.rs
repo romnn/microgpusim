@@ -1,22 +1,41 @@
-use super::dim::Dim;
+use super::{dim::Dim, DeviceProperties};
 use serde::{Deserialize, Serialize};
 
 /// Information about a kernel launch.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KernelLaunch {
+    /// Mangled kernel name.
     pub mangled_name: String,
+    /// Unmangled kernel name.
     pub unmangled_name: String,
+    /// Path to trace file for the kernel.
     pub trace_file: String,
+    /// Unique kernel launch id.
     pub id: u64,
+    /// The grid dimensions.
     pub grid: Dim,
+    /// The block dimensions.
     pub block: Dim,
+    /// The number of shared memory bytes used by the kernel.
     pub shared_mem_bytes: u32,
+    /// The number of registers used by the kernel.
     pub num_registers: u32,
+    /// Binary version of the compute capability of the device that collected the trace.
     pub binary_version: i32,
+    /// CUDA stream ID the kernel is launch on
     pub stream_id: u64,
+    /// Base address of the shared memory space
     pub shared_mem_base_addr: u64,
+    /// Address limit of the shared memory space
+    pub shared_mem_addr_limit: u64,
+    /// Base address of the local memory space
     pub local_mem_base_addr: u64,
+    /// Address limit of the local memory space
+    pub local_mem_addr_limit: u64,
+    /// The nvbit version of the tracer
     pub nvbit_version: String,
+    /// Properties of the device that traced this kernel launch
+    pub device_properties: DeviceProperties,
 }
 
 impl std::cmp::Ord for KernelLaunch {
