@@ -742,7 +742,7 @@ void ldst_unit::cycle() {
         if (m_pipeline_reg[m_config->smem_latency - 1]->empty()) {
           // new shared memory request
 
-          unsigned pipe_slot_idx = m_config->smem_latency - 1;
+          // unsigned pipe_slot_idx = m_config->smem_latency - 1;
           // std::stringstream msg;
           // msg << "load store unit: move warp from dispatch register to "
           //        "pipeline["

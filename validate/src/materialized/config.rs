@@ -2,7 +2,7 @@ use crate::{benchmark::paths::PathExt, template, Error, Target};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct GenericBenchmark {
     /// Number of repetitions
     pub repetitions: usize,

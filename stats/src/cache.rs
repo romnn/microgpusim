@@ -67,9 +67,9 @@ impl From<ReservationFailure> for AccessStat {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct Access(pub (AccessKind, AccessStat));
+pub struct AccessStatus(pub (AccessKind, AccessStat));
 
-impl std::fmt::Display for Access {
+impl std::fmt::Display for AccessStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.0 {
             (access_kind, AccessStat::Status(status)) => {
@@ -79,6 +79,46 @@ impl std::fmt::Display for Access {
                 write!(f, "{access_kind:?}[{failure:?}]")
             }
         }
+    }
+}
+
+impl AccessStatus {
+    pub fn kind(&self) -> &AccessKind {
+        &((self.0).0)
+    }
+
+    pub fn stat(&self) -> &AccessStat {
+        &((self.0).1)
+    }
+
+    pub fn is_reservation_fail(&self) -> bool {
+        matches!(
+            self.stat(),
+            AccessStat::Status(RequestStatus::RESERVATION_FAIL)
+        )
+    }
+
+    pub fn is_write(&self) -> bool {
+        self.kind().is_write()
+    }
+
+    pub fn is_read(&self) -> bool {
+        self.kind().is_read()
+    }
+
+    pub fn is_hit(&self) -> bool {
+        matches!(self.stat(), AccessStat::Status(RequestStatus::HIT))
+    }
+
+    pub fn is_pending_hit(&self) -> bool {
+        matches!(self.stat(), AccessStat::Status(RequestStatus::HIT_RESERVED))
+    }
+
+    pub fn is_miss(&self) -> bool {
+        matches!(
+            self.stat(),
+            AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS)
+        )
     }
 }
 
@@ -125,10 +165,13 @@ pub struct CsvRow {
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cache {
-    pub inner: HashMap<(Option<usize>, Access), usize>,
+    pub inner: HashMap<(Option<usize>, AccessStatus), usize>,
     pub num_l1_cache_bank_conflicts: u64,
     pub num_shared_mem_bank_accesses: u64,
     pub num_shared_mem_bank_conflicts: u64,
+
+    #[cfg(feature = "detailed-stats")]
+    pub accesses: Vec<(crate::mem::Access, Option<usize>, AccessStatus)>,
 }
 
 impl Default for Cache {
@@ -137,13 +180,19 @@ impl Default for Cache {
         let mut inner = HashMap::new();
         for access_kind in AccessKind::iter() {
             for status in RequestStatus::iter() {
-                inner.insert((None, Access((access_kind, AccessStat::Status(status)))), 0);
+                inner.insert(
+                    (
+                        None,
+                        AccessStatus((access_kind, AccessStat::Status(status))),
+                    ),
+                    0,
+                );
             }
             for failure in ReservationFailure::iter() {
                 inner.insert(
                     (
                         None,
-                        Access((access_kind, AccessStat::ReservationFailure(failure))),
+                        AccessStatus((access_kind, AccessStat::ReservationFailure(failure))),
                     ),
                     0,
                 );
@@ -154,12 +203,14 @@ impl Default for Cache {
             num_shared_mem_bank_accesses: 0,
             num_shared_mem_bank_conflicts: 0,
             num_l1_cache_bank_conflicts: 0,
+            #[cfg(feature = "detailed-stats")]
+            accesses: Vec::new(),
         }
     }
 }
 
-impl AsRef<HashMap<(Option<usize>, Access), usize>> for Cache {
-    fn as_ref(&self) -> &HashMap<(Option<usize>, Access), usize> {
+impl AsRef<HashMap<(Option<usize>, AccessStatus), usize>> for Cache {
+    fn as_ref(&self) -> &HashMap<(Option<usize>, AccessStatus), usize> {
         &self.inner
     }
 }
@@ -226,11 +277,17 @@ impl std::fmt::Debug for Cache {
 
 impl Cache {
     #[must_use]
-    pub fn new(inner: HashMap<(Option<usize>, Access), usize>) -> Self {
+    pub fn new(inner: HashMap<(Option<usize>, AccessStatus), usize>) -> Self {
         Self {
             inner,
             ..Self::default()
         }
+    }
+
+    pub fn iter(
+        &self,
+    ) -> std::collections::hash_map::Iter<'_, (Option<usize>, AccessStatus), usize> {
+        self.inner.iter()
     }
 
     pub fn shave(&mut self) {
@@ -250,7 +307,7 @@ impl Cache {
     }
 
     #[must_use]
-    pub fn num_accesses(&self, access: &Access) -> usize {
+    pub fn count_accesses(&self, access: &AccessStatus) -> usize {
         self.inner
             .iter()
             .filter(|((_, acc), _)| acc == access)
@@ -259,63 +316,141 @@ impl Cache {
     }
 
     #[must_use]
-    pub fn total_accesses(&self) -> usize {
+    pub fn num_accesses(&self) -> usize {
         self.inner
             .iter()
-            .filter_map(|((_, access), count)| match access {
-                Access((_kind, AccessStat::Status(RequestStatus::HIT | RequestStatus::MISS))) => {
-                    Some(count)
-                }
-                _ => None,
+            .filter(|((_, access), _)| {
+                matches!(
+                    access.stat(),
+                    AccessStat::Status(
+                        RequestStatus::HIT
+                            | RequestStatus::MISS
+                            | RequestStatus::SECTOR_MISS
+                            | RequestStatus::HIT_RESERVED
+                    )
+                )
             })
+            .map(|(_, count)| count)
             .sum()
     }
 
-    #[deprecated]
-    pub fn sub_stats(&self) {
-        let mut total_accesses = 0;
-        let mut total_misses = 0;
-        let mut total_pending_hits = 0;
-        let mut total_reservation_fails = 0;
-        for ((_alloc_id, access), accesses) in &self.inner {
-            let Access((_access_kind, status)) = access;
-
-            if let AccessStat::Status(
-                RequestStatus::HIT
-                | RequestStatus::MISS
-                | RequestStatus::SECTOR_MISS
-                | RequestStatus::HIT_RESERVED,
-            ) = status
-            {
-                total_accesses += accesses;
-            }
-
-            match status {
-                AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS) => {
-                    total_misses += accesses;
-                }
-                AccessStat::Status(RequestStatus::HIT_RESERVED) => {
-                    total_pending_hits += accesses;
-                }
-                AccessStat::Status(RequestStatus::RESERVATION_FAIL) => {
-                    total_reservation_fails += accesses;
-                }
-                _ => {}
-            }
-        }
+    #[must_use]
+    pub fn num_read_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_read() && access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
     }
+
+    #[must_use]
+    pub fn num_write_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_write() && access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_read_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_read() && access.is_hit())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_write_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_write() && access.is_hit())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_hit())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_pending_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_pending_hit())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_reservation_fails(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_reservation_fail())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    // #[deprecated]
+    // pub fn sub_stats(&self) {
+    //     let mut total_accesses = 0;
+    //     let mut total_misses = 0;
+    //     let mut total_pending_hits = 0;
+    //     let mut total_reservation_fails = 0;
+    //     for ((_alloc_id, access), accesses) in &self.inner {
+    //         let AccessStatus((_access_kind, status)) = access;
+    //
+    //         if let AccessStat::Status(
+    //             RequestStatus::HIT
+    //             | RequestStatus::MISS
+    //             | RequestStatus::SECTOR_MISS
+    //             | RequestStatus::HIT_RESERVED,
+    //         ) = status
+    //         {
+    //             total_accesses += accesses;
+    //         }
+    //
+    //         match status {
+    //             AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS) => {
+    //                 total_misses += accesses;
+    //             }
+    //             AccessStat::Status(RequestStatus::HIT_RESERVED) => {
+    //                 total_pending_hits += accesses;
+    //             }
+    //             AccessStat::Status(RequestStatus::RESERVATION_FAIL) => {
+    //                 total_reservation_fails += accesses;
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    // }
 
     // #[inline]
     pub fn inc(
         &mut self,
         alloc_id: Option<usize>,
         kind: impl Into<AccessKind>,
-        access: impl Into<AccessStat>,
+        status: impl Into<AccessStat>,
         count: usize,
     ) {
         let kind = kind.into();
-        let access = access.into();
-        let access_stat = Access((kind, access));
+        let status = status.into();
+        let access_stat = AccessStatus((kind, status));
         // println!("inc access stat: {access_stat}");
         *self.inner.entry((alloc_id, access_stat)).or_insert(0) += count;
     }
@@ -435,7 +570,7 @@ impl PerCache {
 
     #[must_use]
     pub fn total_accesses(&self) -> usize {
-        self.reduce().total_accesses()
+        self.reduce().num_accesses()
     }
 
     #[must_use]

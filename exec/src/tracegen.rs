@@ -8,9 +8,7 @@ use std::collections::HashMap;
 use std::sync::{atomic, Arc};
 use std::time::Instant;
 use tokio::sync::Mutex;
-
-pub const DEV_GLOBAL_HEAP_START: u64 = 0xC000_0000;
-pub const WARP_SIZE: u32 = 32;
+use trace_model::WARP_SIZE;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error<K, T> {
@@ -92,7 +90,8 @@ pub struct WarpId {
 pub type WarpInstructionTraces = [Vec<model::ThreadInstruction>; WARP_SIZE as usize];
 
 pub struct Tracer {
-    offset: Mutex<u64>,
+    /// Offsets per memory space
+    offsets: Mutex<[u64; trace_model::MemorySpace::count()]>,
     /// Traced instructions for the current kernel launch.
     ///
     /// Instructions are cleared after each kernel and there may only run one kernel at any time.
@@ -105,7 +104,7 @@ impl Tracer {
     #[must_use]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            offset: Mutex::new(0),
+            offsets: Mutex::new([0; trace_model::MemorySpace::count()]),
             traced_instructions: std::sync::Mutex::new(HashMap::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
             commands: std::sync::Mutex::new(Vec::new()),
@@ -123,6 +122,10 @@ impl MemoryAccess for Tracer {
         let block_id = thread_idx.block_id.clone();
         let warp_id_in_block = thread_idx.warp_id_in_block;
         let thread_id = thread_idx.thread_id_in_warp;
+
+        // if let model::ThreadInstruction::Access(ref mut access) = instruction {
+        //     access.addr += access.mem_space.base_addr();
+        // }
 
         let mut block_instructions = self.traced_instructions.lock().unwrap();
         let warp_instructions = block_instructions
@@ -303,11 +306,13 @@ impl TraceGenerator for Tracer {
         T: Allocatable + Send,
         S: ToString + Send,
     {
-        let mut offset_lock = self.offset.lock().await;
-        let offset = next_multiple(*offset_lock, 512);
+        let mut offsets_lock = self.offsets.lock().await;
+        let offset = &mut offsets_lock[mem_space as usize];
+        let base_addr = mem_space.base_addr();
+        let addr = next_multiple(*offset, 512);
         // cudaDeviceProp::textureAlignment is either 256 or 512, we choose 512
         let num_bytes = value.size() as u64;
-        *offset_lock = offset + num_bytes;
+        *offset = addr + num_bytes;
 
         self.commands
             .lock()
@@ -315,7 +320,7 @@ impl TraceGenerator for Tracer {
             .push(trace_model::command::Command::MemAlloc(
                 trace_model::command::MemAlloc {
                     allocation_name: name.as_ref().map(ToString::to_string),
-                    device_ptr: offset,
+                    device_ptr: base_addr + addr,
                     num_bytes,
                 },
             ));
@@ -324,7 +329,7 @@ impl TraceGenerator for Tracer {
             inner: value,
             mem_space,
             memory: self.clone(),
-            offset,
+            offset: base_addr + addr,
         }
     }
 
@@ -498,12 +503,13 @@ impl TraceGenerator for Tracer {
 
             let warp_instruction = trace_model::MemAccessTraceEntry {
                 cuda_ctx: 0,
+                device_id: 0,
                 sm_id: 0,
                 kernel_id: 0,
                 block_id: block_id.clone().into(),
                 warp_id_in_sm: warp_id_in_block as u32,
                 warp_id_in_block: warp_id_in_block as u32,
-                warp_size: WARP_SIZE,
+                warp_size: trace_model::WARP_SIZE as u32,
                 line_num: 0,
                 instr_data_width: 0,
                 instr_opcode: String::new(),
@@ -522,6 +528,8 @@ impl TraceGenerator for Tracer {
                 active_mask: trace_model::ActiveMask::ZERO,
                 addrs: [0; 32],
             };
+
+            let mut pc = 0;
 
             let iter = cfg::visit::DominatedDfs::new(&super_cfg, super_cfg_root_node_idx);
 
@@ -597,12 +605,14 @@ impl TraceGenerator for Tracer {
                         if let Some(access) = instructions.get(instr_idx) {
                             instr.active_mask.set(*tid, true);
                             instr.addrs[*tid] = access.addr;
+                            instr.instr_offset = pc;
                         }
                     }
+                    pc += 1;
                 }
 
                 // here we have the warp_trace ready to be added into the global trace
-                for inst in fmt::simplify_warp_trace(&branch_trace) {
+                for inst in fmt::simplify_warp_trace(&branch_trace, true) {
                     log::trace!("{}", inst);
                 }
 
@@ -618,6 +628,7 @@ impl TraceGenerator for Tracer {
             trace.push(trace_model::MemAccessTraceEntry {
                 instr_opcode: "EXIT".to_string(),
                 instr_idx: trace.len() as u32,
+                instr_offset: pc,
                 active_mask: trace_model::ActiveMask::all_ones(),
                 ..warp_instruction.clone()
             });
@@ -636,8 +647,11 @@ impl TraceGenerator for Tracer {
             binary_version: 61,
             stream_id: 0,
             shared_mem_base_addr: 0,
+            shared_mem_addr_limit: 0,
             local_mem_base_addr: 0,
+            local_mem_addr_limit: 0,
             nvbit_version: "none".to_string(),
+            device_properties: trace_model::DeviceProperties::default(),
         };
         self.commands
             .lock()
@@ -653,11 +667,13 @@ pub mod util {
     #[macro_export]
     macro_rules! mem_inst {
         ($kind:ident[$space:ident]@$addr:expr, $size:expr) => {{
+            let mem_space = $crate::model::MemorySpace::$space;
+            let base_addr = mem_space.base_addr();
             $crate::model::MemInstruction {
                 kind: $crate::model::MemAccessKind::$kind,
-                mem_space: $crate::model::MemorySpace::$space,
-                addr: $addr,
                 size: $size,
+                addr: base_addr + $addr,
+                mem_space,
             }
         }};
     }
@@ -668,10 +684,9 @@ pub mod fmt {
     #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct SimplifiedTraceInstruction {
         opcode: String,
-        first_addr: u64,
+        first_addr: Option<u64>,
         active_mask: String,
         pc: u32,
-        // idx: usize,
     }
 
     impl std::fmt::Display for SimplifiedTraceInstruction {
@@ -680,15 +695,19 @@ pub mod fmt {
                 f,
                 "{:<10}{:<16}\t active={} \tpc={}",
                 self.opcode,
-                self.first_addr.to_string(),
+                self.first_addr
+                    .as_ref()
+                    .map(ToString::to_string)
+                    .as_deref()
+                    .unwrap_or(""),
                 self.active_mask,
                 self.pc,
             )
         }
     }
 
-    impl From<(usize, (&str, u64, &str, u32))> for SimplifiedTraceInstruction {
-        fn from(value: (usize, (&str, u64, &str, u32))) -> Self {
+    impl From<(usize, (&str, Option<u64>, &str, u32))> for SimplifiedTraceInstruction {
+        fn from(value: (usize, (&str, Option<u64>, &str, u32))) -> Self {
             let (_idx, (opcode, first_addr, active_mask, pc)) = value;
             assert_eq!(active_mask.len(), 32, "invalid active mask {active_mask:?}");
             Self {
@@ -696,13 +715,13 @@ pub mod fmt {
                 first_addr,
                 active_mask: active_mask.to_string(),
                 pc,
-                // idx,
             }
         }
     }
 
     pub fn simplify_warp_instruction(
         warp_instr: &trace_model::MemAccessTraceEntry,
+        relative: bool,
     ) -> SimplifiedTraceInstruction {
         let human_readable_active_mask = warp_instr
             .active_mask
@@ -717,21 +736,28 @@ pub mod fmt {
                 .addrs
                 .iter()
                 .enumerate()
-                .filter(|(ti, _)| warp_instr.active_mask[*ti])
-                .map(|(_, addr)| addr)
+                .filter(|(ti, addr)| warp_instr.active_mask[*ti] && **addr > 0)
                 .next()
-                .copied()
-                .unwrap_or(0),
+                .map(|(_, addr)| {
+                    if relative {
+                        let base_addr = warp_instr.instr_mem_space.base_addr();
+                        addr.checked_sub(base_addr).unwrap_or(*addr)
+                    } else {
+                        *addr
+                    }
+                }),
             active_mask: human_readable_active_mask,
             pc: warp_instr.instr_offset,
-            // idx: warp_instr_idx,
         }
     }
 
     pub fn simplify_warp_trace(
         warp_trace: &[trace_model::MemAccessTraceEntry],
+        relative: bool,
     ) -> impl Iterator<Item = SimplifiedTraceInstruction> + '_ {
-        warp_trace.iter().map(simplify_warp_instruction)
+        warp_trace
+            .iter()
+            .map(move |inst| simplify_warp_instruction(inst, relative))
     }
 }
 
@@ -817,24 +843,24 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleForLoopKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("single_for_loop")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 1, "11111111111111111111111111111111", 0),
-                ("LDG.E", 1, "10101010101010101010101010101010", 0),
-                ("LDG.E", 1, "10101010101010101010101010101010", 0),
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(1), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(1), "10101010101010101010101010101010", 1),
+                ("LDG.E", Some(1), "10101010101010101010101010101010", 2),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 3),
+                ("EXIT", None, "11111111111111111111111111111111", 4),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -862,21 +888,21 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleIfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("single_if")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 1, "11111111111111110000000000000000", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(1), "11111111111111110000000000000000", 0),
+                ("EXIT", None, "11111111111111111111111111111111", 1),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -983,7 +1009,7 @@ mod tests {
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
@@ -994,15 +1020,15 @@ mod tests {
         // }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("STG.E", 0, "11111111111111111111111111111111", 0),
-                ("STG.E", 1, "11111111111111111111111111111111", 0),
-                ("STG.E", 2, "11111111111111111111111111111111", 0),
-                ("STG.E", 3, "11111111111111111111111111111111", 0),
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 0),
+                ("STG.E", Some(0), "11111111111111111111111111111111", 1),
+                ("STG.E", Some(1), "11111111111111111111111111111111", 2),
+                ("STG.E", Some(2), "11111111111111111111111111111111", 3),
+                ("STG.E", Some(3), "11111111111111111111111111111111", 4),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 5),
+                ("EXIT", None, "11111111111111111111111111111111", 6),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -1057,7 +1083,7 @@ mod tests {
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
@@ -1068,15 +1094,15 @@ mod tests {
         // }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("LDG.E", 10, "11111111000000000000000000000000", 0),
-                ("LDG.E", 11, "00000000111111110000000000000000", 0),
-                ("LDG.E", 20, "00000000000000001111111100000000", 0),
-                ("LDG.E", 21, "00000000000000000000000011111111", 0),
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(10), "11111111000000000000000000000000", 1),
+                ("LDG.E", Some(11), "00000000111111110000000000000000", 2),
+                ("LDG.E", Some(20), "00000000000000001111111100000000", 3),
+                ("LDG.E", Some(21), "00000000000000000000000011111111", 4),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 5),
+                ("EXIT", None, "11111111111111111111111111111111", 6),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -1123,26 +1149,26 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Balanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("LDG.E", 10, "11111111111111110000000000000000", 0),
-                ("LDG.E", 11, "11111111000000000000000000000000", 0),
-                ("LDG.E", 20, "00000000000000001111111111111111", 0),
-                ("LDG.E", 21, "00000000000000000000000011111111", 0),
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(10), "11111111111111110000000000000000", 1),
+                ("LDG.E", Some(11), "11111111000000000000000000000000", 2),
+                ("LDG.E", Some(20), "00000000000000001111111111111111", 3),
+                ("LDG.E", Some(21), "00000000000000000000000011111111", 4),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 5),
+                ("EXIT", None, "11111111111111111111111111111111", 6),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -1183,24 +1209,24 @@ mod tests {
         let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
 
         let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_imbalanced")?;
         let ref_first_warp = &ref_warp_traces[&(trace_model::Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp) {
+        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
             println!("{}", inst);
         }
 
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("LDG.E", 1, "11111111111111110000000000000000", 0),
-                ("LDG.E", 2, "11111111000000000000000000000000", 0),
-                ("LDG.E", 100, "11111111111111111111111111111111", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(1), "11111111111111110000000000000000", 1),
+                ("LDG.E", Some(2), "11111111000000000000000000000000", 2),
+                ("LDG.E", Some(100), "11111111111111111111111111111111", 3),
+                ("EXIT", None, "11111111111111111111111111111111", 4),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
@@ -1297,16 +1323,16 @@ mod tests {
 
         reference_vectoradd(&a, &b, &mut ref_result);
         diff::assert_eq!(have: result, want: ref_result);
-        for inst in fmt::simplify_warp_trace(first_warp) {
+        for inst in fmt::simplify_warp_trace(first_warp, true) {
             println!("{}", inst);
         }
         diff::assert_eq!(
-            have: fmt::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
+            have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", 0, "11111111111111111111000000000000", 0),
-                ("LDG.E", 512, "11111111111111111111000000000000", 0),
-                ("STG.E", 1024, "11111111111111111111000000000000", 0),
-                ("EXIT", 0, "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(0), "11111111111111111111000000000000", 0),
+                ("LDG.E", Some(512), "11111111111111111111000000000000", 1),
+                ("STG.E", Some(1024), "11111111111111111111000000000000", 2),
+                ("EXIT", None, "11111111111111111111111111111111", 3),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())

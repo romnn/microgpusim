@@ -3,10 +3,10 @@ use color_eyre::eyre;
 use std::path::PathBuf;
 use std::time::Instant;
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use tikv_jemallocator::Jemalloc;
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
@@ -57,6 +57,15 @@ struct Options {
     #[clap(long = "num-clusters", help = "number of clusters")]
     pub num_clusters: Option<usize>,
 
+    #[clap(
+        long = "threads",
+        help = "number of threads to use for parallel simulation"
+    )]
+    pub num_threads: Option<usize>,
+
+    #[clap(long = "mem-only", help = "simulate only memory instructions")]
+    pub memory_only: Option<bool>,
+
     #[clap(flatten)]
     pub accelsim: gpucachesim::config::accelsim::Config,
 }
@@ -70,29 +79,13 @@ fn main() -> eyre::Result<()> {
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "full");
 
-    let mut log_builder = env_logger::Builder::new();
-    log_builder.format(|buf, record| {
-        use std::io::Write;
-        let level_style = buf.default_level_style(record.level());
-        writeln!(
-            buf,
-            "[ {} {} ] {}",
-            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            level_style.value(record.level()),
-            record.module_path().unwrap_or(""),
-            record.args()
-        )
-    });
-
     let log_after_cycle = std::env::var("LOG_AFTER")
         .unwrap_or_default()
         .parse::<u64>()
         .ok();
 
     if log_after_cycle.is_none() {
-        log_builder.filter_level(log::LevelFilter::Off);
-        log_builder.parse_default_env();
-        log_builder.init();
+        gpucachesim::init_logging();
     }
 
     let deadlock_check = std::env::var("DEADLOCK_CHECK")
@@ -122,18 +115,26 @@ fn main() -> eyre::Result<()> {
     };
 
     let config = gpucachesim::config::GPU {
-        num_simt_clusters: options.num_clusters.unwrap_or(20), // 20
-        num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1), // 1
-        num_schedulers_per_core: 2,                            // 1
-        num_memory_controllers: 8,                             // 8
-        num_sub_partitions_per_memory_controller: 2,           // 2
-        fill_l2_on_memcopy: false,                             // true
+        num_simt_clusters: options.num_clusters.unwrap_or(20),
+        num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1),
+        num_schedulers_per_core: 4,                  // 4
+        num_memory_controllers: 8,                   // 8
+        num_dram_chips_per_memory_controller: 1,     // 1
+        num_sub_partitions_per_memory_controller: 2, // 2
+        fill_l2_on_memcopy: false,
+        flush_l1_cache: false,
+        flush_l2_cache: false,
+        accelsim_compat: false,
+        memory_only: options.memory_only.unwrap_or(false),
         parallelization,
         deadlock_check,
         log_after_cycle,
+        simulation_threads: options.num_threads,
         ..gpucachesim::config::GPU::default()
     };
 
+    dbg!(&config.memory_only);
+    dbg!(&config.num_schedulers_per_core);
     dbg!(&config.num_simt_clusters);
     dbg!(&config.num_cores_per_simt_cluster);
 

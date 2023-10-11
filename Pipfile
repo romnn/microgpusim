@@ -10,10 +10,13 @@ psutil = "*"
 matplotlib = "*"
 numpy = "*"
 scipy = "*"
+scikit-learn = "*"
+scikit-learn-extra = "*"
 pandas = "*"
 wasabi = "*"
 click = "*"
 cxxfilt = "*"
+humanize = "*"
 
 [dev-packages]
 invoke = "*"

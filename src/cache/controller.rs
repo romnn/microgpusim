@@ -117,7 +117,8 @@ pub mod pascal {
     #[derive(Debug, Clone)]
     pub struct L1DataCacheController {
         inner: DataCacheController,
-        set_index_function: cache::set_index::fermi::SetIndex,
+        // set_index_function: cache::set_index::fermi::SetIndex,
+        set_index_function: cache::set_index::linear::SetIndex,
         banks_set_index_function: cache::set_index::linear::SetIndex,
 
         #[allow(dead_code)]
@@ -134,7 +135,8 @@ pub mod pascal {
         pub fn new(config: cache::Config, l1_config: &crate::config::L1DCache) -> Self {
             Self {
                 inner: DataCacheController::new(config),
-                set_index_function: cache::set_index::fermi::SetIndex::default(),
+                // set_index_function: cache::set_index::fermi::SetIndex::default(),
+                set_index_function: cache::set_index::linear::SetIndex::default(),
                 banks_set_index_function: cache::set_index::linear::SetIndex::default(),
                 l1_latency: l1_config.l1_latency,
                 banks_byte_interleaving: l1_config.l1_banks_byte_interleaving,

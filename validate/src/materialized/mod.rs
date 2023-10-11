@@ -54,6 +54,20 @@ pub enum TargetBenchmarkConfig {
     },
 }
 
+impl TargetBenchmarkConfig {
+    pub fn target(&self) -> Target {
+        match self {
+            Self::AccelsimSimulate { .. } => Target::AccelsimSimulate,
+            Self::AccelsimTrace { .. } => Target::AccelsimTrace,
+            Self::Simulate { .. } => Target::Simulate,
+            Self::PlaygroundSimulate { .. } => Target::PlaygroundSimulate,
+            Self::Trace { .. } => Target::Trace,
+            Self::Profile { .. } => Target::Profile,
+            Self::ExecDrivenSimulate { .. } => Target::ExecDrivenSimulate,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct TemplateValues<B> {
     pub name: String,
@@ -101,6 +115,23 @@ impl std::fmt::Display for BenchmarkConfig {
 }
 
 impl BenchmarkConfig {
+    pub fn custom(target_config: TargetBenchmarkConfig) -> Self {
+        let target = target_config.target();
+        Self {
+            name: "".to_string(),
+            benchmark_idx: 0,
+            uid: "".into(),
+            path: "".into(),
+            executable: "".into(),
+            values: crate::matrix::Input::default(),
+            args: vec![],
+            input_idx: 0,
+            common: crate::materialized::config::GenericBenchmark::default(),
+            target,
+            target_config,
+        }
+    }
+
     pub fn input_matches_strict(
         &self,
         query: &super::benchmark::Input,
@@ -417,6 +448,13 @@ pub enum QueryError {
 }
 
 impl Benchmarks {
+    pub fn default() -> Result<Self, super::Error> {
+        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let benchmarks_path = manifest_dir.join("../test-apps/test-apps-materialized.yml");
+        let reader = utils::fs::open_readable(benchmarks_path)?;
+        Ok(Self::from_reader(reader)?)
+    }
+
     pub fn from_reader(reader: impl std::io::Read) -> Result<Self, super::DeserializeError> {
         let deser = serde_yaml::Deserializer::from_reader(reader);
         serde_path_to_error::deserialize(deser).map_err(|source| {

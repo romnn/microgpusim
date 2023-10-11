@@ -12,7 +12,6 @@ members = [
   "accelsim/trace",
   "accelsim/sim",
   "utils",
-  "plot",
   "trace",
   "trace/invoke",
   "trace/model",
@@ -50,11 +49,12 @@ publish = false
 
 [features]
 # default = ["detailed-stats", "parking_lot", "parallel", "deadlock_detection"]
-default = ["detailed-stats", "parking_lot", "parallel"]
+default = ["detailed-stats", "parking_lot", "parallel", "jemalloc"]
 # default = ["parking_lot", "parallel", "deadlock_detection"]
 deadlock_detection = ["parking_lot/deadlock_detection"]
+jemalloc = ["dep:tikv-jemallocator"]
 timings = []
-detailed-stats = []
+detailed-stats = ["stats/detailed-stats"]
 parallel = ["dep:rayon"]
 parking_lot = []
 python = ["dep:pyo3"]
@@ -116,7 +116,7 @@ utils = { path = "./utils" }
 exec = { path = "./exec" }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-tikv-jemallocator = "0"
+tikv-jemallocator = { version = "0", optional = true }
 
 [dependencies.pyo3]
 version = "0"

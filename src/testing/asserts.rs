@@ -1,7 +1,7 @@
 use crate::testing::stats::rel_err;
 
 use stats::{
-    cache::{Access, RequestStatus},
+    cache::{AccessStatus, RequestStatus},
     mem::AccessKind,
 };
 use strum::IntoEnumIterator;
@@ -148,22 +148,22 @@ pub fn stats_match(
             let compare_stats: Vec<_> = AccessKind::iter()
                 .flat_map(|kind| {
                     [
-                        Access((kind, RequestStatus::HIT.into())),
-                        Access((kind, RequestStatus::MISS.into())),
+                        AccessStatus((kind, RequestStatus::HIT.into())),
+                        AccessStatus((kind, RequestStatus::MISS.into())),
                     ]
                 })
                 .collect();
             let play_l2_data_stats = stats::Cache::new(
                 compare_stats
                     .iter()
-                    .map(|stat| ((None, *stat), play_l2_data_stats.num_accesses(stat)))
+                    .map(|stat| ((None, *stat), play_l2_data_stats.count_accesses(stat)))
                     // .map(|stat| (*stat, play_l2_data_stats.accesses[stat]))
                     .collect(),
             );
             let box_l2_data_stats = stats::Cache::new(
                 compare_stats
                     .iter()
-                    .map(|stat| ((None, *stat), box_l2_data_stats.num_accesses(stat)))
+                    .map(|stat| ((None, *stat), box_l2_data_stats.count_accesses(stat)))
                     // .map(|stat| (*stat, box_l2_data_stats.accesses[stat]))
                     .collect(),
             );
@@ -177,10 +177,10 @@ pub fn stats_match(
                 //         box_l2_data_stats.accesses[&Access((kind, RequestStatus::MISS.into()))],
                 // );
                 diff::diff!(
-                    play: play_l2_data_stats.num_accesses(&Access((kind, RequestStatus::HIT.into()))) +
-                        play_l2_data_stats.num_accesses(&Access((kind, RequestStatus::MISS.into()))),
-                    box: box_l2_data_stats.num_accesses(&Access((kind, RequestStatus::HIT.into()))) +
-                        box_l2_data_stats.num_accesses(&Access((kind, RequestStatus::MISS.into()))),
+                    play: play_l2_data_stats.count_accesses(&AccessStatus((kind, RequestStatus::HIT.into()))) +
+                        play_l2_data_stats.count_accesses(&AccessStatus((kind, RequestStatus::MISS.into()))),
+                    box: box_l2_data_stats.count_accesses(&AccessStatus((kind, RequestStatus::HIT.into()))) +
+                        box_l2_data_stats.count_accesses(&AccessStatus((kind, RequestStatus::MISS.into()))),
                 );
             }
 

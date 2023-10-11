@@ -235,6 +235,9 @@ where
             should_miss,
         );
 
+        // must not hold
+        // assert_eq!(should_miss, evicted.is_some());
+
         if should_miss {
             // If evicted block is modified and not a write-through
             // (already modified lower level)
@@ -297,6 +300,7 @@ where
             return cache::RequestStatus::MISS;
         }
 
+        // read miss on a non-miss line
         cache::RequestStatus::RESERVATION_FAIL
     }
 
@@ -418,7 +422,7 @@ where
             warp_id: fetch.warp_id,
             core_id: fetch.core_id,
             cluster_id: fetch.cluster_id,
-            physical_addr,
+            physical_addr: physical_addr.clone(),
             partition_addr,
         }
         .build();
@@ -562,8 +566,7 @@ where
 
     // A general function that takes the result of a tag_array probe.
     //
-    // It performs the correspding functions based on the
-    // cache configuration.
+    // It performs the correspding functions based on the cache configuration.
     fn process_tag_probe(
         &mut self,
         is_write: bool,
@@ -726,7 +729,8 @@ where
             .probe(block_addr, &fetch, is_write, true);
         let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
 
-        let access_status = self.process_tag_probe(is_write, probe, addr, fetch, events, time);
+        let access_status =
+            self.process_tag_probe(is_write, probe, addr, fetch.clone(), events, time);
 
         log::debug!(
             "{}::access({}) => probe status={:?} access status={:?}",
@@ -737,14 +741,40 @@ where
         );
 
         if let Some(kernel_launch_id) = kernel_launch_id {
+            use trace_model::ToBitString;
+
             let mut stats = self.inner.stats.lock();
             let kernel_stats = stats.get_mut(kernel_launch_id);
-            kernel_stats.inc(
+            let access_stat =
+                cache::AccessStat::Status(cache::select_status(probe_status, access_status));
+            kernel_stats.inc(allocation_id, access_kind, access_stat, 1);
+
+            if (probe_status, access_status)
+                != (
+                    cache::RequestStatus::HIT_RESERVED,
+                    cache::RequestStatus::RESERVATION_FAIL,
+                )
+            {
+                let addr = fetch.relative_byte_addr();
+                println!(
+                    "{:>40}: cycle={:<5} fetch {:<30}\t inst={:<15}  addr={:<5}  space={:<10?} sector={} probe status={:<10?} access status={:<10?}",
+                    self.inner.name,
+                    time,
+                    fetch,
+                    fetch.instr.as_ref().map(ToString::to_string).as_deref().unwrap_or("?"),
+                    addr,
+                    fetch.access_kind().memory_space(),
+                    trace_model::colorize_bits(fetch.access.sector_mask[..4].to_bit_string(), None),
+                    probe_status,
+                    access_status,
+                );
+            }
+            #[cfg(feature = "detailed-stats")]
+            kernel_stats.accesses.push((
+                (&fetch).into(),
                 allocation_id,
-                access_kind,
-                cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
-                1,
-            );
+                stats::cache::AccessStatus((access_kind.into(), access_stat.into())),
+            ))
         }
         access_status
     }

@@ -131,14 +131,6 @@ impl LoadStoreUnit {
                     l1_config,
                 );
 
-                // let test: &dyn mcu::MemoryController = &*mem_controller;
-                // fn is_sized<T>(val: T) -> ()
-                // where
-                //     T: Sized,
-                // {
-                // }
-                // is_sized(mem_controller);
-
                 let mut data_cache: cache::data::Data<
                     MC,
                     // Arc<dyn mcu::MemoryController>,
@@ -660,6 +652,7 @@ impl LoadStoreUnit {
                         .collect::<Vec<_>>(),
                 );
 
+                let slot_idx = l1d_config.l1_latency - 1;
                 let slot = &mut self.l1_latency_queue[bank_id][l1d_config.l1_latency - 1];
                 if slot.is_none() {
                     let is_store = instr.is_store();
@@ -676,7 +669,7 @@ impl LoadStoreUnit {
                         .mem_controller
                         .memory_partition_address(access.addr);
 
-                    let fetch = mem_fetch::Builder {
+                    let mut fetch = mem_fetch::Builder {
                         instr: Some(instr.clone()),
                         access,
                         warp_id: instr.warp_id,
@@ -686,6 +679,15 @@ impl LoadStoreUnit {
                         partition_addr,
                     }
                     .build();
+                    println!(
+                        "add fetch {:<35} rel addr={:<4} bank={:<2} slot={:<4} at cycle={:<4}",
+                        fetch.to_string(),
+                        fetch.relative_byte_addr(),
+                        bank_id,
+                        slot_idx,
+                        cycle
+                    );
+                    fetch.inject_cycle = Some(cycle);
 
                     let data_size = fetch.data_size();
                     *slot = Some(fetch);
@@ -840,7 +842,7 @@ impl LoadStoreUnit {
                 let write_sent = cache::event::was_write_sent(&events);
                 let read_sent = cache::event::was_read_sent(&events);
                 let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
-                // log::warn!"
+
                 log::debug!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", next_fetch.warp_id, &next_fetch, cycle);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
@@ -890,6 +892,12 @@ impl LoadStoreUnit {
                             self.store_ack(&next_fetch);
                         }
                     }
+
+                    dbg!(
+                        &next_fetch.relative_byte_addr(),
+                        cycle - next_fetch.inject_cycle.unwrap()
+                    );
+                    // self.l1_hit_callback()
                 } else if access_status == cache::RequestStatus::RESERVATION_FAIL {
                     debug_assert!(!read_sent);
                     debug_assert!(!write_sent);
@@ -1140,10 +1148,8 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
         if let Some(data_l1) = &mut self.data_l1 {
             data_l1.cycle(cycle);
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
-            debug_assert_eq!(cache_config.l1_latency, 1);
-            if cache_config.l1_latency > 0 {
-                self.l1_latency_queue_cycle(cycle);
-            }
+            assert!(cache_config.l1_latency > 1);
+            self.l1_latency_queue_cycle(cycle);
         }
 
         let mut stall_kind = MemStageStallKind::NO_RC_FAIL;

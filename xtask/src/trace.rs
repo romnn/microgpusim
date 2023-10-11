@@ -4,7 +4,11 @@ use color_eyre::{eyre, Section, SectionExt};
 use console::style;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use trace_model::ToBitString;
 use utils::diff;
 
 #[derive(Parser, Debug, Clone)]
@@ -17,6 +21,8 @@ pub enum Command {
             help = "limit the number of instructions printed"
         )]
         instruction_limit: Option<usize>,
+        #[clap(long = "summary", help = "summarize traces")]
+        summary: bool,
     },
     Compare {
         #[clap(long = "print", help = "print matching traces")]
@@ -46,10 +52,6 @@ pub struct Options {
     #[clap(subcommand)]
     pub command: Command,
 }
-
-use once_cell::sync::Lazy;
-use regex::Regex;
-use std::ffi::OsStr;
 
 static ACCELSIM_KERNEL_TRACE_FILE_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"kernel-(\d+).*").unwrap());
@@ -143,10 +145,7 @@ fn parse_accelsim_traces(
     Ok(command_traces)
 }
 
-fn parse_box_kernel_trace(
-    kernel_trace_path: &Path,
-    _mem_only: bool,
-) -> eyre::Result<trace_model::MemAccessTrace> {
+fn parse_box_kernel_trace(kernel_trace_path: &Path) -> eyre::Result<trace_model::MemAccessTrace> {
     let mut reader = utils::fs::open_readable(kernel_trace_path)?;
     let trace: trace_model::MemAccessTrace = rmp_serde::from_read(&mut reader)?;
     Ok(trace)
@@ -173,7 +172,7 @@ fn parse_box_traces(
             .map(|cmd| match cmd {
                 trace_model::Command::KernelLaunch(ref kernel) => {
                     let kernel_trace_path = trace_dir.join(&kernel.trace_file);
-                    let trace = parse_box_kernel_trace(&kernel_trace_path, mem_only)?;
+                    let trace = parse_box_kernel_trace(&kernel_trace_path)?;
                     Ok::<_, eyre::Report>((Some(cmd), Some(trace)))
                 }
                 _ => Ok((Some(cmd), None)),
@@ -182,7 +181,7 @@ fn parse_box_traces(
 
         Ok(command_traces)
     } else {
-        let trace = parse_box_kernel_trace(commands_or_trace, mem_only)?;
+        let trace = parse_box_kernel_trace(commands_or_trace)?;
         Ok(vec![(None, Some(trace))])
     }
 }
@@ -315,13 +314,13 @@ impl std::fmt::Display for InstructionComparator {
         let inst = &self.0;
         write!(
             f,
-            "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:<20}\t\t active={}",
+            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {}\t active={}",
             inst.block_id,
             inst.warp_id_in_block,
             inst.instr_idx,
             inst.instr_offset,
-            inst.instr_opcode,
-            inst.active_mask,
+            style(format!("{:>15}", &inst.instr_opcode)).cyan(),
+            inst.active_mask.to_bit_string_colored(None),
         )
     }
 }
@@ -329,31 +328,19 @@ impl std::fmt::Display for InstructionComparator {
 impl std::fmt::Debug for InstructionComparator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let inst = &self.0;
-        let addrs = inst
-            .addrs
-            .iter()
-            .enumerate()
-            .filter_map(|(tid, addr)| {
-                if inst.active_mask[tid] {
-                    Some(addr)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
         write!(
             f,
-            "     [ block {} warp{:>3} ]\t inst_idx={:<4}  offset={:<4}\t {:>10} [{:<10?}]\t {:>20} => {:<2}\t\t active={} adresses={:?}",
+            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {} [{:<10?}] {:>25} => {:<4}\t active={} adresses={:?}",
             inst.block_id,
             inst.warp_id_in_block,
             inst.instr_idx,
             inst.instr_offset,
-            inst.instr_opcode,
+            style(format!("{:>15}", &inst.instr_opcode)).cyan(),
             inst.instr_mem_space,
             inst.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
             inst.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
-            inst.active_mask,
-            addrs,
+            inst.active_mask.to_bit_string_colored(None),
+            inst.valid_addresses().collect::<Vec<_>>(),
         )
     }
 }
@@ -413,10 +400,20 @@ fn trace_info(
     mem_only: bool,
     block_id: Option<&trace_model::Dim>,
     verbose: bool,
+    summary: bool,
     inst_limit: Option<usize>,
 ) -> eyre::Result<()> {
     let trace_dir = commands_or_trace.parent().unwrap();
     let command_traces = parse_trace(trace_dir, commands_or_trace, mem_only)?;
+
+    #[derive(Debug, Default)]
+    struct InstructionSummary {
+        pub count: usize,
+        pub read_addresses: Vec<u64>,
+        pub write_addresses: Vec<u64>,
+    }
+
+    let mut per_instruction_summary: IndexMap<String, InstructionSummary> = IndexMap::new();
 
     let mut total_instructions = 0;
     for (i, (cmd, warp_traces)) in command_traces.iter().enumerate() {
@@ -440,19 +437,49 @@ fn trace_info(
             let warp_trace: Vec<_> = get_warp_instructions(warp_traces, warp_id, mem_only);
             let (valid, filtered): (Vec<_>, Vec<_>) = partition_instructions(warp_trace);
 
-            println!(
-                "\t=> block {: <10} warp={: <3}\t {} instructions ({} filtered)",
-                block_id.to_string(),
-                warp_id_in_block,
-                valid.len(),
-                filtered.len(),
-            );
+            if !summary {
+                println!(
+                    "\t=> block {: <10} warp={: <3}\t {} instructions ({} filtered)",
+                    block_id.to_string(),
+                    warp_id_in_block,
+                    valid.len(),
+                    filtered.len(),
+                );
+            }
+            // let colors = [
+            //     console::Style::new().red(),
+            //     console::Style::new().green(),
+            //     console::Style::new().yellow(),
+            //     console::Style::new().blue(),
+            //     console::Style::new().magenta(),
+            //     console::Style::new().cyan(),
+            // ];
+            // let mut current_color = 0;
+            // let mut last_opcode: Option<String> = None;
             for (_trace_idx, inst) in valid.iter().enumerate() {
+                // if Some(&inst.0.instr_opcode) != last_opcode.as_ref() {
+                //     last_opcode = Some(inst.0.instr_opcode.clone());
+                //     current_color = (current_color + 1) % colors.len();
+                // }
+                // inst.0.instr_opcode = colors[current_color]
+                //     .apply_to(inst.0.instr_opcode)
+                //     .to_string();
                 if verbose {
                     println!("{:#?}", inst.0);
-                } else {
+                } else if !summary {
                     println!("{:?}", inst);
                 }
+                let summary = per_instruction_summary
+                    .entry(inst.0.instr_opcode.to_string())
+                    .or_default();
+                summary.count += 1;
+                if inst.0.instr_is_mem && inst.0.instr_is_load {
+                    summary.read_addresses.extend(inst.0.valid_addresses());
+                }
+                if inst.0.instr_is_mem && inst.0.instr_is_store {
+                    summary.write_addresses.extend(inst.0.valid_addresses());
+                }
+
                 total_instructions += 1;
                 if let Some(inst_limit) = inst_limit {
                     if total_instructions >= inst_limit {
@@ -461,6 +488,37 @@ fn trace_info(
                 }
             }
         }
+    }
+
+    let per_instruction_summary = per_instruction_summary
+        .into_iter()
+        .sorted_by_key(|(_, summary)| summary.count)
+        .collect::<Vec<_>>();
+
+    println!("\n ===== SUMMARY =====\n");
+    for (instruction, summary) in per_instruction_summary {
+        let header = format!(
+            "{:>8}x {:<15}",
+            style(summary.count).cyan(),
+            style(instruction).yellow()
+        );
+        let indent: String = (0..utils::visible_characters(&header))
+            .into_iter()
+            .map(|_| ' ')
+            .collect();
+        println!("{}", header);
+        println!(
+            "{}{:>5} addresses read     => unique: {:?}",
+            indent,
+            summary.read_addresses.len(),
+            summary.read_addresses.iter().collect::<IndexSet<_>>()
+        );
+        println!(
+            "{}{:>5} addresses written  => unique: {:?}",
+            indent,
+            summary.write_addresses.len(),
+            summary.write_addresses.iter().collect::<IndexSet<_>>()
+        );
     }
     Ok(())
 }
@@ -535,7 +593,7 @@ fn compare_trace(
                 .iter()
                 .chain(right_warps.iter())
                 .copied()
-                .collect::<std::collections::HashSet<_>>()
+                .collect::<IndexSet<_>>()
                 .into_iter()
                 .sorted()
                 .collect();
@@ -846,6 +904,7 @@ pub fn run(options: &Options) -> eyre::Result<()> {
         Command::Info {
             ref block_id,
             instruction_limit,
+            summary,
         } => {
             for trace in &options.traces {
                 trace_info(
@@ -853,6 +912,7 @@ pub fn run(options: &Options) -> eyre::Result<()> {
                     options.memory_only,
                     block_id.as_ref(),
                     options.verbose,
+                    summary,
                     instruction_limit,
                 )?;
             }

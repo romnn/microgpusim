@@ -67,7 +67,31 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - try to flush / invalidate the L2 cache before profiling
+  - refactor: do not print reservation failure for L1 acceses (those are actually mshr merge fails because the mshr is full, hence we need to block the l1_latency_queue)
+  - debug: why does the latency not change
+
+  - refactor: move plots crate to deprecated to make way for plotting results
+  - p-chase: collect mem access latencies for the simulator
+  - p-chase: measure the overhead of clock() in isolation
+  - p-chase: make some plots
+  - p-chase: infer l2 pre-fetch policy
+  - p-chase: infer way mapping through tracing misses back
+
+  - DONE: test set index functions in test: basically the same test as the p-chase
+  - DONE: p-chase: add cli options to run the outer loop in process to avoid address space randomization.
+  - DONE: lockstep: update gpucachesim config and see if everything still works
+  - DONE: p-chase: analyze the L1 texture and readonly caches
+  - DONE: p-chase: compress shared memory arrays to investigate l2 cache
+  - DONE: p-chase: implement trace reconstruction benchmark in gpucachesim
+  - DONE: p-chase: infer set mapping
+  - DONE: p-chase: infer LRU
+
+  - DONE: exec-driven: add microbenches to trace to validate
+  - DONE: exec-driven: fix nested loops
+
+    - DONE: need to add unique ids to the nodes
+
+  - GIVEN UP: try to flush / invalidate the L2 cache before profiling
 
   - investigate (in this order)
 
@@ -76,8 +100,6 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - l1 writes
 
   - investigate the effect that the dram model has
-
-  - implement stall stats
 
   - validate the exec driven model
 
@@ -100,7 +122,10 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - could make that a smaller config struct
 
   - remove the global config from components and use smaller configs
+
   - stat: warp instructions
+  - implement stall stats
+  - stat: num warps
 
   - generate data for the different parallel implementations speedups
     - how well does it scale for 20 instead of 80 cores

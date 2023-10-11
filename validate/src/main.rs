@@ -419,28 +419,29 @@ fn compute_per_command_bench_configs<'a>(
 #[allow(clippy::too_many_lines)]
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> eyre::Result<()> {
-    let mut log_builder = env_logger::Builder::new();
-    log_builder.format(|buf, record| {
-        use std::io::Write;
-        let level_style = buf.default_level_style(record.level());
-        writeln!(
-            buf,
-            "[ {} {} ] {}",
-            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            level_style.value(record.level()),
-            record.module_path().unwrap_or(""),
-            record.args()
-        )
-    });
+    // let mut log_builder = env_logger::Builder::new();
+    // log_builder.format(|buf, record| {
+    //     use std::io::Write;
+    //     let level_style = buf.default_level_style(record.level());
+    //     writeln!(
+    //         buf,
+    //         "[ {} {} ] {}",
+    //         // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+    //         level_style.value(record.level()),
+    //         record.module_path().unwrap_or(""),
+    //         record.args()
+    //     )
+    // });
     let log_after_cycle = std::env::var("LOG_AFTER")
         .unwrap_or_default()
         .parse::<u64>()
         .ok();
 
     if log_after_cycle.is_none() {
-        log_builder.filter_level(log::LevelFilter::Off);
-        log_builder.parse_default_env();
-        log_builder.init();
+        gpucachesim::init_logging();
+        // log_builder.filter_level(log::LevelFilter::Off);
+        // log_builder.parse_default_env();
+        // log_builder.init();
     }
 
     color_eyre::install()?;

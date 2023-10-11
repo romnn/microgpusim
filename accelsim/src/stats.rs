@@ -1,7 +1,7 @@
 use color_eyre::eyre;
 use itertools::Itertools;
 use stats::{
-    cache::{Access, AccessStat, RequestStatus, ReservationFailure},
+    cache::{AccessStat, AccessStatus, RequestStatus, ReservationFailure},
     mem::AccessKind,
 };
 use std::collections::HashMap;
@@ -102,7 +102,7 @@ fn convert_cache_stats(
                 kernel_info.launch_id,
                 format!("{cache_name}_{kind:?}_{reservation_failure:?}"),
             ));
-            let access = Access((kind, AccessStat::ReservationFailure(reservation_failure)));
+            let access = AccessStatus((kind, AccessStat::ReservationFailure(reservation_failure)));
             cache_stats.inner.insert(
                 (None, access),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,
@@ -114,7 +114,7 @@ fn convert_cache_stats(
                 kernel_info.launch_id,
                 format!("{cache_name}_{kind:?}_{status:?}"),
             ));
-            let access = Access((kind, AccessStat::Status(status)));
+            let access = AccessStatus((kind, AccessStat::Status(status)));
             cache_stats.inner.insert(
                 (None, access),
                 per_cache_stat.copied().unwrap_or(0.0) as usize,

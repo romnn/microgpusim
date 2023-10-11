@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <assert.h>
 #include <cstdlib>
 #include <ctype.h>
@@ -23,25 +24,27 @@ const bool USE_COMPRESSION = false;
 
 const int KB = 1024;
 
-const int ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
+const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
-__global__ __noinline__ void global_latency_l1_data(unsigned int *array,
-                                                    int array_length,
-                                                    unsigned int *duration,
-                                                    unsigned int *index,
-                                                    size_t warmup_iterations) {
+__global__ __noinline__ void
+global_latency_l1_data(unsigned int *array, int array_length,
+                       unsigned int *duration, unsigned int *index,
+                       int iter_size, size_t warmup_iterations) {
+  const int max_iter_size = ITER_SIZE;
+  assert(iter_size <= max_iter_size);
+
   unsigned int start_time, end_time;
   uint32_t j = 0;
 
-  __shared__ uint32_t s_tvalue[ITER_SIZE];
-  __shared__ uint32_t s_index[ITER_SIZE];
+  __shared__ uint32_t s_tvalue[max_iter_size];
+  __shared__ uint32_t s_index[max_iter_size];
 
-  for (size_t k = 0; k < ITER_SIZE; k++) {
+  for (size_t k = 0; k < iter_size; k++) {
     s_index[k] = 0;
     s_tvalue[k] = 0;
   }
 
-  for (int k = (int)warmup_iterations * -ITER_SIZE; k < ITER_SIZE; k++) {
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -58,7 +61,7 @@ __global__ __noinline__ void global_latency_l1_data(unsigned int *array,
   array[array_length] = j;
   array[array_length + 1] = array[j];
 
-  for (size_t k = 0; k < ITER_SIZE; k++) {
+  for (size_t k = 0; k < iter_size; k++) {
     index[k] = s_index[k];
     duration[k] = s_tvalue[k];
   }
@@ -87,25 +90,27 @@ const static unsigned int LATENCY_BIN_SIZE = 16;
 // static_assert(CHAR_BIT == 8, "have 8 bits per byte");
 
 // const int ITER_SIZE_COMPRESSED = 12 * 1024;
-const int ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
+const size_t ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
 
 __global__ __noinline__ void
 global_latency_compressed(unsigned int *array, int array_length,
                           unsigned int *duration, unsigned int *index,
-                          size_t warmup_iterations) {
+                          int iter_size, size_t warmup_iterations) {
+  const int max_iter_size = ITER_SIZE_COMPRESSED;
+  assert(iter_size <= max_iter_size);
+
   unsigned int start_time, end_time, dur;
   uint32_t j = 0;
 
-  __shared__ uint8_t s_tvalue[ITER_SIZE_COMPRESSED];
-  // __shared__ uint32_t s_index[ITER_SIZE];
+  __shared__ uint8_t s_tvalue[max_iter_size];
+  // __shared__ uint32_t s_index[max_iter_size];
 
-  for (size_t k = 0; k < ITER_SIZE_COMPRESSED; k++) {
+  for (size_t k = 0; k < iter_size; k++) {
     // s_index[k] = 0;
     s_tvalue[k] = 0;
   }
 
-  for (int k = (int)warmup_iterations * -ITER_SIZE_COMPRESSED;
-       k < ITER_SIZE_COMPRESSED; k++) {
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -117,10 +122,10 @@ global_latency_compressed(unsigned int *array, int array_length,
       dur = dur < 256 ? dur : 255;
       s_tvalue[k] = (uint8_t)dur;
 
-      // s_tvalue[ITER_SIZE - 1] = end_time - start_time;
+      // s_tvalue[iter_size - 1] = end_time - start_time;
       //
       // // 4 bit latency bin
-      // unsigned int latency_bin = s_tvalue[ITER_SIZE - 1];
+      // unsigned int latency_bin = s_tvalue[iter_size - 1];
       // // unsigned int latency_bin = end_time - start_time;
       // latency_bin = (latency_bin / LATENCY_BIN_SIZE) % LATENCY_BIN_COUNT;
       // // assert(latency_bin >= 1);
@@ -146,26 +151,28 @@ global_latency_compressed(unsigned int *array, int array_length,
   array[array_length] = j;
   array[array_length + 1] = array[j];
 
-  for (size_t k = 0; k < ITER_SIZE_COMPRESSED; k++) {
+  for (size_t k = 0; k < iter_size; k++) {
     // index[k] = s_index[k];
     duration[k] = s_tvalue[k];
   }
 }
 
-const int READONLY_ITER_SIZE = (48 * KB) / sizeof(uint32_t);
+const size_t READONLY_ITER_SIZE = (48 * KB) / sizeof(uint32_t);
 
 __global__ __noinline__ void
 global_latency_l1_readonly(const unsigned int *__restrict__ array,
                            int array_length, unsigned int *duration,
-                           unsigned int *index, size_t warmup_iterations) {
-  const int iter_size = READONLY_ITER_SIZE;
+                           unsigned int *index, int iter_size,
+                           size_t warmup_iterations) {
+  const int max_iter_size = READONLY_ITER_SIZE;
+  assert(iter_size <= max_iter_size);
   unsigned int start_time, end_time;
   size_t it;
   // uint32_t j = threadIdx.x;
   uint32_t j = 0;
 
-  __shared__ uint32_t s_tvalue[iter_size];
-  // __shared__ uint32_t s_index[ITER_SIZE];
+  __shared__ uint32_t s_tvalue[max_iter_size];
+  // __shared__ uint32_t s_index[max_iter_size];
 
   for (size_t k = 0; k < iter_size; k++) {
     // s_index[k] = 0;
@@ -177,7 +184,7 @@ global_latency_l1_readonly(const unsigned int *__restrict__ array,
     j = __ldg(&array[j]);
   }
 
-  // for (int it = (int)warmup_iterations * -ITER_SIZE; it < ITER_SIZE; it++) {
+  // for (int it = (int)warmup_iterations * -iter_size; it < iter_size; it++) {
   for (it = 0; it < iter_size / 32; it++) {
     int k = it * blockDim.x + threadIdx.x;
     start_time = clock();
@@ -207,20 +214,24 @@ global_latency_l1_readonly(const unsigned int *__restrict__ array,
 __global__ __noinline__ void
 global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
                           int array_length, unsigned int *duration,
-                          unsigned int *index, size_t warmup_iterations) {
+                          unsigned int *index, int iter_size,
+                          size_t warmup_iterations) {
+  const int max_iter_size = ITER_SIZE;
+  assert(iter_size <= max_iter_size);
+
   unsigned int start_time, end_time;
   uint32_t j = 0;
   // uint32_t j = threadIdx.x;
 
-  __shared__ uint32_t s_tvalue[ITER_SIZE];
-  __shared__ uint32_t s_index[ITER_SIZE];
+  __shared__ uint32_t s_tvalue[max_iter_size];
+  __shared__ uint32_t s_index[max_iter_size];
 
-  for (size_t k = 0; k < ITER_SIZE; k++) {
+  for (size_t k = 0; k < iter_size; k++) {
     s_index[k] = 0;
     s_tvalue[k] = 0;
   }
 
-  for (int it = (int)warmup_iterations * -ITER_SIZE; it < ITER_SIZE; it++) {
+  for (int it = (int)warmup_iterations * -iter_size; it < iter_size; it++) {
     // int k = it * blockDim.x + threadIdx.x;
     int k = it;
     if (it >= 0) {
@@ -243,7 +254,7 @@ global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
   // array[array_length + 1] = array[j];
 
   size_t it = 0;
-  for (; it < ITER_SIZE; it++) {
+  for (; it < iter_size; it++) {
     // int k = it * blockDim.x + threadIdx.x;
     // int k = it;
     index[it] = s_index[it];
@@ -264,7 +275,7 @@ const char *memory_str[NUM_MEMORIES] = {
 };
 
 int parametric_measure_global(memory mem, size_t N, size_t stride,
-                              size_t warmup_iterations) {
+                              size_t iter_size, size_t warmup_iterations) {
   cudaDeviceReset();
 
   // allocate arrays on CPU
@@ -287,20 +298,6 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
   // copy array elements from CPU to GPU
   CUDA_SAFECALL(
       cudaMemcpy(d_a, h_a, N * sizeof(unsigned int), cudaMemcpyHostToDevice));
-
-  size_t iter_size;
-  switch (mem) {
-  case L1ReadOnly:
-    iter_size = READONLY_ITER_SIZE;
-    break;
-  case L1Data:
-  case L1Texture:
-  case L2:
-    iter_size = USE_COMPRESSION ? ITER_SIZE_COMPRESSED : ITER_SIZE;
-    break;
-  case NUM_MEMORIES:
-    assert(false && "panic dispatching to memory");
-  };
 
   unsigned int *h_index =
       (unsigned int *)malloc(iter_size * sizeof(unsigned int));
@@ -354,21 +351,21 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
     cudaDeviceSynchronize();
 
     CUDA_SAFECALL((global_latency_l1_texture<<<grid_dim, block_dim>>>(
-        d_a, texObj, N, duration, d_index, warmup_iterations)));
+        d_a, texObj, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L1ReadOnly:
     block_dim = dim3(32, 1, 1);
     CUDA_SAFECALL((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
-        d_a, N, duration, d_index, warmup_iterations)));
+        d_a, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L2:
   case L1Data:
     if (USE_COMPRESSION) {
       CUDA_SAFECALL((global_latency_compressed<<<grid_dim, block_dim>>>(
-          d_a, N, duration, d_index, warmup_iterations)));
+          d_a, N, duration, d_index, iter_size, warmup_iterations)));
     } else {
       CUDA_SAFECALL((global_latency_l1_data<<<grid_dim, block_dim>>>(
-          d_a, N, duration, d_index, warmup_iterations)));
+          d_a, N, duration, d_index, iter_size, warmup_iterations)));
     }
     break;
   default:
@@ -498,9 +495,10 @@ int main(int argc, char *argv[]) {
   memory mem;
   size_t stride_bytes, warmup_iterations;
   size_t start_size_bytes, end_size_bytes, step_size_bytes;
+  size_t iter_size = (size_t)-1;
 
   // parse arguments
-  if (argc == 5 || argc == 7) {
+  if (argc >= 5) {
     char *mem_name = argv[1];
 
     // make mem name lowercase
@@ -523,25 +521,31 @@ int main(int argc, char *argv[]) {
 
     mem = (memory)(*mem_found);
 
-    if (argc == 5) {
-      start_size_bytes = atoi(argv[2]);
-      end_size_bytes = start_size_bytes;
-      step_size_bytes = 1;
-      stride_bytes = atoi(argv[3]);
-      warmup_iterations = atoi(argv[4]);
-    } else if (argc == 7) {
+    if (argc >= 7) {
       start_size_bytes = atoi(argv[2]);
       end_size_bytes = atoi(argv[3]);
       step_size_bytes = atoi(argv[4]);
       stride_bytes = atoi(argv[5]);
       warmup_iterations = atoi(argv[6]);
+      if (argc >= 8) {
+        iter_size = atoi(argv[7]);
+      }
+    } else if (argc >= 5) {
+      start_size_bytes = atoi(argv[2]);
+      end_size_bytes = start_size_bytes;
+      step_size_bytes = 1;
+      stride_bytes = atoi(argv[3]);
+      warmup_iterations = atoi(argv[4]);
+      if (argc >= 6) {
+        iter_size = atoi(argv[5]);
+      }
     }
   } else {
-    fprintf(stderr,
-            "usage:  p_chase_l1 <MEM> <SIZE_BYTES> <STRIDE_BYTES> <WARMUP>\n");
+    fprintf(stderr, "usage:  p_chase_l1 <MEM> <SIZE_BYTES> <STRIDE_BYTES> "
+                    "<WARMUP> <ITER_SIZE?>\n");
     fprintf(stderr,
             "        p_chase_l1 <MEM> <START_SIZE_BYTES> <END_SIZE_BYTES> "
-            "<STEP_SIZE_BYTES> <STRIDE_BYTES> <WARMUP>\n");
+            "<STEP_SIZE_BYTES> <STRIDE_BYTES> <WARMUP> <ITER_SIZE?>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    <MEM>:\t");
     for (int k = 0; k < NUM_MEMORIES; k++) {
@@ -564,8 +568,23 @@ int main(int argc, char *argv[]) {
   // print CSV header
   fprintf(stdout, "n,index,latency\n");
 
+  size_t max_iter_size;
+  switch (mem) {
+  case L1ReadOnly:
+    max_iter_size = READONLY_ITER_SIZE;
+    break;
+  case L1Data:
+  case L1Texture:
+  case L2:
+    max_iter_size = USE_COMPRESSION ? ITER_SIZE_COMPRESSED : ITER_SIZE;
+    break;
+  case NUM_MEMORIES:
+    assert(false && "panic dispatching to memory");
+  };
+
+  iter_size = std::min(iter_size, max_iter_size);
+
   int exit_code = EXIT_SUCCESS;
-  size_t iter_size = USE_COMPRESSION ? ITER_SIZE_COMPRESSED : ITER_SIZE;
 
   for (size_t size_bytes = start_size_bytes; size_bytes <= end_size_bytes;
        size_bytes += step_size_bytes) {
@@ -650,7 +669,8 @@ int main(int argc, char *argv[]) {
             prop.sharedMemPerMultiprocessor);
     fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
 
-    exit_code = parametric_measure_global(mem, size, stride, warmup_iterations);
+    exit_code = parametric_measure_global(mem, size, stride, iter_size,
+                                          warmup_iterations);
     if (exit_code != EXIT_SUCCESS) {
       break;
     }

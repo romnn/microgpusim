@@ -36,6 +36,24 @@ pub enum MemorySpace {
     // instruction_space,
 }
 
+impl MemorySpace {
+    pub fn base_addr(self) -> address {
+        trace_model::MemorySpace::from(self).base_addr()
+    }
+}
+
+impl From<MemorySpace> for trace_model::MemorySpace {
+    fn from(space: MemorySpace) -> Self {
+        match space {
+            MemorySpace::Local => trace_model::MemorySpace::Local,
+            MemorySpace::Shared => trace_model::MemorySpace::Shared,
+            MemorySpace::Constant => trace_model::MemorySpace::Constant,
+            MemorySpace::Texture => trace_model::MemorySpace::Texture,
+            MemorySpace::Global => trace_model::MemorySpace::Global,
+        }
+    }
+}
+
 impl From<MemorySpace> for stats::instructions::MemorySpace {
     fn from(space: MemorySpace) -> Self {
         match space {
@@ -48,22 +66,45 @@ impl From<MemorySpace> for stats::instructions::MemorySpace {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct TransactionInfo {
     chunk_mask: BitArr!(for 4, in u8),
     byte_mask: mem_fetch::ByteMask,
     active_mask: warp::ActiveMask,
 }
 
-pub const MAX_ACCESSES_PER_INSN_PER_THREAD: usize = 8;
+impl std::fmt::Debug for TransactionInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use trace_model::ToBitString;
+        f.debug_struct("TransactionInfo")
+            .field("chunk_mask", &self.chunk_mask[..4].to_bit_string())
+            .field("byte_mask", &self.byte_mask[..128].to_bit_string())
+            .field("active_mask", &self.active_mask[..32].to_bit_string())
+            .finish()
+    }
+}
 
+impl std::fmt::Display for TransactionInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use trace_model::ToBitString;
+        f.debug_struct("TransactionInfo")
+            .field("chunks", &self.chunk_mask[..4].to_bit_string())
+            .field("bytes", &self.byte_mask[..128].to_bit_string())
+            .finish()
+    }
+}
+
+pub const MAX_ACCESSES_PER_THREAD_INSTRUCTION: usize = 8;
+
+/// Per thread information.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct PerThreadInfo {
-    /// Effective addresses
+    /// Requested effective memory addresses by a thread
     ///
-    /// up to 8 different requests to support 32B access in
-    /// 8 chunks of 4B each
-    pub mem_req_addr: [address; MAX_ACCESSES_PER_INSN_PER_THREAD],
+    /// There can be up to 8 different requests to support 32B access in
+    /// 8 chunks of 4B each.
+    /// Note that "no memory request" is encoded as the zero address.
+    pub mem_req_addr: [address; MAX_ACCESSES_PER_THREAD_INSTRUCTION],
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -91,23 +132,6 @@ pub enum MemOp {
 fn line_size_based_tag_func(addr: address, line_size: u64) -> u64 {
     addr & !(line_size - 1)
 }
-
-pub const GLOBAL_HEAP_START: u64 = 0xC000_0000;
-// Volta max shmem size is 96kB
-pub const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
-// Volta max local mem is 16kB
-pub const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
-
-// Volta Titan V has 80 SMs
-pub const MAX_STREAMING_MULTIPROCESSORS: u64 = 80;
-
-pub const TOTAL_SHARED_MEM: u64 = MAX_STREAMING_MULTIPROCESSORS * SHARED_MEM_SIZE_MAX;
-
-pub const TOTAL_LOCAL_MEM: u64 =
-    MAX_STREAMING_MULTIPROCESSORS * super::MAX_THREAD_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
-
-pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
-pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BarrierInfo {
@@ -172,8 +196,6 @@ impl std::fmt::Display for WarpInstruction {
         write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
     }
 }
-
-pub const MAX_WARP_SIZE: usize = 32;
 
 fn is_number(s: &str) -> bool {
     !s.is_empty() && s.chars().all(char::is_numeric)
@@ -336,7 +358,9 @@ impl WarpInstruction {
                 // resolve generic loads
                 let trace_model::command::KernelLaunch {
                     shared_mem_base_addr,
+                    shared_mem_addr_limit,
                     local_mem_base_addr,
+                    local_mem_addr_limit,
                     ..
                 } = kernel.config;
                 if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
@@ -347,11 +371,35 @@ impl WarpInstruction {
                     // check the first active address
                     if let Some(tid) = trace.active_mask.first_one() {
                         let addr = trace.addrs[tid];
-                        if (shared_mem_base_addr..local_mem_base_addr).contains(&addr) {
+
+                        // bytes
+                        // cudaDeviceGetLimit(size_t* size, cudaLimitMallocHeapSize)
+                        // cudaDevAttrL2CacheSize
+                        // cudaDevAttrUnifiedAddressing:
+                        // cudaDevAttrMaxSharedMemoryPerMultiprocessor
+                        // cudaDevAttrMaxBlocksPerMultiprocessor
+                        // cudaDevAttrMaxPersistingL2CacheSize
+                        // cudaDevAttrMaxRegistersPerMultiprocessor
+                        // cudaDevAttrWarpSize
+                        // cudaDevAttrMaxThreadsPerBlock
+                        // cudaDevAttrMaxSharedMemoryPerBlock
+                        // cudaDevAttrTotalConstantMemory
+                        // cudaDevAttrComputeCapabilityMajor: Major compute capability version number
+                        // cudaDevAttrComputeCapabilityMinor
+
+                        // kernel launch should contain some info about the hw
+                        // like the size of shared
+                        //
+                        // the local memory needed per thread cannot exceed the available GPU memory divided by the total number of threads that can be active (number of SMs times the maximum number of threads per SM
+
+                        let shared_mem_space = shared_mem_base_addr..local_mem_base_addr;
+                        let local_mem_space =
+                            local_mem_base_addr..(local_mem_base_addr + local_mem_addr_limit);
+                        // local_mem_base_addr..(local_mem_base_addr + crate::LOCAL_MEM_SIZE_MAX);
+
+                        if shared_mem_space.contains(&addr) {
                             memory_space = Some(MemorySpace::Shared);
-                        } else if (local_mem_base_addr..(local_mem_base_addr + LOCAL_MEM_SIZE_MAX))
-                            .contains(&addr)
-                        {
+                        } else if local_mem_space.contains(&addr) {
                             memory_space = Some(MemorySpace::Local);
                             cache_operator = CacheOperator::ALL;
                         } else {
@@ -725,10 +773,11 @@ impl WarpInstruction {
                     // access to local memory
                 }
 
-                debug_assert!(num_accesses as usize <= MAX_ACCESSES_PER_INSN_PER_THREAD);
+                debug_assert!(num_accesses as usize <= MAX_ACCESSES_PER_THREAD_INSTRUCTION);
 
                 let mut access = 0;
-                while access < MAX_ACCESSES_PER_INSN_PER_THREAD && thread.mem_req_addr[access] != 0
+                while access < MAX_ACCESSES_PER_THREAD_INSTRUCTION
+                    && thread.mem_req_addr[access] != 0
                 {
                     let addr = thread.mem_req_addr[access];
                     let block_addr = line_size_based_tag_func(addr, segment_size);
@@ -750,7 +799,7 @@ impl WarpInstruction {
                     }
 
                     // it seems like in trace driven, a thread can write to more than one
-                    // segment handle this special case
+                    // segment handle
                     let coalesc_end_addr = addr + u64::from(data_size_coales) - 1;
                     if block_addr != line_size_based_tag_func(coalesc_end_addr, segment_size) {
                         let block_addr = line_size_based_tag_func(coalesc_end_addr, segment_size);
@@ -797,7 +846,10 @@ impl WarpInstruction {
                     }),
             );
 
-            // log::warn!(
+            assert!(
+                self.active_mask.not_any() || !accesses.is_empty(),
+                "active memory instruction must coalesce to at least one access"
+            );
             log::debug!(
                 "coalesced warp instruction {self} into {} transactions: {:?}",
                 accesses.len(),

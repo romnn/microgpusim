@@ -47,16 +47,17 @@ pub mod testing;
 
 pub use exec;
 
-use self::core::{warp_inst_complete, Core, PipelineStage, MAX_THREAD_PER_SM, PROGRAM_MEM_START};
-use allocation::Allocations;
+use self::core::{warp_inst_complete, Core, PipelineStage};
+use allocation::{Allocation, Allocations};
 use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
 use kernel::Kernel;
+use once_cell::sync::Lazy;
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
-use bitvec::array::BitArray;
+use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre::{self};
 use console::style;
 use crossbeam::utils::CachePadded;
@@ -64,6 +65,83 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 
 pub type address = u64;
+
+/// Start address of the global heap on device.
+///
+/// Note that the precise value is not actually very important.
+/// However, the goal is to split addresses into different memory spaces to avoid clashes.
+/// Moreover, requests to zero addresses are treated as no request.
+pub const GLOBAL_HEAP_START: u64 = 0xC0000000;
+
+// /// Max number of SMs
+// /// Volta Titan V has 80 SMs
+// pub const MAX_STREAMING_MULTIPROCESSORS: usize = 80;
+
+// The maximum number of concurrent threads per SM.
+pub const MAX_THREADS_PER_SM: usize = 2048;
+
+/// The maximum number of warps assigned to one SM.
+pub const MAX_WARPS_PER_SM: usize = 64;
+
+/// The maximum number of barriers per block.
+pub const MAX_BARRIERS_PER_CTA: usize = 16;
+
+/// The maximum number of warps per block.
+pub const MAX_WARPS_PER_CTA: usize = 64;
+
+/// The warp size.
+///
+/// A warp is a group of `n` SIMD lanes (threads).
+pub const WARP_SIZE: usize = 32;
+
+// TODO: remove
+
+// Volta max shmem size is 96kB
+pub const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
+// Volta max local mem is 16kB
+pub const LOCAL_MEM_SIZE_MAX: u64 = 16 * (1 << 10);
+
+pub const MAX_STREAMING_MULTIPROCESSORS: usize = 80;
+
+pub const TOTAL_LOCAL_MEM_PER_SM: u64 = MAX_THREADS_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
+pub const TOTAL_SHARED_MEM: u64 = MAX_STREAMING_MULTIPROCESSORS as u64 * SHARED_MEM_SIZE_MAX;
+pub const TOTAL_LOCAL_MEM: u64 =
+    MAX_STREAMING_MULTIPROCESSORS as u64 * MAX_THREADS_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
+pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
+pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
+pub const STATIC_ALLOC_LIMIT: u64 = GLOBAL_HEAP_START - (TOTAL_LOCAL_MEM + TOTAL_SHARED_MEM);
+
+// pub const GLOBAL_HEAP_START: u64 = 0xC000_0000;
+// // Volta max shmem size is 96kB
+// pub const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
+
+// The size of the local memory space.
+//
+// Volta max local mem is 16kB
+// pub const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
+//
+// // Volta Titan V has 80 SMs
+// pub const MAX_STREAMING_MULTIPROCESSORS: u64 = 80;
+//
+// pub const TOTAL_SHARED_MEM: u64 = MAX_STREAMING_MULTIPROCESSORS * SHARED_MEM_SIZE_MAX;
+//
+// pub const TOTAL_LOCAL_MEM: u64 =
+//     MAX_STREAMING_MULTIPROCESSORS * super::MAX_THREADS_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
+//
+// pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
+// pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
+
+/// Start of the program memory space
+///
+/// Note: should be distinct from other memory spaces.
+pub const PROGRAM_MEM_START: usize = 0xF000_0000;
+
+pub static PROGRAM_MEM_ALLOC: Lazy<Allocation> = Lazy::new(|| Allocation {
+    name: Some("PROGRAM_MEM".to_string()),
+    id: 0,
+    start_addr: PROGRAM_MEM_START as address,
+    end_addr: None,
+});
 
 #[must_use]
 pub fn is_debug() -> bool {
@@ -204,7 +282,7 @@ pub struct MockSimulator<I> {
     // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
     executed_kernels: Arc<Mutex<HashMap<u64, Arc<kernel::Kernel>>>>,
     pub current_kernel: Mutex<Option<Arc<kernel::Kernel>>>,
-    clusters: Vec<Arc<RwLock<Cluster<I>>>>,
+    pub clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     interconn: Arc<I>,
@@ -1693,27 +1771,9 @@ where
 
                 match self.log_after_cycle {
                     Some(ref log_after_cycle) if cycle >= *log_after_cycle => {
-                        use std::io::Write;
-
                         println!("initializing logging after cycle {cycle}");
-                        let mut log_builder = env_logger::Builder::new();
-
-                        log_builder.format(|buf, record| {
-                            writeln!(
-                                buf,
-                                // "{} [{}] - {}",
-                                "{}",
-                                // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-                                // record.level(),
-                                record.args()
-                            )
-                        });
-
-                        log_builder.parse_default_env();
-                        log_builder.init();
-
+                        init_logging();
                         self.log_after_cycle.take();
-
                         let allocations = self.allocations.read();
                         for (_, alloc) in allocations.iter() {
                             log::info!("allocation: {}", alloc);
@@ -1939,6 +1999,41 @@ pub fn accelmain(
     sim.add_commands(commands_path, traces_dir)?;
     sim.run()?;
     Ok(sim)
+}
+
+pub fn init_logging() {
+    // let mut log_builder = env_logger::Builder::new();
+    // log_builder.format(|buf, record| {
+    //     writeln!(
+    //         buf,
+    //         // "{} [{}] - {}",
+    //         "{}",
+    //         // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+    //         // record.level(),
+    //         record.args()
+    //     )
+    // });
+    //
+    // log_builder.parse_default_env();
+    // log_builder.init();
+
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.format(|buf, record| {
+        use std::io::Write;
+        let level_style = buf.default_level_style(record.level());
+        writeln!(
+            buf,
+            "[ {} {} ] {}",
+            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
+            level_style.value(record.level()),
+            record.module_path().unwrap_or(""),
+            record.args()
+        )
+    });
+
+    log_builder.filter_level(log::LevelFilter::Off);
+    log_builder.parse_default_env();
+    log_builder.init();
 }
 
 #[cfg(test)]

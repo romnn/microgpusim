@@ -35,13 +35,14 @@ pub fn find_all(
     query: &Input,
 ) -> eyre::Result<Vec<materialized::BenchmarkConfig>> {
     use itertools::Itertools;
-    use std::path::PathBuf;
+    // use std::path::PathBuf;
 
-    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-
-    let benchmarks_path = manifest_dir.join("../test-apps/test-apps-materialized.yml");
-    let reader = utils::fs::open_readable(benchmarks_path)?;
-    let benchmarks = materialized::Benchmarks::from_reader(reader)?;
+    // let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    //
+    // let benchmarks_path = manifest_dir.join("../test-apps/test-apps-materialized.yml");
+    // let reader = utils::fs::open_readable(benchmarks_path)?;
+    // let benchmarks = materialized::Benchmarks::from_reader(reader)?;
+    let benchmarks = materialized::Benchmarks::default()?;
     let bench_configs: Vec<_> = benchmarks.query(target, name, query, false).try_collect()?;
     Ok(bench_configs.into_iter().cloned().collect())
 }

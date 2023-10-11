@@ -446,7 +446,7 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
     res
 }
 
-#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PhysicalAddress {
     pub bk: u64,
     pub chip: u64,
@@ -454,6 +454,19 @@ pub struct PhysicalAddress {
     pub col: u64,
     pub burst: u64,
     pub sub_partition: u64,
+}
+
+impl From<PhysicalAddress> for stats::mem::PhysicalAddress {
+    fn from(addr: PhysicalAddress) -> Self {
+        Self {
+            bk: addr.bk,
+            chip: addr.chip,
+            row: addr.row,
+            col: addr.col,
+            burst: addr.burst,
+            sub_partition: addr.sub_partition,
+        }
+    }
 }
 
 impl std::hash::Hash for PhysicalAddress {

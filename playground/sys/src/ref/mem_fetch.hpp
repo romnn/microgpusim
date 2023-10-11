@@ -5,6 +5,7 @@
 #include <queue>
 
 #include "addrdec.hpp"
+#include "hal.hpp"
 #include "mem_access.hpp"
 #include "mem_fetch_status.hpp"
 #include "memory_config.hpp"
@@ -68,6 +69,9 @@ class mem_fetch {
   new_addr_type get_addr() const { return m_access.get_addr(); }
   new_addr_type get_relative_addr() const {
     return m_access.get_relative_addr();
+  }
+  new_addr_type get_relative_byte_addr() const {
+    return m_access.get_relative_byte_addr();
   }
   new_addr_type get_alloc_start_addr() const {
     return m_access.get_alloc_start_addr();

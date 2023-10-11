@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::{self, WrapErr};
+use console::style;
 use gpucachesim::config;
 use gpucachesim_benchmarks::pchase;
 use itertools::Itertools;
@@ -68,10 +69,6 @@ async fn main() -> eyre::Result<()> {
         Ok(options) => options,
         Err(err) => {
             // parse without flags
-            // let mut size_bytes = None;
-            // let mut start_size_bytes = None;
-            // let mut stop_size_bytes = None;
-            // let mut step_size_bytes = 1;
             let memory = pchase::Memory::from_str(&args[0])?;
 
             if args.len() == 5 {
@@ -81,9 +78,6 @@ async fn main() -> eyre::Result<()> {
                     start_size_bytes: None,
                     end_size_bytes: None,
                     step_size_bytes: None,
-                    // start_size_bytes: Some(args[1].parse()?),
-                    // end_size_bytes: Some(args[1].parse()?),
-                    // step_size_bytes: Some(Bytes(1)),
                     stride_bytes: args[2].parse()?,
                     warmup_iterations: args[3].parse()?,
                     iter_size: args
@@ -107,15 +101,8 @@ async fn main() -> eyre::Result<()> {
                         .map(str::parse)
                         .transpose()?,
                 }
-
-                // start_size_bytes = Some(args[1].parse()?);
-                // end_size_bytes = Some(args[2].parse()?);
-                // step_size_bytes = Some(args[3].parse()?);
             } else {
                 err.exit();
-                // return Err(
-                //     eyre::Report::new(err).wrap_err("need eitehr 5 or 7 command line arguments")
-                // );
             }
         }
     };
@@ -137,12 +124,33 @@ async fn main() -> eyre::Result<()> {
     let end_size_bytes = end_size_bytes
         .or(size_bytes)
         .ok_or(eyre::eyre!("missing end size in bytes"))?;
-    let step_size_bytes = step_size_bytes.unwrap_or(Bytes(0));
+    let step_size_bytes = step_size_bytes.unwrap_or(Bytes(1));
+
+    // validate
     if step_size_bytes.0 < 1 {
         eyre::bail!(
             "invalid step size ({:?}) will cause infinite loop",
             step_size_bytes
         );
+    }
+    for size_bytes in [start_size_bytes, end_size_bytes] {
+        if size_bytes < stride_bytes {
+            eyre::bail!(
+                "size ({}) is smaller than stride ({})",
+                size_bytes,
+                stride_bytes
+            );
+        }
+        // if (size % stride != 0) {
+        //   fprintf(stderr,
+        //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
+        //           size, stride);
+        //   fflush(stderr);
+        //   return EXIT_FAILURE;
+        // }
+        if size_bytes.0 < 1 {
+            eyre::bail!("size is < 1 ({})", size_bytes);
+        }
     }
 
     let (commands, kernel_traces) = pchase::pchase(
@@ -189,12 +197,20 @@ async fn main() -> eyre::Result<()> {
 
     let fetch_return_callback = Box::new(
         move |cycle: u64, fetch: &gpucachesim::mem_fetch::MemFetch| {
-            let Some(inject_cycle) = fetch.inject_cycle else {
-            return;
-        };
+            let inject_cycle = fetch.inject_cycle.unwrap();
+            // let Some(inject_cycle) = fetch.inject_cycle else {
+            //     return;
+            // };
             let rel_addr = fetch.relative_byte_addr();
             let latency = cycle - inject_cycle;
-            dbg!(cycle, latency, rel_addr);
+            eprintln!(
+                "{}",
+                style(format!(
+                    "cycle={:<6} RETURNED TO CORE fetch {:<30} rel_addr={:<4} latency={:<4}",
+                    cycle, fetch, rel_addr, latency
+                ))
+                .red()
+            );
             all_addresses_cb.lock().unwrap().insert(rel_addr);
             all_latencies_cb.lock().unwrap().insert(latency);
         },
@@ -267,6 +283,7 @@ async fn main() -> eyre::Result<()> {
     // );
 
     let num_kernels_launched = stats.inner.len();
+    dbg!(num_kernels_launched);
     assert_eq!(num_kernels_launched, 1);
 
     drop(sim);

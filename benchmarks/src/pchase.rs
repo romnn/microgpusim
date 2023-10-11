@@ -106,7 +106,7 @@ pub async fn pchase(
     let mut traces = vec![];
     let tracer = Tracer::new();
 
-    for size_bytes in (start_size_bytes..end_size_bytes).step_by(step_size_bytes) {
+    for size_bytes in (start_size_bytes..=end_size_bytes).step_by(step_size_bytes) {
         let size = size_bytes / std::mem::size_of::<u32>();
         let stride = stride_bytes / std::mem::size_of::<u32>();
 

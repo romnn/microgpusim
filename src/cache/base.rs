@@ -126,11 +126,12 @@ where
         assert_eq!(unused_addr, fetch.addr());
 
         log::debug!(
-            "{}::baseline_cache::send_read_request({}) (addr={}, fetch addr={}, block={}, mshr_addr={}, mshr_hit={}, mshr_full={}, miss_queue_full={})",
-            &self.name, fetch, unused_addr, fetch.addr(), block_addr, mshr_addr, mshr_hit, mshr_full, self.miss_queue_full(),
+            "{}::baseline_cache::send_read_request({}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, fetch addr={}, block={}, mshr_addr={})",
+            &self.name, fetch, mshr_hit, mshr_full, self.miss_queue_full(), unused_addr, fetch.addr(), block_addr, mshr_addr, 
         );
 
         if mshr_hit && !mshr_full {
+            // add to mshr and miss (hit_reserved + miss)
             if read_only {
                 let _ = self.tag_array.access(block_addr, &fetch, time);
             } else {
@@ -242,6 +243,8 @@ impl<CC, S> crate::engine::cycle::Component for Base<CC, S> {
             )
             .blue(),
         );
+
+        // process miss queue
         if let Some(fetch) = self.miss_queue.front() {
             let mut top_level_memory_port = top_level_memory_port.lock();
             let packet_size = if fetch.is_write() {

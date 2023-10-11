@@ -14,11 +14,11 @@ pub struct Options {
     #[clap(help = "directory containing accelsim traces (kernelslist.g)")]
     pub traces_dir: Option<PathBuf>,
 
-    #[clap(long = "kernels", help = "path to kernelslist.g file")]
-    pub kernelslist: Option<PathBuf>,
-
     #[clap(flatten)]
     pub sim_config: SimConfig,
+
+    #[clap(long = "kernels", help = "path to kernelslist.g file")]
+    pub kernelslist: Option<PathBuf>,
 
     #[clap(long = "log-file", help = "write simuation output to log file")]
     pub log_file: Option<PathBuf>,

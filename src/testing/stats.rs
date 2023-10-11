@@ -67,7 +67,7 @@ pub fn all_cache_rel_err<'a>(
     play_stats: &'a stats::cache::Cache,
     box_stats: &'a stats::cache::Cache,
     abs_threshold: f64,
-) -> Vec<(&'a (Option<usize>, stats::cache::Access), f64)> {
+) -> Vec<(&'a (Option<usize>, stats::cache::AccessStatus), f64)> {
     let keys: HashSet<_> = play_stats
         .as_ref()
         .keys()

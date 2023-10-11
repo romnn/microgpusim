@@ -238,9 +238,12 @@ mod tests {
             binary_version: 61,
             stream_id: 0,
             shared_mem_base_addr: 0x7f0e_8e00_0000,
+            shared_mem_addr_limit: 0,
             local_mem_base_addr: 0x7f0e_8c00_0000,
+            local_mem_addr_limit: 0,
             nvbit_version: "1.5.5".to_string(),
             trace_file: String::new(),
+            device_properties: trace_model::DeviceProperties::default(),
         };
         let mut writer = std::io::Cursor::new(Vec::new());
         super::write_kernel_info(&kernel, &mut writer)?;

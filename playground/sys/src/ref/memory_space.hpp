@@ -19,6 +19,14 @@ enum _memory_space_t {
   instruction_space
 };
 
+static const char *_memory_space_t_str[] = {
+    "undefined_space",    "reg_space",         "local_space",
+    "shared_space",       "sstarr_space",      "param_space_unclassified",
+    "param_space_kernel", "param_space_local", "const_space",
+    "tex_space",          "surf_space",        "global_space",
+    "generic_space",      "instruction_space",
+};
+
 class memory_space_t {
  public:
   memory_space_t() {

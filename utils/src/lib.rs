@@ -98,7 +98,7 @@ impl std::fmt::Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "command \"{}\" failed with exit code {:?}",
+            "command {:?} failed with exit code {:?}",
             self.command,
             self.output.status.code()
         )
@@ -148,4 +148,13 @@ pub fn debug_trace_dir(exec: impl AsRef<Path>, args: &[String]) -> Result<PathBu
     let config = format!("{}-{}", &*name.to_string_lossy(), &args.join("-"));
     let traces_dir = self::fs::normalize_path(results.join(name).join(config));
     Ok(traces_dir)
+}
+
+pub fn visible_characters(text: &str) -> usize {
+    use unicode_segmentation::UnicodeSegmentation;
+    let stripped = strip_ansi_escapes::strip(text);
+    let Ok(stripped) = std::str::from_utf8(&stripped) else {
+        return stripped.len();
+    };
+    stripped.graphemes(true).count()
 }

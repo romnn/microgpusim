@@ -100,8 +100,11 @@ pub fn parse_kernel_launch(
         binary_version: 0,
         stream_id: 0,
         shared_mem_base_addr: 0,
+        shared_mem_addr_limit: 0,
         local_mem_base_addr: 0,
+        local_mem_addr_limit: 0,
         nvbit_version: String::new(),
+        device_properties: trace_model::DeviceProperties::default(),
     };
 
     let kernel_trace_path = traces_dir.as_ref().join(&kernel_trace_file_name);
@@ -442,6 +445,7 @@ pub fn convert_instruction(
     Ok(Some(trace_model::MemAccessTraceEntry {
         cuda_ctx: 0,  // cannot infer that (not required)
         sm_id: 0,     // cannot infer that (not required)
+        device_id: 0, // cannot infer that (not required)
         kernel_id: 0, // added later
         block_id,
         warp_id_in_sm: warp_id, // accelsim does not record warp_id_in_sm (not required)

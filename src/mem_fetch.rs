@@ -26,6 +26,9 @@ pub enum Kind {
     WRITE_ACK,
 }
 
+// impl From<Kind> for stats::mem::RequestKind {
+// }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Status {
     INITIALIZED,
@@ -88,7 +91,36 @@ pub mod access {
         INST_ACC_R,
         L1_WR_ALLOC_R,
         L2_WR_ALLOC_R,
-        // NUM_MEM_ACCESS_TYPE,
+    }
+
+    impl Kind {
+        pub fn memory_space(self) -> Option<crate::instruction::MemorySpace> {
+            self.into()
+        }
+
+        pub fn base_addr(self) -> Option<crate::address> {
+            Some(self.memory_space()?.base_addr())
+        }
+    }
+
+    impl From<Kind> for Option<crate::instruction::MemorySpace> {
+        fn from(kind: Kind) -> Self {
+            match kind {
+                Kind::GLOBAL_ACC_R | Kind::GLOBAL_ACC_W => {
+                    Some(crate::instruction::MemorySpace::Global)
+                }
+                Kind::LOCAL_ACC_R | Kind::LOCAL_ACC_W => {
+                    Some(crate::instruction::MemorySpace::Local)
+                }
+                Kind::CONST_ACC_R => Some(crate::instruction::MemorySpace::Constant),
+                Kind::TEXTURE_ACC_R => Some(crate::instruction::MemorySpace::Texture),
+                Kind::L1_WRBK_ACC
+                | Kind::L2_WRBK_ACC
+                | Kind::INST_ACC_R
+                | Kind::L1_WR_ALLOC_R
+                | Kind::L2_WR_ALLOC_R => None,
+            }
+        }
     }
 
     impl From<Kind> for stats::mem::AccessKind {
@@ -300,7 +332,9 @@ pub struct MemFetch {
     pub warp_id: usize,
     pub core_id: Option<usize>,
     pub cluster_id: Option<usize>,
-    pub pushed_cycle: Option<u64>,
+
+    pub inject_cycle: Option<u64>,
+    pub return_cycle: Option<u64>,
 
     pub status: Status,
     pub last_status_change: Option<u64>,
@@ -360,6 +394,50 @@ impl std::hash::Hash for MemFetch {
     }
 }
 
+impl From<&MemFetch> for stats::mem::Access {
+    fn from(fetch: &MemFetch) -> Self {
+        stats::mem::Access {
+            addr: fetch.access.addr,
+            relative_addr: fetch.access.relative_addr(),
+            allocation_id: fetch.access.allocation_id(),
+            // /// Requested address.
+            // pub addr: super::address,
+            // /// The allocation that this access corresponds to.
+            // pub allocation: Option<crate::allocation::Allocation>,
+            kernel_launch_id: fetch.access.kernel_launch_id(),
+            // // TODO: is_write could be computed using kind.is_write()
+            // pub is_write: bool,
+            // /// Requested number of bytes.
+            requested_bytes: fetch.access.req_size_bytes,
+            // /// Access kind.
+            kind: fetch.access.kind.into(),
+            // /// Warp active mask of the warp that issued this access.
+            // pub warp_active_mask: crate::warp::ActiveMask,
+            // /// Byte mask.
+            // byte_mask: fetch.access.byte_mask,
+            // sector_mask: fetch.access.sector_mask,
+
+            // uid: u64,
+            // access: access::MemAccess,
+            // access: access::MemAccess,
+            // instr: Option<WarpInstruction>,
+            physical_addr: fetch.physical_addr.clone().into(),
+            partition_addr: fetch.partition_addr,
+            // kind: fetch.kind.into(),
+            warp_id: fetch.warp_id,
+            core_id: fetch.core_id,
+            cluster_id: fetch.cluster_id,
+            inject_cycle: fetch.inject_cycle,
+            return_cycle: fetch.return_cycle,
+            // status: Status,
+            // last_status_change: Option<u64>,
+            // original_fetch: Option<Box<MemFetch>>,
+            // original_write_fetch: Option<Box<MemFetch>>,
+            // latency: u64,
+        }
+    }
+}
+
 static MEM_FETCH_UID: Lazy<atomic::AtomicU64> = Lazy::new(|| atomic::AtomicU64::new(0));
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -397,7 +475,8 @@ impl Builder {
             partition_addr: self.partition_addr,
             kind,
             status: Status::INITIALIZED,
-            pushed_cycle: None,
+            inject_cycle: None,
+            return_cycle: None,
             last_status_change: None,
             original_fetch: None,
             original_write_fetch: None,
@@ -429,9 +508,18 @@ impl MemFetch {
     #[must_use]
     // #[inline]
     pub fn is_texture(&self) -> bool {
+        self.instr.as_ref().map_or(false, |inst| {
+            inst.memory_space == Some(MemorySpace::Texture)
+        })
+    }
+
+    #[must_use]
+    // #[inline]
+    pub fn base_addr(&self) -> Option<address> {
         self.instr
             .as_ref()
-            .map_or(false, |i| i.memory_space == Some(MemorySpace::Texture))
+            .and_then(|inst| inst.memory_space)
+            .map(|space| space.base_addr())
     }
 
     #[must_use]
@@ -455,10 +543,29 @@ impl MemFetch {
         self.access.is_write
     }
 
+    /// Get the sector address
+    ///
+    /// This address is at the granularity that is used by the memory.
+    /// E.g. requesting 4B will result in a request for a 32B sector (sector-aligned).
     #[must_use]
     // #[inline]
     pub fn addr(&self) -> address {
         self.access.addr
+    }
+
+    /// Get the address of this fetch at byte-granularity.
+    #[must_use]
+    pub fn byte_addr(&self) -> address {
+        let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
+        self.addr() * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
+    }
+
+    /// Get the relative address of this fetch at byte-granularity.
+    #[must_use]
+    pub fn relative_byte_addr(&self) -> address {
+        let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
+        let relative_addr = self.relative_addr().unwrap_or(self.addr());
+        relative_addr * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
     }
 
     #[must_use]

@@ -1,7 +1,7 @@
 use super::{
-    address, allocation::Allocation, barrier, cache, config, func_unit as fu,
-    instruction::WarpInstruction, interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes,
-    operand_collector as opcoll, register_set, scheduler, scoreboard, warp,
+    address, barrier, cache, config, func_unit as fu, instruction::WarpInstruction,
+    interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes, operand_collector as opcoll,
+    register_set, scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
 
@@ -11,42 +11,13 @@ use color_eyre::eyre;
 use console::style;
 use crossbeam::utils::CachePadded;
 use mem_fetch::access::Kind as AccessKind;
-use once_cell::sync::Lazy;
 use register_set::Access as RegisterSetAccess;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{atomic, Arc};
 use strum::IntoEnumIterator;
 use trace_model::ToBitString;
 
-// Volta max shmem size is 96kB
-pub const SHARED_MEM_SIZE_MAX: usize = 96 * (1 << 10);
-// Volta max local mem is 16kB
-pub const LOCAL_MEM_SIZE_MAX: usize = 16 * (1 << 10);
-// Volta Titan V has 80 SMs
-pub const MAX_STREAMING_MULTIPROCESSORS: usize = 80;
-// Max 2048 threads / SM
-pub const MAX_THREAD_PER_SM: usize = 2048;
-// MAX 64 warps / SM
-pub const MAX_WARP_PER_SM: usize = 64;
-
-// todo: is this generic enough?
-// pub const MAX_CTA_PER_SM: usize = 32;
-pub const MAX_BARRIERS_PER_CTA: usize = 16;
-
-pub const WARP_PER_CTA_MAX: usize = 64;
-pub type WarpMask = BitArr!(for WARP_PER_CTA_MAX);
-
-/// Start of the program memory space
-///
-/// Note: should be distinct from other memory spaces.
-pub const PROGRAM_MEM_START: usize = 0xF000_0000;
-
-pub static PROGRAM_MEM_ALLOC: Lazy<Allocation> = Lazy::new(|| Allocation {
-    name: Some("PROGRAM_MEM".to_string()),
-    id: 0,
-    start_addr: PROGRAM_MEM_START as super::address,
-    end_addr: None,
-});
+pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 
 #[derive(Debug)]
 pub struct ThreadState {
@@ -176,7 +147,7 @@ where
 
                     debug_assert!(
                         translated_local_addresses.len()
-                            < super::instruction::MAX_ACCESSES_PER_INSN_PER_THREAD
+                            < super::instruction::MAX_ACCESSES_PER_THREAD_INSTRUCTION
                     );
                     pipe_reg_mut.set_addresses(t, translated_local_addresses);
                 }
@@ -426,7 +397,7 @@ where
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
 
         // if let Packet::Fetch(fetch) = packet {
-        fetch.pushed_cycle = Some(time);
+        fetch.inject_cycle.get_or_insert(time);
 
         // self.interconn_queue
         //     .push_back((mem_dest, fetch, packet_size));
@@ -459,8 +430,8 @@ pub struct Core<I> {
     pub interconn: Arc<I>,
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
     pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit>>,
-    pub active_thread_mask: BitArr!(for MAX_THREAD_PER_SM),
-    pub occupied_hw_thread_ids: BitArr!(for MAX_THREAD_PER_SM),
+    pub active_thread_mask: BitArr!(for crate::MAX_THREADS_PER_SM),
+    pub occupied_hw_thread_ids: BitArr!(for crate::MAX_THREADS_PER_SM),
     pub dynamic_warp_id: usize,
     pub num_active_blocks: usize,
     pub num_active_warps: usize,
@@ -489,6 +460,9 @@ pub struct Core<I> {
     pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
     pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
+
+    /// Custom callback handler that is called when a fetch is returned to its issuer.
+    pub fetch_return_callback: Option<Box<dyn Fn(u64, &mem_fetch::MemFetch) + Send + Sync>>,
 }
 
 #[allow(clippy::missing_fields_in_debug)]
@@ -768,6 +742,7 @@ where
             scheduler_issue_priority: 0,
             functional_units,
             issue_ports,
+            fetch_return_callback: None,
         }
     }
 
@@ -828,7 +803,7 @@ where
             let num_accesses = data_size / 4;
             // max 32B
             debug_assert!(
-                num_accesses <= super::instruction::MAX_ACCESSES_PER_INSN_PER_THREAD as u32
+                num_accesses <= super::instruction::MAX_ACCESSES_PER_THREAD_INSTRUCTION as u32
             );
             // Address must be 4B aligned - required if
             // accessing 4B per request, otherwise access
@@ -838,7 +813,7 @@ where
                 let local_word = local_addr / 4 + u64::from(i);
                 let linear_address: address = local_word * max_concurrent_threads as u64 * 4
                     + thread_base as u64
-                    + super::instruction::LOCAL_GENERIC_START;
+                    + crate::LOCAL_GENERIC_START;
                 translated_addresses.push(linear_address);
             }
         } else {
@@ -851,7 +826,7 @@ where
             let linear_address: address = local_word * max_concurrent_threads as u64 * 4
                 + local_word_offset
                 + thread_base as u64
-                + super::instruction::LOCAL_GENERIC_START;
+                + crate::LOCAL_GENERIC_START;
             translated_addresses.push(linear_address);
         }
         translated_addresses
@@ -1038,7 +1013,7 @@ where
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
-        let mut warps: WarpMask = BitArray::ZERO;
+        let mut warps = WarpMask::ZERO;
         let block = kernel.current_block().expect("kernel has current block");
         log::debug!(
             "core {:?}: issue block {} from kernel {}",
@@ -1423,7 +1398,7 @@ where
                         }
                         let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
-                        let ppc = pc + PROGRAM_MEM_START;
+                        let ppc = pc + crate::PROGRAM_MEM_START;
 
                         log::debug!(
                             "\t fetching instr {} for warp_id = {} (pc={}, ppc={})",
@@ -1439,7 +1414,7 @@ where
                         if offset_in_block + num_bytes > line_size {
                             num_bytes = line_size - offset_in_block;
                         }
-                        let inst_alloc = &*PROGRAM_MEM_ALLOC;
+                        let inst_alloc = &*crate::PROGRAM_MEM_ALLOC;
                         let access = mem_fetch::access::Builder {
                             kind: AccessKind::INST_ACC_R,
                             addr: ppc as u64,
@@ -1453,16 +1428,9 @@ where
                         }
                         .build();
 
-                        let physical_addr = self
-                            // .config
-                            // .address_mapping()
-                            .mem_controller
-                            .to_physical_address(access.addr);
-                        let partition_addr = self
-                            // .config
-                            // .address_mapping()
-                            .mem_controller
-                            .memory_partition_address(access.addr);
+                        let physical_addr = self.mem_controller.to_physical_address(access.addr);
+                        let partition_addr =
+                            self.mem_controller.memory_partition_address(access.addr);
 
                         let fetch = mem_fetch::Builder {
                             instr: None,
@@ -1910,6 +1878,9 @@ where
         }
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {
+            if let Some(fetch_return_cb) = &self.fetch_return_callback {
+                fetch_return_cb(cycle, &fetch);
+            }
             match target {
                 FetchResponseTarget::LoadStoreUnit => self.load_store_unit.try_lock().fill(fetch),
                 FetchResponseTarget::ICache => self.instr_l1_cache.fill(fetch, time),

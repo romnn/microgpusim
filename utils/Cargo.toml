@@ -11,5 +11,7 @@ glob = "0"
 async-process = "1"
 libc = "0"
 
+unicode-segmentation = "1"
+strip-ansi-escapes = "0"
 console = "0"
 similar = { version = "2.2.0", features = ["inline"] }

@@ -5,7 +5,8 @@ edition = "2021"
 publish = false
 
 [features]
-default = []
+default = ["detailed-stats"]
+detailed-stats = []
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]

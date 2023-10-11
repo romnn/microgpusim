@@ -31,21 +31,21 @@ pub struct L2DCache {
     pub inner: Arc<Cache>,
 }
 
-impl L2DCache {
-    // #[inline]
-    #[must_use]
-    pub fn set_index(&self, addr: address) -> u64 {
-        let partition_addr = addr;
-
-        // TODO
-        // if (m_address_mapping) {
-        //   // Calculate set index without memory partition bits to reduce set camping
-        //   part_addr = m_address_mapping->partition_address(addr);
-        // }
-
-        self.inner.set_index(partition_addr)
-    }
-}
+// impl L2DCache {
+//     // #[inline]
+//     #[must_use]
+//     pub fn set_index(&self, addr: address) -> u64 {
+//         let partition_addr = addr;
+//
+//         // TODO
+//         // if (m_address_mapping) {
+//         //   // Calculate set index without memory partition bits to reduce set camping
+//         //   part_addr = m_address_mapping->partition_address(addr);
+//         // }
+//
+//         self.inner.set_index(partition_addr)
+//     }
+// }
 
 #[derive(Debug)]
 pub struct L1DCache {
@@ -111,8 +111,7 @@ pub struct Cache {
     pub allocate_policy: cache::config::AllocatePolicy,
     pub write_allocate_policy: cache::config::WriteAllocatePolicy,
     // pub set_index_function: CacheSetIndexFunc,
-    pub set_index_function: Box<dyn cache::set_index::SetIndexer>,
-
+    // pub set_index_function: Box<dyn cache::set_index::SetIndexer>,
     pub mshr_kind: mshr::Kind,
     pub mshr_entries: usize,
     pub mshr_max_merge: usize,
@@ -217,24 +216,24 @@ impl Cache {
         }
     }
 
-    // do not use enabled but options
-    // #[inline]
-    #[must_use]
-    pub fn set_index(&self, addr: address) -> u64 {
-        self.set_index_function.compute_set_index(
-            addr,
-            self.num_sets,
-            self.line_size_log2(),
-            self.num_sets_log2(),
-        )
-        // hash_function(
-        //     addr,
-        //     self.num_sets,
-        //     self.line_size_log2(),
-        //     self.num_sets_log2(),
-        //     self.set_index_function,
-        // )
-    }
+    // // do not use enabled but options
+    // // #[inline]
+    // #[must_use]
+    // pub fn set_index(&self, addr: address) -> u64 {
+    //     self.set_index_function.compute_set_index(
+    //         addr,
+    //         self.num_sets,
+    //         self.line_size_log2(),
+    //         self.num_sets_log2(),
+    //     )
+    //     // hash_function(
+    //     //     addr,
+    //     //     self.num_sets,
+    //     //     self.line_size_log2(),
+    //     //     self.num_sets_log2(),
+    //     //     self.set_index_function,
+    //     // )
+    // }
 
     // #[inline]
     #[must_use]
@@ -967,15 +966,15 @@ impl Default for GPU {
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
             tex_cache_l1: Some(Arc::new(Cache {
                 kind: CacheKind::Normal,
-                num_sets: 16,
+                num_sets: 4, // 16,
                 line_size: 128,
-                associativity: 24,
+                associativity: 48, // 24,
                 replacement_policy: cache::config::ReplacementPolicy::LRU,
                 write_policy: cache::config::WritePolicy::READ_ONLY,
                 allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
+                // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::TEX_FIFO,
                 mshr_entries: 128,
                 mshr_max_merge: 4,
@@ -996,7 +995,7 @@ impl Default for GPU {
                 allocate_policy: cache::config::AllocatePolicy::ON_FILL,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
+                // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 64,
@@ -1017,7 +1016,7 @@ impl Default for GPU {
                 allocate_policy: cache::config::AllocatePolicy::ON_FILL,
                 write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                 // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
+                // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 mshr_kind: mshr::Kind::ASSOC,
                 mshr_entries: 2,
                 mshr_max_merge: 48,
@@ -1028,8 +1027,11 @@ impl Default for GPU {
             })),
             // N:64:128:6,L:L:m:N:H,A:128:8,8
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq> | none}
+            // l1 hit latency = 135.70804974
+            // l2 hit latency = 274.3884858
+            // l2 miss latency = 474.04434122
             data_cache_l1: Some(Arc::new(L1DCache {
-                l1_latency: 1,
+                l1_latency: 82,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
@@ -1037,15 +1039,15 @@ impl Default for GPU {
                 inner: Arc::new(Cache {
                     kind: CacheKind::Sector,
                     // kind: CacheKind::Normal,
-                    num_sets: 64,
+                    num_sets: 4, // 64,
                     line_size: 128,
-                    associativity: 6,
+                    associativity: 48, // 6,
                     replacement_policy: cache::config::ReplacementPolicy::LRU,
                     write_policy: cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
-                    set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
+                    // set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     // mshr_kind: mshr::Kind::SECTOR_ASSOC,
                     mshr_entries: 128,
@@ -1070,7 +1072,7 @@ impl Default for GPU {
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                    set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
+                    // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 1024,
                     mshr_max_merge: 1024,
@@ -1195,6 +1197,7 @@ impl Default for GPU {
             // "nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40:
             // CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0"
             dram_timing_options: TimingOptions { num_banks: 16 },
+            // this is the l2 latency 216 L2 latency
             l2_rop_latency: 120,
             dram_latency: 100,
             dram_dual_bus_interface: false,
@@ -1387,17 +1390,9 @@ mod tests {
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_848), 4_026_531_840);
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_992), 4_026_531_968);
     }
-
-    #[test]
-    fn test_l2d_set_index() {
-        let config = super::GPU::default();
-        let l2d_config = config.data_cache_l2.unwrap();
-        let block_addr = 34_887_082_112;
-        assert_eq!(l2d_config.inner.set_index(block_addr), 1);
-    }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 pub struct Input {
     #[serde(rename = "mode")]
     pub parallelism_mode: Option<String>,
@@ -1413,16 +1408,6 @@ pub struct Input {
 pub fn parse_input(
     values: &indexmap::IndexMap<String, serde_yaml::Value>,
 ) -> Result<Input, serde_json::Error> {
-    // let err = |err: serde_json::Error| {
-    //     eyre::Report::from(err).wrap_err(
-    //         eyre::eyre!(
-    //             "failed to parse input values for bench config {}@{}",
-    //             bench.name,
-    //             bench.input_idx
-    //         )
-    //         .with_section(|| format!("{:#?}", bench.values)),
-    //     )
-    // };
     let values: serde_json::Value = serde_json::to_value(&values)?;
     let input: Input = serde_json::from_value(values)?;
     Ok(input)

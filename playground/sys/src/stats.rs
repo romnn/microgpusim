@@ -1,6 +1,5 @@
 pub use crate::bridge::stats::StatsBridge as Stats;
 pub use crate::bridge::stats::*;
-// use stats::box_slice;
 
 impl From<Cache> for stats::Cache {
     fn from(stats: crate::bridge::stats::Cache) -> Self {
@@ -12,7 +11,7 @@ impl From<Cache> for stats::Cache {
                     (
                         (
                             None,
-                            stats::cache::Access((access_kind.into(), access_stat.into())),
+                            stats::cache::AccessStatus((access_kind.into(), access_stat.into())),
                         ),
                         count.try_into().unwrap(),
                     )
@@ -22,6 +21,7 @@ impl From<Cache> for stats::Cache {
             num_shared_mem_bank_accesses: 0,
             num_shared_mem_bank_conflicts: 0,
             num_l1_cache_bank_conflicts: 0,
+            ..Self::default()
         }
     }
 }

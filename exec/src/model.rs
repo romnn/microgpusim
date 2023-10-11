@@ -21,6 +21,12 @@ impl From<MemorySpace> for trace_model::MemorySpace {
     }
 }
 
+impl MemorySpace {
+    pub fn base_addr(self) -> u64 {
+        trace_model::MemorySpace::from(self).base_addr()
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum MemAccessKind {
     Load,

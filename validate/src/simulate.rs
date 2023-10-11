@@ -247,40 +247,41 @@ pub mod exec {
             }
         }?;
 
-        // write the traces
         let traces_dir = stats_dir.join("traces");
-        create_dirs(&traces_dir).map_err(eyre::Report::from)?;
-        {
-            for command in commands.iter_mut() {
-                dbg!(&command);
-                if let trace_model::command::Command::KernelLaunch(kernel_launch) = command {
-                    let kernel_trace_name = format!("kernel-{}.msgpack", kernel_launch.id);
-                    let kernel_trace_path = traces_dir.join(&kernel_trace_name);
+        gpucachesim::exec::write_traces(commands, kernel_traces, &traces_dir)?;
 
-                    let mut writer =
-                        utils::fs::open_writable(&kernel_trace_path).map_err(eyre::Report::from)?;
-                    let (kernel_launch_config, kernel_trace) =
-                        &kernel_traces[kernel_launch.id as usize];
-                    assert_eq!(kernel_launch_config, kernel_launch);
-                    rmp_serde::encode::write(&mut writer, &kernel_trace)
-                        .map_err(eyre::Report::from)?;
-                    println!("written {}", kernel_trace_path.display());
-
-                    // update the kernel trace path
-                    kernel_launch.trace_file = kernel_trace_name;
-                }
-            }
-
-            let commands_path = traces_dir.join("commands.json");
-            let mut json_serializer = serde_json::Serializer::with_formatter(
-                utils::fs::open_writable(&commands_path).map_err(eyre::Report::from)?,
-                serde_json::ser::PrettyFormatter::with_indent(b"    "),
-            );
-            commands
-                .serialize(&mut json_serializer)
-                .map_err(eyre::Report::from)?;
-            println!("written {}", commands_path.display());
-        }
+        // create_dirs(&traces_dir).map_err(eyre::Report::from)?;
+        // {
+        //     for command in commands.iter_mut() {
+        //         dbg!(&command);
+        //         if let trace_model::command::Command::KernelLaunch(kernel_launch) = command {
+        //             let kernel_trace_name = format!("kernel-{}.msgpack", kernel_launch.id);
+        //             let kernel_trace_path = traces_dir.join(&kernel_trace_name);
+        //
+        //             let mut writer =
+        //                 utils::fs::open_writable(&kernel_trace_path).map_err(eyre::Report::from)?;
+        //             let (kernel_launch_config, kernel_trace) =
+        //                 &kernel_traces[kernel_launch.id as usize];
+        //             assert_eq!(kernel_launch_config, kernel_launch);
+        //             rmp_serde::encode::write(&mut writer, &kernel_trace)
+        //                 .map_err(eyre::Report::from)?;
+        //             println!("written {}", kernel_trace_path.display());
+        //
+        //             // update the kernel trace path
+        //             kernel_launch.trace_file = kernel_trace_name;
+        //         }
+        //     }
+        //
+        //     let commands_path = traces_dir.join("commands.json");
+        //     let mut json_serializer = serde_json::Serializer::with_formatter(
+        //         utils::fs::open_writable(&commands_path).map_err(eyre::Report::from)?,
+        //         serde_json::ser::PrettyFormatter::with_indent(b"    "),
+        //     );
+        //     commands
+        //         .serialize(&mut json_serializer)
+        //         .map_err(eyre::Report::from)?;
+        //     println!("written {}", commands_path.display());
+        // }
 
         let mut total_dur = Duration::ZERO;
         for repetition in 0..bench.common.repetitions {

@@ -222,9 +222,7 @@ fn configure_tracing() -> Option<tracing_chrome::FlushGuard> {
         tracing_subscriber::registry().with(chrome_layer).init();
         Some(guard)
     } else {
-        env_logger::init();
-        // let mut log_builder = env_logger::Builder::new();
-        // log_builder.format(|buf, record| writeln!(buf, "{}", record.args()));
+        gpucachesim::init_logging();
         None
     }
 }
@@ -322,11 +320,11 @@ fn main() -> eyre::Result<()> {
     let start = Instant::now();
     let stats = runtime.block_on(async {
         let stats = run_accelsim(black_box(bench_config)).await?;
-        let stats: stats::Stats = stats.try_into()?;
+        let stats: stats::PerKernel = stats.try_into()?;
         Ok::<_, eyre::Report>(stats)
     })?;
     let accel_dur = start.elapsed();
-    dbg!(&stats.sim);
+    dbg!(&stats.reduce().sim);
     println!("accel took:\t\t{accel_dur:?}");
 
     Ok(())

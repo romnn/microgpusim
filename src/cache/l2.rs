@@ -198,3 +198,29 @@ impl super::Bandwidth for DataL2 {
         self.inner.has_free_fill_port()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cache::CacheController;
+    use color_eyre::eyre;
+
+    #[test]
+    fn test_l2d_set_index() -> eyre::Result<()> {
+        let config = crate::config::GPU::default();
+        let l2_cache_config = &config.data_cache_l2.as_ref().unwrap().inner;
+
+        // create l2 data cache controller
+        let memory_controller = crate::mcu::MemoryControllerUnit::new(&config)?;
+        let cache_controller = crate::cache::controller::pascal::DataCacheController::new(
+            l2_cache_config.as_ref().into(),
+        );
+        let l2_cache_controller = super::L2DataCacheController {
+            memory_controller,
+            cache_controller,
+        };
+
+        let block_addr = 34_887_082_112;
+        assert_eq!(l2_cache_controller.set_index(block_addr), 1);
+        Ok(())
+    }
+}

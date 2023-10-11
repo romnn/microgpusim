@@ -73,6 +73,15 @@ pub enum AccessStat {
     Status(RequestStatus),
 }
 
+impl std::fmt::Display for AccessStat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ReservationFailure(failure) => std::fmt::Debug::fmt(failure, f),
+            Self::Status(status) => std::fmt::Debug::fmt(status, f),
+        }
+    }
+}
+
 impl From<AccessStat> for stats::cache::AccessStat {
     fn from(access: AccessStat) -> Self {
         match access {

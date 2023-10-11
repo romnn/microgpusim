@@ -56,6 +56,12 @@ pub enum Target {
     PlaygroundSimulate,
 }
 
+impl Default for Target {
+    fn default() -> Self {
+        Self::Simulate
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum RunError {
     #[error("benchmark skipped")]

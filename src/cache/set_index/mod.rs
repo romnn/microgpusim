@@ -157,3 +157,62 @@ pub mod linear {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cache::set_index::SetIndexer;
+
+    #[test]
+    fn test_linear() {
+        let set_index = super::linear::SetIndex {};
+        let line_size = 128;
+        let num_sets = 4;
+        for set in 0..num_sets {
+            assert_eq!(
+                set_index.compute_set_index(
+                    set * line_size + 32,
+                    num_sets as usize,
+                    line_size.ilog2(),
+                    num_sets.ilog2(),
+                ),
+                set,
+            );
+        }
+    }
+
+    #[test]
+    fn test_bitwise_xor() {
+        let set_index = super::bitwise_xor::SetIndex {};
+        let line_size = 128;
+        let num_sets = 4;
+        for set in 0..num_sets {
+            assert_eq!(
+                set_index.compute_set_index(
+                    set * line_size + 32,
+                    num_sets as usize,
+                    line_size.ilog2(),
+                    num_sets.ilog2(),
+                ),
+                set
+            );
+        }
+    }
+
+    #[test]
+    fn test_fermi() {
+        let set_index = super::fermi::SetIndex {};
+        let line_size = 128;
+        let num_sets = 32;
+        for set in 0..num_sets {
+            assert_eq!(
+                set_index.compute_set_index(
+                    set * line_size + 32,
+                    num_sets as usize,
+                    line_size.ilog2(),
+                    num_sets.ilog2(),
+                ),
+                set
+            );
+        }
+    }
+}

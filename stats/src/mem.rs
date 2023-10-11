@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use strum::{EnumCount, IntoEnumIterator};
 
 #[derive(
     Debug,
@@ -36,13 +35,20 @@ impl AccessKind {
     #[must_use]
     // #[inline]
     pub const fn count() -> usize {
+        use strum::EnumCount;
         Self::COUNT
     }
 
     #[must_use]
     // #[inline]
+    pub fn iter() -> <Self as strum::IntoEnumIterator>::Iterator {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
+
+    #[must_use]
+    // #[inline]
     pub fn reads() -> impl Iterator<Item = Self> {
-        Self::iter().filter(|kind| !kind.is_write())
+        Self::iter().filter(|kind| kind.is_read())
     }
 
     #[must_use]
@@ -61,13 +67,76 @@ impl AccessKind {
             | AccessKind::INST_ACC_R
             | AccessKind::L1_WR_ALLOC_R
             | AccessKind::L2_WR_ALLOC_R => false,
-            // | AccessKind::NUM_MEM_ACCESS_TYPE => false,
             AccessKind::GLOBAL_ACC_W
             | AccessKind::LOCAL_ACC_W
             | AccessKind::L1_WRBK_ACC
             | AccessKind::L2_WRBK_ACC => true,
         }
     }
+
+    #[must_use]
+    pub fn is_read(self) -> bool {
+        !self.is_write()
+    }
+}
+
+#[derive(Debug, Default, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct PhysicalAddress {
+    pub bk: u64,
+    pub chip: u64,
+    pub row: u64,
+    pub col: u64,
+    pub burst: u64,
+    pub sub_partition: u64,
+}
+
+// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+// pub enum RequestKind {
+//     ReadRequest,
+//     WriteRequest,
+//     ReadReply,
+//     WriteAck,
+// }
+
+pub type address = u64;
+
+/// A memory access.
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Access {
+    /// Address in linear, virtual memory space.
+    pub addr: address,
+    /// Relative address within allocation.
+    pub relative_addr: Option<address>,
+    /// Physical address in global memory (DRAM).
+    pub physical_addr: PhysicalAddress,
+    /// Memory partition address.
+    pub partition_addr: address,
+    /// Access kind.
+    pub kind: AccessKind,
+    /// The number of bytes requested.
+    pub requested_bytes: u32,
+    // /// Byte mask.
+    // pub byte_mask: u32,
+    // /// Warp active mask.
+    // pub warp_active_mask: u32,
+    /// Allocation ID that this access references.
+    pub allocation_id: Option<usize>,
+
+    /// Warp id of the warp inside the block that issued this access.
+    pub warp_id: usize,
+
+    // TODO: add block id too..
+    /// Kernel launch ID of the kernel that issued this access.
+    pub kernel_launch_id: Option<usize>,
+    /// Core that issued this access.
+    pub core_id: Option<usize>,
+    /// Cluster that issued this access.
+    pub cluster_id: Option<usize>,
+
+    /// Cycle the access was pushed to the interconnect.
+    pub inject_cycle: Option<u64>,
+    /// Cycle the access was returned to the requester.
+    pub return_cycle: Option<u64>,
 }
 
 /// Memory access statistics.

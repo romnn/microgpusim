@@ -6,6 +6,7 @@
 #include "concrete_scheduler.hpp"
 #include "cuda_sim.hpp"
 #include "dp_unit.hpp"
+#include "hal.hpp"
 #include "io.hpp"
 #include "gto_scheduler.hpp"
 #include "int_unit.hpp"
@@ -1463,6 +1464,8 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
   } else {
     assert(occupy_shader_resource_1block(kernel, true));
   }
+  logger->trace("max cta: kernel={} config={} sm={}", kernel_max_cta_per_shader,
+                m_config->max_cta_per_core, MAX_CTA_PER_SHADER);
 
   kernel.inc_running();
 
@@ -1475,6 +1478,8 @@ void trace_shader_core_ctx::issue_block2core(trace_kernel_info_t &kernel) {
   } else {
     max_cta_per_core = m_config->max_cta_per_core;
   }
+  assert(max_cta_per_core <= MAX_CTA_PER_SHADER &&
+         "max cta per shader is smaller than maximum");
 
   logger->trace("core ({}, {}): free block status: [{}]", get_tpc(), get_sid(),
                 fmt::join(m_cta_status, m_cta_status + 32, ","));
