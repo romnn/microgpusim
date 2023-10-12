@@ -419,7 +419,8 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
         mean_latency += (float)h_timeinfo[k * 32];
       }
       mean_latency /= 32.0;
-      fprintf(stdout, "%8lu,%4d,%4.10f\n", N, index, mean_latency);
+      fprintf(stdout, "%8lu,%4lu,%4.10f\n", N * sizeof(uint32_t),
+              index * sizeof(uint32_t), mean_latency);
     }
     break;
   default:
@@ -431,7 +432,8 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
           j = h_a[j];
           unsigned int index = j;
           unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
-          fprintf(stdout, "%8lu,%4d,%4d\n", N, index, binned_latency);
+          fprintf(stdout, "%8lu,%4lu,%4d\n", N * sizeof(uint32_t),
+                  index * sizeof(uint32_t), binned_latency);
         } else {
           j = h_a[j];
         }
@@ -440,7 +442,8 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
       for (size_t k = 0; k < iter_size; k++) {
         unsigned int index = h_index[k];
         unsigned int latency = h_timeinfo[k];
-        fprintf(stdout, "%8lu,%4d,%4d\n", N, index, latency);
+        fprintf(stdout, "%8lu,%4lu,%4d\n", N * sizeof(uint32_t),
+                index * sizeof(uint32_t), latency);
       }
     }
     break;

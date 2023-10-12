@@ -1489,6 +1489,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "console",
+ "csv",
  "env_logger",
  "gpucachesim",
  "human_bytes",

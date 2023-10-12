@@ -14,8 +14,8 @@ pub struct ReadOnly {
 impl ReadOnly {
     pub fn new(
         name: String,
-        core_id: usize,
-        cluster_id: usize,
+        // core_id: usize,
+        // cluster_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         cache_config: Arc<config::Cache>,
     ) -> Self {
@@ -24,8 +24,8 @@ impl ReadOnly {
         );
         let inner = cache::base::Builder {
             name,
-            core_id,
-            cluster_id,
+            // core_id,
+            // cluster_id,
             stats,
             cache_controller,
             cache_config,
@@ -64,14 +64,13 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         self
     }
 
-    // // #[inline]
-    // fn stats(&self) -> &Arc<Mutex<stats::Cache>> {
-    //     &self.inner.stats
-    // }
-
     // #[inline]
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.stats
+    }
+
+    fn controller(&self) -> &dyn cache::CacheController {
+        &self.inner.cache_controller
     }
 
     // #[inline]

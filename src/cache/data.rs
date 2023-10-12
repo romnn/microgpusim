@@ -11,8 +11,8 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone)]
 pub struct Builder<MC, CC, S> {
     pub name: String,
-    pub core_id: usize,
-    pub cluster_id: usize,
+    // pub core_id: usize,
+    // pub cluster_id: usize,
     pub stats: Arc<Mutex<S>>,
     pub mem_controller: MC,
     pub cache_controller: CC,
@@ -46,8 +46,8 @@ where
     pub fn build(self) -> Data<MC, CC, S> {
         let inner = super::base::Builder {
             name: self.name,
-            core_id: self.core_id,
-            cluster_id: self.cluster_id,
+            // core_id: self.core_id,
+            // cluster_id: self.cluster_id,
             stats: self.stats,
             cache_controller: self.cache_controller,
             cache_config: self.cache_config,
@@ -691,6 +691,10 @@ where
 
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.stats
+    }
+
+    fn controller(&self) -> &dyn cache::CacheController {
+        &self.inner.cache_controller
     }
 
     fn access(

@@ -511,8 +511,8 @@ where
                 core_id,
                 style("READONLY-INSTR-CACHE").green()
             ),
-            core_id,
-            cluster_id,
+            // core_id,
+            // cluster_id,
             cache_stats,
             config.inst_cache_l1.as_ref().unwrap().clone(),
         );
@@ -1711,9 +1711,11 @@ where
                         Some(result_bus) if schedule_wb_now => {
                             debug_assert!(instr.latency < fu::MAX_ALU_LATENCY);
                             result_bus.set(instr.latency, true);
+                            println!("execute {} [latency={}]", instr, instr.latency);
                             fu.issue(ready_reg.take().unwrap());
                         }
                         _ if !schedule_wb_now => {
+                            println!("execute {} [latency={}]", instr, instr.latency);
                             fu.issue(ready_reg.take().unwrap());
                         }
                         _ => {

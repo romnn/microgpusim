@@ -161,8 +161,26 @@ impl MemAccessTraceEntry {
         &self.src_regs[0..self.num_src_regs as usize]
     }
 
+    pub fn set_source_registers(&mut self, regs: impl IntoIterator<Item = u32>) {
+        self.num_src_regs = 0;
+        self.src_regs.fill(0);
+        for (reg_id, reg) in regs.into_iter().enumerate() {
+            self.src_regs[reg_id] = reg;
+            self.num_src_regs += 1;
+        }
+    }
+
     pub fn dest_registers(&self) -> &[u32] {
         &self.dest_regs[0..self.num_dest_regs as usize]
+    }
+
+    pub fn set_dest_registers(&mut self, regs: impl IntoIterator<Item = u32>) {
+        self.num_dest_regs = 0;
+        self.dest_regs.fill(0);
+        for (reg_id, reg) in regs.into_iter().enumerate() {
+            self.dest_regs[reg_id] = reg;
+            self.num_dest_regs += 1;
+        }
     }
 }
 

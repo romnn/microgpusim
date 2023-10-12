@@ -38,6 +38,9 @@ pub struct LoadStoreUnit {
     /// round-robin arbiter for writeback contention between L1T, L1C, shared
     writeback_arb: usize,
     num_writeback_clients: usize,
+
+    pub l1_access_callback:
+        Option<Box<dyn Fn(u64, &mem_fetch::MemFetch, cache::RequestStatus) + Send + Sync>>,
 }
 
 impl std::fmt::Display for LoadStoreUnit {
@@ -118,7 +121,7 @@ impl LoadStoreUnit {
         let data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             if let Some(l1_config) = &config.data_cache_l1 {
                 // initialize latency queue
-                debug_assert!(l1_config.l1_latency > 0);
+                assert!(l1_config.l1_latency > 0);
                 l1_latency_queue =
                     box_slice![box_slice![None; l1_config.l1_latency]; l1_config.l1_banks];
 
@@ -142,8 +145,8 @@ impl LoadStoreUnit {
                         "ldst-unit-{cluster_id}-{core_id}-{}",
                         style("L1D-CACHE").green()
                     ),
-                    core_id,
-                    cluster_id,
+                    // core_id,
+                    // cluster_id,
                     stats: cache_stats,
                     config: Arc::clone(&config),
                     mem_controller: mem_controller.clone(),
@@ -184,6 +187,7 @@ impl LoadStoreUnit {
             num_writeback_clients: WritebackClient::COUNT,
             writeback_arb: 0,
             l1_latency_queue,
+            l1_access_callback: None,
         }
     }
 
@@ -633,7 +637,12 @@ impl LoadStoreUnit {
                     return MemStageStallKind::NO_RC_FAIL;
                 };
 
-                let bank_id = l1d_config.compute_set_bank(access.addr) as usize;
+                let bank_id = self
+                    .data_l1
+                    .as_ref()
+                    .unwrap()
+                    .controller()
+                    .set_bank(access.addr) as usize;
                 debug_assert!(bank_id < l1d_config.l1_banks);
 
                 log::trace!(
@@ -653,21 +662,13 @@ impl LoadStoreUnit {
                 );
 
                 let slot_idx = l1d_config.l1_latency - 1;
-                let slot = &mut self.l1_latency_queue[bank_id][l1d_config.l1_latency - 1];
+                let slot = &mut self.l1_latency_queue[bank_id][slot_idx];
                 if slot.is_none() {
                     let is_store = instr.is_store();
                     let access = instr.mem_access_queue.pop_back().unwrap();
 
-                    let physical_addr = self
-                        // .config
-                        // .address_mapping()
-                        .mem_controller
-                        .to_physical_address(access.addr);
-                    let partition_addr = self
-                        // .config
-                        // .address_mapping()
-                        .mem_controller
-                        .memory_partition_address(access.addr);
+                    let physical_addr = self.mem_controller.to_physical_address(access.addr);
+                    let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
                     let mut fetch = mem_fetch::Builder {
                         instr: Some(instr.clone()),
@@ -679,14 +680,14 @@ impl LoadStoreUnit {
                         partition_addr,
                     }
                     .build();
-                    println!(
-                        "add fetch {:<35} rel addr={:<4} bank={:<2} slot={:<4} at cycle={:<4}",
-                        fetch.to_string(),
-                        fetch.relative_byte_addr(),
-                        bank_id,
-                        slot_idx,
-                        cycle
-                    );
+                    // println!(
+                    //     "add fetch {:<35} rel addr={:<4} bank={:<2} slot={:<4} at cycle={:<4}",
+                    //     fetch.to_string(),
+                    //     fetch.relative_byte_addr(),
+                    //     bank_id,
+                    //     slot_idx,
+                    //     cycle
+                    // );
                     fetch.inject_cycle = Some(cycle);
 
                     let data_size = fetch.data_size();
@@ -731,21 +732,12 @@ impl LoadStoreUnit {
             );
             stall_cond
         } else {
-            let physical_addr = self
-                // .config
-                // .address_mapping()
-                .mem_controller
-                .to_physical_address(access.addr);
-            let partition_addr = self
-                // .config
-                // .address_mapping()
-                .mem_controller
-                .memory_partition_address(access.addr);
+            let physical_addr = self.mem_controller.to_physical_address(access.addr);
+            let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {
                 instr: Some(instr.clone()),
                 access: access.clone(),
-                // &self.config,
                 warp_id: instr.warp_id,
                 core_id: Some(self.core_id),
                 cluster_id: Some(self.cluster_id),
@@ -832,29 +824,33 @@ impl LoadStoreUnit {
     fn l1_latency_queue_cycle(&mut self, cycle: u64) {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank in 0..l1_config.l1_banks {
-            if let Some(next_fetch) = &self.l1_latency_queue[bank][0] {
+            if let Some(fetch) = &self.l1_latency_queue[bank][0] {
                 let mut events = Vec::new();
 
                 let l1_cache = self.data_l1.as_mut().unwrap();
                 let access_status =
-                    l1_cache.access(next_fetch.addr(), next_fetch.clone(), &mut events, cycle);
+                    l1_cache.access(fetch.addr(), fetch.clone(), &mut events, cycle);
 
                 let write_sent = cache::event::was_write_sent(&events);
                 let read_sent = cache::event::was_read_sent(&events);
                 let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
 
-                log::debug!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", next_fetch.warp_id, &next_fetch, cycle);
+                log::debug!("l1 cache access for warp={:<2} {} => {access_status:?} cycle={} [write sent={write_sent}, read sent={read_sent}, wr allocate sent={write_allocate_sent}]", fetch.warp_id, &fetch, cycle);
 
                 let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                    next_fetch.data_size() / mem_sub_partition::SECTOR_SIZE
+                    fetch.data_size() / mem_sub_partition::SECTOR_SIZE
                 } else {
                     1
                 };
 
+                if let Some(l1_access_callback) = &self.l1_access_callback {
+                    l1_access_callback(cycle, fetch, access_status);
+                }
+
                 if access_status == cache::RequestStatus::HIT {
                     debug_assert!(!read_sent);
-                    let mut next_fetch = self.l1_latency_queue[bank][0].take().unwrap();
-                    let instr = next_fetch.instr.as_mut().unwrap();
+                    let mut fetch = self.l1_latency_queue[bank][0].take().unwrap();
+                    let instr = fetch.instr.as_mut().unwrap();
 
                     if instr.is_load() {
                         let mut completed = false;
@@ -886,18 +882,12 @@ impl LoadStoreUnit {
 
                     // For write hit in WB policy
                     if instr.is_store() && !write_sent {
-                        next_fetch.set_reply();
+                        fetch.set_reply();
 
                         for _ in 0..dec_ack {
-                            self.store_ack(&next_fetch);
+                            self.store_ack(&fetch);
                         }
                     }
-
-                    dbg!(
-                        &next_fetch.relative_byte_addr(),
-                        cycle - next_fetch.inject_cycle.unwrap()
-                    );
-                    // self.l1_hit_callback()
                 } else if access_status == cache::RequestStatus::RESERVATION_FAIL {
                     debug_assert!(!read_sent);
                     debug_assert!(!write_sent);
@@ -906,8 +896,8 @@ impl LoadStoreUnit {
                         access_status,
                         cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
                     ));
-                    let mut next_fetch = self.l1_latency_queue[bank][0].take().unwrap();
-                    let instr = next_fetch.instr.as_ref().unwrap();
+                    let mut fetch = self.l1_latency_queue[bank][0].take().unwrap();
+                    let instr = fetch.instr.as_ref().unwrap();
 
                     let should_fetch = matches!(
                         l1_config.inner.write_allocate_policy,
@@ -919,9 +909,9 @@ impl LoadStoreUnit {
                         && should_fetch
                         && !write_allocate_sent
                     {
-                        next_fetch.set_reply();
+                        fetch.set_reply();
                         for _ in 0..dec_ack {
-                            self.store_ack(&next_fetch);
+                            self.store_ack(&fetch);
                         }
                     }
                 }
@@ -1148,7 +1138,7 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
         if let Some(data_l1) = &mut self.data_l1 {
             data_l1.cycle(cycle);
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
-            assert!(cache_config.l1_latency > 1);
+            assert!(cache_config.l1_latency > 0);
             self.l1_latency_queue_cycle(cycle);
         }
 
@@ -1217,6 +1207,11 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
                 // stores exit pipeline here
                 self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
+
+                // check for deadlocks due to scoreboard:
+                //
+                // make sure stores do not use destination registers
+                assert_eq!(dispatch_reg.outputs().count(), 0);
                 crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
             }
         }

@@ -89,16 +89,10 @@ impl<'a> Kernel for FineGrainPChase<'a>
     }
 }
 
-// pub async fn pchase<T>(a: &Vec<T>, b: &Vec<T>, result: &mut Vec<T>) -> super::Result
-// where
-//     T: Float + Zero + Send + Sync,
-
 /// Fine-grain p-chase application.
 pub async fn pchase(
     memory: Memory,
-    start_size_bytes: usize,
-    end_size_bytes: usize,
-    step_size_bytes: usize,
+    size_bytes: usize,
     stride_bytes: usize,
     warmup_iterations: usize,
     iter_size: usize,
@@ -106,37 +100,35 @@ pub async fn pchase(
     let mut traces = vec![];
     let tracer = Tracer::new();
 
-    for size_bytes in (start_size_bytes..=end_size_bytes).step_by(step_size_bytes) {
-        let size = size_bytes / std::mem::size_of::<u32>();
-        let stride = stride_bytes / std::mem::size_of::<u32>();
+    let size = size_bytes / std::mem::size_of::<u32>();
+    let stride = stride_bytes / std::mem::size_of::<u32>();
 
-        // initialize host array with pointers into dev_array
-        let mut array: Vec<u32> = vec![0; size as usize + 2];
-        for i in 0..size {
-            array[i] = ((i + stride) % size) as u32;
-        }
-
-        array[size] = 0;
-        array[size + 1] = 0;
-
-        // allocate memory for each vector on simulated GPU device
-        let dev_array = tracer
-            .allocate(&mut array, MemorySpace::Global, Some("array"))
-            .await;
-
-        // number of thread blocks in grid
-        let kernel = FineGrainPChase {
-            dev_array: Mutex::new(dev_array),
-            size,
-            stride,
-            warmup_iterations,
-            iter_size,
-        };
-        let grid_size = 1;
-        let block_size = 1;
-        let trace = tracer.trace_kernel(grid_size, block_size, kernel).await?;
-        traces.push(trace);
+    // initialize host array with pointers into dev_array
+    let mut array: Vec<u32> = vec![0; size as usize + 2];
+    for i in 0..size {
+        array[i] = ((i + stride) % size) as u32;
     }
+
+    array[size] = 0;
+    array[size + 1] = 0;
+
+    // allocate memory for each vector on simulated GPU device
+    let dev_array = tracer
+        .allocate(&mut array, MemorySpace::Global, Some("array"))
+        .await;
+
+    // number of thread blocks in grid
+    let kernel = FineGrainPChase {
+        dev_array: Mutex::new(dev_array),
+        size,
+        stride,
+        warmup_iterations,
+        iter_size,
+    };
+    let grid_size = 1;
+    let block_size = 1;
+    let trace = tracer.trace_kernel(grid_size, block_size, kernel).await?;
+    traces.push(trace);
     Ok((tracer.commands().await, traces))
 }
 
@@ -165,8 +157,8 @@ mod tests {
         let (_commands, kernel_traces) = super::pchase(
             super::Memory::L1Data,
             size_bytes,
-            size_bytes,
-            1,
+            // size_bytes,
+            // 1,
             stride_bytes,
             warmup_iterations,
             iter_size,

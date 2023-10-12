@@ -32,9 +32,8 @@ struct PendingRequest {
 #[derive()]
 pub struct Base<CC, S> {
     pub name: String,
-    pub core_id: usize,
-    pub cluster_id: usize,
-
+    // pub core_id: usize,
+    // pub cluster_id: usize,
     pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
@@ -52,8 +51,8 @@ pub struct Base<CC, S> {
 #[derive(Debug, Clone)]
 pub struct Builder<CC, S> {
     pub name: String,
-    pub core_id: usize,
-    pub cluster_id: usize,
+    // pub core_id: usize,
+    // pub cluster_id: usize,
     pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
@@ -82,8 +81,8 @@ where
 
         Base {
             name: self.name,
-            core_id: self.core_id,
-            cluster_id: self.cluster_id,
+            // core_id: self.core_id,
+            // cluster_id: self.cluster_id,
             tag_array,
             mshrs,
             top_port: None,

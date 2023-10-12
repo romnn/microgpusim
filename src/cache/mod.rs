@@ -31,6 +31,20 @@ pub enum RequestStatus {
     MSHR_HIT,
 }
 
+impl RequestStatus {
+    pub fn is_hit(&self) -> bool {
+        matches!(self, RequestStatus::HIT | RequestStatus::HIT_RESERVED)
+    }
+
+    pub fn is_miss(&self) -> bool {
+        matches!(self, RequestStatus::MISS | RequestStatus::SECTOR_MISS)
+    }
+
+    pub fn is_reservation_fail(&self) -> bool {
+        matches!(self, RequestStatus::RESERVATION_FAIL)
+    }
+}
+
 impl From<RequestStatus> for stats::cache::RequestStatus {
     fn from(status: RequestStatus) -> Self {
         match status {
@@ -110,6 +124,9 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
 
     /// Per-kenrel cache statistics.
     fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
+
+    /// Cache controller
+    fn controller(&self) -> &dyn CacheController;
 
     /// Access the cache.
     fn access(

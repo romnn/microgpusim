@@ -105,7 +105,6 @@ pub fn open_writable(path: impl AsRef<Path>) -> Result<std::io::BufWriter<std::f
 
 // #[inline]
 pub fn remove_dir(path: impl AsRef<Path>) -> Result<(), Error> {
-    panic!("remove dir");
     let path = path.as_ref();
     match std::fs::remove_dir_all(path) {
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -124,7 +123,6 @@ pub fn create_dirs(path: impl AsRef<Path>) -> Result<(), Error> {
     match std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o777)
-        // .mode(0o757)
         .create(path)
     {
         Ok(_) => Ok(()),

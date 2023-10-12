@@ -20,6 +20,7 @@ itertools = "0"
 parse-size = { version = "1", features = ["std"] }
 human_bytes = "0"
 console = "0"
+csv = "1"
 serde = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive"] }
 strum = { version = "0", features = ["derive"] }

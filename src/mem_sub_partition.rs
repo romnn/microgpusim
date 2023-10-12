@@ -89,10 +89,9 @@ impl MemorySubPartition {
 
                     let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                     let mut data_l2 = cache::DataL2::new(
-                        format!("mem-sub-{}-{}", id, style("L2-CACHE").green()),
-                        0, // core_id,
-                        0, // cluster_id,
-                        // Arc::clone(&l2_to_dram_queue),
+                        format!("mem-sub-{}-{}", id, style("L2-CACHE").blue()),
+                        id,
+                        partition_id,
                         cache_stats,
                         config.clone(),
                         l2_config.clone(),

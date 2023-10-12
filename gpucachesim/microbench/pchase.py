@@ -242,8 +242,8 @@ def p_chase(mem, stride_bytes, warmup, size_bytes=None, start_size_bytes=None, e
         dtype=float,
     )
     # base units are 32 bit integers
-    df["n"] = df["n"] * 4
-    df["index"] = df["index"] * 4  
+    # df["n"] = df["n"] * 4
+    # df["index"] = df["index"] * 4  
     return df, (stdout, stderr)
 
 

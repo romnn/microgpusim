@@ -12,7 +12,7 @@ const KB: usize = 1024;
 const DEFAULT_ITER_SIZE: usize = ((48 * KB) / 2) / std::mem::size_of::<u32>();
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Bytes(pub u64);
+pub struct Bytes(pub usize);
 
 impl std::fmt::Display for Bytes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -20,11 +20,22 @@ impl std::fmt::Display for Bytes {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum InvalidSizeError {
+    #[error(transparent)]
+    Parse(#[from] parse_size::Error),
+
+    #[error(transparent)]
+    Cast(#[from] std::num::TryFromIntError),
+}
+
 impl std::str::FromStr for Bytes {
-    type Err = parse_size::Error;
+    type Err = InvalidSizeError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(Self(parse_size::parse_size(value)?))
+        let bytes: u64 = parse_size::parse_size(value)?;
+        let bytes: usize = bytes.try_into()?;
+        Ok(Self(bytes))
     }
 }
 
@@ -54,113 +65,32 @@ pub struct Options {
     pub warmup_iterations: usize,
     #[clap(short = 'k', long = "iterations", help = "number of iterations")]
     pub iter_size: Option<usize>,
+
+    #[clap(long = "csv", help = "write csv formatted latencies to stdout")]
+    pub csv_latencies: bool,
 }
 
-#[tokio::main]
-async fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
-    gpucachesim::init_logging();
-
+async fn simulate_pchase<W>(
+    memory: pchase::Memory,
+    size_bytes: usize,
+    stride_bytes: usize,
+    warmup_iterations: usize,
+    iter_size: usize,
+    mut csv_writer: Option<&mut csv::Writer<W>>,
+) -> eyre::Result<()>
+where
+    W: std::io::Write,
+{
     let start = std::time::Instant::now();
 
-    let args: Vec<_> = std::env::args().skip(1).collect();
-
-    let options = match Options::try_parse() {
-        Ok(options) => options,
-        Err(err) => {
-            // parse without flags
-            let memory = pchase::Memory::from_str(&args[0])?;
-
-            if args.len() == 5 {
-                Options {
-                    memory,
-                    size_bytes: Some(args[1].parse()?),
-                    start_size_bytes: None,
-                    end_size_bytes: None,
-                    step_size_bytes: None,
-                    stride_bytes: args[2].parse()?,
-                    warmup_iterations: args[3].parse()?,
-                    iter_size: args
-                        .get(4)
-                        .map(String::as_str)
-                        .map(str::parse)
-                        .transpose()?,
-                }
-            } else if args.len() == 7 {
-                Options {
-                    memory,
-                    size_bytes: None,
-                    start_size_bytes: Some(args[1].parse()?),
-                    end_size_bytes: Some(args[2].parse()?),
-                    step_size_bytes: Some(args[3].parse()?),
-                    stride_bytes: args[2].parse()?,
-                    warmup_iterations: args[3].parse()?,
-                    iter_size: args
-                        .get(4)
-                        .map(String::as_str)
-                        .map(str::parse)
-                        .transpose()?,
-                }
-            } else {
-                err.exit();
-            }
-        }
-    };
-
-    let Options {
-        memory,
-        size_bytes,
-        start_size_bytes,
-        end_size_bytes,
-        step_size_bytes,
-        stride_bytes,
-        warmup_iterations,
-        iter_size,
-    } = options;
-
-    let start_size_bytes = start_size_bytes
-        .or(size_bytes)
-        .ok_or(eyre::eyre!("missing start size in bytes"))?;
-    let end_size_bytes = end_size_bytes
-        .or(size_bytes)
-        .ok_or(eyre::eyre!("missing end size in bytes"))?;
-    let step_size_bytes = step_size_bytes.unwrap_or(Bytes(1));
-
-    // validate
-    if step_size_bytes.0 < 1 {
-        eyre::bail!(
-            "invalid step size ({:?}) will cause infinite loop",
-            step_size_bytes
-        );
-    }
-    for size_bytes in [start_size_bytes, end_size_bytes] {
-        if size_bytes < stride_bytes {
-            eyre::bail!(
-                "size ({}) is smaller than stride ({})",
-                size_bytes,
-                stride_bytes
-            );
-        }
-        // if (size % stride != 0) {
-        //   fprintf(stderr,
-        //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
-        //           size, stride);
-        //   fflush(stderr);
-        //   return EXIT_FAILURE;
-        // }
-        if size_bytes.0 < 1 {
-            eyre::bail!("size is < 1 ({})", size_bytes);
-        }
-    }
+    let rounds = iter_size as f32 / (size_bytes as f32 / stride_bytes as f32);
 
     let (commands, kernel_traces) = pchase::pchase(
         memory,
-        start_size_bytes.0 as usize,
-        end_size_bytes.0 as usize,
-        step_size_bytes.0 as usize,
-        stride_bytes.0 as usize,
+        size_bytes,
+        stride_bytes,
         warmup_iterations,
-        iter_size.unwrap_or(DEFAULT_ITER_SIZE),
+        iter_size,
     )
     .await?;
 
@@ -190,17 +120,16 @@ async fn main() -> eyre::Result<()> {
     let traces_dir = temp_dir.path();
     gpucachesim::exec::write_traces(commands, kernel_traces, &traces_dir)?;
 
+    let accesses = Arc::new(Mutex::new(Vec::new()));
     let all_addresses = Arc::new(Mutex::new(HashSet::new()));
     let all_latencies = Arc::new(Mutex::new(HashSet::new()));
+
+    let accesses_cb = accesses.clone();
     let all_addresses_cb = all_addresses.clone();
     let all_latencies_cb = all_latencies.clone();
-
     let fetch_return_callback = Box::new(
         move |cycle: u64, fetch: &gpucachesim::mem_fetch::MemFetch| {
             let inject_cycle = fetch.inject_cycle.unwrap();
-            // let Some(inject_cycle) = fetch.inject_cycle else {
-            //     return;
-            // };
             let rel_addr = fetch.relative_byte_addr();
             let latency = cycle - inject_cycle;
             eprintln!(
@@ -211,17 +140,83 @@ async fn main() -> eyre::Result<()> {
                 ))
                 .red()
             );
+            accesses_cb.lock().unwrap().push((fetch.clone(), latency));
             all_addresses_cb.lock().unwrap().insert(rel_addr);
             all_latencies_cb.lock().unwrap().insert(latency);
         },
     );
 
-    let sim_config = config::gtx1080::build_config(&config::Input::default())?;
+    let accesses_cb = accesses.clone();
+    let all_addresses_cb = all_addresses.clone();
+    let all_latencies_cb = all_latencies.clone();
+    let l1_access_callback = Box::new(
+        move |cycle: u64,
+              fetch: &gpucachesim::mem_fetch::MemFetch,
+              access_status: gpucachesim::cache::RequestStatus| {
+            let inject_cycle = fetch.inject_cycle.unwrap();
+            let rel_addr = fetch.relative_byte_addr();
+            let latency = cycle - inject_cycle;
+            eprintln!(
+                "{}",
+                style(format!(
+                    "cycle={:<6} L1 ACCESS {:<30} {:?} rel_addr={:<4} latency={:<4}",
+                    cycle, fetch, access_status, rel_addr, latency
+                ))
+                .red()
+            );
+            if access_status.is_hit() {
+                accesses_cb.lock().unwrap().push((fetch.clone(), latency));
+                all_addresses_cb.lock().unwrap().insert(rel_addr);
+                all_latencies_cb.lock().unwrap().insert(latency);
+            }
+        },
+    );
+
+    let mut sim_config = config::gtx1080::build_config(&config::Input::default())?;
+    if false {
+        sim_config.data_cache_l1 = Some(Arc::new(gpucachesim::config::L1DCache {
+            // l1_latency: 1,
+            l1_latency: 82,
+            // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
+            // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
+            l1_banks_byte_interleaving: 32,
+            l1_banks: 1,
+            inner: Arc::new(gpucachesim::config::Cache {
+                kind: gpucachesim::config::CacheKind::Sector,
+                // kind: CacheKind::Normal,
+                // 128B cache
+                num_sets: 2,
+                line_size: 32,
+                associativity: 1,
+                // num_sets: 4, // 64,
+                // line_size: 128,
+                // associativity: 48, // 6,
+                replacement_policy: gpucachesim::cache::config::ReplacementPolicy::LRU,
+                write_policy: gpucachesim::cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
+                allocate_policy: gpucachesim::cache::config::AllocatePolicy::ON_MISS,
+                write_allocate_policy:
+                    gpucachesim::cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
+                // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
+                // set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
+                mshr_kind: gpucachesim::mshr::Kind::ASSOC,
+                // mshr_kind: mshr::Kind::SECTOR_ASSOC,
+                mshr_entries: 128,
+                mshr_max_merge: 8,
+                miss_queue_size: 4,
+                result_fifo_entries: None,
+                l1_cache_write_ratio_percent: 0,
+                data_port_width: None,
+            }),
+        }));
+    }
+
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
     for cluster in &sim.clusters {
         for core in &cluster.read().cores {
             core.write().fetch_return_callback = Some(fetch_return_callback.clone());
+            core.write().load_store_unit.lock().l1_access_callback =
+                Some(l1_access_callback.clone());
         }
     }
 
@@ -243,6 +238,12 @@ async fn main() -> eyre::Result<()> {
     };
     sim.add_commands(commands_path, traces_dir)?;
     sim.run()?;
+
+    // for cluster in &sim.clusters {
+    //     for core in &cluster.read().cores {
+    //         // core.write().fetch_return_callback = Some(fetch_return_callback.clone());
+    //     }
+    // }
 
     let stats = sim.stats();
     // for kernel_stats in &stats.inner {
@@ -283,11 +284,57 @@ async fn main() -> eyre::Result<()> {
     // );
 
     let num_kernels_launched = stats.inner.len();
-    dbg!(num_kernels_launched);
     assert_eq!(num_kernels_launched, 1);
 
     drop(sim);
     drop(fetch_return_callback);
+    drop(l1_access_callback);
+
+    #[derive(Debug, serde::Serialize)]
+    struct CsvRow {
+        pub n: usize,
+        pub index: u64,
+        pub latency: u64,
+    }
+
+    let accesses: Vec<_> = Arc::into_inner(accesses).unwrap().into_inner().unwrap();
+    let post_warmup_index = warmup_iterations * iter_size;
+    let valid_accesses = &accesses[post_warmup_index..post_warmup_index + iter_size];
+    for (i, (fetch, latency)) in valid_accesses.iter().enumerate() {
+        use trace_model::ToBitString;
+        eprintln!(
+            "access {:<3}: {:<40} rel addr={:<4} ({:<4}, {:<4}, {:<4}) bytes={} latency={}",
+            i,
+            fetch.to_string(),
+            fetch.relative_byte_addr(),
+            fetch.relative_addr().unwrap(),
+            fetch.byte_addr(),
+            fetch.addr(),
+            fetch.access.byte_mask[..128].to_bit_string(),
+            style(latency).yellow()
+        );
+
+        // dbg!(i, stride_bytes, size_bytes);
+        let index = (fetch.relative_byte_addr() as usize + stride_bytes) % size_bytes;
+        // (stride_bytes + fetch.relative_byte_addr() as usize + stride_bytes) % size_bytes;
+        // let index = ((i + 1) * stride_bytes) % size_bytes;
+        // let load_index = ;
+        // dbg!(load_index, index);
+        // assert_eq!(
+        //     load_index as usize,
+        //     (size_bytes + index - stride_bytes) % size_bytes
+        // );
+        if let Some(ref mut csv_writer) = csv_writer.as_mut() {
+            csv_writer.serialize(CsvRow {
+                n: size_bytes,
+                index: index as u64,
+                latency: *latency,
+            })?;
+        }
+    }
+
+    dbg!(rounds);
+
     let all_adresses: Vec<_> = Arc::into_inner(all_addresses)
         .unwrap()
         .into_inner()
@@ -306,5 +353,126 @@ async fn main() -> eyre::Result<()> {
     dbg!(all_latencies);
 
     eprintln!("simulated completed in {:?}", start.elapsed());
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    let start = std::time::Instant::now();
+    color_eyre::install()?;
+    gpucachesim::init_logging();
+
+    let args: Vec<_> = std::env::args().skip(1).collect();
+
+    let options = match Options::try_parse() {
+        Ok(options) => options,
+        Err(err) => {
+            // parse without flags
+            let memory = pchase::Memory::from_str(&args[0])?;
+
+            if args.len() == 5 {
+                Options {
+                    memory,
+                    size_bytes: Some(args[1].parse()?),
+                    start_size_bytes: None,
+                    end_size_bytes: None,
+                    step_size_bytes: None,
+                    stride_bytes: args[2].parse()?,
+                    warmup_iterations: args[3].parse()?,
+                    iter_size: args
+                        .get(4)
+                        .map(String::as_str)
+                        .map(str::parse)
+                        .transpose()?,
+                    csv_latencies: false,
+                }
+            } else if args.len() == 7 {
+                Options {
+                    memory,
+                    size_bytes: None,
+                    start_size_bytes: Some(args[1].parse()?),
+                    end_size_bytes: Some(args[2].parse()?),
+                    step_size_bytes: Some(args[3].parse()?),
+                    stride_bytes: args[2].parse()?,
+                    warmup_iterations: args[3].parse()?,
+                    iter_size: args
+                        .get(4)
+                        .map(String::as_str)
+                        .map(str::parse)
+                        .transpose()?,
+                    csv_latencies: false,
+                }
+            } else {
+                err.exit();
+            }
+        }
+    };
+
+    let Options {
+        memory,
+        size_bytes,
+        start_size_bytes,
+        end_size_bytes,
+        step_size_bytes,
+        stride_bytes,
+        warmup_iterations,
+        iter_size,
+        csv_latencies,
+    } = options;
+
+    let start_size_bytes = start_size_bytes
+        .or(size_bytes)
+        .ok_or(eyre::eyre!("missing start size in bytes"))?;
+    let end_size_bytes = end_size_bytes
+        .or(size_bytes)
+        .ok_or(eyre::eyre!("missing end size in bytes"))?;
+    let step_size_bytes = step_size_bytes.unwrap_or(Bytes(1));
+
+    let iter_size = iter_size.unwrap_or(DEFAULT_ITER_SIZE);
+
+    // validate
+    if step_size_bytes.0 < 1 {
+        eyre::bail!(
+            "invalid step size ({:?}) will cause infinite loop",
+            step_size_bytes
+        );
+    }
+    for size_bytes in [start_size_bytes, end_size_bytes] {
+        if size_bytes < stride_bytes {
+            eyre::bail!(
+                "size ({}) is smaller than stride ({})",
+                size_bytes,
+                stride_bytes
+            );
+        }
+        // if (size % stride != 0) {
+        //   fprintf(stderr,
+        //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
+        //           size, stride);
+        //   fflush(stderr);
+        //   return EXIT_FAILURE;
+        // }
+        if size_bytes.0 < 1 {
+            eyre::bail!("size is < 1 ({})", size_bytes);
+        }
+    }
+
+    let mut csv_writer = csv::WriterBuilder::new()
+        .flexible(false)
+        .from_writer(std::io::stdout());
+
+    for size_bytes in (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0) {
+        simulate_pchase(
+            memory,
+            size_bytes as usize,
+            stride_bytes.0 as usize,
+            warmup_iterations,
+            iter_size,
+            Some(&mut csv_writer),
+        )
+        .await?;
+    }
+
+    eprintln!("completed in {:?}", start.elapsed());
     Ok(())
 }

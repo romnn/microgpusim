@@ -877,18 +877,19 @@ fn get_bench_config(
 #[test]
 fn lockstep_accelsim_pchase() -> eyre::Result<()> {
     crate::testing::init_test();
-    let benchmarks = validate::materialized::Benchmarks::default()?;
+    // let benchmarks = validate::materialized::Benchmarks::default()?;
+    // let configs = benchmarks.config.accelsim_simulate.configs;
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-    let target_config = TargetBenchmarkConfig::AccelsimSimulate {
-        configs: benchmarks.config.accelsim_simulate.configs,
-        traces_dir: manifest_dir.join("./pchase-debug-trace"),
+    let target_config = TargetBenchmarkConfig::Simulate {
+        parallel: Some(false),
+        accelsim_traces_dir: manifest_dir.join("./pchase-debug-trace"),
+        traces_dir: manifest_dir.join("./pchase-debug-trace/box"),
         stats_dir: manifest_dir.join("./pchase-debug-trace/stats"),
     };
-    let mut bench_config = BenchmarkConfig {
+    let bench_config = BenchmarkConfig {
         ..BenchmarkConfig::custom(target_config)
     };
-    dbg!(&target_config);
-    return Ok(());
+    dbg!(&bench_config);
     run(&bench_config, TraceProvider::Accelsim)
 }
 

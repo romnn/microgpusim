@@ -66,6 +66,44 @@ where
     }
 }
 
+impl<T> DevicePtr<T> {
+    pub fn load<Idx>(&self, thread_idx: &ThreadIndex, idx: Idx) -> &<T as Index<Idx>>::Output
+    where
+        T: Index<Idx>,
+    {
+        let (elem, rel_offset, size) = self.inner.index(idx);
+        let addr = self.offset + rel_offset;
+        self.memory.load(thread_idx, addr, size, self.mem_space);
+        elem
+    }
+
+    pub fn load_mut<Idx>(
+        &mut self,
+        thread_idx: &ThreadIndex,
+        idx: Idx,
+    ) -> &mut <T as Index<Idx>>::Output
+    where
+        T: IndexMut<Idx>,
+    {
+        let (elem, rel_offset, size) = self.inner.index_mut(idx);
+        let addr = self.offset + rel_offset;
+        self.memory.store(thread_idx, addr, size, self.mem_space);
+        elem
+    }
+
+    pub fn store<Idx>(
+        &mut self,
+        thread_idx: &ThreadIndex,
+        idx: Idx,
+        value: <T as Index<Idx>>::Output,
+    ) where
+        T: IndexMut<Idx>,
+        <T as Index<Idx>>::Output: Sized,
+    {
+        *self.load_mut(thread_idx, idx) = value;
+    }
+}
+
 pub trait Index<Idx: ?Sized> {
     type Output: ?Sized;
     fn index(&self, idx: Idx) -> (&Self::Output, u64, u32);
@@ -147,10 +185,11 @@ where
     type Output = <T as Index<Idx>>::Output;
 
     fn index(&self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &Self::Output {
-        let (elem, rel_offset, size) = self.inner.index(idx);
-        let addr = self.offset + rel_offset;
-        self.memory.load(thread_idx, addr, size, self.mem_space);
-        elem
+        self.load(thread_idx, idx)
+        // let (elem, rel_offset, size) = self.inner.index(idx);
+        // let addr = self.offset + rel_offset;
+        // self.memory.load(thread_idx, addr, size, self.mem_space);
+        // elem
     }
 }
 
@@ -159,9 +198,10 @@ where
     T: IndexMut<Idx>,
 {
     fn index_mut(&mut self, (thread_idx, idx): (&ThreadIndex, Idx)) -> &mut Self::Output {
-        let (elem, rel_offset, size) = self.inner.index_mut(idx);
-        let addr = self.offset + rel_offset;
-        self.memory.store(thread_idx, addr, size, self.mem_space);
-        elem
+        self.load_mut(thread_idx, idx)
+        // let (elem, rel_offset, size) = self.inner.index_mut(idx);
+        // let addr = self.offset + rel_offset;
+        // self.memory.store(thread_idx, addr, size, self.mem_space);
+        // elem
     }
 }

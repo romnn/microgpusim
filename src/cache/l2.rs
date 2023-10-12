@@ -48,6 +48,9 @@ where
 /// Generic data cache.
 #[allow(clippy::module_name_repetitions)]
 pub struct DataL2 {
+    pub sub_partition_id: usize,
+    pub partition_id: usize,
+    pub cache_config: Arc<config::L2DCache>,
     pub inner: super::data::Data<
         mcu::MemoryControllerUnit,
         L2DataCacheController<
@@ -56,14 +59,13 @@ pub struct DataL2 {
         >,
         stats::cache::PerKernel,
     >,
-    pub cache_config: Arc<config::L2DCache>,
 }
 
 impl DataL2 {
     pub fn new(
         name: String,
-        core_id: usize,
-        cluster_id: usize,
+        sub_partition_id: usize,
+        partition_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
         cache_config: Arc<config::L2DCache>,
@@ -79,8 +81,6 @@ impl DataL2 {
         };
         let inner = super::data::Builder {
             name,
-            core_id,
-            cluster_id,
             stats,
             config,
             cache_controller,
@@ -92,6 +92,8 @@ impl DataL2 {
         .build();
         Self {
             inner,
+            sub_partition_id,
+            partition_id,
             cache_config,
         }
     }
@@ -117,6 +119,10 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     // #[inline]
     fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
         &self.inner.inner.stats
+    }
+
+    fn controller(&self) -> &dyn cache::CacheController {
+        &self.inner.inner.cache_controller
     }
 
     // #[inline]

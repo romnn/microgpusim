@@ -52,7 +52,7 @@ pub struct L1DCache {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
     /// l1 banks hashing function
-    pub l1_banks_hashing_function: Box<dyn cache::set_index::SetIndexer>, // 0
+    // pub l1_banks_hashing_function: Box<dyn cache::set_index::SetIndexer>, // 0
     // pub l1_banks_hashing_function: CacheSetIndexFunc, // 0
     /// l1 banks byte interleaving granularity
     pub l1_banks_byte_interleaving: usize, // 32
@@ -75,27 +75,27 @@ impl L1DCache {
         mcu::logb2(self.l1_banks_byte_interleaving as u32)
     }
 
-    // #[inline]
-    #[must_use]
-    pub fn compute_set_bank(&self, addr: address) -> u64 {
-        log::trace!(
-            "computing set bank for address {} ({} l1 banks) using hashing function {:?}",
-            addr,
-            self.l1_banks,
-            self.l1_banks_hashing_function
-        );
-
-        // For sector cache, we select one sector per bank (sector interleaving)
-        // This is what was found in Volta (one sector per bank, sector
-        // interleaving) otherwise, line interleaving
-
-        self.l1_banks_hashing_function.compute_set_index(
-            addr,
-            self.l1_banks,
-            self.l1_banks_byte_interleaving_log2(),
-            self.l1_banks_log2(),
-        )
-    }
+    // // #[inline]
+    // #[must_use]
+    // pub fn compute_set_bank(&self, addr: address) -> u64 {
+    //     log::trace!(
+    //         "computing set bank for address {} ({} l1 banks) using hashing function {:?}",
+    //         addr,
+    //         self.l1_banks,
+    //         self.l1_banks_hashing_function
+    //     );
+    //
+    //     // For sector cache, we select one sector per bank (sector interleaving)
+    //     // This is what was found in Volta (one sector per bank, sector
+    //     // interleaving) otherwise, line interleaving
+    //
+    //     self.l1_banks_hashing_function.compute_set_index(
+    //         addr,
+    //         self.l1_banks,
+    //         self.l1_banks_byte_interleaving_log2(),
+    //         self.l1_banks_log2(),
+    //     )
+    // }
 }
 
 /// `CacheConfig` configures a generic cache
@@ -123,7 +123,7 @@ pub struct Cache {
     pub l1_cache_write_ratio_percent: usize, // 0
 
     // private (should be used with accessor methods)
-    data_port_width: Option<usize>,
+    pub data_port_width: Option<usize>,
 }
 
 impl std::fmt::Display for Cache {
@@ -1031,9 +1031,10 @@ impl Default for GPU {
             // l2 hit latency = 274.3884858
             // l2 miss latency = 474.04434122
             data_cache_l1: Some(Arc::new(L1DCache {
+                // l1_latency: 1,
                 l1_latency: 82,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
+                // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
                 inner: Arc::new(Cache {

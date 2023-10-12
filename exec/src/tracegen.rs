@@ -606,6 +606,20 @@ impl TraceGenerator for Tracer {
                             instr.active_mask.set(*tid, true);
                             instr.addrs[*tid] = access.addr;
                             instr.instr_offset = pc;
+
+                            // We assume memory instructions are all data dependant.
+                            //
+                            // This assumption does not always hold, but one could
+                            // argue that it makes sense if compute instructions are
+                            // skipped.
+                            if instr.instr_is_load {
+                                // read address R1 and store to R1.
+                                instr.set_source_registers([1]);
+                                instr.set_dest_registers([1]);
+                            } else if instr.instr_is_store {
+                                // store data R1 to R2 (no destination register)
+                                instr.set_source_registers([1, 2]);
+                            }
                         }
                     }
                     pc += 1;

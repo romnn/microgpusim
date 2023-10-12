@@ -557,7 +557,8 @@ impl MemFetch {
     #[must_use]
     pub fn byte_addr(&self) -> address {
         let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
-        self.addr() * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
+        // self.addr() * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
+        self.addr() + (requested_byte % mem_sub_partition::SECTOR_SIZE as u64)
     }
 
     /// Get the relative address of this fetch at byte-granularity.
@@ -565,7 +566,8 @@ impl MemFetch {
     pub fn relative_byte_addr(&self) -> address {
         let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
         let relative_addr = self.relative_addr().unwrap_or(self.addr());
-        relative_addr * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
+        // relative_addr * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
+        relative_addr + (requested_byte % mem_sub_partition::SECTOR_SIZE as u64)
     }
 
     #[must_use]

@@ -38,7 +38,7 @@ class mem_access_t {
   void set_addr(new_addr_type addr) { m_addr = addr; }
   new_addr_type get_addr() const { return m_addr; }
 
-  new_addr_type get_byte_addr() const {
+  new_addr_type get_byte() const {
     for (new_addr_type byte = 0; byte < MAX_MEMORY_ACCESS_SIZE; byte++) {
       if (m_byte_mask[byte]) {
         return byte;
@@ -48,8 +48,12 @@ class mem_access_t {
     return 0;
   }
 
+  new_addr_type get_byte_addr() const {
+    return get_addr() + (get_byte() % SECTOR_SIZE);
+  }
+
   new_addr_type get_relative_byte_addr() const {
-    return get_relative_addr() * SECTOR_CHUNCK_SIZE + get_byte_addr();
+    return get_relative_addr() + (get_byte() % SECTOR_SIZE);
   }
 
   new_addr_type get_relative_addr() const {
