@@ -1,5 +1,5 @@
 CUDA_PATH ?= /usr/local/cuda
-NVFLAGS = -g -lineinfo -Xptxas="-O3 -dlcm=ca"
+NVFLAGS = -g -lineinfo -arch sm_61 -Xptxas="-O3 -dlcm=ca"
 
 # NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(CXX)
 # NVCC          := nvcc -ccbin $(CXX)
@@ -10,13 +10,18 @@ CUFILES := $(wildcard *.cu)
 
 # Extract the names of the executables from .cu filenames
 EXECUTABLES := $(CUFILES:%.cu=%)
+CUBINS := $(CUFILES:%.cu=%.cubin)
 
 # Default target: build all executables
-all: $(EXECUTABLES)
+all: $(EXECUTABLES) $(CUBINS)
 
 # Rule to build each executable
 %: %.cu
 	$(NVCC) $(NVFLAGS) $< -o $@
+
+# Rule to build each cubin
+%.cubin: %.cu
+	$(NVCC) $(NVFLAGS) -cubin $< -o $@
 
 # Clean build directory
 clean:

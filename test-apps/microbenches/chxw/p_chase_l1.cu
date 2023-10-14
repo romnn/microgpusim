@@ -27,6 +27,47 @@ const int KB = 1024;
 const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
 __global__ __noinline__ void
+global_measure_clock_overhead(unsigned int *clock_cycles) {
+  const size_t iterations = 200;
+  __shared__ unsigned int s_overhead[2 * iterations];
+
+  for (size_t i = 0; i < 2 * iterations; i++) {
+    volatile unsigned int start_time = clock();
+    unsigned int end_time = clock();
+    s_overhead[i] = (end_time - start_time);
+  }
+
+  unsigned int sum = 0;
+  for (size_t i = 0; i < iterations; i++) {
+    sum += s_overhead[iterations + i];
+  }
+  *clock_cycles = float(sum) / float(iterations);
+}
+
+unsigned int measure_clock_overhead() {
+  unsigned int *h_clock_overhead =
+      (unsigned int *)malloc(sizeof(unsigned int) * 1);
+
+  unsigned int *d_clock_overhead;
+  CUDA_SAFECALL(
+      cudaMalloc((void **)&d_clock_overhead, sizeof(unsigned int) * 1));
+
+  // launch kernel
+  dim3 block_dim = dim3(1);
+  dim3 grid_dim = dim3(1, 1, 1);
+
+  CUDA_SAFECALL((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
+      d_clock_overhead)));
+
+  CUDA_SAFECALL(cudaMemcpy((void *)h_clock_overhead, (void *)d_clock_overhead,
+                           sizeof(unsigned int) * 1, cudaMemcpyDeviceToHost));
+
+  fprintf(stderr, "clock overhead is %u cycles\n", *h_clock_overhead);
+
+  return *h_clock_overhead;
+}
+
+__global__ __noinline__ void
 global_latency_l1_data(unsigned int *array, int array_length,
                        unsigned int *duration, unsigned int *index,
                        int iter_size, size_t warmup_iterations) {
@@ -274,17 +315,44 @@ const char *memory_str[NUM_MEMORIES] = {
     "l2",
 };
 
+#define ROUND_UP_TO_MULTIPLE(value, multipleof)                                \
+  ((unsigned int)std::ceil((float)(value) / (float)(multipleof)) * value)
+
 int parametric_measure_global(memory mem, size_t N, size_t stride,
-                              size_t iter_size, size_t warmup_iterations) {
+                              size_t iter_size, size_t warmup_iterations,
+                              unsigned int clock_overhead) {
   cudaDeviceReset();
+
+  // if (true) {
+  //   size_t size = (N + 2) * sizeof(unsigned int);
+  //
+  //   CUmemAllocationProp prop = {};
+  //   prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
+  //   prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+  //   // prop.location.id = currentDe;
+  //   size_t granularity = 0;
+  //   cuMemGetAllocationGranularity(&granularity, &prop,
+  //                                 CU_MEM_ALLOC_GRANULARITY_MINIMUM);
+  //
+  //   size_t padded_size = ROUND_UP_TO_MULTIPLE(size, granularity);
+  //   CUmemGenericAllocationHandle allocHandle;
+  //   cuMemCreate(&allocHandle, padded_size, &prop, 0);
+  //
+  //   /* Reserve a virtual address range */
+  //   CUdeviceptr ptr;
+  //   cuMemAddressReserve(&ptr, padded_size, 0, 0, 0);
+  //   /* Map the virtual address range to the physical allocation */
+  //   cuMemMap(ptr, padded_size, 0, allocHandle, 0);
+  // } else {
 
   // allocate arrays on CPU
   unsigned int *h_a;
-  h_a = (unsigned int *)malloc(sizeof(unsigned int) * (N + 2));
+  h_a = (unsigned int *)malloc((N + 2) * sizeof(unsigned int));
 
   // allocate arrays on GPU
   unsigned int *d_a;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_a, sizeof(unsigned int) * (N + 2)));
+  CUDA_SAFECALL(cudaMalloc((void **)&d_a, (N + 2) * sizeof(unsigned int)));
+  // }
 
   // initialize array elements on CPU with pointers into d_a
   for (size_t i = 0; i < N; i++) {
@@ -419,8 +487,12 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
         mean_latency += (float)h_timeinfo[k * 32];
       }
       mean_latency /= 32.0;
-      fprintf(stdout, "%8lu,%4lu,%4.10f\n", N * sizeof(uint32_t),
-              index * sizeof(uint32_t), mean_latency);
+      fprintf(stdout, "%8lu,%4lu,%10llu,%4.10f\n", N * sizeof(uint32_t),
+              index * sizeof(uint32_t),
+              (unsigned long long)d_a +
+                  (unsigned long long)index *
+                      (unsigned long long)sizeof(uint32_t),
+              (float)mean_latency - (float)clock_overhead);
     }
     break;
   default:
@@ -432,8 +504,12 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
           j = h_a[j];
           unsigned int index = j;
           unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
-          fprintf(stdout, "%8lu,%4lu,%4d\n", N * sizeof(uint32_t),
-                  index * sizeof(uint32_t), binned_latency);
+          fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
+                  index * sizeof(uint32_t),
+                  (unsigned long long)d_a +
+                      (unsigned long long)index *
+                          (unsigned long long)sizeof(uint32_t),
+                  (int)binned_latency - (int)clock_overhead);
         } else {
           j = h_a[j];
         }
@@ -442,8 +518,12 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
       for (size_t k = 0; k < iter_size; k++) {
         unsigned int index = h_index[k];
         unsigned int latency = h_timeinfo[k];
-        fprintf(stdout, "%8lu,%4lu,%4d\n", N * sizeof(uint32_t),
-                index * sizeof(uint32_t), latency);
+        fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
+                index * sizeof(uint32_t),
+                (unsigned long long)d_a +
+                    (unsigned long long)index *
+                        (unsigned long long)sizeof(uint32_t),
+                (int)latency - (int)clock_overhead);
       }
     }
     break;
@@ -568,8 +648,11 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  unsigned int clock_overhead = measure_clock_overhead();
+  // return EXIT_SUCCESS;
+
   // print CSV header
-  fprintf(stdout, "n,index,latency\n");
+  fprintf(stdout, "n,index,virt_addr,latency\n");
 
   size_t max_iter_size;
   switch (mem) {
@@ -599,6 +682,11 @@ int main(int argc, char *argv[]) {
     size_t size = size_bytes / sizeof(uint32_t);
     size_t stride = stride_bytes / sizeof(uint32_t);
 
+    if (size == 0) {
+      continue;
+    }
+
+    fprintf(stderr, "======================\n");
     fprintf(stderr, "\tMEMORY             = %s\n", memory_str[mem]);
     fprintf(stderr,
             "\tSIZE               = %10lu bytes (%10lu uint32, %10.4f KB)\n",
@@ -673,7 +761,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
 
     exit_code = parametric_measure_global(mem, size, stride, iter_size,
-                                          warmup_iterations);
+                                          warmup_iterations, clock_overhead);
     if (exit_code != EXIT_SUCCESS) {
       break;
     }

@@ -5,3 +5,4 @@ playground/sys/src/fmt/** linguist-vendored
 playground/sys/src/spdlog/** linguist-vendored
 playground/sys/src/include/** linguist-vendored
 test-apps/** linguist-vendored
+CuAssembler/** linguist-vendored
