@@ -96,6 +96,7 @@ def run_cmd(
 
         stdout = stdout.decode("utf-8")
         stderr = stderr.decode("utf-8")
+        # print(stderr)
 
         if save_to is not None:
             with open(str((save_to.parent / (save_to.name + ".stdout")).absolute()), "w") as f:
