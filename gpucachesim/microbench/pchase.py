@@ -453,7 +453,7 @@ def compute_rounds_old(df):
 
 def compute_cache_lines(df, cache_size_bytes, sector_size_bytes):
     # df["cache_line"] = (df["index"] % cache_size_bytes) // sector_size_bytes
-    df["cache_line"] = df["index"] // sector_size_bytes
+    # df["cache_line"] = df["index"] // sector_size_bytes
     # df["cache_line"] += 1
 
     # print(len(df["index"].unique()))
@@ -469,10 +469,18 @@ def compute_cache_lines(df, cache_size_bytes, sector_size_bytes):
     #     print("total cache lines for n={} is {}".format(n, total_cache_lines))
     #     df.loc[df["n"] == n, "cache_line"] = df.loc[df["n"] == n, "cache_line"] % int(total_cache_lines)
 
+    # df["cache_line"] = df["virt_addr"] // sector_size_bytes
     if False:
         for (set_idx, n), _ in df.groupby(["set", "n"]):
             total_cache_lines = int(n / sector_size_bytes)
-            df.loc[df["n"] == n, "cache_line"] %= total_cache_lines
+            print(total_cache_lines)
+
+            df.loc[df["n"] == n, "cache_line"] = (df.loc[df["n"] == n, "virt_addr"] % cache_size_bytes) // sector_size_bytes
+
+            print(df.loc[df["n"] == n, "cache_line"].values)
+            print((df.loc[df["n"] == n, "index"] // sector_size_bytes).values)
+    else:
+        df["cache_line"] = df["index"] // sector_size_bytes
 
         # sets = list(df[["n", "set"]].drop_duplicates())
         # sets = list(df[["n", "set"]].drop_duplicates())
@@ -711,7 +719,8 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
 
 
     # remove incomplete rounds
-    # combined = combined[~combined["round"].isna()]
+    combined = combined[~combined["round"].isna()]
+    # return
 
     # print(combined[["n", "set"]].drop_duplicates())
 
@@ -1100,7 +1109,8 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
         #     # print(way, int(mapped_set))
         #     # line_table.iloc[way, int(mapped_set) - 1] = line
 
-        line_table.iloc[:,int(mapped_set) - 1] = cache_lines[:derived_cache_lines_per_set]
+        valid = min(len(cache_lines), derived_cache_lines_per_set)
+        line_table.iloc[0:valid,int(mapped_set) - 1] = cache_lines.ravel()[:valid]
         
     print(line_table)
 
@@ -1117,7 +1127,8 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
         # cache_lines = sorted(cache_lines.unique().tolist())
         print("=== {:<2} === [{: >4}]".format(int(mapped_set), len(cache_lines)))
         print(sorted(cache_lines.astype(int).unique().tolist()))
-        line_table.iloc[:,int(mapped_set) - 1] = cache_lines[:derived_cache_lines_per_set]
+        valid = min(len(cache_lines), derived_num_ways)
+        line_table.iloc[0:valid,int(mapped_set) - 1] = cache_lines.ravel()[:valid]
 
 
     print(line_table.map(lambda set_line: "{: >3}-{:<3}".format(int(set_line * 4), int((set_line + 1)* 4))))
@@ -1619,8 +1630,8 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
     search_interval_bytes = 4 * KB
 
     # temp
-    predicted_cache_size_bytes = 1 * KB
-    search_interval_bytes = 0 * KB
+    # predicted_cache_size_bytes = 1 * KB
+    # search_interval_bytes = 1 * KB
 
     start_size_bytes = start_size_bytes or predicted_cache_size_bytes - search_interval_bytes
     end_size_bytes = end_size_bytes or predicted_cache_size_bytes + search_interval_bytes

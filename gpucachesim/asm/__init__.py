@@ -3,6 +3,7 @@ import click
 import tempfile
 import glob
 import pandas as pd
+from collections import defaultdict
 import sympy as sym
 from pathlib import Path
 from pprint import pprint
@@ -334,36 +335,16 @@ def get_bit(i, n):
     return (n & (1 << i)) >> i
 
 
+def bitstring(n, num_bits):
+    return "".join([str(b) for b in bits(n, num_bits)])
+
+
 def bits(n, num_bits):
-    return [get_bit(i, n) for i in reversed(range(num_bits))]
+    return [get_bit(int(i), int(n)) for i in reversed(range(num_bits))]
 
 
-@main.command()
-def solve():
-    b = sym.IndexedBase("b")
-
-    def test_set_index_function(n: int) -> int:
-        set_bit = 2
-        return (n & (1 << set_bit)) >> set_bit
-
-    num_bits = 3
-
-    # build table
-    data = []
-    for n in range(2**num_bits):
-        # print("{}".format(bin(n)))
-        set = test_set_index_function(n)
-        print("n", bits(n, num_bits), "set", set)
-        data.append([n, set])
-
-    # check if duplicates are removed
-    data.append([0, 0])
-
-    data = np.array(data)
-    data = np.unique(data, axis=0)
-    df = pd.DataFrame(np.array(data), columns=["n", "set"])
-    # df = df.drop_duplicates()
-    print(df)
+def solve_mapping_table(df, num_bits=64):
+    # b = sym.IndexedBase("b")
 
     sets = list(df["set"].unique())
     num_sets = len(sets)
@@ -371,20 +352,177 @@ def solve():
     num_set_bits = int(np.log2(num_sets))
     print("num set bits", num_set_bits)
 
-    def eq(n):
-        out = 0
-        for bit in range(num_bits):
-            out = b[bit] * get_bit(bit, n) + out
-        return out
+    sols = defaultdict(list)
+    for output_set_bit in range(num_set_bits):
 
-    equations = []
-    for n, set in data:
-        print(bits(n, num_bits), "eq: ", eq(n), "=", set)
-        equations.append(sym.Eq(eq(n), set))
+        def build_eq(addr):
+            # out = 0
+            # for bit in range(num_bits):
+            #     # out = (b[bit] & get_bit(int(bit), int(addr))) ^ out
+            #     out = b[bit] * get_bit(int(bit), int(addr)) + out
+            left = []
+            for bit in range(num_bits):
+                # out = (b[bit] & get_bit(int(bit), int(addr))) ^ out
+                toggle = sym.symbols(f"b{bit}_1")
+                gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                # gate = sym.logic.boolalg.Or(toggle, bool(get_bit(int(bit), int(addr))))
+                left.append(gate)
+                # inputs.append(b[bit] * get_bit(int(bit), int(addr)))
 
-    unknown_vars = [b[bit] for bit in range(num_bits)]
+            right = []
+            for bit in range(num_bits):
+                # out = (b[bit] & get_bit(int(bit), int(addr))) ^ out
+                toggle = sym.symbols(f"b{bit}_2")
+                gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                # gate = sym.logic.boolalg.Or(toggle, bool(get_bit(int(bit), int(addr))))
+                right.append(gate)
 
-    sol = sym.solve(equations, unknown_vars, dict=True)
+            left = sym.logic.boolalg.Or(*left)
+            right = sym.logic.boolalg.Or(*right)
+
+            # print(inputs)
+            # print(sym.logic.boolalg.Xor(*inputs))
+            # return sym.logic.boolalg.Xor(*inputs)
+            return sym.logic.boolalg.Xor(left, right)
+            # return out
+
+        equations = []
+        for addr, set in df.to_numpy():
+            # print(build_eq(addr), get_bit(output_set_bit, set))
+            eq = build_eq(addr)
+            if not bool(get_bit(output_set_bit, set)):
+                eq = ~eq
+            # eq = sym.Eq(build_eq(addr), bool(get_bit(output_set_bit, set)))
+            # print(eq)
+            # if get_bit(7, addr) == get_bit(13, addr):
+            #     assert get_bit(output_set_bit, set) == 0
+            #     print(bitstring(addr, num_bits), "eq: ", eq)
+            # print(bitstring(addr, num_bits), "eq: ", eq)
+            # if len(equations) > 500:
+            #     break
+            equations.append(eq)
+
+        unknown_vars = [sym.symbols(f"b{bit}_1") for bit in range(num_bits)]
+        unknown_vars += [sym.symbols(f"b{bit}_2") for bit in range(num_bits)]
+
+        if False:
+            default_sol = {v: False for v in unknown_vars}
+            for eq in equations:
+                if eq == True or eq == False:
+                    continue
+
+                # right = sym.simplify(eq.subs({b[7]: 1, b[13]: 1}))
+                # wrong = sym.simplify(eq.subs({b[7]: 2, b[13]: 1}))
+                right_sol = {
+                    **default_sol,
+                    **{sym.symbols(f"b7_1"): True, sym.symbols(f"b13_2"): True},
+                }
+                # print(right_sol)
+                right = eq.subs(right_sol)
+                if right == True:
+                    continue
+                print("\n\n")
+                print(eq)
+                print("right", right)
+                wrong_sol = {
+                    **default_sol,
+                    **{sym.symbols(f"b10_1"): True, sym.symbols(f"b15_2"): True},
+                }
+                wrong = eq.subs(wrong_sol)
+                # print("wrong", wrong)
+                # assert right
+                # assert not wrong
+
+        print(
+            "solving {} equations with {} unknown variables for set bit {}".format(
+                len(equations), len(unknown_vars), output_set_bit
+            )
+        )
+
+        # for eq in equations:
+        #     print(eq)
+        #     sol = sym.satisfiable(eq)
+        #     print(sol)
+        all_models = True
+        per_bit_solutions = list(sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models))
+        for sol_num, sol in enumerate(per_bit_solutions):
+            for symbol, enabled in sol.items():
+                if enabled:
+                    print(symbol, "=", enabled)
+            # pprint(dict(sol))
+            # for s in dict(sol):
+            #     pprint(dict(s))
+            # sol = sym.solve(equations, unknown_vars, dict=True)
+            # sol = sym.solveset(equations, unknown_vars, domain=sym.FiniteSet(0, 1))
+            print("solution {} for set bit {}: {}".format(sol_num, output_set_bit, sol))
+            sols[output_set_bit].append(sol)
+
+    return sols
+
+
+@main.command()
+def solve_simple():
+    num_bits = 3
+
+    def test_set_index_function(addr: int) -> int:
+        set_bit = 2
+        return (addr & (1 << set_bit)) >> set_bit
+
+    # build table
+    data = []
+    for n in range(2**num_bits):
+        # print("n", bits(n, num_bits), "set", set)
+        data.append([n, test_set_index_function(n)])
+
+    data = np.unique(np.array(data), axis=0)
+    df = pd.DataFrame(data, columns=["n", "set"])
+    print(df)
+
+    sol = solve_mapping_table(df)
+    pprint(sol)
+
+
+@main.command()
+def solve_fermi():
+    num_bits = 20
+    line_size = 128
+    line_size_log2 = int(np.log2(line_size))
+    print("line size (log2)", line_size_log2)
+
+    def test_set_index_function(addr: int) -> int:
+        assert 0b11111 == 0x1F
+        assert 0b1110_0000_0000_0000 == 0xE000
+        assert 0b10_0000_0000_0000_0000 == 0x20000
+        assert 0b1000_0000_0000_0000_0000 == 0x80000
+
+        # Lower xor value is bits 7-11
+        lower_xor = (addr >> line_size_log2) & 0b11111
+
+        # Upper xor value is bits 13, 14, 15, 17, and 19
+        upper_xor = (addr & 0b1110_0000_0000_0000) >> 13
+        # Bit 17
+        upper_xor |= (addr & 0b10_0000_0000_0000_0000) >> 14
+        # Bit 19
+        upper_xor |= (addr & 0b1000_0000_0000_0000_0000) >> 15
+
+        set_index = lower_xor ^ upper_xor
+        return set_index
+
+    # build table
+    data = []
+    for line in range((2**num_bits) // line_size):
+        addr = line * line_size
+        # print("n", bits(n, num_bits), "set", set)
+        data.append([addr, test_set_index_function(addr)])
+
+    data = np.unique(np.array(data), axis=0)
+    df = pd.DataFrame(np.array(data), columns=["n", "set"])
+    print(df)
+
+    # expect:
+    # set index 0: b[7] XOR b[13]
+
+    sol = solve_mapping_table(df, num_bits=num_bits)
     print(sol)
 
 
