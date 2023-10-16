@@ -1,9 +1,10 @@
-from sys import executable
 import click
+import math
 import humanize
 import typing
 import numpy as np
 import pandas as pd
+import time
 from pathlib import Path
 from pprint import pprint
 from io import StringIO
@@ -11,6 +12,11 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn_extra.cluster import KMedoids
 from scipy.stats import zscore
 from wasabi import color
+import matplotlib
+import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 from gpucachesim.benchmarks import REPO_ROOT_DIR
@@ -21,6 +27,51 @@ SIM_P_CHASE = REPO_ROOT_DIR / "target/release/pchase"
 
 PLOT_DIR = REPO_ROOT_DIR / "plot"
 CACHE_DIR = PLOT_DIR / "cache"
+
+PDF_OPTS = dict(format='pdf', scale=8)
+
+PPI = 300
+FONT_SIZE_PT = 11
+
+DINA4_WIDTH_MM = 210
+DINA4_HEIGHT_MM = 297 
+
+def mm_to_inch(mm):
+    return mm / 25.4
+
+DINA4_WIDTH_INCHES = mm_to_inch(DINA4_WIDTH_MM)
+DINA4_HEIGHT_INCHES = mm_to_inch(DINA4_HEIGHT_MM) 
+
+
+def pt_to_px(pt):
+    return int(pt * 4.0/3.0)
+
+DINA4_WIDTH = PPI * mm_to_inch(DINA4_WIDTH_MM)
+DINA4_HEIGHT = PPI * mm_to_inch(DINA4_HEIGHT_MM)
+FONT_SIZE_PX = pt_to_px(FONT_SIZE_PT)
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) == 3:
+        hex_color = hex_color * 2
+    return int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+
+def plotly_rgba(r, g, b, a):
+    return "rgba(%d, %d, %d, %f)" % (r, g, b, a)
+
+def plt_rgba(r, g, b, a):
+    return (float(r) / 255.0, float(g) / 255.0, float(b) / 255.0, a)
+
+
+HEX_COLORS = {
+    "green1": "#81bc4f00"
+}
+
+RGB_COLORS = {k: hex_to_rgb(v) for k, v in HEX_COLORS.items() }
+
+
+
+
 
 # suppress scientific notation by setting float_format
 # pd.options.display.float_format = "{:.3f}".format
@@ -84,8 +135,8 @@ def compute_dbscan_clustering(values):
     return labels
 
 
-def predict_is_hit(latencies, fit=None):
-    km = KMeans(n_clusters=3, random_state=1, n_init=5)
+def predict_is_hit(latencies, fit=None, num_clusters=3):
+    km = KMeans(n_clusters=num_clusters, random_state=1, n_init=5)
     # km = KMedoids(n_clusters=2, random_state=0)
     if fit is None:
         km.fit(latencies)
@@ -126,6 +177,7 @@ def predict_is_hit(latencies, fit=None):
     # print(sorted_predicted_clusters)
     assert sorted_predicted_clusters.shape == predicted_clusters.shape
 
+    assert len(sorted_cluster_centroids) == num_clusters
     return pd.Series(sorted_predicted_clusters), sorted_cluster_centroids
     # (
     #     hit_latency_centroid,
@@ -133,42 +185,95 @@ def predict_is_hit(latencies, fit=None):
     # )
 
 
+def get_latency_distribution(latencies, bins=None):
+    if bins is None:
+        bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
+    bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
+
+    hist, _ = np.histogram(latencies, bins=bins)
+    hist_df = pd.DataFrame(hist.reshape(1, -1), columns=bin_cols).T.reset_index()
+    hist_df.columns = ["bin", "count"]
+
+    hist_df["bin_start"] = [bins[i] for i in range(len(bins) - 1)]
+    hist_df["bin_end"] = [bins[i] for i in range(1, len(bins))]
+    hist_df["bin_mid"] = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
+    return hist_df
+
+
+def collect_full_latency_distribution(sim, fair=False):
+    latencies = []
+    # include l1 hits (size_bytes < l1 size)
+    if True:
+        size_bytes=128 
+        max_rounds=None if fair else 2 
+        hit_latencies_df, _ = pchase(
+                mem="l1data", start_size_bytes=size_bytes, end_size_bytes=size_bytes, 
+                step_size_bytes=1, stride_bytes=4, warmup=0, max_rounds=max_rounds, sim=sim)
+        hit_latencies = hit_latencies_df["latency"].to_numpy()
+        latencies.append(hit_latencies)
+
+    if True:
+        # include l2 hits (l1 size < size_bytes < l2 size)
+        size_bytes=256 * KB
+        max_rounds = None if fair else 2
+        miss_latencies_df, _ = pchase(
+                mem="l1data", start_size_bytes=size_bytes,
+                end_size_bytes=size_bytes, step_size_bytes=1, stride_bytes=128,
+                warmup=0, max_rounds=max_rounds, sim=sim)
+        miss_latencies = miss_latencies_df["latency"].to_numpy()
+        latencies.append(miss_latencies)
+
+    # include l2 misses (l2 size < size_bytes)
+    if True:
+        size_bytes=2 * MB
+        iter_size = None if fair else 512
+        long_miss_latencies_df, _ = pchase(
+                mem="l2", start_size_bytes=size_bytes, end_size_bytes=size_bytes,
+                step_size_bytes=1, stride_bytes=128, warmup=0, iter_size=iter_size, sim=sim)
+        long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
+        latencies.append(long_miss_latencies)
+
+    return np.hstack(latencies)
+
+
 def compute_hits(df, sim, force_misses=True):
     latencies = df["latency"].to_numpy()
     fit_latencies = latencies.copy()
 
     if force_misses or True:
-        new_fit_latencies = [latencies]
+        # new_fit_latencies = [latencies]
+        # new_fit_latencies = []
+        #
+        # # include l1 hits (size_bytes < l1 size)
+        # if True:
+        #     size_bytes=128 
+        #     hit_latencies_df, _ = pchase(
+        #             mem="l1data", start_size_bytes=size_bytes, end_size_bytes=size_bytes, 
+        #             step_size_bytes=1, stride_bytes=4, warmup=0, max_rounds=2, sim=sim)
+        #     hit_latencies = hit_latencies_df["latency"].to_numpy()
+        #     new_fit_latencies.append(hit_latencies)
+        #
+        # if True:
+        #     # include l2 hits (l1 size < size_bytes < l2 size)
+        #     size_bytes=256 * KB
+        #     miss_latencies_df, _ = pchase(
+        #             mem="l1data", start_size_bytes=size_bytes,
+        #             end_size_bytes=size_bytes, step_size_bytes=1, stride_bytes=128,
+        #             warmup=0, max_rounds=2, sim=sim)
+        #     miss_latencies = miss_latencies_df["latency"].to_numpy()
+        #     new_fit_latencies.append(miss_latencies)
+        #
+        # # include l2 misses (l2 size < size_bytes)
+        # if True:
+        #     size_bytes=2 * MB
+        #     long_miss_latencies_df, _ = pchase(
+        #             mem="l2", start_size_bytes=size_bytes, end_size_bytes=size_bytes,
+        #             step_size_bytes=1, stride_bytes=128, warmup=0, iter_size=512, sim=sim)
+        #     long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
+        #     new_fit_latencies.append(long_miss_latencies)
 
-        # include l1 hits (size_bytes < l1 size)
-        if True:
-            size_bytes=128 
-            hit_latencies_df, _ = pchase(
-                    mem="l1data", start_size_bytes=size_bytes, end_size_bytes=size_bytes, 
-                    step_size_bytes=1, stride_bytes=4, warmup=0, max_rounds=2, sim=sim)
-            hit_latencies = hit_latencies_df["latency"].to_numpy()
-            new_fit_latencies.append(hit_latencies)
-
-        if True:
-            # include l2 hits (l1 size < size_bytes < l2 size)
-            size_bytes=256 * KB
-            miss_latencies_df, _ = pchase(
-                    mem="l1data", start_size_bytes=size_bytes,
-                    end_size_bytes=size_bytes, step_size_bytes=1, stride_bytes=128,
-                    warmup=0, max_rounds=2, sim=sim)
-            miss_latencies = miss_latencies_df["latency"].to_numpy()
-            new_fit_latencies.append(miss_latencies)
-
-        # include l2 misses (l2 size < size_bytes)
-        if True:
-            size_bytes=2 * MB
-            long_miss_latencies_df, _ = pchase(
-                    mem="l2", start_size_bytes=size_bytes, end_size_bytes=size_bytes,
-                    step_size_bytes=1, stride_bytes=128, warmup=0, iter_size=512, sim=sim)
-            long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
-            new_fit_latencies.append(long_miss_latencies)
-
-        fit_latencies = np.hstack(new_fit_latencies)
+        # fit_latencies = np.hstack([new_fit_latencies)
+        fit_latencies = np.hstack([latencies, collect_full_latency_distribution(sim=sim)])
 
 
     latencies = np.abs(latencies)
@@ -177,14 +282,13 @@ def compute_hits(df, sim, force_misses=True):
     latencies = latencies.reshape(-1, 1)
     fit_latencies = fit_latencies.reshape(-1, 1)
 
-    bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
-    bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
+    
+    # pred_hist, _ = np.histogram(latencies, bins=bins)
+    pred_hist_df = get_latency_distribution(latencies)
 
-    pred_hist, _ = np.histogram(latencies, bins=bins)
-    pred_hist_df = pd.DataFrame(pred_hist.reshape(1, -1), columns=bin_cols).T
-
-    fit_hist, _ = np.histogram(fit_latencies, bins=bins)
-    fit_hist_df = pd.DataFrame(fit_hist.reshape(1, -1), columns=bin_cols).T
+    # fit_hist, _ = np.histogram(fit_latencies, bins=bins)
+    # fit_hist_df = pd.DataFrame(fit_hist.reshape(1, -1), columns=bin_cols).T
+    fit_hist_df = get_latency_distribution(fit_latencies)
 
     print("=== LATENCY HISTOGRAM (prediction)")
     print(pred_hist_df)
@@ -270,7 +374,7 @@ def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_siz
 
     steps = max(1, abs(end_size_bytes - start_size_bytes) / step_size_bytes)
 
-    timeout_sec=steps * (10 * MIN if sim else 10 * SEC)
+    timeout_sec=steps * (20 * MIN if sim else 10 * SEC)
     _, stdout, stderr, _ = cmd_utils.run_cmd(
         cmd,
         timeout_sec=int(timeout_sec),
@@ -289,9 +393,10 @@ def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_siz
 @main.command()
 @click.option("--warmup", "warmup", type=int, help="cache warmup")
 @click.option("--repetitions", "repetitiions", type=int, default=10, help="repetitions")
+@click.option("--mem", "mem", default="l2", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def find_l2_prefetch_size(warmup, repetitions, cached, sim):
+def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
     warmup = warmup or 0
 
     total_l2_cache_size_bytes = 2 * MB
@@ -342,14 +447,14 @@ def find_l2_prefetch_size(warmup, repetitions, cached, sim):
     # combined = compute_hits(combined, sim=sim)
     # combined = compute_rounds(combined)
 
-    cache_file = CACHE_DIR / "l2_prefetch_size.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "l2_prefetch_size.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
         combined = pd.read_csv(cache_file, header=0)
     else:
         combined, (_, stderr) = pchase(
-            mem="l2", start_size_bytes=start_cache_size_bytes, 
+            mem=mem, start_size_bytes=start_cache_size_bytes, 
             end_size_bytes=end_cache_size_bytes, step_size_bytes=step_bytes,
             stride_bytes=stride_bytes, warmup=warmup, sim=sim)
         print(stderr)
@@ -629,7 +734,7 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
             stride_bytes = known_cache_line_bytes
             pass
 
-    cache_file = CACHE_DIR / "cache_replacement_policy.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "cache_replacement_policy.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
@@ -1307,7 +1412,7 @@ def find_cache_sets(mem, cached, sim):
     # combined = pd.concat(combined, ignore_index=True)
     # combined = compute_hits(combined)
 
-    cache_file = CACHE_DIR / "cache_sets.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "cache_sets.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
@@ -1417,7 +1522,7 @@ def find_cache_line_size(mem, cached, sim):
     # combined = compute_hits(combined)
     # combined = compute_rounds(combined)
 
-    cache_file = CACHE_DIR / "cache_line_size.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "cache_line_size.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
@@ -1551,7 +1656,7 @@ def latency_n_graph(mem, cached, sim):
     # combined = compute_hits(combined, sim=sim)
     # combined = compute_rounds(combined)
 
-    cache_file = CACHE_DIR / "latency_n_graph.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "latency_n_graph.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
@@ -1597,7 +1702,251 @@ def latency_n_graph(mem, cached, sim):
 
     grouped = combined.groupby("n")
     mean_latency = grouped["latency"].mean().reset_index().sort_values("n")
+
     print(mean_latency)
+
+    tick_unit = 1*KB
+    tick_unit = 256
+    xtick_start = math.floor(mean_latency["n"].min() / float(tick_unit))
+    xtick_end = math.ceil(mean_latency["n"].max() / float(tick_unit))
+    xticks = np.array(list(range(xtick_start, xtick_end))) * tick_unit
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    print(xticks)
+
+    ylabel = r"mean latency"
+    xlabel = r"$N$ (bytes)"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    # manager = matplotlib.font_manager.FontManager()
+    # helvetica_prop = matplotlib.font_manager.FontProperties(family = 'Helvetica')
+    # helvetica = manager.findfont(helvetica_prop)
+    # print(helvetica.get_name())
+    
+
+    # pprint(matplotlib.font_manager.findSystemFonts(fontpaths=None, fontext='ttf'))
+    # matplotlib.font_manager._rebuild()
+    # helvetica = matplotlib.font_manager.FontProperties(fname=r"")
+    # print(helvetica.get_name())
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    # ax = fig.gca()
+    ax = plt.axes()
+    # axs = fig.subplots(1, 1) # , sharex=True, sharey=True)
+    # axs[0].plot(mean_latency["n"], mean_latency["latency"], "k--", linewidth=1.5, linestyle='--', marker='o', color='b', label="GTX 1080")
+    ax.plot(mean_latency["n"], mean_latency["latency"], 
+            linewidth=1.5, linestyle='--', marker='o', color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            label="GTX 1080")
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_xticks(xticks, xticklabels)
+    ax.legend()
+    filename = PLOT_DIR / "latency_n_graph.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+    return
+    # plt.show()
+    # return
+
+    if False:
+        margin = 50
+
+        data = []
+        data.append(go.Scatter(
+            name='GTX 1080',
+            x=mean_latency["n"],
+            y=mean_latency["latency"],
+            # mode = 'markers',
+            mode = 'lines+markers',
+            marker = dict(
+                size = int(0.8 * fontsize),
+                color = rgba(*RGB_COLORS["green1"], 1.0),
+                # color = "rgba(%d, %d, %d, %f)" % (*hex_to_rgb(SIM_COLOR[sim]), 0.7),
+                symbol = "circle",
+                # symbol = "x",
+            ),
+            # marker=dict(
+            #     size=fontsize,
+            #     line=dict(width=2, color='DarkSlateGrey'),
+            #     symbol = "x",
+            # ),
+            # selector=dict(mode='markers'),
+            line=dict(
+                color = rgba(*RGB_COLORS["green1"], 0.4),
+                # color='firebrick',
+                width=5,
+            ),
+        ))
+
+        
+        layout = go.Layout(
+            # font_family=font_family,
+            font_family="Open Sans",
+            font_color="black",
+            font_size=fontsize,
+            plot_bgcolor="white",
+            margin=dict(
+                # pad=10,
+                autoexpand=True,
+                l=margin, r=margin, t=margin, b=margin
+            ),
+            yaxis=go.layout.YAxis(
+                title=ylabel,
+                tickfont=dict(size=fontsize),
+                showticklabels=True,
+                gridcolor="gray",
+                zerolinecolor="gray",
+            ),
+            xaxis=go.layout.XAxis(
+                title=xlabel,
+                tickvals=xticks,
+                ticktext=xticklabels,
+                showticklabels=True,
+                tickfont=dict(size=fontsize),
+                ticks="outside",
+                tickwidth=2,
+                tickcolor='gray',
+                ticklen=3,
+                # dividerwidth=3,
+                # dividercolor="black",
+            ),
+            # hoverlabel=dict(
+            #     bgcolor="white",
+            #     font_size=fontsize,
+            #     font_family=font_family,
+            # ),
+            # barmode="group",
+            # bargroupgap=0.02,
+            # bargap=0.02,
+            showlegend=True,
+            width=int(DINA4_WIDTH / 4),
+            # height=int(500,
+            # **DEFAULT_LAYOUT_OPTIONS,
+        )
+        fig = go.Figure(data=data, layout=layout)
+        filename = PLOT_DIR / "latency_n_plot.{}.{}.pdf".format(mem, "sim" if sim else "native")
+        for _ in range(2):
+            time.sleep(1)
+            fig.write_image(filename, **PDF_OPTS)
+
+
+@main.command()
+@click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
+@click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
+@click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
+def plot_latency_distribution(cached, mem, sim):
+    # plot latency distribution
+    cache_file = CACHE_DIR / "latency_distribution.{}.{}.csv".format(mem, "sim" if sim else "native")
+    if cached and cache_file.is_file():
+        # open cached files
+        latencies = pd.read_csv(cache_file, header=0)
+    else:
+        latencies = pd.DataFrame(
+                collect_full_latency_distribution(sim=sim, fair=True), columns=["latency"])
+
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        print("wrote cache file to ", cache_file)
+        latencies.to_csv(cache_file)
+
+    # bins = np.array(list(range(0, 1000, 10)) + [np.inf])
+    bin_size =  20
+    bins = np.array(list(range(0, 700, bin_size)))
+    latency_hist_df = get_latency_distribution(latencies["latency"], bins=bins)
+    _, latency_centroids = predict_is_hit(latencies["latency"].to_numpy().reshape(-1, 1))
+    print(latency_centroids)
+    # print(latency_hist_df)
+
+    ylabel = "count"
+    xlabel = "latency"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    ax = plt.axes()
+    ax.bar(latency_hist_df["bin_mid"], 
+           latency_hist_df["count"], 
+            color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            hatch="/",
+            width=bin_size,
+            edgecolor='black',
+            label="GTX 1080")
+    for centroid, label in zip(latency_centroids, ["L1 Hit", "L2 Hit", "L2 Miss"]):
+        centroid_bins = latency_hist_df["bin_start"] <= centroid
+        centroid_bins &= centroid <= latency_hist_df["bin_end"]
+        y = latency_hist_df.loc[centroid_bins,"count"].max()
+        ax.annotate("{}\n({:3.1f})".format(label, centroid),
+            xy=(centroid, y),
+            # xytext=(0, 4),  # 4 points vertical offset.
+            # textcoords='offset points',
+            ha='center',
+            va='bottom')
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_ylim(0, latency_hist_df["count"].max() * 1.5)
+    # ax.set_xticks(latency_hist_df["bin_mid"][::4]) # , xticklabels)
+    # ax.set_xticks(latency_centroids) # , xticklabels)
+    # ax.set_xticks(latency_hist_df.loc[np.argsort(latency_hist_df["count"]), "bin_mid"][-3:]) # , xticklabels)
+    ax.legend()
+    filename = PLOT_DIR / "latency_distribution.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+
+    return
+    if False:
+        data = []
+
+        # add native data
+        data.append(go.Bar(name='GTX 1080', x=latency_hist_df["bin_mid"], y=latency_hist_df["count"]))
+        
+        # fig = go.Figure(data=[
+        #     go.Bar(name='gpucachesim', x=animals, y=[20, 14, 23]),
+        #     go.Bar(name='GTX 1080', x=animals, y=[12, 18, 29])
+        # ])
+        
+        margin = 50
+
+        layout = go.Layout(
+            font_family=font_family,
+            font_color="black",
+            font_size=fontsize,
+            plot_bgcolor="white",
+            margin=dict(
+                pad=10,
+                autoexpand=True,
+                l=margin, r=margin, t=margin, b=margin
+            ),
+            yaxis=go.layout.YAxis(
+                title=ylabel,
+                tickfont=dict(size=fontsize),
+                gridcolor="gray",
+                zerolinecolor="gray",
+            ),
+            xaxis=go.layout.XAxis(
+                title=xlabel,
+                tickfont=dict(size=fontsize),
+                dividerwidth=0,
+                dividercolor="white",
+            ),
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=fontsize,
+                font_family=font_family,
+            ),
+            barmode="group",
+            bargroupgap=0.02,
+            bargap=0.02,
+            showlegend=True,
+            width=int(DINA4_WIDTH / 4),
+            # height=int(500,
+            # **DEFAULT_LAYOUT_OPTIONS,
+        )
+        fig = go.Figure(data=data, layout=layout)
+        filename = PLOT_DIR / "latency_distribution.{}.{}.pdf".format(mem, "sim" if sim else "native")
+        for _ in range(2):
+            time.sleep(1)
+            fig.write_image(filename, **PDF_OPTS)
 
 
 @main.command()
@@ -1646,7 +1995,7 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
     #     combined.append(df)
     # combined = pd.concat(combined, ignore_index=True)
 
-    cache_file = CACHE_DIR / "cache_size.{}.csv".format("sim" if sim else "native")
+    cache_file = CACHE_DIR / "cache_size.{}.{}.csv".format(mem, "sim" if sim else "native")
     if cached and cache_file.is_file():
         # open cached files
         combined = pd.read_csv(cache_file, header=0)
@@ -1664,6 +2013,8 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
         print("wrote cache file to ", cache_file)
         combined.to_csv(cache_file)
 
+
+    
     print("number of unqiue indices = {: <4}".format(len(combined["index"].unique())))
 
     for n, df in combined.groupby("n"):

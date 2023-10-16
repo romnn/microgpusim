@@ -344,8 +344,6 @@ def bits(n, num_bits):
 
 
 def solve_mapping_table(df, num_bits=64):
-    # b = sym.IndexedBase("b")
-
     sets = list(df["set"].unique())
     num_sets = len(sets)
     print("num sets", num_sets)
