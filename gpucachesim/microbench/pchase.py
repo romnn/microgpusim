@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
+from gpucachesim.asm import solve_mapping_table_xor, solve_mapping_table
 from gpucachesim.benchmarks import REPO_ROOT_DIR
 import gpucachesim.cmd as cmd_utils
 
@@ -64,7 +65,9 @@ def plt_rgba(r, g, b, a):
 
 
 HEX_COLORS = {
-    "green1": "#81bc4f00"
+    "green1": "#81bc4f",
+    "purple1": "#c21b7b",
+    "blue1": "#196fac",
 }
 
 RGB_COLORS = {k: hex_to_rgb(v) for k, v in HEX_COLORS.items() }
@@ -147,42 +150,15 @@ def predict_is_hit(latencies, fit=None, num_clusters=3):
 
     cluster_centroids = km.cluster_centers_.ravel()
     sorted_cluster_centroid_indices = np.argsort(cluster_centroids)
-    # sorted_cluster_centroid_indices = np.array([2, 0, 1])
     sorted_cluster_centroid_indices_inv = np.argsort(sorted_cluster_centroid_indices)
-    # print(sorted_cluster_centroid_indices_inv)
-    # print(np.arange(3))
-    # print(np.arange(3)[sorted_cluster_centroid_indices[::-1]])
-    # print(np.arange(3).where(np.arange(3) == sorted_cluster_centroid_indices))
-    # sorted_cluster_centroid_new_indices = cluster_centroids.where()
     sorted_cluster_centroids = cluster_centroids[sorted_cluster_centroid_indices]
-    # print(km.cluster_centers_)
-    # print(cluster_centroids)
-    # print(predicted_clusters)
-    #
-    # print(sorted_cluster_centroid_indices)
-    # print(sorted_cluster_centroids)
-    # print(np.sort(cluster_centroids))
     assert (np.sort(cluster_centroids) == sorted_cluster_centroids).all()
 
-    # hit_latency_centroid = sorted_cluster_centroids[0]
-    # miss_latency_centroids = sorted_cluster_centroids[1:]
-    # assert len(miss_latency_centroids) == len(cluster_centroids) - 1
-
-    # print(predicted_clusters)
-    # sorted_predicted_clusters = np.put(
-    #     predicted_clusters,
-    #     cluster_centroid_indices * sorted_cluster_centroid_indices,
-    # )
     sorted_predicted_clusters = sorted_cluster_centroid_indices_inv[predicted_clusters]
-    # print(sorted_predicted_clusters)
     assert sorted_predicted_clusters.shape == predicted_clusters.shape
 
     assert len(sorted_cluster_centroids) == num_clusters
     return pd.Series(sorted_predicted_clusters), sorted_cluster_centroids
-    # (
-    #     hit_latency_centroid,
-    #     miss_latency_centroids,
-    # )
 
 
 def get_latency_distribution(latencies, bins=None):
@@ -291,10 +267,10 @@ def compute_hits(df, sim, force_misses=True):
     fit_hist_df = get_latency_distribution(fit_latencies)
 
     print("=== LATENCY HISTOGRAM (prediction)")
-    print(pred_hist_df)
+    print(pred_hist_df[["bin", "count"]])
     print("")
     print("=== LATENCY HISTOGRAM (fitting)")
-    print(fit_hist_df)
+    print(fit_hist_df[["bin", "count"]])
     print("")
 
     # clustering_bins = fit_hist[bins[:-1] <= 1000.0]
@@ -556,7 +532,7 @@ def compute_rounds_old(df):
     # print(df[["n", "set", "round"]].drop_duplicates())
     return df
 
-def compute_cache_lines(df, cache_size_bytes, sector_size_bytes):
+def compute_cache_lines(df, cache_size_bytes, sector_size_bytes, cache_line_bytes):
     # df["cache_line"] = (df["index"] % cache_size_bytes) // sector_size_bytes
     # df["cache_line"] = df["index"] // sector_size_bytes
     # df["cache_line"] += 1
@@ -580,12 +556,37 @@ def compute_cache_lines(df, cache_size_bytes, sector_size_bytes):
             total_cache_lines = int(n / sector_size_bytes)
             print(total_cache_lines)
 
-            df.loc[df["n"] == n, "cache_line"] = (df.loc[df["n"] == n, "virt_addr"] % cache_size_bytes) // sector_size_bytes
+            virt_addr = df.loc[df["n"] == n, "virt_addr"] % cache_size_bytes
+            df.loc[df["n"] == n, "cache_line"] = virt_addr // sector_size_bytes
 
             print(df.loc[df["n"] == n, "cache_line"].values)
             print((df.loc[df["n"] == n, "index"] // sector_size_bytes).values)
-    else:
-        df["cache_line"] = df["index"] // sector_size_bytes
+    if True:
+        # THIS WORKS
+        # df["cache_line"] = df["index"] // sector_size_bytes
+        df["cache_line"] = df["index"] // cache_line_bytes
+
+    if False:
+        for (n, s), set_df in df.groupby(["n", "set"]):
+            total_cache_lines = n / sector_size_bytes
+            # total_cache_lines = cache_size_bytes / sector_size_bytes
+            print(n, s)
+            print(len(set_df))
+            print(total_cache_lines)
+            index = df[df["set"] == s].index
+            print(index)
+
+            # set_index = index - index[0] + len(set_df) + s * 4
+            # set_index = index - index[0] + len(set_df) # - (s-1) * 2
+            set_index = index - index[0] + len(set_df) + s * 32
+            print(set_index)
+
+            assert len(index) == len(set_index)
+            cache_lines = set_index % total_cache_lines
+            print(cache_lines)
+            df.loc[df["set"] == s, "cache_line"] = cache_lines
+
+
 
         # sets = list(df[["n", "set"]].drop_duplicates())
         # sets = list(df[["n", "set"]].drop_duplicates())
@@ -708,26 +709,27 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
     known_cache_size_bytes = 24 * KB
     known_cache_line_bytes = 128
     sector_size_bytes = 32
-    # derived_total_cache_lines = known_cache_size_bytes / known_cache_line_bytes
-    derived_total_cache_lines = known_cache_size_bytes / sector_size_bytes
-
-    # 768 cache lines
-    print("expected cache lines = {:<3}".format(derived_total_cache_lines))  
-
     known_num_sets = 4
 
     # 48 ways
     # terminology: num ways == cache lines per set == associativity
     # terminology: way size == num sets
-    derived_num_ways = int(known_cache_size_bytes / (known_cache_line_bytes * known_num_sets))
+    
+
+    stride_bytes = known_cache_line_bytes
+    # stride_bytes = sector_size_bytes
+
+    # derived_total_cache_lines = known_cache_size_bytes / known_cache_line_bytes
+    derived_total_cache_lines = known_cache_size_bytes / stride_bytes
+    derived_cache_lines_per_set = int(derived_total_cache_lines // known_num_sets)
+
+    # 768 cache lines
+    print("expected cache lines = {:<3}".format(derived_total_cache_lines))  
+
+    derived_num_ways = known_cache_size_bytes // (known_cache_line_bytes * known_num_sets)
     print("num ways = {:<3}".format(derived_num_ways)) 
 
     assert known_cache_size_bytes == known_num_sets * derived_num_ways * known_cache_line_bytes
-
-    derived_cache_lines_per_set = int(derived_total_cache_lines // known_num_sets)
-
-    # stride_bytes = known_cache_line_bytes
-    stride_bytes = 32
 
     match mem.lower():
         case "l1readonly":
@@ -799,24 +801,10 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
                 combined.loc[combined["set"] == set_idx, "index"] %= n
 
 
-        combined = compute_cache_lines(
-            combined, cache_size_bytes=known_cache_size_bytes, sector_size_bytes=sector_size_bytes)
-
-        if False:
-            for (set_idx, n), set_df in combined.groupby(["set", "n"]):
-                total_cache_lines = int(n / sector_size_bytes)
-                # total_cache_lines = derived_total_cache_lines
-                # combined.loc[combined["set"] == set_idx, "cache_line"] = range((combined["set"] == set_idx).sum())
-                # combined.loc[combined["set"] == set_idx, "cache_line"] -= known_num_sets - set_idx - 1) * 1
-                combined.loc[combined["set"] == set_idx, "cache_line"] -= (set_idx - 1) * known_num_sets * cache_line_size_bytes
-                # combined.loc[combined["set"] == set_idx, "cache_line"] += (set_idx * 4)
-                combined.loc[combined["set"] == set_idx, "cache_line"] %= total_cache_lines 
-
-        for (set_idx, n), set_df in combined.groupby(["set", "n"]):
-            print(set_idx)
-            print(list(set_df["cache_line"][:20]))
-
         combined = compute_rounds(combined)
+
+        
+
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
@@ -825,7 +813,27 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
 
     # remove incomplete rounds
     combined = combined[~combined["round"].isna()]
-    # return
+
+    combined = compute_cache_lines(
+        combined,
+        cache_size_bytes=known_cache_size_bytes, 
+        sector_size_bytes=sector_size_bytes,
+        cache_line_bytes=known_cache_line_bytes,
+        )
+
+    if False:
+        for (set_idx, n), set_df in combined.groupby(["set", "n"]):
+            total_cache_lines = int(n / sector_size_bytes)
+            # total_cache_lines = derived_total_cache_lines
+            # combined.loc[combined["set"] == set_idx, "cache_line"] = range((combined["set"] == set_idx).sum())
+            # combined.loc[combined["set"] == set_idx, "cache_line"] -= known_num_sets - set_idx - 1) * 1
+            combined.loc[combined["set"] == set_idx, "cache_line"] -= (set_idx - 1) * known_num_sets * cache_line_size_bytes
+            # combined.loc[combined["set"] == set_idx, "cache_line"] += (set_idx * 4)
+            combined.loc[combined["set"] == set_idx, "cache_line"] %= total_cache_lines 
+
+    for (set_idx, n), set_df in combined.groupby(["set", "n"]):
+        print(set_idx)
+        print(list(set_df["cache_line"][:20]))
 
     # print(combined[["n", "set"]].drop_duplicates())
 
@@ -875,7 +883,10 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
         num_actual_cache_lines, derived_total_cache_lines, num_unique_indices, num_unique_addresses))
 
     # we can have more too
-    assert len(combined["cache_line"].unique()) >= derived_total_cache_lines 
+    if False and mem != "l1readonly":
+        print(len(combined["cache_line"].unique()))
+        print(derived_total_cache_lines)
+        assert len(combined["cache_line"].unique()) >= derived_total_cache_lines 
 
     for (set_idx, n), set_df in combined.groupby(["set", "n"]):
         print(set_idx)
@@ -1085,12 +1096,13 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
     # round_sizes = combined.groupby(["n", "set"])["round"].value_counts()
     # min_round_size = round_sizes.min()
     # # print(round_sizes)
-    # print("total cache lines", derived_total_cache_lines)
+    print("derived total cache lines", derived_total_cache_lines)
     # print("min round", min_round_size)
     # # return
 
     # combined = combined[(combined["round"] == 0) & (combined["cache_line"] <= derived_total_cache_lines) & (combined["cache_line"] > 0)]
-    combined = combined[(combined["cache_line"] <= derived_total_cache_lines) & (combined["cache_line"] > 0)]
+    combined = combined[combined["cache_line"] < int(derived_total_cache_lines)]
+    combined = combined[combined["cache_line"] > 0]
 
     # reverse engineer the cache set mapping
     combined["mapped_set"] = np.nan
@@ -1219,24 +1231,70 @@ def find_cache_replacement_policy(repetitions,mem, cached, sim):
         
     print(line_table)
 
-    line_table = pd.DataFrame(
-        np.zeros(shape=(int(derived_num_ways), int(known_num_sets))),
-        columns=[f"set {set+1}" for set in range(known_num_sets)])
+    if stride_bytes < known_cache_line_bytes:
+        line_table = pd.DataFrame(
+            np.zeros(shape=(int(derived_num_ways), int(known_num_sets))),
+            columns=[f"set {set+1}" for set in range(known_num_sets)])
 
-    for mapped_set, set_df in cache_line_set_mapping.groupby("mapped_set"):
-        cache_lines = (set_df["cache_line"][::4] - 1) // 4
-        # cache_lines = cache_lines.unique()
-        # cache_lines //= known_cache_line_bytes / sector_size_bytes
-        # cache_lines = cache_lines[cache_lines < derived_num_ways]
+        for mapped_set, set_df in cache_line_set_mapping.groupby("mapped_set"):
+            cache_lines = (set_df["cache_line"][::4]) // 4
+            # cache_lines = (set_df["cache_line"][::4] - 1) // 4
 
-        # cache_lines = sorted(cache_lines.unique().tolist())
-        print("=== {:<2} === [{: >4}]".format(int(mapped_set), len(cache_lines)))
-        print(sorted(cache_lines.astype(int).unique().tolist()))
-        valid = min(len(cache_lines), derived_num_ways)
-        line_table.iloc[0:valid,int(mapped_set) - 1] = cache_lines.ravel()[:valid]
+            # cache_lines = cache_lines.unique()
+            # cache_lines //= known_cache_line_bytes / sector_size_bytes
+            # cache_lines = cache_lines[cache_lines < derived_num_ways]
+
+            # cache_lines = sorted(cache_lines.unique().tolist())
+            print("=== {:<2} === [{: >4}]".format(int(mapped_set), len(cache_lines)))
+            print(sorted(cache_lines.astype(int).unique().tolist()))
+            valid = min(len(cache_lines), derived_num_ways)
+            line_table.iloc[0:valid,int(mapped_set) - 1] = cache_lines.ravel()[:valid]
 
 
-    print(line_table.map(lambda set_line: "{: >3}-{:<3}".format(int(set_line * 4), int((set_line + 1)* 4))))
+        def format_cache_line(line):
+            return "{: >3}-{:<3}".format(int(line * 4), int((line + 1)* 4))
+        print(line_table.map(format_cache_line))
+
+    addr_col = "virt_addr"
+    # make sure a single virt addr never maps to two different sets (otherwise the mapping is random)
+    set_mapping = combined[[addr_col, "mapped_set"]].astype(int)
+    # map sets 1,2,3,4 to 0,1,2,3 for binary encoding to work
+    set_mapping["mapped_set"] -= 1
+    # make all addresses cache line aligned
+    set_mapping[addr_col] = (set_mapping[addr_col] // known_cache_line_bytes) * known_cache_line_bytes
+    set_mapping = set_mapping.drop_duplicates()
+    set_mapping = set_mapping.rename(columns={addr_col: "addr", "mapped_set": "set"})
+    set_mapping = set_mapping.sort_values("addr")
+    set_mapping["bin_addr"] = set_mapping["addr"].apply(lambda addr: np.binary_repr(addr))
+    print(set_mapping.head(20))
+    assert ((set_mapping["addr"] % known_cache_line_bytes) == 0).all()
+
+    # print(set_mapping["addr"].unique())
+    # print(set_mapping["set"].unique())
+    # print(set_mapping["virt_addr"].value_counts())
+    # print(set_mapping.sort_values("virt_addr"))
+
+    line_size_log2 = int(np.log2(known_cache_line_bytes))
+    expected = (set_mapping["addr"].to_numpy() >> line_size_log2) & (known_num_sets -1)
+    set_mapping["expected"] = expected
+    # print(set_mapping.head(20))
+    if sim:
+        assert (set_mapping["expected"] == set_mapping["set"]).all()
+
+    # print(set_mapping["addr"].value_counts())
+    assert set_mapping["addr"].value_counts().max() <= 1
+    # assert set_mapping["addr"].value_counts().max() <= known_cache_line_bytes / sector_size_bytes
+
+    num_bits = 20
+    print("SOLVE FOR AND MAPPING")
+    sols = solve_mapping_table(set_mapping[["addr", "set"]], use_and=True, num_bits=num_bits)
+    print("SOLVE FOR OR MAPPING")
+    sols = solve_mapping_table(set_mapping[["addr", "set"]], use_and=False, num_bits=num_bits)
+    print("SOLVE FOR XOR MAPPING")
+    sols = solve_mapping_table_xor(set_mapping[["addr", "set"]], num_bits=num_bits)
+    # print(sols)
+    
+
     return
 
     # TEMP try
@@ -1379,7 +1437,7 @@ def find_cache_sets(mem, cached, sim):
     stride_bytes = 8
     step_bytes = 8
 
-    predicted_max_sets = 8
+    predicted_num_sets = 4
 
     # L1/TEX and L2 have 128B cache lines.
     # Cache lines consist of 4 32B sectors.
@@ -1400,7 +1458,7 @@ def find_cache_sets(mem, cached, sim):
 
 
     start_cache_size_bytes = known_cache_size_bytes - 1 * known_cache_line_bytes
-    end_cache_size_bytes = known_cache_size_bytes + predicted_max_sets * known_cache_line_bytes
+    end_cache_size_bytes = known_cache_size_bytes + (1 + predicted_num_sets) * known_cache_line_bytes
 
     # combined = []
     # for n in range(start_cache_size_bytes, end_cache_size_bytes, step_bytes):
@@ -1474,7 +1532,76 @@ def find_cache_sets(mem, cached, sim):
             human_cache_line_bytes = humanize.naturalsize(known_cache_line_bytes, binary=True)
             print("==> start of predicted cache line ({})".format(human_cache_line_bytes ))
 
-    compute_number_of_sets(combined)
+    derived_num_sets, _misses_per_set = compute_number_of_sets(combined)
+
+    def agg_miss_rate(hit_clusters): 
+        cluster_counts = hit_clusters.value_counts().reset_index()
+        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+        total = cluster_counts["count"].sum()
+        return num_misses / total
+
+    plot_df = combined.groupby("n").agg({'hit_cluster': agg_miss_rate}).reset_index()
+    plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
+
+    ylabel = r"miss rate ($\%$)"
+    xlabel = r"$N$ (bytes)"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    ax = plt.axes()
+
+    min_x = round_down_to_multiple_of(plot_df["n"].min(), known_cache_line_bytes)
+    max_x = round_up_to_multiple_of(plot_df["n"].max(), known_cache_line_bytes)
+    print(min_x, max_x)
+
+    cache_line_boundaries = np.arange( min_x, max_x, step=known_cache_line_bytes)
+
+    for i, cache_line_boundary in enumerate(cache_line_boundaries):
+        ax.axvline(x=cache_line_boundary,
+               color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+               linestyle='--',
+               label="cache line boundary" if i == 0 else None)
+
+    # ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0, 
+    ax.scatter(plot_df["n"], plot_df["miss_rate"] * 100.0, 
+           3,
+           # [3] * len(plot_df["n"]),
+            # linewidth=1.5,
+            # linestyle='--',
+            marker='x',
+            # markersize=3,
+            color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            label="gpucachesim" if sim else "GTX 1080")
+
+    for set_idx in range(derived_num_sets):
+        x = known_cache_size_bytes + (set_idx + 0.5) * known_cache_line_bytes
+        set_mask = ((plot_df["n"] % known_cache_size_bytes) // known_cache_line_bytes) == set_idx 
+        y = plot_df.loc[set_mask, "miss_rate"].mean() * 100
+
+        label = r"$S_{{{}}}$".format(set_idx)
+        plt.text(x, 0.9 * y, label, ha="center", va="top")
+
+    
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    
+    xticks = np.arange(known_cache_size_bytes, max_x, step=256)
+    # xticks = np.linspace(
+    #         round_to_multiple_of(plot_df["n"].min(), KB),
+    #         round_to_multiple_of(plot_df["n"].max(), KB), num=4)
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    ax.set_xticks(xticks, xticklabels)
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(0, min(plot_df["miss_rate"].max() * 2 * 100.0, 100.0))
+    ax.legend()
+    filename = PLOT_DIR / "cache_sets.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+
+    
+
 
 
 
@@ -1501,15 +1628,15 @@ def find_cache_line_size(mem, cached, sim):
 
     step_bytes = 8
     stride_bytes = 8
-    num_lines = 8
+    predicted_num_lines = 4
 
     match mem.lower():
         case "l1readonly":
             # stride_bytes = 8
             pass
     
-    start_size_bytes = known_cache_size_bytes - 2 * predicted_cache_line_bytes
-    end_size_bytes = known_cache_size_bytes + num_lines * predicted_cache_line_bytes
+    start_size_bytes = known_cache_size_bytes - 1 * predicted_cache_line_bytes
+    end_size_bytes = known_cache_size_bytes + (1 + predicted_num_lines) * predicted_cache_line_bytes
 
     # combined = []
     # for n in range(start_size_bytes, end_size_bytes, step_bytes):
@@ -1609,11 +1736,78 @@ def find_cache_line_size(mem, cached, sim):
         )
         i += 1
 
-    # print(combined[combined["hit_cluster"] != 0])
+    def agg_miss_rate(hit_clusters): 
+        cluster_counts = hit_clusters.value_counts().reset_index()
+        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+        total = cluster_counts["count"].sum()
+        return num_misses / total
+
+    plot_df = combined.groupby("n").agg({'hit_cluster': agg_miss_rate}).reset_index()
+    plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
+    # print(plot_df)
+
+    ylabel = r"miss rate ($\%$)"
+    xlabel = r"$N$ (bytes)"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    ax = plt.axes()
+
+    min_kb = round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes)
+    max_kb = round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes)
+    print(min_kb, max_kb)
+
+    cache_line_boundaries = np.arange(
+        round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes),
+        round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes),
+        step=predicted_cache_line_bytes)
+
+    for i, cache_line_boundary in enumerate(cache_line_boundaries):
+        ax.axvline(x=cache_line_boundary,
+               color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+               linestyle='--',
+               label="cache line boundary" if i == 0 else None)
+
+    # ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0, 
+    ax.scatter(plot_df["n"], plot_df["miss_rate"] * 100.0, 
+           3,
+           # [3] * len(plot_df["n"]),
+            # linewidth=1.5,
+            # linestyle='--',
+            marker='x',
+            # markersize=3,
+            color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            label="GTX 1080")
+
+    
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    
+    xticks = np.arange(min_kb, max_kb, step=256)
+    # xticks = np.linspace(
+    #         round_to_multiple_of(plot_df["n"].min(), KB),
+    #         round_to_multiple_of(plot_df["n"].max(), KB), num=4)
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    ax.set_xticks(xticks, xticklabels)
+    ax.set_xlim(min_kb, max_kb)
+    ax.set_ylim(0, min(plot_df["miss_rate"].max() * 2 * 100.0, 100.0))
+    ax.legend()
+    filename = PLOT_DIR / "cache_line_size.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+
 
 
 def round_to_multiple_of(x, multiple_of):
-    return multiple_of * round(x/multiple_of)
+    return multiple_of * np.round(x/multiple_of)
+
+def round_up_to_multiple_of(x, multiple_of):
+    return multiple_of * np.ceil(x/multiple_of)
+
+def round_down_to_multiple_of(x, multiple_of):
+    return multiple_of * np.floor(x/multiple_of)
 
 def quantize_latency(latency, bin_size=50):
     return round_to_multiple_of(latency, multiple_of=bin_size)
@@ -1872,7 +2066,7 @@ def plot_latency_distribution(cached, mem, sim):
             hatch="/",
             width=bin_size,
             edgecolor='black',
-            label="GTX 1080")
+            label="gpucachesim" if sim else "GTX 1080")
     for centroid, label in zip(latency_centroids, ["L1 Hit", "L2 Hit", "L2 Miss"]):
         centroid_bins = latency_hist_df["bin_start"] <= centroid
         centroid_bins &= centroid <= latency_hist_df["bin_end"]
@@ -1970,6 +2164,7 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
     predicted_cache_size_bytes = 24 * KB
 
     step_size_bytes = 1 * KB
+    step_size_bytes = 128
     stride_bytes = 8
 
     match mem.lower():
@@ -1977,13 +2172,14 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
             stride_bytes = 16
 
     search_interval_bytes = 4 * KB
+    search_interval_bytes = 2 * KB
 
     # temp
     # predicted_cache_size_bytes = 1 * KB
     # search_interval_bytes = 1 * KB
 
-    start_size_bytes = start_size_bytes or predicted_cache_size_bytes - search_interval_bytes
-    end_size_bytes = end_size_bytes or predicted_cache_size_bytes + search_interval_bytes
+    start_size_bytes = start_size_bytes or (predicted_cache_size_bytes - search_interval_bytes)
+    end_size_bytes = end_size_bytes or (predicted_cache_size_bytes + search_interval_bytes)
     start_size_bytes = max(0, start_size_bytes)
     end_size_bytes = max(0, end_size_bytes)
 
@@ -2037,6 +2233,53 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
                 color("{: >2.2f}%".format(miss_rate), fg="red"),
             )
         )
+
+
+    def agg_miss_rate(hit_clusters): 
+        cluster_counts = hit_clusters.value_counts().reset_index()
+        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+        total = cluster_counts["count"].sum()
+        return num_misses / total
+
+    plot_df = combined.groupby("n").agg({'hit_cluster': agg_miss_rate}).reset_index()
+    plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
+    # print(plot_df)
+
+    ylabel = r"miss rate ($\%$)"
+    xlabel = r"$N$ (bytes)"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    ax = plt.axes()
+    ax.axvline(x=predicted_cache_size_bytes,
+               color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+               linestyle='--',
+               label="cache size")
+    ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0, 
+            linewidth=1.5, linestyle='--', marker='x', color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            label="GTX 1080")
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    min_kb = round_down_to_multiple_of(plot_df["n"].min(), KB)
+    max_kb = round_up_to_multiple_of(plot_df["n"].max(), KB)
+    xticks = np.arange(min_kb, max_kb, step=KB)
+    # xticks = np.linspace(
+    #         round_to_multiple_of(plot_df["n"].min(), KB),
+    #         round_to_multiple_of(plot_df["n"].max(), KB), num=4)
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    ax.set_xticks(xticks, xticklabels)
+    ax.set_xlim(min_kb, max_kb)
+    ax.set_ylim(0, 100.0)
+    ax.legend()
+    filename = PLOT_DIR / "cache_size.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+
+
+
 
 @main.command()
 def test():

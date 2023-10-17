@@ -1,4 +1,6 @@
 import os
+import typing
+from typing import Sequence
 import click
 import tempfile
 import glob
@@ -26,6 +28,10 @@ import CuAsm as asm
 
 CUDA_SAMPLES = REPO_ROOT_DIR / "test-apps/cuda-samples-11.8/"
 SASS_CODE_REPO = REPO_ROOT_DIR / "plot/asm/"
+
+
+def code_repo(arch):
+    return SASS_CODE_REPO / "{}.repo.txt".format(arch)
 
 
 @click.group()
@@ -201,7 +207,7 @@ def build_repo(arch, limit):
             repos.update(feeder)
 
     # save the repo
-    repos.save2file(SASS_CODE_REPO / "{}.repo.txt".format(arch))
+    repos.save2file(code_repo(arch))
 
 
 def ASSERT_DRV(err):
@@ -218,7 +224,14 @@ def ASSERT_DRV(err):
 
 
 @main.command()
-def saxpy():
+@click.option(
+    "--arch",
+    "arch",
+    type=str,
+    default="sm_61",
+    help="sm architecture (e.g. sm_75)",
+)
+def saxpy(arch):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = Path(temp_dir)
 
@@ -266,14 +279,73 @@ def saxpy():
         with open(cubin_path, "wb") as f:
             f.write(cubin)
 
-        asm_path = temp_dir / "out.cuasm"
+        cuasm_path = temp_dir / "out.cuasm"
         cb = asm.CubinFile(cubin_path)
-        cb.saveAsCuAsm(asm_path)
+        cb.saveAsCuAsm(cuasm_path)
 
-        with open(asm_path, "r") as f:
-            print(f.read())
+        with open(cuasm_path, "r") as f:
+            cuasm = f.read()
 
-        return
+        print(cuasm)
+
+        new_cuasm = """
+[B------:R-:W-:-:S06]         /*0088*/                   IADD R2.CC, R6.reuse, c[0x0][0x148] ;
+[B------:R-:W-:-:S02]         /*0090*/                   IADD.X R3, R0.reuse, c[0x0][0x14c] ;
+[B------:R-:W-:-:S00]         /*0098*/         {         IADD R4.CC, R6, c[0x0][0x150] ;
+[B------:R-:W-:-:S06]         /*00a8*/                   LDG.E R2, [R2]         }
+[B------:R-:W-:Y:S02]         /*00b0*/                   IADD.X R5, R0, c[0x0][0x154] ;
+[B------:R-:W5:-:S01]         /*00b8*/                   LDG.E R4, [R4] ;
+[B------:R-:W-:-:S06]         /*00c8*/                   IADD R6.CC, R6, c[0x0][0x158] ;
+[B------:R-:W-:-:S07]         /*00d0*/                   IADD.X R7, R0, c[0x0][0x15c] ;
+[B-----5:R-:W-:-:S02]         /*00d8*/                   FFMA R0, R2, c[0x0][0x140], R4 ;
+[B------:R-:W-:-:S01]         /*00e8*/                   STG.E [R6], R0 ;
+[B------:R-:W-:Y:S10]         /*00f0*/                   NOP ;
+[B------:R-:W-:-:S15]         /*00f8*/                   EXIT ;
+        """
+
+        # def __parseKernelText(self, section, line_start, line_end):
+        # line = self.__mLines[lineidx]
+        #
+        # nline = CuAsmParser.stripComments(line).strip()
+        # self.__mLineNo = lineidx + 1
+        #
+        # if len(nline)==0 or (self.m_label.match(nline) is not None) or (self.m_directive.match(nline) is not None):
+        #     continue
+        #
+        # res = p_textline.match(nline)
+        # if res is None:
+        #     self.__assert(False, 'Unrecognized code text!')
+        #
+        # ccode_s = res.groups()[0]
+        # icode_s = res.groups()[1]
+        #
+        # if c_ControlCodesPattern.match(ccode_s) is None:
+        #     self.__assert(False, f'Illegal control code text "{ccode_s}"!')
+        #
+        # addr = self.m_Arch.getInsOffsetFromIndex(ins_idx)
+        # c_icode_s = self.__evalInstructionFixup(section, addr, icode_s)
+        #
+        # #print("Parsing %s : %s"%(ccode_s, c_icode_s))
+        # try:
+        #     kasm.push(addr, c_icode_s, ccode_s)
+        # except Exception as e:
+        #     self.__assert(False, 'Error when assembling instruction "%s":\n        %s'%(nline, e))
+        #
+        # ins_idx += 1
+
+        # rewrite text sections
+        # codebytes = kasm.genCode()
+
+        new_cuasm_path = temp_dir / "modified.cuasm"
+        with open(new_cuasm_path, "w") as f:
+            f.write(new_cuasm)
+
+        new_cubin_path = temp_dir / "modified.cubin"
+        assembler = asm.CuAsmParser()
+        assert code_repo(arch).is_file()
+        assembler.setInsAsmRepos(str(code_repo(arch)), arch=arch)
+        assembler.parse(cuasm_path)
+        assembler.saveAsCubin(str(new_cubin_path))
 
         # Initialize CUDA Driver API
         (err,) = cuda.cuInit(0)
@@ -287,48 +359,140 @@ def saxpy():
         err, context = cuda.cuCtxCreate(0, cuDevice)
         ASSERT_DRV(err)
 
-        # Load PTX as module data and retrieve function
-        ptx = np.char.array(ptx)
-        # Note: Incompatible --gpu-architecture would be detected here
-        err, module = cuda.cuModuleLoadData(ptx.ctypes.data)
-        ASSERT_DRV(err)
-        err, kernel = cuda.cuModuleGetFunction(module, b"saxpy")
-        ASSERT_DRV(err)
+        # # Load PTX as module data and retrieve function
+        # ptx = np.char.array(ptx)
+        # # Note: Incompatible --gpu-architecture would be detected here
+        # err, module = cuda.cuModuleLoadData(ptx.ctypes.data)
+        # ASSERT_DRV(err)
+        # err, kernel = cuda.cuModuleGetFunction(module, b"saxpy")
+        # ASSERT_DRV(err)
 
         NUM_THREADS = 512  # Threads per block
         NUM_BLOCKS = 32768  # Blocks per grid
 
         a = np.array([2.0], dtype=np.float32)
         n = np.array(NUM_THREADS * NUM_BLOCKS, dtype=np.uint32)
-        bufferSize = n * a.itemsize
+        buffer_size = n * a.itemsize
 
-        hX = np.random.rand(n).astype(dtype=np.float32)
-        hY = np.random.rand(n).astype(dtype=np.float32)
-        hOut = np.zeros(n).astype(dtype=np.float32)
+        h_x = np.random.rand(n).astype(dtype=np.float32)
+        h_y = np.random.rand(n).astype(dtype=np.float32)
+        h_out = np.zeros(n).astype(dtype=np.float32)
 
-        err, dXclass = cuda.cuMemAlloc(bufferSize)
+        err, d_x_ptr = cuda.cuMemAlloc(buffer_size)
         ASSERT_DRV(err)
-        err, dYclass = cuda.cuMemAlloc(bufferSize)
+        err, d_y_ptr = cuda.cuMemAlloc(buffer_size)
         ASSERT_DRV(err)
-        err, dOutclass = cuda.cuMemAlloc(bufferSize)
-        ASSERT_DRV(err)
-
-        err, stream = cuda.cuStreamCreate(0)
+        err, d_out_ptr = cuda.cuMemAlloc(buffer_size)
         ASSERT_DRV(err)
 
-        (err,) = cuda.cuMemcpyHtoDAsync(dXclass, hX.ctypes.data, bufferSize, stream)
+        def np_ptr(v):
+            return v.ctypes.data
+
+        # err, stream = cuda.cuStreamCreate(0)
+        # ASSERT_DRV(err)
+        #
+        # (err,) = cuda.cuMemcpyHtoDAsync(dXclass, hX.ctypes.data, bufferSize, stream)
+        # ASSERT_DRV(err)
+        # (err,) = cuda.cuMemcpyHtoDAsync(dYclass, hY.ctypes.data, bufferSize, stream)
+        # ASSERT_DRV(err)
+
+        (err,) = cuda.cuMemcpyHtoD(d_x_ptr, h_x.ctypes.data, buffer_size)
         ASSERT_DRV(err)
-        (err,) = cuda.cuMemcpyHtoDAsync(dYclass, hY.ctypes.data, bufferSize, stream)
+        (err,) = cuda.cuMemcpyHtoD(d_y_ptr, h_y.ctypes.data, buffer_size)
         ASSERT_DRV(err)
 
-        # build executable
-        # if asmname is None:
-        #     fbase, fext = os.path.splitext(binname)
-        #     asmname = fbase + '.cuasm'
+        d_x = np.array([int(d_x_ptr)], dtype=np.uint64)
+        d_y = np.array([int(d_y_ptr)], dtype=np.uint64)
+        d_out = np.array([int(d_out_ptr)], dtype=np.uint64)
 
-        # cf = CubinFile(binname)
-        # checkOutFileBackup(asmname)
-        # cf.saveAsCuAsm(asmname)
+        kernel_args = [a, d_x, d_y, d_out, n]
+        kernel_args = np.array([arg.ctypes.data for arg in kernel_args], dtype=np.uint64)
+        # kernel_args = np.array([a.ctypes.data, d_x_ptr, d_y_ptr, d_out_ptr, n.ctypes.data], dtype=np.uint64)
+        # kernel_args = np.array([arg.ctypes.data for arg in kernel_args], dtype=np.uint64)
+        # print(int(d_x_ptr))
+        # print(int(d_y_ptr))
+        # print(int(d_out_ptr))
+        # print(a.ctypes.data)
+        # print(n)
+        # kernel_args = np.array(
+        #     [a.ctypes.data, int(d_x_ptr), int(d_y_ptr), int(d_out_ptr), n],
+        #     dtype=np.uint64,
+        # )
+
+        def launch_sass_kernel(
+            cubin: typing.Union[bytes, os.PathLike],
+            kernel_name: bytes,
+            grid_x: int,
+            grid_y: int,
+            grid_z: int,
+            block_x: int,
+            block_y: int,
+            block_z: int,
+            dynamic_shared_memory: int,
+            stream: int,
+            kernel_args: Sequence[int],
+        ):
+            # ptx = np.char.array(ptx)
+            # err, module = cuda.cuModuleLoadData(ptx.ctypes.data)
+            # sass = np.char.array(sass)
+            if isinstance(cubin, str) or isinstance(cubin, Path):
+                # load from file
+                err, module = cuda.cuModuleLoad(str(cubin))
+            elif isinstance(cubin, bytes):
+                # load from data
+                err, module = cuda.cuModuleLoadData(cubin)
+            else:
+                raise TypeError(f"cannot load module from cubin type {type(cubin)}")
+
+            ASSERT_DRV(err)
+
+            err, kernel = cuda.cuModuleGetFunction(module, bytes(kernel_name))
+            ASSERT_DRV(err)
+
+            (err,) = cuda.cuLaunchKernel(
+                kernel,
+                grid_x,
+                grid_y,
+                grid_z,
+                block_x,
+                block_y,
+                block_z,
+                dynamic_shared_memory,
+                stream,
+                kernel_args,
+                0,  # extra (ignore)
+            )
+            return err
+
+        err = launch_sass_kernel(
+            cubin=cubin,
+            # cubin_path=new_cubin_path,
+            kernel_name=b"saxpy",  # must match the name of the kernel in the cubin!
+            grid_x=NUM_BLOCKS,
+            grid_y=1,
+            grid_z=1,
+            block_x=NUM_THREADS,
+            block_y=1,
+            block_z=1,
+            dynamic_shared_memory=0,
+            stream=0,
+            kernel_args=kernel_args.ctypes.data,
+        )
+        ASSERT_DRV(err)
+
+        # err, = cuda.cuMemcpyDtoHAsync(
+        #    hOut.ctypes.data, dOutclass, bufferSize, stream
+        # )
+        # err, = cuda.cuStreamSynchronize(stream)
+        (err,) = cuda.cuMemcpyDtoH(h_out.ctypes.data, d_out_ptr, buffer_size)
+        ASSERT_DRV(err)
+
+        # Assert values are same after running kernel
+        h_z = a * h_x + h_y
+        if not np.allclose(h_out, h_z):
+            raise ValueError("Error outside tolerance for host-device vectors")
+        else:
+            print("VALID!!!")
 
 
 def get_bit(i, n):
@@ -343,7 +507,87 @@ def bits(n, num_bits):
     return [get_bit(int(i), int(n)) for i in reversed(range(num_bits))]
 
 
-def solve_mapping_table(df, num_bits=64):
+def solve_mapping_table(df, num_bits=64, use_and=False):
+    sets = df["set"].unique()
+    num_sets = len(sets)
+    print("num sets", num_sets)
+    num_set_bits = int(np.log2(num_sets))
+    print("num set bits", num_set_bits)
+    assert sets.max() < 2**num_set_bits
+
+    sols = defaultdict(list)
+    for output_set_bit in range(num_set_bits):
+
+        def build_eq(addr):
+            gates = []
+            for bit in range(num_bits):
+                toggle = sym.symbols(f"b{bit}")
+                gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                gates.append(gate)
+
+            if use_and:
+                return sym.logic.boolalg.And(*gates)
+            else:
+                return sym.logic.boolalg.Or(*gates)
+
+        equations = []
+        for addr, set in df.to_numpy():
+            eq = build_eq(addr)
+            if not bool(get_bit(output_set_bit, set)):
+                eq = ~eq
+            # print(eq)
+            equations.append(eq)
+
+        unknown_vars = [sym.symbols(f"b{bit}") for bit in range(num_bits)]
+
+        print(
+            "solving {} equations with {} unknown variables for set bit {}".format(
+                len(equations), len(unknown_vars), output_set_bit
+            )
+        )
+
+        if False:
+            default_sol = {v: False for v in unknown_vars}
+            for eq in equations:
+                if eq == True or eq == False:
+                    continue
+
+                right_sol = {
+                    **default_sol,
+                    **{sym.symbols(f"b7_1"): True, sym.symbols(f"b13_2"): True},
+                }
+                # print(right_sol)
+                right = eq.subs(right_sol)
+                if right == True:
+                    continue
+                print("\n\n")
+                print(eq)
+                print("right", right)
+                wrong_sol = {
+                    **default_sol,
+                    **{sym.symbols(f"b10_1"): True, sym.symbols(f"b15_2"): True},
+                }
+                wrong = eq.subs(wrong_sol)
+                # print("wrong", wrong)
+                # assert right
+                # assert not wrong
+
+        all_models = True
+        per_bit_solutions = list(sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models))
+        for sol_num, sol in enumerate(per_bit_solutions):
+            if isinstance(sol, dict):
+                for symbol, enabled in sol.items():
+                    if enabled:
+                        print(symbol, "=", enabled)
+            elif isinstance(sol, bool):
+                pass
+            print("solution {} for set bit {}: {}".format(sol_num, output_set_bit, sol))
+            sols[output_set_bit].append(sol)
+
+    return sols
+
+
+def solve_mapping_table_xor(df, num_bits=64):
     sets = list(df["set"].unique())
     num_sets = len(sets)
     print("num sets", num_sets)
@@ -444,9 +688,12 @@ def solve_mapping_table(df, num_bits=64):
         all_models = True
         per_bit_solutions = list(sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models))
         for sol_num, sol in enumerate(per_bit_solutions):
-            for symbol, enabled in sol.items():
-                if enabled:
-                    print(symbol, "=", enabled)
+            if isinstance(sol, dict):
+                for symbol, enabled in sol.items():
+                    if enabled:
+                        print(symbol, "=", enabled)
+            elif isinstance(sol, bool):
+                pass
             # pprint(dict(sol))
             # for s in dict(sol):
             #     pprint(dict(s))
@@ -476,8 +723,39 @@ def solve_simple():
     df = pd.DataFrame(data, columns=["n", "set"])
     print(df)
 
-    sol = solve_mapping_table(df)
-    pprint(sol)
+    sols = solve_mapping_table(df)
+    # print(sols)
+
+
+@main.command()
+def solve_linear():
+    line_size = 128
+    line_size_log2 = int(np.log2(line_size))  # 7
+    num_bits = 20
+
+    num_sets = 4
+
+    def test_set_index_function(addr: int) -> int:
+        return (addr >> line_size_log2) & (num_sets - 1)
+        # set_bit = 2
+        # return (addr & (1 << set_bit)) >> set_bit
+
+    # build table
+    data = []
+    for line in range((2**num_bits) // line_size):
+        addr = line * line_size
+        # print("n", bits(n, num_bits), "set", set)
+        data.append([addr, test_set_index_function(addr)])
+
+    data = np.unique(np.array(data), axis=0)
+    df = pd.DataFrame(data, columns=["n", "set"])
+    print(df)
+
+    # expect:
+    # set index 0: b[7]
+    # set index 1: b[8]
+    sols = solve_mapping_table(df, use_and=False)
+    # print(sols)
 
 
 @main.command()
@@ -519,9 +797,8 @@ def solve_fermi():
 
     # expect:
     # set index 0: b[7] XOR b[13]
-
-    sol = solve_mapping_table(df, num_bits=num_bits)
-    print(sol)
+    sols = solve_mapping_table_xor(df, num_bits=num_bits)
+    # print(sol)
 
 
 if __name__ == "__main__":
