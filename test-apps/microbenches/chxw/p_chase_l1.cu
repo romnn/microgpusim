@@ -7,65 +7,65 @@
 
 #include "cuda_runtime.h"
 
-#define CUDA_SAFECALL(call)                                                    \
-  {                                                                            \
-    call;                                                                      \
-    cudaError err = cudaGetLastError();                                        \
-    if (cudaSuccess != err) {                                                  \
-      fprintf(stderr,                                                          \
-              "Cuda error in function '%s' file '%s' in line %i : %s.\n",      \
-              #call, __FILE__, __LINE__, cudaGetErrorString(err));             \
-      fflush(stderr);                                                          \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
-  }
+#include "common.hpp"
+
+// #define CUDA_SAFECALL(call)                                                    \
+//   {                                                                            \
+//     call;                                                                      \
+//     cudaError err = cudaGetLastError();                                        \
+//     if (cudaSuccess != err) {                                                  \
+//       fprintf(stderr,                                                          \
+//               "Cuda error in function '%s' file '%s' in line %i : %s.\n",      \
+//               #call, __FILE__, __LINE__, cudaGetErrorString(err));             \
+//       fflush(stderr);                                                          \
+//       exit(EXIT_FAILURE);                                                      \
+//     }                                                                          \
+//   }
 
 const bool USE_COMPRESSION = false;
 
-const int KB = 1024;
-
 const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
-__global__ __noinline__ void
-global_measure_clock_overhead(unsigned int *clock_cycles) {
-  const size_t iterations = 200;
-  __shared__ unsigned int s_overhead[2 * iterations];
-
-  for (size_t i = 0; i < 2 * iterations; i++) {
-    volatile unsigned int start_time = clock();
-    unsigned int end_time = clock();
-    s_overhead[i] = (end_time - start_time);
-  }
-
-  unsigned int sum = 0;
-  for (size_t i = 0; i < iterations; i++) {
-    sum += s_overhead[iterations + i];
-  }
-  *clock_cycles = float(sum) / float(iterations);
-}
-
-unsigned int measure_clock_overhead() {
-  unsigned int *h_clock_overhead =
-      (unsigned int *)malloc(sizeof(unsigned int) * 1);
-
-  unsigned int *d_clock_overhead;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&d_clock_overhead, sizeof(unsigned int) * 1));
-
-  // launch kernel
-  dim3 block_dim = dim3(1);
-  dim3 grid_dim = dim3(1, 1, 1);
-
-  CUDA_SAFECALL((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
-      d_clock_overhead)));
-
-  CUDA_SAFECALL(cudaMemcpy((void *)h_clock_overhead, (void *)d_clock_overhead,
-                           sizeof(unsigned int) * 1, cudaMemcpyDeviceToHost));
-
-  fprintf(stderr, "clock overhead is %u cycles\n", *h_clock_overhead);
-
-  return *h_clock_overhead;
-}
+// __global__ __noinline__ void
+// global_measure_clock_overhead(unsigned int *clock_cycles) {
+//   const size_t iterations = 200;
+//   __shared__ unsigned int s_overhead[2 * iterations];
+//
+//   for (size_t i = 0; i < 2 * iterations; i++) {
+//     volatile unsigned int start_time = clock();
+//     unsigned int end_time = clock();
+//     s_overhead[i] = (end_time - start_time);
+//   }
+//
+//   unsigned int sum = 0;
+//   for (size_t i = 0; i < iterations; i++) {
+//     sum += s_overhead[iterations + i];
+//   }
+//   *clock_cycles = float(sum) / float(iterations);
+// }
+//
+// unsigned int measure_clock_overhead() {
+//   uint32_t *h_clock_overhead = (uint32_t *)malloc(sizeof(uint32_t) * 1);
+//
+//   uint32_t *d_clock_overhead;
+//   CUDA_SAFECALL(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) *
+//   1));
+//
+//   // launch kernel
+//   dim3 block_dim = dim3(1);
+//   dim3 grid_dim = dim3(1, 1, 1);
+//
+//   CUDA_SAFECALL((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
+//       d_clock_overhead)));
+//
+//   CUDA_SAFECALL(cudaMemcpy((void *)h_clock_overhead, (void
+//   *)d_clock_overhead,
+//                            sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost));
+//
+//   fprintf(stderr, "clock overhead is %u cycles\n", *h_clock_overhead);
+//
+//   return *h_clock_overhead;
+// }
 
 __global__ __noinline__ void
 global_latency_l1_data(unsigned int *array, int array_length,
@@ -307,21 +307,11 @@ global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
   array[array_length + 1] = s_tvalue[it - 1];
 }
 
-enum memory { L1Data, L1ReadOnly, L1Texture, L2, NUM_MEMORIES };
-const char *memory_str[NUM_MEMORIES] = {
-    "l1data",
-    "l1readonly",
-    "l1texture",
-    "l2",
-};
-
-#define ROUND_UP_TO_MULTIPLE(value, multipleof)                                \
-  ((unsigned int)std::ceil((float)(value) / (float)(multipleof)) * value)
-
-int parametric_measure_global(memory mem, size_t N, size_t stride,
-                              size_t iter_size, size_t warmup_iterations,
+int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
+                              size_t N, size_t stride, size_t iter_size,
+                              size_t warmup_iterations,
                               unsigned int clock_overhead) {
-  cudaDeviceReset();
+  // cudaDeviceReset();
 
   // if (true) {
   //   size_t size = (N + 2) * sizeof(unsigned int);
@@ -345,14 +335,14 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
   //   cuMemMap(ptr, padded_size, 0, allocHandle, 0);
   // } else {
 
-  // allocate arrays on CPU
-  unsigned int *h_a;
-  h_a = (unsigned int *)malloc((N + 2) * sizeof(unsigned int));
-
-  // allocate arrays on GPU
-  unsigned int *d_a;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_a, (N + 2) * sizeof(unsigned int)));
-  // }
+  // // allocate arrays on CPU
+  // unsigned int *h_a;
+  // h_a = (unsigned int *)malloc((N + 2) * sizeof(unsigned int));
+  //
+  // // allocate arrays on GPU
+  // unsigned int *d_a;
+  // CUDA_SAFECALL(cudaMalloc((void **)&d_a, (N + 2) * sizeof(unsigned int)));
+  // // }
 
   // initialize array elements on CPU with pointers into d_a
   for (size_t i = 0; i < N; i++) {
@@ -364,8 +354,9 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
   h_a[N + 1] = 0;
 
   // copy array elements from CPU to GPU
+  fprintf(stderr, "copy %lu elements\n", N * sizeof(uint32_t));
   CUDA_SAFECALL(
-      cudaMemcpy(d_a, h_a, N * sizeof(unsigned int), cudaMemcpyHostToDevice));
+      cudaMemcpy(d_a, h_a, N * sizeof(uint32_t), cudaMemcpyHostToDevice));
 
   unsigned int *h_index =
       (unsigned int *)malloc(iter_size * sizeof(unsigned int));
@@ -437,7 +428,7 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
     }
     break;
   default:
-    assert(false && "panic dispatching to memory");
+    assert(false && "error dispatching to memory");
     break;
   };
   cudaDeviceSynchronize();
@@ -471,8 +462,8 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
     // }
 
     for (size_t k = 0; k < iter_size / 32; k++) {
-      j = h_a[j];
       unsigned int index = j;
+      j = h_a[j];
       // unsigned int index = h_index[k * 32];
       float mean_latency = 0;
       for (size_t t = 0; t < 32; t++) {
@@ -501,8 +492,8 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
       for (int k = (int)warmup_iterations * -(int)iter_size; k < (int)iter_size;
            k++) {
         if (k >= 0) {
-          j = h_a[j];
           unsigned int index = j;
+          j = h_a[j];
           unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
           fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
                   index * sizeof(uint32_t),
@@ -516,7 +507,7 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
       }
     } else {
       for (size_t k = 0; k < iter_size; k++) {
-        unsigned int index = h_index[k];
+        unsigned int index = (N + h_index[k] - stride) % N;
         unsigned int latency = h_timeinfo[k];
         fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
                 index * sizeof(uint32_t),
@@ -559,16 +550,16 @@ int parametric_measure_global(memory mem, size_t N, size_t stride,
   }
 
   // free memory on GPU
-  cudaFree(d_a);
+  // cudaFree(d_a);
   cudaFree(d_index);
   cudaFree(duration);
 
   // free memory on CPU
-  free(h_a);
+  // free(h_a);
   free(h_index);
   free(h_timeinfo);
 
-  cudaDeviceReset();
+  // cudaDeviceReset();
 
   return EXIT_SUCCESS;
 }
@@ -648,6 +639,13 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  if (end_size_bytes < start_size_bytes) {
+    fprintf(stderr, "ERROR: end size (%lu) is smaller than start size (%lu)\n",
+            end_size_bytes, start_size_bytes);
+    fflush(stderr);
+    return EXIT_FAILURE;
+  }
+
   unsigned int clock_overhead = measure_clock_overhead();
   // return EXIT_SUCCESS;
 
@@ -669,6 +667,16 @@ int main(int argc, char *argv[]) {
   };
 
   iter_size = std::min(iter_size, max_iter_size);
+
+  size_t end_size = end_size_bytes / sizeof(uint32_t);
+  fprintf(stderr, "alloc %lu elements\n", (end_size + 2) * sizeof(uint32_t));
+
+  // allocate arrays on CPU
+  unsigned int *h_a = (unsigned int *)malloc((end_size + 2) * sizeof(uint32_t));
+
+  // allocate arrays on GPU
+  unsigned int *d_a;
+  CUDA_SAFECALL(cudaMalloc((void **)&d_a, (end_size + 2) * sizeof(uint32_t)));
 
   int exit_code = EXIT_SUCCESS;
 
@@ -760,12 +768,16 @@ int main(int argc, char *argv[]) {
             prop.sharedMemPerMultiprocessor);
     fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
 
-    exit_code = parametric_measure_global(mem, size, stride, iter_size,
-                                          warmup_iterations, clock_overhead);
+    exit_code =
+        parametric_measure_global(h_a, d_a, mem, size, stride, iter_size,
+                                  warmup_iterations, clock_overhead);
     if (exit_code != EXIT_SUCCESS) {
       break;
     }
   }
+
+  cudaFree(d_a);
+  free(h_a);
 
   cudaDeviceReset();
   fflush(stdout);

@@ -4,7 +4,13 @@ import humanize
 import typing
 import numpy as np
 import pandas as pd
+import itertools
 import time
+import sympy as sym
+import logicmin
+import re
+import bitarray
+import bitarray.util
 from pathlib import Path
 from pprint import pprint
 from io import StringIO
@@ -19,12 +25,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-from gpucachesim.asm import solve_mapping_table_xor, solve_mapping_table
+from gpucachesim.asm import solve_mapping_table_xor_fast, solve_mapping_table_xor, solve_mapping_table
 from gpucachesim.benchmarks import REPO_ROOT_DIR
 import gpucachesim.cmd as cmd_utils
 
 NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/p_chase_l1"
+NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
+
 SIM_P_CHASE = REPO_ROOT_DIR / "target/release/pchase"
+SIM_SET_MAPPING = REPO_ROOT_DIR / "target/release/pchase"
 
 PLOT_DIR = REPO_ROOT_DIR / "plot"
 CACHE_DIR = PLOT_DIR / "cache"
@@ -139,7 +148,7 @@ def compute_dbscan_clustering(values):
 
 
 def predict_is_hit(latencies, fit=None, num_clusters=3):
-    km = KMeans(n_clusters=num_clusters, random_state=1, n_init=5)
+    km = KMeans(n_clusters=num_clusters, random_state=1, n_init=15)
     # km = KMedoids(n_clusters=2, random_state=0)
     if fit is None:
         km.fit(latencies)
@@ -163,7 +172,8 @@ def predict_is_hit(latencies, fit=None, num_clusters=3):
 
 def get_latency_distribution(latencies, bins=None):
     if bins is None:
-        bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
+        # bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
+        bins = np.array([0, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
     bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
 
     hist, _ = np.histogram(latencies, bins=bins)
@@ -317,15 +327,6 @@ def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_siz
         str(executable.absolute()),
         str(mem.lower()),
     ]
-    # if end_size_bytes is None:
-    #     # run for single size
-    #     assert size_bytes is not None
-    #     cmd += [ str(int(size_bytes)) ]
-    # else:
-    # run for multiple sizes
-    # assert start_size_bytes is not None
-    # assert end_size_bytes is not None
-    # assert step_size_bytes is not None
     cmd += [
         str(int(start_size_bytes)),
         str(int(end_size_bytes)),
@@ -351,6 +352,51 @@ def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_siz
     steps = max(1, abs(end_size_bytes - start_size_bytes) / step_size_bytes)
 
     timeout_sec=steps * (20 * MIN if sim else 10 * SEC)
+    _, stdout, stderr, _ = cmd_utils.run_cmd(
+        cmd,
+        timeout_sec=int(timeout_sec),
+    )
+
+    # print(stdout)
+    stdout_reader = StringIO(stdout)
+    df = pd.read_csv(
+        stdout_reader,
+        header=0,
+        dtype=float,
+    )
+    return df, (stdout, stderr)
+
+def set_mapping(mem, stride_bytes, warmup, size_bytes,
+                repetitions=1, max_rounds=None, iter_size=None, sim=False):
+    executable = SIM_SET_MAPPING if sim else NATIVE_SET_MAPPING
+    cmd = [
+        str(executable.absolute()),
+        str(mem.lower()),
+    ]
+    cmd += [
+        str(int(size_bytes)),
+    ]
+    cmd += [
+        str(int(stride_bytes)),
+        str(int(warmup)),
+    ]
+
+    # repetitions
+    cmd += [str(int(repetitions))]
+
+    # custom limit to iter size
+    if iter_size is not None:
+        cmd += [str(int(iter_size))]
+    elif max_rounds is not None:
+        round_size = size_bytes / stride_bytes
+        cmd += [
+            str(int(float(max_rounds) * float(round_size)))
+        ]
+
+    cmd = " ".join(cmd)
+    print(cmd)
+
+    timeout_sec=1 * (20 * MIN if sim else 10 * SEC)
     _, stdout, stderr, _ = cmd_utils.run_cmd(
         cmd,
         timeout_sec=int(timeout_sec),
@@ -624,11 +670,11 @@ def compute_rounds(df):
     for (n, r), _ in df.groupby(["n", "r"]):
         mask = (df["n"] == n) & (df["r"] == r)
         arr_indices = df.loc[mask, "index"].values
-        # arr_indices = df.loc[mask, "cache_line"].values
 
         start_index_value = arr_indices.min()
         assert start_index_value == 0.0
         intra_round_start_indices = df[mask].index[arr_indices == start_index_value]
+        print(n, intra_round_start_indices)
 
         for round in range(len(intra_round_start_indices) - 1):
             start_idx = intra_round_start_indices[round]
@@ -677,6 +723,369 @@ def compute_number_of_sets(combined):
     return num_sets, misses_per_set 
 
 
+def compute_set_probability(df, col="set"):
+    set_probability = df[col].value_counts().reset_index()
+    set_probability["prob"] = set_probability["count"] / set_probability["count"].sum()
+    return set_probability
+
+def find_pattern(values, num_sets):
+    patterns = []
+    for pattern_start in range(0, num_sets):
+        for pattern_length in range(1, len(values)):
+            pattern = itertools.cycle(values[pattern_start:pattern_start + pattern_length])
+            pattern = list(itertools.islice(pattern, len(values) * 2))
+            if values + values == pattern and pattern_start + len(pattern) < len(values):
+                patterns.append((pattern_start, pattern))
+    
+    return patterns
+
+def logicmin_dnf_to_sympy_cnf(dnf: str):
+    # add brackes to DNF terms
+    # dnf = "b0'.b1'.b2'.b3'.b4'.b5'.b6'.b7'.b8'.b9'.b10'.b11'.b12'.b13'.b14' + b0'.b1'.b2'.b3'.b4.b5.b6'.b7'.b8'.b9'.b10'.b11'.b12'.b13'.b14'.b15'"
+    # print(dnf)
+    dnf = re.sub(r"\+?([^+\s]+)\+?", r"(\1)", dnf)
+    # print(dnf)
+    # remove spaces
+    dnf = re.sub(r"\s", r"", dnf)
+    # print(dnf)
+    # convert negations from x' to ~x
+    negations = r"([^.'+()\s]+)'"
+    dnf = re.sub(negations, r"~\1", dnf)
+    # print(dnf)
+    # convert <or> from + to |
+    dnf = re.sub(r"\+", r" | ", dnf)
+    # print(dnf)
+    # convert <and> from . to &
+    dnf = re.sub(r"\.", r" & ", dnf)
+    # print(dnf)
+    set_mapping_function = sym.parsing.sympy_parser.parse_expr(dnf)
+    # print(set_mapping_function)
+    assert(sym.logic.boolalg.is_dnf(set_mapping_function))
+    set_mapping_function_cnf = sym.logic.simplify_logic(set_mapping_function)
+    # print(set_mapping_function)
+    # print(len(set_mapping_function.args))
+    # print(len(set_mapping_function.args[0].args))
+    return set_mapping_function_cnf
+
+
+@main.command()
+# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
+# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
+@click.option("--repetitions", "repetitions", default=10, type=int, help="number of repetitions")
+@click.option("--mem", "mem", default="l1data", type=str, help="memory to microbenchmark")
+@click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
+@click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
+def find_cache_set_mapping(repetitions, mem, cached, sim):
+    repetitions = max(repetitions, 1)
+
+    known_cache_size_bytes = 24 * KB
+    known_cache_line_bytes = 128
+    sector_size_bytes = 32
+    known_num_sets = 4
+    
+    derived_num_ways = known_cache_size_bytes // (known_cache_line_bytes * known_num_sets)
+    print("num ways = {:<3}".format(derived_num_ways)) 
+
+    assert known_cache_size_bytes == known_num_sets * derived_num_ways * known_cache_line_bytes
+
+    stride_bytes = known_cache_line_bytes
+    # stride_bytes = sector_size_bytes
+
+    match mem.lower():
+        case "l1readonly":
+            stride_bytes = known_cache_line_bytes
+            pass
+
+    cache_file = CACHE_DIR / "cache_set_mapping.{}.{}.csv".format(mem, "sim" if sim else "native")
+
+    if cached and cache_file.is_file():
+        # open cached files
+        combined = pd.read_csv(cache_file, header=0)
+    else:
+        combined, (_, stderr) = set_mapping(
+            mem=mem,
+            size_bytes=known_cache_size_bytes,
+            stride_bytes=stride_bytes,
+            warmup=1 if sim else 2,
+            repetitions=repetitions or (1 if sim else 5),
+            sim=sim,
+        )
+        print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        # combined = combined.groupby(["n", "i", "index", "virt_addr"]).mean()
+        combined = combined.groupby(["n", "overflow_index", "index", "virt_addr"]).median()
+        # combined = combined.groupby(["n", "index", "virt_addr"]).agg({"r": "first", "latency": "mean"})
+        combined = combined.reset_index()
+        combined = compute_hits(combined, sim=sim)
+        # combined = compute_rounds(combined)
+
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        print("wrote cache file to ", cache_file)
+        combined.to_csv(cache_file)
+
+    # print(len(combined))
+    # return
+
+    from collections import OrderedDict
+    total_sets = OrderedDict()
+
+    # compute misses per overflow index
+    for overflow_index, _ in combined.groupby("overflow_index"):
+        misses = combined["overflow_index"] == overflow_index
+        misses &= combined["hit_cluster"] > 0
+        # print(combined.loc[misses,:].head(n=2*derived_num_ways))
+
+        if misses.sum() != derived_num_ways:
+            print(color("found {:<2} ways (expected {})".format(misses.sum(), derived_num_ways), fg="red"))
+
+        total_sets[tuple(combined.loc[misses, "virt_addr"].astype(int).to_numpy())] = True
+        # combined.loc[mask, ] = 
+
+    total_sets = list(total_sets.keys())
+    num_sets = len(total_sets)
+    num_sets_log2 = int(np.log2(num_sets))
+    print("total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2))
+
+    total_sets = sorted([list(s) for s in total_sets])
+    base_addr = min([min(s) for s in total_sets])
+    def check_duplicates(needle):
+        count = 0
+        for s in total_sets:
+            for addr in s:
+                if addr - base_addr == needle:
+                    count += 1
+            if count > 1:
+                break
+        if count > 1:
+            return str(color(str(needle), fg="red"))
+        return str(needle)
+
+
+    # show sets
+    for set_id, s in enumerate(total_sets):
+        print("set", set_id, ", ".join([check_duplicates(addr - base_addr) for addr in s]))
+        combined.loc[combined["virt_addr"].astype(int).isin(s), "set"] = set_id
+
+    print(compute_set_probability(combined))
+
+    sets = np.array(total_sets)
+    sets -= base_addr
+    print(sets)
+    offsets = np.argmin(sets, axis=0)
+    print(offsets)
+
+    if False:
+        offset_bit_0 = [int(np.binary_repr(o, width=2)[0]) for o in offsets]
+        offset_bit_1 = [int(np.binary_repr(o, width=2)[1]) for o in offsets]
+        print(offset_bit_0)
+        print(offset_bit_1)
+
+        for name, values in [("offset bit 0", offset_bit_0), ("offset bit 1", offset_bit_1)]:
+            patterns = find_pattern(values=values, num_sets=num_sets)
+            if len(patterns) < 0:
+                print("NO pattern found for {:<10}".format(name))
+            for (pattern_start, pattern) in patterns:
+                print("found pattern for {:<10} (start={: <2} length={: <4}): {}".format(name, pattern_start, len(pattern), pattern))
+
+        print(len(list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))))
+        print(len(offsets))
+        assert len(list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))) == len(offsets)
+
+    max_bits = 64
+    num_bits = 32
+    line_size_log2 = int(np.log2(known_cache_line_bytes))
+
+    if True:
+        found_mapping_functions = dict()
+        for set_bit in range(num_sets_log2):
+            offset_bits = [
+                bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[set_bit]
+                for o in offsets
+            ]
+            for min_bits in range(1, num_bits):
+                bits_used = [line_size_log2 + num_sets_log2 + bit for bit in range(min_bits)]
+
+                print("testing bits {:<30}".format(str(bits_used)))
+                t = logicmin.TT(min_bits, 1);
+                validation_table = []
+
+                way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+                for index, offset in zip(way_boundary_addresses, offset_bits):
+                    index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
+                    new_index_bits = bitarray.bitarray([index_bits[b] for b in reversed(bits_used)])
+                    new_index = bitarray.util.ba2int(new_index_bits)
+                    new_index_bits_str = np.binary_repr(new_index, width=min_bits)
+                    t.add(new_index_bits_str, str(offset))
+                    validation_table.append((index_bits, offset))
+
+                sols = t.solve()
+                # dnf = sols.printN(xnames=[f"b{b}" for b in range(num_bits)], ynames=['offset'], syntax=None)
+                # dnf = sols[0].printSol("offset",xnames=[f"b{b}" for b in range(num_bits)],syntax=None)
+                dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(bits_used)], syntax=None))
+                set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
+                print(set_mapping_function)
+
+                # validate set mapping function
+                valid = True
+                for (index_bits, offset) in validation_table:
+                    vars = {sym.symbols(f"b{b}"): index_bits[b] for b in reversed(bits_used)}
+                    predicted = set_mapping_function.subs(vars)
+                    predicted = int(bool(predicted))
+                    if predicted != offset:
+                        valid = False
+
+                if valid:
+                    # set_mapping_function = sym.logic.boolalg.to_dnf(set_mapping_function, simplify=True, force=True)
+                    print(color("found valid set mapping function for bit {:<2}: {}".format(set_bit, set_mapping_function), fg="green"))
+                    found_mapping_functions[set_bit] = set_mapping_function
+                    break
+
+            if found_mapping_functions.get(set_bit) is None:
+                print(color("no minimal set mapping function found for set bit {:<2}".format(set_bit), fg="red"))
+
+        assert str(found_mapping_functions[0]) == "(~b13 | ~b14) & (b10 | b12 | b14 | b9) & (b10 | b12 | ~b14 | ~b9) & (b10 | b14 | ~b12 | ~b9) & (b10 | b9 | ~b12 | ~b14) & (b12 | b9 | ~b10 | ~b14) & (b14 | b9 | ~b10 | ~b12) & (b12 | ~b11 | ~b14 | ~b9) & (b11 | b12 | b14 | ~b10 | ~b9) & (b13 | b14 | ~b11 | ~b12 | ~b9) & (b11 | ~b10 | ~b12 | ~b14 | ~b9)"
+        assert str(found_mapping_functions[1]) == "(b10 & b13 & ~b11) | (b11 & b12 & b13 & b9) | (b11 & ~b13 & ~b9) | (b13 & ~b11 & ~b9) | (b11 & b13 & b9 & ~b10) | (b10 & b11 & ~b12 & ~b13) | (b9 & ~b10 & ~b11 & ~b13)"
+
+        # for found_mapping_functions
+
+
+
+    return
+    t = logicmin.TT(num_bits, 1);
+    way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+    for index, offset in zip(way_boundary_addresses, offset_bit_1):
+        index_bits_str = np.binary_repr(index, width=num_bits)
+        print(index_bits_str, offset)
+        t.add(index_bits_str, str(offset))
+
+    sols = t.solve()
+    # print(sols.printInfo("test"))
+    # dnf = sols.printN(xnames=[f"b{b}" for b in range(num_bits)], ynames=['offset'], syntax=None)
+    # dnf = sols[0].printSol("offset",xnames=[f"b{b}" for b in range(num_bits)],syntax=None)
+    dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(range(num_bits))], syntax=None))
+    set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
+    set_mapping_function = sym.logic.boolalg.to_dnf(set_mapping_function, simplify=True, force=True)
+    print(set_mapping_function)
+
+
+    for index, offset in zip(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes), offset_bit_1):
+        full_index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
+
+        index_bits = bitarray.util.int2ba(index >> line_size_log2, length=num_bits, endian="little")
+
+        # even xor => 0 
+        # uneven xor => 1 
+
+        # predicted = index_bits[13] + (index_bits[12] ^ index_bits[11])
+        # predicted = index_bits[10] ^ index_bits[9]
+        # predicted |= index_bits[8]
+        # predicted = index_bits[11] ^ (index_bits[3] ^ index_bits[2])
+        marks = set([3584, 7680, 11776, 19968, 24064])
+        predicted = index_bits[5] ^ (index_bits[4] ^ index_bits[3]) ^ index_bits[2]
+        # predicted = index_bits[11] ^ predicted
+        if True:
+            predicted = (index_bits[4] + predicted) % 2
+            predicted = (index_bits[7] + predicted) % 2
+        # ( + (index_bits[10] ^ index_bits[9])) % 2
+
+        vars = {sym.symbols(f"b{b}"): full_index_bits[b] for b in range(max_bits)}
+        # print(vars)
+        predicted = set_mapping_function.subs(vars)
+        predicted = int(bool(predicted))
+
+        print("{:>5}\t\t{} => {:>2} {:>2} {}".format(
+            index,
+            np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
+            offset,
+            str(color(predicted, fg="green" if predicted == offset else "red")),
+            str(color("<==", fg="blue")) if index in marks else ""
+        ))
+    
+    
+    return
+
+    offsets_df = pd.DataFrame(offsets, columns=["offset"])
+    print(compute_set_probability(offsets_df, "offset"))
+
+    offset_mapping_table = combined[["virt_addr", "set"]].copy()
+    offset_mapping_table = offset_mapping_table.drop_duplicates()
+    print(len(offset_mapping_table), num_sets * len(offsets_df))
+
+    assert len(offset_mapping_table) == num_sets * len(offsets_df)
+    for i in range(len(offset_mapping_table)):
+        set_id = i % num_sets
+        way_id = i // num_sets
+        # derived_num_ways 
+        # print(i, set_id, way_id)
+        # print(sets[:,way_id])
+        set_offsets = np.argsort(sets[:,way_id])
+        # print(set_offsets)
+        # offsets_df
+        offset_mapping_table.loc[offset_mapping_table.index[i], "set"] = int(set_offsets[set_id])
+
+    offset_mapping_table = offset_mapping_table.astype(int)
+
+    # print(offset_mapping_table)
+    # print("===")
+    # print([int(np.binary_repr(int(s), width=2)[0]) for s in offset_mapping_table["set"]])
+    # print("===")
+    # print([int(np.binary_repr(int(s), width=2)[1]) for s in offset_mapping_table["set"]])
+
+    # for way_id in range(len(offsets_df) // num_sets):
+    #     way_offset = offsets_df["offset"][way_id]
+    #     # print(way_id*num_sets, (way_id+1)*num_sets)
+    #     rows = offset_mapping_table.index[way_id*num_sets:(way_id+1)*num_sets]
+    #     offset_mapping_table.loc[rows, "set"] = way_offset
+
+    def build_set_mapping_table(df, addr_col="virt_addr", num_sets=None, offset=None):
+        set_mapping_table = df.copy()
+        if offset is not None and num_sets is not None:
+            set_mapping_table["set"] = (set_mapping_table["set"] + int(offset)) % int(num_sets)
+
+        set_mapping_table = set_mapping_table[[addr_col, "set"]].astype(int)
+        set_mapping_table = set_mapping_table.rename(columns={addr_col: "addr"})
+        set_mapping_table = set_mapping_table.drop_duplicates()
+        return set_mapping_table
+
+
+    if True:
+        set_mapping_table = build_set_mapping_table(offset_mapping_table)
+    if False:
+        # compute possible set id mappings
+        # for offset in range(num_sets):
+        set_mapping_table = build_set_mapping_table(combined)
+
+    compute_set_probability(set_mapping_table)
+
+    num_bits = 64
+    print(color(f"SOLVE FOR <AND> MAPPING [bits={num_bits}]", fg="cyan"))
+    sols = solve_mapping_table(set_mapping_table, use_and=True, num_bits=num_bits)
+    print(color(f"SOLVE FOR <OR> MAPPING [bits={num_bits}]", fg="cyan"))
+    sols = solve_mapping_table(set_mapping_table, use_and=False, num_bits=num_bits)
+
+    # for offset in range(num_sets):
+    # set_mapping_table = build_set_mapping_table(combined, num_sets=num_sets, offset=offset)
+
+    num_bits = 64
+    for degree in range(2, 4):
+        print(color(f"SOLVE FOR <XOR> MAPPING [degree={degree}, bits={num_bits}]", fg="cyan"))
+        sols = solve_mapping_table_xor(set_mapping_table, num_bits=num_bits, degree=degree)
+    # print(sols)
+
+
+    # remove incomplete rounds
+    # combined = combined[~combined["round"].isna()]
+
+    # combined = compute_cache_lines(
+    #     combined,
+    #     cache_size_bytes=known_cache_size_bytes, 
+    #     sector_size_bytes=sector_size_bytes,
+    #     cache_line_bytes=known_cache_line_bytes,
+    #     )
+
+
+
 
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
@@ -685,7 +1094,7 @@ def compute_number_of_sets(combined):
 @click.option("--mem", "mem", default="l1data", type=str, help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def find_cache_replacement_policy(repetitions,mem, cached, sim):
+def find_cache_replacement_policy(repetitions, mem, cached, sim):
     """
     Determine cache replacement policy.
 

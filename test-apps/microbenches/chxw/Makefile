@@ -10,18 +10,19 @@ CUFILES := $(wildcard *.cu)
 
 # Extract the names of the executables from .cu filenames
 EXECUTABLES := $(CUFILES:%.cu=%)
-CUBINS := $(CUFILES:%.cu=%.cubin)
+EXECUTABLES := $(filter-out common, $(EXECUTABLES))
+CUBINS := $(EXECUTABLES:%=%.cubin)
 
 # Default target: build all executables
 all: $(EXECUTABLES) $(CUBINS)
 
 # Rule to build each executable
-%: %.cu
-	$(NVCC) $(NVFLAGS) $< -o $@
+%: %.cu common.cu
+	$(NVCC) $(NVFLAGS) $^ -o $@
 
 # Rule to build each cubin
-%.cubin: %.cu
-	$(NVCC) $(NVFLAGS) -cubin $< -o $@
+%.cubin: %.cu common.cu
+	$(NVCC) $(NVFLAGS) -cubin -dlink $^ -o $@
 
 # Clean build directory
 clean:
