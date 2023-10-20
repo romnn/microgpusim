@@ -5,6 +5,10 @@ import typing
 import numpy as np
 import pandas as pd
 import itertools
+import pyeda
+import pyeda.boolalg
+import pyeda.boolalg.expr
+import pyeda.boolalg.minimization
 import time
 import sympy as sym
 import logicmin
@@ -739,6 +743,26 @@ def find_pattern(values, num_sets):
     
     return patterns
 
+def equal_expressions(a, b):
+    a = sym.logic.boolalg.to_cnf(a, simplify=True, force=True)
+    b = sym.logic.boolalg.to_cnf(b, simplify=True, force=True)
+    return a == b
+
+def pyeda_minimize(f):
+    (minimized,) = pyeda.boolalg.minimization.espresso_exprs(f.to_dnf())
+    return minimized
+
+def sympy_to_pyeda(f):
+    return pyeda.boolalg.expr.expr(str(f))
+
+def print_cnf_terms(cnf):
+    terms = sorted([
+        sorted([str(var) for var in term.args], key=lambda var: int(str(var).removeprefix("~").removeprefix("b")))
+        for term in cnf.args
+    ])
+    for term in terms:
+        print(" | ".join(["{: >5}".format(t) for t in term]))
+
 def logicmin_dnf_to_sympy_cnf(dnf: str):
     # add brackes to DNF terms
     # dnf = "b0'.b1'.b2'.b3'.b4'.b5'.b6'.b7'.b8'.b9'.b10'.b11'.b12'.b13'.b14' + b0'.b1'.b2'.b3'.b4.b5.b6'.b7'.b8'.b9'.b10'.b11'.b12'.b13'.b14'.b15'"
@@ -766,6 +790,9 @@ def logicmin_dnf_to_sympy_cnf(dnf: str):
     # print(len(set_mapping_function.args))
     # print(len(set_mapping_function.args[0].args))
     return set_mapping_function_cnf
+
+def split_at_indices(s, indices):
+    return [s[i:j] for i,j in zip(indices, indices[1:]+[None])]
 
 
 @main.command()
@@ -848,7 +875,24 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
     print("total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2))
 
     total_sets = sorted([list(s) for s in total_sets])
-    base_addr = min([min(s) for s in total_sets])
+    # total_sets = pd.DataFrame(np.array(total_sets), columns=["set", "addr"])
+    # set_addresses = total_sets.to_numpy()
+    set_addresses = np.array(total_sets)
+    base_addr = np.amin(total_sets)
+    # set_addresses.sort(axis=0)
+    # print(np.argsort(set_addresses, axis=0))
+    # print(np.argsort(set_addresses, axis=0).shape)
+    # for set_id in range(set_addresses.shape[1]):
+    #     set_addresses = set_addresses[np.argsort(set_addresses[set_id,:], axis=0)]
+    print(set_addresses.shape)
+    # set_addresses -= base_addr
+    print(set_addresses[:,0:2])
+    assert set_addresses.shape == (num_sets, derived_num_ways)
+    offsets = np.argmin(set_addresses, axis=0)
+    print(offsets)
+    assert offsets.shape == (derived_num_ways,)
+
+    # base_addr = min([min(s) for s in total_sets])
     def check_duplicates(needle):
         count = 0
         for s in total_sets:
@@ -862,22 +906,405 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
         return str(needle)
 
 
-    # show sets
     for set_id, s in enumerate(total_sets):
-        print("set", set_id, ", ".join([check_duplicates(addr - base_addr) for addr in s]))
+        print("set {: <4}\t [{}]".format(set_id, ", ".join([check_duplicates(addr - base_addr) for addr in s])))
         combined.loc[combined["virt_addr"].astype(int).isin(s), "set"] = set_id
 
-    print(compute_set_probability(combined))
+    combined = combined[["virt_addr", "set"]].astype(int).drop_duplicates()
+    combined = combined.sort_values("virt_addr")
 
-    sets = np.array(total_sets)
-    sets -= base_addr
-    print(sets)
-    offsets = np.argmin(sets, axis=0)
-    print(offsets)
+    assert len(combined) == num_sets * derived_num_ways
+    combined["set_offset"] = 0
+    for way_id in range(derived_num_ways):
+        way = combined.index[way_id*num_sets:(way_id+1)*num_sets]
+        sets = combined.loc[way, "set"].to_numpy()
+        expected = np.arange(num_sets)
+        # print(expected)
+        # offsets = (2 * sets - expected) % num_sets
+        # offsets = np.argsort(sets)
+        # offsets = np.argsort(offsets)
+        # print("sets:", sets, " => offsets=", offsets)
+        # combined.loc[way, "set_offset"] = offsets
+        #np.argmin(sets, axis=0)
+        combined.loc[way, "offset"] = sets[0] 
+
+    print(combined.head(n=10))
+    print(combined.shape)
+
+    print(compute_set_probability(combined))
+   
+    max_bits = 64
+    num_bits = 64
+    line_size_log2 = int(np.log2(known_cache_line_bytes))
+
+    found_mapping_functions = dict()
+    for set_bit in range(num_sets_log2):
+        bit_mapping = [
+            (int(addr), bitarray.util.int2ba(int(set_id), length=num_sets_log2, endian="little")[set_bit])
+            for addr, set_id in combined[["virt_addr", "set"]].to_numpy()
+        ]
+        for min_bits in range(1, num_bits):
+            bits_used = [line_size_log2 + bit for bit in range(min_bits)]
+
+            print("testing bits {:<30}".format(str(bits_used)))
+            t = logicmin.TT(min_bits, 1);
+            validation_table = []
+
+            # set_boundary_addresses = range(0, known_cache_size_bytes, known_cache_line_bytes)
+            # assert len(set_boundary_addresses) == len(set_bits)
+            # for index, offset in zip(set_boundary_addresses, set_bits):
+            for addr, target_bit in bit_mapping:
+                index_bits = bitarray.util.int2ba(addr, length=max_bits, endian="little")
+                new_index_bits = bitarray.bitarray([index_bits[b] for b in reversed(bits_used)])
+                new_index = bitarray.util.ba2int(new_index_bits)
+                new_index_bits_str = np.binary_repr(new_index, width=min_bits)
+                t.add(new_index_bits_str, str(target_bit))
+                validation_table.append((index_bits, target_bit))
+
+            sols = t.solve()
+            dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(bits_used)], syntax=None))
+            set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
+
+            # validate set mapping function
+            valid = True
+            for (index_bits, offset) in validation_table:
+                vars = {sym.symbols(f"b{b}"): index_bits[b] for b in reversed(bits_used)}
+                predicted = set_mapping_function.subs(vars)
+                predicted = int(bool(predicted))
+                if predicted != offset:
+                    valid = False
+
+            if valid:
+                print(color("found valid set mapping function for bit {:<2}: {}".format(
+                    set_bit, set_mapping_function), fg="green"))
+                found_mapping_functions[set_bit] = set_mapping_function
+                break
+
+    
+    no_set_mapping_functions = [
+        set_bit for set_bit in range(num_sets_log2) if found_mapping_functions.get(set_bit) is None
+    ]
+
+    if len(no_set_mapping_functions) > 0:
+        for set_bit in no_set_mapping_functions:
+            print(color("no minimal set mapping function found for set bit {:<2}".format(set_bit), fg="red"))
+        return
+
+    for set_bit, f in found_mapping_functions.items():
+        print("==== SET BIT {:<2}".format(set_bit))
+        print_cnf_terms(f)
+
+    for set_bit in range(1, num_sets_log2):
+        bit_mapping = [
+            (int(addr), bitarray.util.int2ba(int(set_id), length=num_sets_log2, endian="little")[set_bit])
+            for addr, set_id in combined[["virt_addr", "set"]].to_numpy()
+        ]
+        is_offset = True
+        bit_mapping = [
+            (int(addr), bitarray.util.int2ba(int(offset), length=num_sets_log2, endian="little")[set_bit])
+            for addr, offset in combined[["virt_addr", "offset"]].to_numpy()
+        ]
+
+        print("==== SET BIT {:<2}".format(set_bit))
+        for addr, target_bit in bit_mapping:
+            full_index_bits = bitarray.util.int2ba(addr, length=max_bits, endian="little")
+
+            # even xor => 0 
+            # uneven xor => 1 
+
+            vars = {sym.symbols(f"b{b}"): full_index_bits[b] for b in range(max_bits)}
+            predicted = found_mapping_functions[set_bit].subs(vars)
+            predicted = int(bool(predicted))
+
+            marks = set([])
+            # marks = set([3584, 7680, 11776, 19968, 24064])
+            # marks = set([1536])
+
+            # CORRECT OFFSET BIT 0
+            bit0 = bool(full_index_bits[9])
+            bit0 = bit0 ^ bool(full_index_bits[9])
+            bit0 = bit0 ^ bool(full_index_bits[10])
+
+            bit0 = bit0 ^ bool(full_index_bits[12])
+            bit0 = bit0 ^ bool(full_index_bits[14])
+            # if bool(full_index_bits[9]) ^ bool(full_index_bits[10]):
+            #     # predicted = not predicted
+            #     pass
+
+            if is_offset and set_bit == 0:
+                predicted = bit0
+
+            if is_offset and set_bit == 1:
+                # CORRECT OFFSET BIT 1
+                predicted = bool(full_index_bits[9])
+                predicted = predicted ^ (not bit0)
+                predicted = predicted ^ bool(full_index_bits[10])
+                predicted = predicted ^ bool(full_index_bits[11])
+                predicted = predicted ^ bool(full_index_bits[12])
+                predicted = predicted ^ bool(full_index_bits[13])
+                predicted = predicted ^ bool(full_index_bits[14])
+
+
+
+            if not is_offset:
+                # PREDICTED 0
+                predicted0 = bool(full_index_bits[7])
+                # predicted = predicted ^ bool(full_index_bits[9])
+                # predicted = predicted ^ (not bool(full_index_bits[9]))
+                predicted0 = predicted0 ^ bool(full_index_bits[10])
+                # predicted = predicted ^ bool(full_index_bits[11])
+                predicted0 = predicted0 ^ bool(full_index_bits[12])
+                # predicted = predicted ^ bool(full_index_bits[13])
+                predicted0 = predicted0 ^ bool(full_index_bits[14])
+
+                if set_bit == 0:
+                    predicted = predicted0
+
+                if set_bit == 1:
+                    # this is for the offset only: 
+                    if False:
+                        predicted = bool(full_index_bits[9]) ^ bool(full_index_bits[11])
+                        predicted = predicted ^ bool(full_index_bits[13])
+                        if False:
+                            if full_index_bits[9] & full_index_bits[10]: 
+                                predicted = bool(not predicted)
+                                # print([full_index_bits[b] for b in [11, 12, 13, 14]])
+                                # lol = bool(full_index_bits[11]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13]) ^ bool(full_index_bits[14]) ^ bool(full_index_bits[15])
+                                # print(predicted, lol)
+                                # predicted = predicted ^ lol
+                            if full_index_bits[9] & full_index_bits[10] & full_index_bits[11] & full_index_bits[12]: 
+                                predicted = bool(not predicted)
+
+                        if full_index_bits[9] & full_index_bits[10] & ~(full_index_bits[11] & full_index_bits[12]): 
+                            predicted = bool(not predicted)
+
+                    # predicted = bool(full_index_bits[7])
+                    predicted = bool(full_index_bits[8])
+                    # predicted = predicted ^ bool(full_index_bits[8])
+                    # predicted = predicted ^ bool(full_index_bits[7])
+                    predicted = predicted ^ (not bool(full_index_bits[7]))
+
+                    predicted = predicted ^ bool(full_index_bits[9])
+                    predicted = predicted ^ bool(full_index_bits[10])
+                    predicted = predicted ^ bool(full_index_bits[11])
+                    # predicted = predicted ^ (not bool(full_index_bits[12]))
+                    predicted = predicted ^ bool(full_index_bits[12])
+                    predicted = predicted ^ bool(full_index_bits[13])
+                    predicted = predicted ^ bool(full_index_bits[14])
+
+                    predicted = not predicted
+
+                    inverter = False
+
+                    section1 = (
+                        full_index_bits[9:11] == bitarray.bitarray("11", endian="big")
+                        or full_index_bits[9:11] == bitarray.bitarray("01", endian="big")
+                    )
+                    section2 = full_index_bits[11:13] != bitarray.bitarray("11", endian="big")
+                    # section2 = (
+                    #     full_index_bits[11:13] == bitarray.bitarray("11", endian="big")
+                    #     or full_index_bits[11:13] == bitarray.bitarray("01", endian="big")
+                    # )
+
+
+                    # if (
+                    #     full_index_bits[9:11] == bitarray.bitarray("11", endian="big")
+                    #     or full_index_bits[9:11] == bitarray.bitarray("01", endian="big")
+                    # ):
+                    # if section1 and section2:
+                    t1 = full_index_bits[10:12] != bitarray.bitarray("01", endian="big")
+                    t2 = full_index_bits[10:12] != bitarray.bitarray("11", endian="big")
+                    t3 = full_index_bits[10:12] != bitarray.bitarray("00", endian="big")
+                    t4 = full_index_bits[10:12] != bitarray.bitarray("10", endian="big")
+                    # print(full_index_bits[10:12])
+
+                    # 000
+                    # 010
+                    # 101
+                    # 111
+                    t1 = full_index_bits[10:13] == bitarray.bitarray("000", endian="big")
+                    t2 = full_index_bits[10:13] == bitarray.bitarray("010", endian="big")
+                    t3 = full_index_bits[10:13] == bitarray.bitarray("101", endian="big")
+                    t4 = full_index_bits[10:13] == bitarray.bitarray("111", endian="big")
+                    print(full_index_bits[10:13])
+
+                    t5 = full_index_bits[13:15] != bitarray.bitarray("11", endian="big")
+                    # 11
+                    # 00
+                    # 01
+                    if not (t1 | t2 | t3 | t4):
+                        # predicted = predicted ^ bool(full_index_bits[7])
+                        inverter = True
+
+                    offset = bool(full_index_bits[9]) ^ bool(full_index_bits[11])
+                    offset = offset ^ bool(full_index_bits[13])
+                    # if full_index_bits[9] & full_index_bits[10] & ~(full_index_bits[11] & full_index_bits[12]): 
+                    #     predicted = bool(not predicted)
+
+                    # if (bool(full_index_bits[9]) & bool(full_index_bits[10])) | ((not bool(full_index_bits[9])) & bool(full_index_bits[10])):
+                    # 9 & 10 & ~(11 & 12)
+                    # if bool(full_index_bits[7]):
+                    #     predicted = not predicted
+
+                    # mask = bool(full_index_bits[11]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13]) ^ bool(full_index_bits[14]) ^ bool(full_index_bits[7])
+                    # if mask:
+                    #     print(mask)
+
+                    # sector1 = (not bool(full_index_bits[10])) & (not bool(full_index_bits[11]))
+                    # sector2 = bool(full_index_bits[11]) & bool(full_index_bits[12])
+
+                    # have:
+                    # 00000
+                    # 00010
+                    # 00101
+                    # 00111
+                    # 01000
+                    # 01010
+                    # 01101
+                    # 01111
+                    # 10001
+                    # 10011
+                    # 10100
+                    # 10110
+
+                    # 000
+                    # 010
+                    # 101
+                    # 111
+
+                    # 000
+                    # 010
+                    # 101
+                    # 111
+
+                    # 001
+                    # 011
+                    # 100
+                    # 110
+
+                    # not 001
+                    # not 011
+                    # not 100
+                    # not 110
+
+                    # not 000
+                    # not 010
+                    # not 101
+                    # not 111
+
+                    # not 11---
+
+                    # 11000
+                    # 11000
+                    # 10111
+                    # 10111
+                    # 10101
+                    # 10101
+                    # 10010
+                    # 10010
+                    # 10000
+                    # 10000
+                    # 01110
+                    # 01110
+                    # 01100
+                    # 01100
+                    # 01011
+                    # 01011
+                    # 00110
+                    # 00110
+                    # 00100
+                    # 00100
+                    # 00011
+                    # 00011
+                    # 00001
+                    # 00001
+
+
+                    # 110000
+                    # 110001
+                    # 101110
+                    # 101111
+                    # 101010
+                    # 101011
+                    # 100100
+                    # 100101
+                    # 100000
+                    # 100001
+                    # 011100
+                    # 011101
+                    # 011000
+                    # 011001
+                    # 010110
+                    # 010111
+                    # 001100
+                    # 001101
+                    # 001000
+                    # 001001
+                    # 000110
+                    # 000111
+                    # 000010
+                    # 000011
+                    # if (not bool(full_index_bits[10])) & (not bool(full_index_bits[13])):
+                    #     pass
+                    # if sector1 | sector2:
+                    # if sector1:
+                    #     predicted = not predicted
+
+                    if False:
+                        predicted = predicted ^ bool(full_index_bits[10])
+                        # predicted = predicted ^ bool(full_index_bits[10])
+                        predicted = predicted ^ bool(full_index_bits[11])
+                        predicted = predicted ^ bool(full_index_bits[12])
+                        predicted = predicted ^ bool(full_index_bits[13])
+                        predicted = predicted ^ bool(full_index_bits[14])
+                        # predicted = predicted ^ bool(full_index_bits[15])
+                        # predicted = predicted ^ bool(full_index_bits[11])
+
+
+
+                    # special = bool(full_index_bits[11]) ^ bool(full_index_bits[13])
+                    # if special:
+                    #     # predicted = bool(~predicted)
+                    #     pass
+                    # ^ full_index_bits[14]
+                    # predicted |= full_index_bits[10] ^ full_index_bits[12] ^ full_index_bits[14] 
+
+
+                    # predicted = bool(not predicted)
+                    # predicted &= ~(full_index_bits[9] & full_index_bits[10])
+                    # special_case = ~full_index_bits[10] | full_index_bits[11] # | full_index_bits[13]
+                    # special_case = ~full_index_bits[10] | full_index_bits[11] # | full_index_bits[13]
+                    # predicted &= special_case
+                    # special_case2 = ~(full_index_bits[10] & full_index_bits[11])
+                    # predicted |= full_index_bits[10] ^ full_index_bits[11]
+
+
+            print("{}\t\t{} => {:>2} {:>2} {} \t bit0={:<1} inverter={:<1}".format(
+                addr,
+                "|".join(split_at_indices(
+                    np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
+                    indices=[
+                        0,
+                        num_bits - 15,
+                        num_bits - line_size_log2 - num_sets_log2,
+                        num_bits - line_size_log2,
+                    ]
+                )),
+                target_bit,
+                str(color(int(predicted), fg="green" if bool(predicted) == bool(target_bit) else "red")),
+                str(color("<==", fg="blue")) if addr in marks else "",
+                str(0),
+                str(0),
+                # predicted0,
+                # str(color(str(int(inverter)), fg="cyan")) if inverter else str(int(inverter)),
+            ))
+
+    return
+
+    offset_bit_0 = [int(np.binary_repr(o, width=2)[0]) for o in offsets]
+    offset_bit_1 = [int(np.binary_repr(o, width=2)[1]) for o in offsets]
 
     if False:
-        offset_bit_0 = [int(np.binary_repr(o, width=2)[0]) for o in offsets]
-        offset_bit_1 = [int(np.binary_repr(o, width=2)[1]) for o in offsets]
         print(offset_bit_0)
         print(offset_bit_1)
 
@@ -892,9 +1319,7 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
         print(len(offsets))
         assert len(list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))) == len(offsets)
 
-    max_bits = 64
-    num_bits = 32
-    line_size_log2 = int(np.log2(known_cache_line_bytes))
+    
 
     if True:
         found_mapping_functions = dict()
@@ -947,60 +1372,147 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
         assert str(found_mapping_functions[0]) == "(~b13 | ~b14) & (b10 | b12 | b14 | b9) & (b10 | b12 | ~b14 | ~b9) & (b10 | b14 | ~b12 | ~b9) & (b10 | b9 | ~b12 | ~b14) & (b12 | b9 | ~b10 | ~b14) & (b14 | b9 | ~b10 | ~b12) & (b12 | ~b11 | ~b14 | ~b9) & (b11 | b12 | b14 | ~b10 | ~b9) & (b13 | b14 | ~b11 | ~b12 | ~b9) & (b11 | ~b10 | ~b12 | ~b14 | ~b9)"
         assert str(found_mapping_functions[1]) == "(b10 & b13 & ~b11) | (b11 & b12 & b13 & b9) | (b11 & ~b13 & ~b9) | (b13 & ~b11 & ~b9) | (b11 & b13 & b9 & ~b10) | (b10 & b11 & ~b12 & ~b13) | (b9 & ~b10 & ~b11 & ~b13)"
 
-        # for found_mapping_functions
+        found_mapping_functions_pyeda = {k: sympy_to_pyeda(v) for k, v in found_mapping_functions.items()}
+
+        if False:
+            for set_bit, f in found_mapping_functions_pyeda.items():
+                minimized = pyeda_minimize(f)
+                # (minimized,) = pyeda.boolalg.minimization.espresso_exprs(f.to_dnf())
+                print("minimized function for set bit {:<2}: {}".format(set_bit, minimized))
+
+        for set_bit, f in found_mapping_functions.items():
+            print("==== SET BIT {:<2}".format(set_bit))
+            print_cnf_terms(f)
+            
+
+        for xor_expr in ["a ^ b", "~(a ^ b)"]:
+            print("\t{:>20}  =>  {}".format(str(xor_expr), str(sym.logic.boolalg.to_cnf(
+                sym.parsing.sympy_parser.parse_expr(xor_expr), simplify=True, force=True))))
+
+        if False:
+            print("==== SET BIT 2 SIMPLIFIED")
+            simplified1 = sym.logic.boolalg.to_cnf(sym.parsing.sympy_parser.parse_expr((
+                "(b10 & b13 & ~b11)"
+                "| (b11 & b12 & b13 & b9)"
+                "| (b11 ^ b13 ^ b9)"
+                "| (b11 & ~b13 & ~b9)"
+                "| (b13 & ~b11 & ~b9)"
+                "| (b10 & b11 & ~b12 & ~b13)"
+                "| (b9 & ~b10)"
+                # "| (b11 & b13 & b9 & ~b10)"
+                # "| (b9 & ~b10 & ~b11 & ~b13)"
+                # "| ((b9 | ~b10) & (b11 ^ b13))"
+            )), simplify=True, force=True)
+            print_cnf_terms(simplified1)
+            assert equal_expressions(simplified1, found_mapping_functions[1])
 
 
 
-    return
-    t = logicmin.TT(num_bits, 1);
-    way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
-    for index, offset in zip(way_boundary_addresses, offset_bit_1):
-        index_bits_str = np.binary_repr(index, width=num_bits)
-        print(index_bits_str, offset)
-        t.add(index_bits_str, str(offset))
+    # t = logicmin.TT(num_bits, 1);
+    # way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+    # for index, offset in zip(way_boundary_addresses, offset_bit_1):
+    #     index_bits_str = np.binary_repr(index, width=num_bits)
+    #     # print(index_bits_str, offset)
+    #     t.add(index_bits_str, str(offset))
+    #
+    # sols = t.solve()
+    # # print(sols.printInfo("test"))
+    # # dnf = sols.printN(xnames=[f"b{b}" for b in range(num_bits)], ynames=['offset'], syntax=None)
+    # # dnf = sols[0].printSol("offset",xnames=[f"b{b}" for b in range(num_bits)],syntax=None)
+    # dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(range(num_bits))], syntax=None))
+    # set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
+    # print(set_mapping_function)
+    
+    # to cnf never completes, try usign pyeda minimization
+    # set_mapping_function = sym.logic.boolalg.to_cnf(set_mapping_function, simplify=True, force=True)
+    # minimized = pyeda_minimize(sympy_to_pyeda(set_mapping_function))
+    # print(minimized)
 
-    sols = t.solve()
-    # print(sols.printInfo("test"))
-    # dnf = sols.printN(xnames=[f"b{b}" for b in range(num_bits)], ynames=['offset'], syntax=None)
-    # dnf = sols[0].printSol("offset",xnames=[f"b{b}" for b in range(num_bits)],syntax=None)
-    dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(range(num_bits))], syntax=None))
-    set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
-    set_mapping_function = sym.logic.boolalg.to_dnf(set_mapping_function, simplify=True, force=True)
-    print(set_mapping_function)
+    for set_bit in range(num_sets_log2):
+        way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+        offset_bits = [
+            bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[set_bit]
+            for o in offsets
+        ]
+        print("==== SET BIT {:<2}".format(set_bit))
+        for index, offset in zip(way_boundary_addresses, offset_bits):
+            full_index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
+
+            # index_bits = bitarray.util.int2ba(index >> line_size_log2, length=num_bits, endian="little")
+            # even xor => 0 
+            # uneven xor => 1 
+
+            vars = {sym.symbols(f"b{b}"): full_index_bits[b] for b in range(max_bits)}
+            predicted = found_mapping_functions[set_bit].subs(vars)
+            predicted = int(bool(predicted))
+
+            # predicted = index_bits[13] + (index_bits[12] ^ index_bits[11])
+            # predicted = index_bits[10] ^ index_bits[9]
+            # predicted |= index_bits[8]
+            # predicted = index_bits[11] ^ (index_bits[3] ^ index_bits[2])
+            marks = set([3584, 7680, 11776, 19968, 24064])
+            marks = set([1536])
+
+            if False and set_bit == 0:
+                predicted = index_bits[5] ^ (index_bits[4] ^ index_bits[3]) ^ index_bits[2]
+                # predicted = index_bits[11] ^ predicted
+                if True:
+                    predicted = (index_bits[4] + predicted) % 2
+                    predicted = (index_bits[7] + predicted) % 2
+                # ( + (index_bits[10] ^ index_bits[9])) % 2
+
+            if set_bit == 1:
+                # predicted = bool(full_index_bits[9]) ^ bool(full_index_bits[10])
+                # predicted = predicted ^ bool(full_index_bits[11])
+                # predicted = predicted ^ bool(full_index_bits[13])
+
+                predicted = bool(full_index_bits[9]) ^ bool(full_index_bits[11])
+                predicted = predicted ^ bool(full_index_bits[13])
+                # predicted = predicted ^ bool(full_index_bits[14])
+                # predicted = predicted ^ bool(full_index_bits[11])
+                # predicted = predicted ^ bool(full_index_bits[13])
+                # predicted |= full_index_bits[9] & full_index_bits[11])
+                # predicted |= full_index_bits[10]
+                # special = bool(full_index_bits[9]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13])
+                if False:
+                    if full_index_bits[9] & full_index_bits[10]: 
+                        predicted = bool(not predicted)
+                        # print([full_index_bits[b] for b in [11, 12, 13, 14]])
+                        # lol = bool(full_index_bits[11]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13]) ^ bool(full_index_bits[14]) ^ bool(full_index_bits[15])
+                        # print(predicted, lol)
+                        # predicted = predicted ^ lol
+                    if full_index_bits[9] & full_index_bits[10] & full_index_bits[11] & full_index_bits[12]: 
+                        predicted = bool(not predicted)
+
+                if full_index_bits[9] & full_index_bits[10] & ~(full_index_bits[11] & full_index_bits[12]): 
+                    predicted = bool(not predicted)
 
 
-    for index, offset in zip(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes), offset_bit_1):
-        full_index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
 
-        index_bits = bitarray.util.int2ba(index >> line_size_log2, length=num_bits, endian="little")
+                # special = bool(full_index_bits[11]) ^ bool(full_index_bits[13])
+                # if special:
+                #     # predicted = bool(~predicted)
+                #     pass
+                # ^ full_index_bits[14]
+                # predicted |= full_index_bits[10] ^ full_index_bits[12] ^ full_index_bits[14] 
 
-        # even xor => 0 
-        # uneven xor => 1 
 
-        # predicted = index_bits[13] + (index_bits[12] ^ index_bits[11])
-        # predicted = index_bits[10] ^ index_bits[9]
-        # predicted |= index_bits[8]
-        # predicted = index_bits[11] ^ (index_bits[3] ^ index_bits[2])
-        marks = set([3584, 7680, 11776, 19968, 24064])
-        predicted = index_bits[5] ^ (index_bits[4] ^ index_bits[3]) ^ index_bits[2]
-        # predicted = index_bits[11] ^ predicted
-        if True:
-            predicted = (index_bits[4] + predicted) % 2
-            predicted = (index_bits[7] + predicted) % 2
-        # ( + (index_bits[10] ^ index_bits[9])) % 2
+                # predicted = bool(not predicted)
+                # predicted &= ~(full_index_bits[9] & full_index_bits[10])
+                # special_case = ~full_index_bits[10] | full_index_bits[11] # | full_index_bits[13]
+                # special_case = ~full_index_bits[10] | full_index_bits[11] # | full_index_bits[13]
+                # predicted &= special_case
+                # special_case2 = ~(full_index_bits[10] & full_index_bits[11])
+                # predicted |= full_index_bits[10] ^ full_index_bits[11]
 
-        vars = {sym.symbols(f"b{b}"): full_index_bits[b] for b in range(max_bits)}
-        # print(vars)
-        predicted = set_mapping_function.subs(vars)
-        predicted = int(bool(predicted))
 
-        print("{:>5}\t\t{} => {:>2} {:>2} {}".format(
-            index,
-            np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
-            offset,
-            str(color(predicted, fg="green" if predicted == offset else "red")),
-            str(color("<==", fg="blue")) if index in marks else ""
-        ))
+            print("{}\t\t{} => {:>2} {:>2} {}".format(
+                index,
+                np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
+                offset,
+                str(color(int(predicted), fg="green" if bool(predicted) == bool(offset) else "red")),
+                str(color("<==", fg="blue")) if index in marks else ""
+            ))
     
     
     return
