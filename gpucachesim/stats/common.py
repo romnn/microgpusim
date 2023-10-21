@@ -4,16 +4,17 @@ import pandas as pd
 import numpy as np
 import re
 
-# from abc import abstractmethod
-
 
 def function_name_from_signature(sig: str) -> str:
-    pat = re.compile(r"\w+\s+(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)")
+    pat = re.compile(r"^\s*(?:\w+\s+)?(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)$")
     matches = re.findall(pat, sig)
-    return matches[0][0]
+    try:
+        return matches[0][0]
+    except IndexError as e:
+        print(sig, matches)
+        raise e
 
 
-# class Stats(abc.ABC):
 class Stats:
     result_df: pd.DataFrame
 
