@@ -36,15 +36,7 @@ impl<'a> Kernel for FineGrainPChase<'a>
 
     #[gpucachesim::exec::inject_reconvergence_points]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-        // unsigned int start_time, end_time;
         let mut j = 0u32;
-        // __shared__ uint32_t s_tvalue[ITER_SIZE];
-        // __shared__ uint32_t s_index[ITER_SIZE];
-
-        // for (size_t k = 0; k < ITER_SIZE; k++) {
-        //   s_index[k] = 0;
-        //   s_tvalue[k] = 0;
-        // }
 
         let mut dev_array = self.dev_array.lock().await;
 
@@ -59,28 +51,14 @@ impl<'a> Kernel for FineGrainPChase<'a>
         );
         for k in iter_start..iter_end {
             if (k >= 0) {
-                // start_time = clock();
-                // log::trace!("p-chase: measure j={}", j);
                 j = dev_array[(tid, j as usize)];
-                // s_index[k] = j;
-                // end_time = clock();
-
-                // s_tvalue[k] = end_time - start_time;
             } else {
-                // log::trace!("p-chase: warmup j={}", j);
                 j = dev_array[(tid, j as usize)];
             }
         }
 
-        // let mut dev_array = self.dev_array.lock().await;
         dev_array[(tid, self.size)] = j;
         dev_array[(tid, self.size + 1)] = dev_array[(tid, j as usize)];
-
-        // for (size_t k = 0; k < NUM_LOADS; k++) {
-        //   index[k] = s_index[k];
-        //   duration[k] = s_tvalue[k];
-        // }
-
         Ok(())
     }
 
@@ -113,9 +91,13 @@ pub async fn pchase(
     array[size + 1] = 0;
 
     // allocate memory for each vector on simulated GPU device
-    let dev_array = tracer
+    let mut dev_array = tracer
         .allocate(&mut array, MemorySpace::Global, Some("array"))
         .await;
+
+    if memory == Memory::L2 {
+        dev_array.bypass_l1 = true;
+    }
 
     // number of thread blocks in grid
     let kernel = FineGrainPChase {

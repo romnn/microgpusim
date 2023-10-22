@@ -67,9 +67,9 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - p-chase: implement l1 bypass in rust pchase
+  - pchase: PLOT: l2 prefill policy use l1data config and plot both l1 hits and l2 hits (or misses?)
+  - simulator: l1 latency should only affect HITS
 
-  - look into (fix) 4 threads
   - look into (fix) 4 threads
   - make the parallel version table
   - DONE: add more metrics to parallel table
@@ -84,6 +84,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
   - p-chase: measure the overhead of the other lines in isolation??
   - p-chase: infer l2 pre-fetch policy
 
+  - DONE: p-chase: implement l1 bypass in rust pchase
   - DONE: debug: why does the latency not change
   - DONE: p-chase: use pinned host memory for pchase l1 and refactor
   - DONE: p-chase: use same parameters for the l1 latency distribution plot

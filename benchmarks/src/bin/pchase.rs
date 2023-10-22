@@ -5,6 +5,7 @@ use gpucachesim::config;
 use gpucachesim_benchmarks::pchase;
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::io::Write;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -63,8 +64,13 @@ pub struct Options {
     pub stride_bytes: Bytes,
     #[clap(short = 'w', long = "warmup", help = "number of warmup iterations")]
     pub warmup_iterations: usize,
+    #[clap(short = 'r', long = "repetitions", help = "number of repetitions")]
+    pub repetitions: usize,
+
     #[clap(short = 'k', long = "iterations", help = "number of iterations")]
     pub iter_size: Option<usize>,
+    #[clap(long = "max-rounds", help = "maximum number of rounds")]
+    pub max_rounds: Option<usize>,
 
     #[clap(long = "csv", help = "write csv formatted latencies to stdout")]
     pub csv_latencies: bool,
@@ -76,6 +82,7 @@ async fn simulate_pchase<W>(
     stride_bytes: usize,
     warmup_iterations: usize,
     iter_size: usize,
+    repetition: usize,
     mut csv_writer: Option<&mut csv::Writer<W>>,
 ) -> eyre::Result<()>
 where
@@ -132,14 +139,16 @@ where
             let inject_cycle = fetch.inject_cycle.unwrap();
             let rel_addr = fetch.relative_byte_addr();
             let latency = cycle - inject_cycle;
-            eprintln!(
-                "{}",
-                style(format!(
-                    "cycle={:<6} RETURNED TO CORE fetch {:<30} rel_addr={:<4} latency={:<4}",
-                    cycle, fetch, rel_addr, latency
-                ))
-                .red()
-            );
+            if gpucachesim::DEBUG_PRINT {
+                eprintln!(
+                    "{}",
+                    style(format!(
+                        "cycle={:<6} RETURNED TO CORE fetch {:<30} rel_addr={:<4} latency={:<4}",
+                        cycle, fetch, rel_addr, latency
+                    ))
+                    .red()
+                );
+            }
             accesses_cb.lock().unwrap().push((fetch.clone(), latency));
             all_addresses_cb.lock().unwrap().insert(rel_addr);
             all_latencies_cb.lock().unwrap().insert(latency);
@@ -156,14 +165,16 @@ where
             let inject_cycle = fetch.inject_cycle.unwrap();
             let rel_addr = fetch.relative_byte_addr();
             let latency = cycle - inject_cycle;
-            eprintln!(
-                "{}",
-                style(format!(
-                    "cycle={:<6} L1 ACCESS {:<30} {:?} rel_addr={:<4} latency={:<4}",
-                    cycle, fetch, access_status, rel_addr, latency
-                ))
-                .red()
-            );
+            if gpucachesim::DEBUG_PRINT {
+                eprintln!(
+                    "{}",
+                    style(format!(
+                        "cycle={:<6} L1 ACCESS {:<30} {:?} rel_addr={:<4} latency={:<4}",
+                        cycle, fetch, access_status, rel_addr, latency
+                    ))
+                    .red()
+                );
+            }
             if access_status.is_hit() {
                 accesses_cb.lock().unwrap().push((fetch.clone(), latency));
                 all_addresses_cb.lock().unwrap().insert(rel_addr);
@@ -292,27 +303,41 @@ where
 
     #[derive(Debug, serde::Serialize)]
     struct CsvRow {
+        /// Repetition
+        pub r: usize,
+        /// Size of the array N.
         pub n: usize,
+        /// Monotonic index per (r,n) in range 0..iter_size.
+        pub k: usize,
+        /// Accesses array index.
         pub index: u64,
+        /// Virtual memory address of accessed index.
+        pub virt_addr: u64,
+        /// Latency of memory access for `virt_addr`.
         pub latency: u64,
     }
 
     let accesses: Vec<_> = Arc::into_inner(accesses).unwrap().into_inner().unwrap();
+    // for (fetch, latency) in &accesses {
+    //     eprintln!("latency={:<4} fetch={}", latency, fetch);
+    // }
     let post_warmup_index = warmup_iterations * iter_size;
     let valid_accesses = &accesses[post_warmup_index..post_warmup_index + iter_size];
-    for (i, (fetch, latency)) in valid_accesses.iter().enumerate() {
+    for (k, (fetch, latency)) in valid_accesses.iter().enumerate() {
         use trace_model::ToBitString;
-        eprintln!(
-            "access {:<3}: {:<40} rel addr={:<4} ({:<4}, {:<4}, {:<4}) bytes={} latency={}",
-            i,
-            fetch.to_string(),
-            fetch.relative_byte_addr(),
-            fetch.relative_addr().unwrap(),
-            fetch.byte_addr(),
-            fetch.addr(),
-            fetch.access.byte_mask[..128].to_bit_string(),
-            style(latency).yellow()
-        );
+        if gpucachesim::DEBUG_PRINT {
+            eprintln!(
+                "access {:<3}: {:<40} rel addr={:<4} ({:<4}, {:<4}, {:<4}) bytes={} latency={}",
+                k,
+                fetch.to_string(),
+                fetch.relative_byte_addr(),
+                fetch.relative_addr().unwrap(),
+                fetch.byte_addr(),
+                fetch.addr(),
+                fetch.access.byte_mask[..128].to_bit_string(),
+                style(latency).yellow()
+            );
+        }
 
         // dbg!(i, stride_bytes, size_bytes);
         let index = (fetch.relative_byte_addr() as usize + stride_bytes) % size_bytes;
@@ -326,8 +351,11 @@ where
         // );
         if let Some(ref mut csv_writer) = csv_writer.as_mut() {
             csv_writer.serialize(CsvRow {
+                r: repetition,
                 n: size_bytes,
+                k,
                 index: index as u64,
+                virt_addr: fetch.byte_addr(),
                 latency: *latency,
             })?;
         }
@@ -356,6 +384,17 @@ where
     Ok(())
 }
 
+fn parse_max_rounds_or_iter_size(
+    arg: Option<&str>,
+) -> Result<(Option<usize>, Option<usize>), std::num::ParseIntError> {
+    match arg {
+        Some(rounds) if rounds.starts_with("R") => {
+            Ok((rounds.strip_prefix("R").map(str::parse).transpose()?, None))
+        }
+        size => Ok((None, size.map(str::parse).transpose()?)),
+    }
+}
+
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let start = std::time::Instant::now();
@@ -370,7 +409,25 @@ async fn main() -> eyre::Result<()> {
             // parse without flags
             let memory = pchase::Memory::from_str(&args[0])?;
 
-            if args.len() == 5 {
+            if args.len() >= 6 {
+                let (max_rounds, iter_size) =
+                    parse_max_rounds_or_iter_size(args.get(7).map(String::as_str))?;
+                Options {
+                    memory,
+                    size_bytes: None,
+                    start_size_bytes: Some(args[1].parse()?),
+                    end_size_bytes: Some(args[2].parse()?),
+                    step_size_bytes: Some(args[3].parse()?),
+                    stride_bytes: args[4].parse()?,
+                    warmup_iterations: args[5].parse()?,
+                    repetitions: args[6].parse()?,
+                    iter_size,
+                    max_rounds,
+                    csv_latencies: false,
+                }
+            } else if args.len() >= 4 {
+                let (max_rounds, iter_size) =
+                    parse_max_rounds_or_iter_size(args.get(5).map(String::as_str))?;
                 Options {
                     memory,
                     size_bytes: Some(args[1].parse()?),
@@ -379,27 +436,9 @@ async fn main() -> eyre::Result<()> {
                     step_size_bytes: None,
                     stride_bytes: args[2].parse()?,
                     warmup_iterations: args[3].parse()?,
-                    iter_size: args
-                        .get(4)
-                        .map(String::as_str)
-                        .map(str::parse)
-                        .transpose()?,
-                    csv_latencies: false,
-                }
-            } else if args.len() == 7 {
-                Options {
-                    memory,
-                    size_bytes: None,
-                    start_size_bytes: Some(args[1].parse()?),
-                    end_size_bytes: Some(args[2].parse()?),
-                    step_size_bytes: Some(args[3].parse()?),
-                    stride_bytes: args[2].parse()?,
-                    warmup_iterations: args[3].parse()?,
-                    iter_size: args
-                        .get(4)
-                        .map(String::as_str)
-                        .map(str::parse)
-                        .transpose()?,
+                    repetitions: args[4].parse()?,
+                    iter_size,
+                    max_rounds,
                     csv_latencies: false,
                 }
             } else {
@@ -407,6 +446,8 @@ async fn main() -> eyre::Result<()> {
             }
         }
     };
+
+    eprintln!("options: {:#?}", &options);
 
     let Options {
         memory,
@@ -416,8 +457,10 @@ async fn main() -> eyre::Result<()> {
         step_size_bytes,
         stride_bytes,
         warmup_iterations,
+        repetitions,
         iter_size,
-        csv_latencies,
+        max_rounds,
+        ..
     } = options;
 
     let start_size_bytes = start_size_bytes
@@ -428,8 +471,6 @@ async fn main() -> eyre::Result<()> {
         .ok_or(eyre::eyre!("missing end size in bytes"))?;
     let step_size_bytes = step_size_bytes.unwrap_or(Bytes(1));
 
-    let iter_size = iter_size.unwrap_or(DEFAULT_ITER_SIZE);
-
     // validate
     if step_size_bytes.0 < 1 {
         eyre::bail!(
@@ -437,7 +478,25 @@ async fn main() -> eyre::Result<()> {
             step_size_bytes
         );
     }
-    for size_bytes in [start_size_bytes, end_size_bytes] {
+
+    let mut csv_writer = csv::WriterBuilder::new()
+        .flexible(false)
+        .from_writer(std::io::stdout());
+
+    for size_bytes in (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0) {
+        if size_bytes == 0 {
+            continue;
+        }
+
+        let one_round_size = size_bytes as f32 / stride_bytes.0 as f32;
+
+        let iter_size = match (iter_size, max_rounds) {
+            (Some(iter_size), _) => iter_size,
+            (_, Some(max_rounds)) => max_rounds * one_round_size as usize,
+            _ => 1 * one_round_size as usize,
+        };
+
+        let stride_bytes = stride_bytes.0 as usize;
         if size_bytes < stride_bytes {
             eyre::bail!(
                 "size ({}) is smaller than stride ({})",
@@ -445,34 +504,23 @@ async fn main() -> eyre::Result<()> {
                 stride_bytes
             );
         }
-        // if (size % stride != 0) {
-        //   fprintf(stderr,
-        //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
-        //           size, stride);
-        //   fflush(stderr);
-        //   return EXIT_FAILURE;
-        // }
-        if size_bytes.0 < 1 {
-            eyre::bail!("size is < 1 ({})", size_bytes);
+
+        for repetition in 0..repetitions {
+            simulate_pchase(
+                memory,
+                size_bytes,
+                stride_bytes,
+                warmup_iterations,
+                iter_size,
+                repetition,
+                Some(&mut csv_writer),
+            )
+            .await?;
         }
     }
 
-    let mut csv_writer = csv::WriterBuilder::new()
-        .flexible(false)
-        .from_writer(std::io::stdout());
-
-    for size_bytes in (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0) {
-        simulate_pchase(
-            memory,
-            size_bytes as usize,
-            stride_bytes.0 as usize,
-            warmup_iterations,
-            iter_size,
-            Some(&mut csv_writer),
-        )
-        .await?;
-    }
-
+    std::io::stderr().flush()?;
+    std::io::stdout().flush()?;
     eprintln!("completed in {:?}", start.elapsed());
     Ok(())
 }
