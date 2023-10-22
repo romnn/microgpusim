@@ -1,3 +1,9 @@
+*
+!*.cu
+!*.hpp
+!*.md
+!Makefile
+
 fine_grain_L2-cold_1GB
 fine_grain_L2-cold_4KB
 fine_grain_fermi_L1
