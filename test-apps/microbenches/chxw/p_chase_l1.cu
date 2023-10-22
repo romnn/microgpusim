@@ -9,7 +9,7 @@
 
 #include "common.hpp"
 
-// #define CUDA_SAFECALL(call)                                                    \
+// #define CUDA_CHECK(call)                                                    \
 //   {                                                                            \
 //     call;                                                                      \
 //     cudaError err = cudaGetLastError();                                        \
@@ -48,17 +48,17 @@ const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 //   uint32_t *h_clock_overhead = (uint32_t *)malloc(sizeof(uint32_t) * 1);
 //
 //   uint32_t *d_clock_overhead;
-//   CUDA_SAFECALL(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) *
+//   CUDA_CHECK(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) *
 //   1));
 //
 //   // launch kernel
 //   dim3 block_dim = dim3(1);
 //   dim3 grid_dim = dim3(1, 1, 1);
 //
-//   CUDA_SAFECALL((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
+//   CUDA_CHECK((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
 //       d_clock_overhead)));
 //
-//   CUDA_SAFECALL(cudaMemcpy((void *)h_clock_overhead, (void
+//   CUDA_CHECK(cudaMemcpy((void *)h_clock_overhead, (void
 //   *)d_clock_overhead,
 //                            sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost));
 //
@@ -341,7 +341,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   //
   // // allocate arrays on GPU
   // unsigned int *d_a;
-  // CUDA_SAFECALL(cudaMalloc((void **)&d_a, (N + 2) * sizeof(unsigned int)));
+  // CUDA_CHECK(cudaMalloc((void **)&d_a, (N + 2) * sizeof(unsigned int)));
   // // }
 
   // initialize array elements on CPU with pointers into d_a
@@ -355,7 +355,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
   // copy array elements from CPU to GPU
   fprintf(stderr, "copy %lu elements\n", N * sizeof(uint32_t));
-  CUDA_SAFECALL(
+  CUDA_CHECK(
       cudaMemcpy(d_a, h_a, N * sizeof(uint32_t), cudaMemcpyHostToDevice));
 
   unsigned int *h_index =
@@ -364,12 +364,10 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
       (unsigned int *)malloc(iter_size * sizeof(unsigned int));
 
   unsigned int *duration;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&duration, iter_size * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMalloc((void **)&duration, iter_size * sizeof(unsigned int)));
 
   unsigned int *d_index;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
+  CUDA_CHECK(cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
 
   cudaTextureObject_t texObj = 0;
 
@@ -409,21 +407,21 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
     cudaDeviceSynchronize();
 
-    CUDA_SAFECALL((global_latency_l1_texture<<<grid_dim, block_dim>>>(
+    CUDA_CHECK((global_latency_l1_texture<<<grid_dim, block_dim>>>(
         d_a, texObj, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L1ReadOnly:
     block_dim = dim3(32, 1, 1);
-    CUDA_SAFECALL((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
+    CUDA_CHECK((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
         d_a, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L2:
   case L1Data:
     if (USE_COMPRESSION) {
-      CUDA_SAFECALL((global_latency_compressed<<<grid_dim, block_dim>>>(
+      CUDA_CHECK((global_latency_compressed<<<grid_dim, block_dim>>>(
           d_a, N, duration, d_index, iter_size, warmup_iterations)));
     } else {
-      CUDA_SAFECALL((global_latency_l1_data<<<grid_dim, block_dim>>>(
+      CUDA_CHECK((global_latency_l1_data<<<grid_dim, block_dim>>>(
           d_a, N, duration, d_index, iter_size, warmup_iterations)));
     }
     break;
@@ -433,17 +431,17 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   };
   cudaDeviceSynchronize();
 
-  CUDA_SAFECALL(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
   // copy results from GPU to CPU
   cudaDeviceSynchronize();
 
-  CUDA_SAFECALL(cudaMemcpy((void *)h_timeinfo, (void *)duration,
-                           sizeof(unsigned int) * iter_size,
-                           cudaMemcpyDeviceToHost));
-  CUDA_SAFECALL(cudaMemcpy((void *)h_index, (void *)d_index,
-                           sizeof(unsigned int) * iter_size,
-                           cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy((void *)h_timeinfo, (void *)duration,
+                        sizeof(unsigned int) * iter_size,
+                        cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy((void *)h_index, (void *)d_index,
+                        sizeof(unsigned int) * iter_size,
+                        cudaMemcpyDeviceToHost));
 
   cudaDeviceSynchronize();
 
@@ -676,7 +674,7 @@ int main(int argc, char *argv[]) {
 
   // allocate arrays on GPU
   unsigned int *d_a;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_a, (end_size + 2) * sizeof(uint32_t)));
+  CUDA_CHECK(cudaMalloc((void **)&d_a, (end_size + 2) * sizeof(uint32_t)));
 
   int exit_code = EXIT_SUCCESS;
 
@@ -750,14 +748,14 @@ int main(int argc, char *argv[]) {
 
     cudaFuncCache want_cache_config = cudaFuncCachePreferShared;
     // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-    CUDA_SAFECALL(cudaDeviceSetCacheConfig(want_cache_config));
-    CUDA_SAFECALL(
+    CUDA_CHECK(cudaDeviceSetCacheConfig(want_cache_config));
+    CUDA_CHECK(
         cudaFuncSetCacheConfig(global_latency_compressed, want_cache_config));
     cudaFuncCache have_cache_config;
-    CUDA_SAFECALL(cudaDeviceGetCacheConfig(&have_cache_config));
+    CUDA_CHECK(cudaDeviceGetCacheConfig(&have_cache_config));
     assert(want_cache_config == have_cache_config);
 
-    // CUDA_SAFECALL(cudaFuncSetAttribute(
+    // CUDA_CHECK(cudaFuncSetAttribute(
     //     global_latency_compressed,
     //     cudaFuncAttributeMaxDynamicSharedMemorySize, 12 * 1024));
 

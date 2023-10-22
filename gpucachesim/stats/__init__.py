@@ -1,5 +1,6 @@
 import click
 import yaml
+import typing
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -261,6 +262,7 @@ def parallel_plot(path, bench_name, nvprof):
            'kernel_function_signature': "first",
            'kernel_name': "first",
            'kernel_name_mangled': "first",
+           'input_id': "first",
            # 'parallelization_method': "first",
            # 'target': "first",
            # 'input_mode': "first",
@@ -352,6 +354,7 @@ def parallel_plot(path, bench_name, nvprof):
         + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
         + [c + "_parallel" for c in metric_cols]
         + [c + "_serial" for c in metric_cols]
+        + ["input_id_serial", "input_id_parallel"]
     )
 
     if True:
@@ -379,22 +382,15 @@ def parallel_plot(path, bench_name, nvprof):
     # print(thread_values)
     # print(run_ahead_values)
 
-    print(joined[[
-        "benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel",
-    ]].drop_duplicates())
+    print(joined[
+        ["benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel"]
+        # ["benchmark"] + bench_input_cols + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
+    ].drop_duplicates())
     # print(joined[[
     #     "benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel", "cycles_rmse",
     # ]].drop_duplicates())
 
-    # functional_config = {
-    #     "input_memory_only": False,
-    #     "input_num_clusters": 20,
-    #     "input_cores_per_cluster": 1,
-    # }
-    # assert set(functional_config.keys()) == set(SIMULATE_FUNCTIONAL_CONFIG_COLS)
-
-    # table_values = dict()
-    # table_df = []
+    
 
     # def dummy_first(_df):
     #     print("first of", _df, type(_df))
@@ -430,6 +426,7 @@ def parallel_plot(path, bench_name, nvprof):
        'kernel_function_signature': "first",
        'kernel_name': "first",
        'kernel_name_mangled': "first",
+       "input_id": "first",
     }
     # joined.loc[:,list(set(joined.columns) - set(non_numeric.keys()))] = joined[:,list(set(joined.columns) - set(non_numeric.keys()))].astype(float)
     # pprint(sorted(table_df.columns.tolist()))
@@ -506,7 +503,9 @@ def parallel_plot(path, bench_name, nvprof):
         return baseline / values
 
     def rel_err(true_values, values):
-        return (values - true_values).abs() / true_values
+        rel_err = (values - true_values).abs() / true_values
+        rel_err = rel_err.fillna(0.0)
+        return rel_err
 
     def rmse(true_values, values):
         return((values - true_values) ** 2).mean() ** .5
@@ -540,15 +539,28 @@ def parallel_plot(path, bench_name, nvprof):
 
         grouped.apply(inspect_func)
 
-    # compute per config metrics
+    # speedup
     aggregated["exec_time_sec_speedup"] = grouped.apply(
         lambda df: speedup(baseline=df["exec_time_sec_serial"], values=df["exec_time_sec_parallel"]).mean())
+    # cycles error
     aggregated["cycles_rel_err"] = grouped.apply(
         lambda df: rel_err(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
     aggregated["cycles_rmse"] = grouped.apply(
         lambda df: rmse(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
     aggregated["cycles_mae"] = grouped.apply(
         lambda df: mae(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
+    # l1 hit rate error
+    aggregated["l1_hit_rate_rel_err"] = grouped.apply(
+        lambda df: rel_err(true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]).mean())
+    # l2 hit rate error
+    aggregated["l2_hit_rate_rel_err"] = grouped.apply(
+        lambda df: rel_err(true_values=df["l2_hit_rate_serial"], values=df["l2_hit_rate_parallel"]).mean())
+    # dram reads error
+    aggregated["dram_reads_rel_err"] = grouped.apply(
+        lambda df: rel_err(true_values=df["dram_reads_serial"], values=df["dram_reads_parallel"]).mean())
+    # dram writes error
+    aggregated["dram_writes_rel_err"] = grouped.apply(
+        lambda df: rel_err(true_values=df["dram_writes_serial"], values=df["dram_writes_parallel"]).mean())
 
 
     # aggregated["exec_time_sec_speedup"] = joined.groupby(group_cols, dropna=False)[
@@ -559,14 +571,333 @@ def parallel_plot(path, bench_name, nvprof):
 
     aggregated = aggregated.reset_index()
     print(aggregated.shape)
-    # return
     # print(joined.T)
     # print(aggregated.loc[0:4, PREVIEW_COLS].T.drop_duplicates())
     print(aggregated.reset_index().loc[0:4,
+        PREVIEW_COLS + bench_input_cols + ["cycles_rel_err", "exec_time_sec_speedup"]].T.drop_duplicates())
+
+    print(aggregated.loc[
+        (aggregated["input_mode_parallel"] == "deterministic") & (aggregated["input_threads_parallel"] == 4),
         PREVIEW_COLS + ["cycles_rel_err", "exec_time_sec_speedup"]].T.drop_duplicates())
+
 
     # print(aggregated.reset_index().loc[0:4,
     #     ["cycles_rel_err", "cycles_serial", "cycles_parallel"]].T) #.drop_duplicates())
+
+
+    # build the table data
+    functional_config = {
+        "input_memory_only": False,
+        "input_num_clusters": 20,
+        "input_cores_per_cluster": 8,
+    }
+    selected_benchmarks: typing.Dict[str, typing.Any] = {
+        "vectorAdd": dict(label="VectorAdd", inputs={"input_dtype": 32, "input_length": 500_000}),
+    }
+
+    interleave_n = list(itertools.product([False, True], [5, 10]))
+
+    tables = [(functional_config, selected_benchmarks)]
+    for (functional_config, selected_benchmarks) in tables:
+        print(functional_config, selected_benchmarks)
+
+        table = ""
+
+        assert set(functional_config.keys()) == set(SIMULATE_FUNCTIONAL_CONFIG_COLS)
+
+        assert all([bench_name in BENCHMARK_INPUT_COLS.keys() for bench_name in selected_benchmarks.keys()])
+        assert all([
+            set(BENCHMARK_INPUT_COLS[bench_name]) == set(bench_config["inputs"].keys())
+            for bench_name, bench_config in selected_benchmarks.items()
+        ])
+
+        for bench_name, bench_config in selected_benchmarks.items():
+            bench_inputs: typing.Dict[str, typing.Any] = bench_config["inputs"]
+            mask_cols = list(functional_config.keys()) + ["benchmark"] + list(bench_inputs.keys())
+            mask_values = list(functional_config.values()) + [bench_name] + list(bench_inputs.values())
+            # mask = aggregated["benchmark"] == bench_name
+            # for col, value in zip(mask_cols, mask_values):
+            #     mask &= aggregated[col] == value
+            # print((aggregated[mask_cols] == mask_values).sum(axis=0))
+            mask = (aggregated[mask_cols] == mask_values).all(axis=1)
+            table += r"\rowcolor{gray!10} \multicolumn{8}{c}{" + str(bench_config["label"]) + r"} \\ \hline" + "\n"
+            # print(mask)
+            # print(mask.shape)
+            # print(mask.sum())
+            # print(aggregated.loc[
+            #     mask, PREVIEW_COLS + ["cycles_rel_err", "exec_time_sec_speedup"]].T.drop_duplicates())
+
+            # def write_table_row(threads, det_value, nondet_values, serial_value=None):
+            def write_table_row(row):
+                is_first_metric_row = row.threads == 4
+                is_last_metric_row = row.threads == 8
+
+                table_row = ""
+                # metric name
+                if is_first_metric_row:
+                    table_row += r"\multirow{2}{*}{\shortstack[l]{" + str(row.metric) + r"}}"
+                # threads
+                table_row += r" & $t=" + str(row.threads) + r"$ "
+                # serial value
+                # if row.serial_value is not None:
+                if is_first_metric_row:
+                    table_row += r" & \multirow{2}{*}{\shortstack[l]{" + str(row.serial_value) + r"}} "
+                else:
+                    table_row += r" &  "
+                # deterministic value
+                table_row += r" & " + str(row.det_value)
+                # nondeterministic value
+                for nondet_value in row.nondet_values:
+                    table_row += r" & " + str(nondet_value)
+                table_row += r" \\ " 
+                if is_last_metric_row: 
+                    table_row += r" \hline "
+                table_row += "\n"
+                return table_row
+
+            class TableRow(typing.NamedTuple):
+                metric: str
+                threads: int
+                serial_value: typing.Union[float, int, str]
+                det_value: typing.Union[float, int, str]
+                nondet_values: typing.Sequence[typing.Union[float, int, str]]
+
+            table_rows: typing.Sequence[TableRow] = []
+            
+
+            for threads in [4, 8]:
+                threads_mask = aggregated["input_threads_parallel"] == threads
+                det_mask = aggregated["input_mode_parallel"] == "deterministic"
+                nondet_no_interleave_mask = aggregated["input_mode_parallel"] == "nondeterministic"
+                nondet_interleave_mask = aggregated["input_mode_parallel"] == "nondeterministic_interleave"
+                # print([m.sum() for m in [
+                #     mask, threads_mask, det_mask, nondet_no_interleave_mask, nondet_interleave_mask
+                # ]])
+
+                det = aggregated[mask & threads_mask & det_mask]
+                print(det[
+                    bench_input_cols
+                    + [
+                        "input_threads_parallel", "exec_time_sec_parallel",
+                        "input_id_parallel", "input_id_serial",
+                    ]
+                ])
+                print("===")
+                assert len(det) == 1
+                nondet_no_interleave = aggregated[mask & threads_mask & nondet_no_interleave_mask]
+                assert len(nondet_no_interleave) == 2
+                nondet_interleave = aggregated[mask & threads_mask & nondet_interleave_mask]
+                assert len(nondet_interleave) == 2
+
+                # print([len(df) for df in [det, nondet_no_interleave, nondet_interleave]])
+                # assert all([len(df) > 0 for df in [det, nondet_no_interleave, nondet_interleave]])
+                assert len(aggregated.loc[mask,
+                    ["exec_time_sec_serial", "cycles_serial", "input_id_serial"]].drop_duplicates()) == 1
+
+                # exec time (speedup)
+                serial_exec_time = aggregated.loc[mask & threads_mask, "exec_time_sec_serial"].values[0]
+                det_exec_time = det["exec_time_sec_parallel"].values[0]
+                det_speedup = det["exec_time_sec_speedup"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    # print(interleave, n)
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    # print(nondet["input_run_ahead_parallel"])
+                    # print(nondet["input_run_ahead_parallel"] == n)
+                    # print(nondet.shape)
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+                    nondet_exec_time = nondet["exec_time_sec_parallel"].values[0]
+                    nondet_speedup = nondet["exec_time_sec_speedup"].values[0]
+                    nondet_values.append("${:>3.1f}s~({:>1.1f}x)$".format(nondet_exec_time, nondet_speedup))
+
+                table_rows.append(TableRow(
+                    metric="exec time",
+                    threads=threads,
+                    serial_value="${:>3.1f}s$".format(serial_exec_time),
+                    det_value="${:>3.1f}s~({:1.1f}x)$".format(det_exec_time, det_speedup),
+                    nondet_values=nondet_values,
+                ))
+
+                # cycles (rel err)
+                serial_cycles = int(aggregated.loc[mask & threads_mask, "cycles_serial"].values[0])
+                det_cycles = int(det["cycles_parallel"].values[0])
+                det_rel_err = det["cycles_rel_err"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+
+                    nondet_cycles = int(nondet["cycles_parallel"].values[0])
+                    nondet_rel_err = nondet["cycles_rel_err"].values[0]
+                    nondet_values.append("${:>5}~({:>2.1f}\\%)$".format(nondet_cycles, 100.0 * nondet_rel_err))
+
+                table_rows.append(TableRow(
+                    metric="cycles",
+                    threads=threads,
+                    serial_value="${:>5}$".format(serial_cycles),
+                    det_value="${:>5}~({:>2.1f}\\%)$".format(det_cycles, 100.0 * det_rel_err),
+                    nondet_values=nondet_values,
+                ))
+
+                # l1 data hit rate (rel err)
+                serial_l1_hit_rate = int(aggregated.loc[mask & threads_mask, "l1_hit_rate_serial"].values[0])
+                det_l1_hit_rate = int(det["l1_hit_rate_parallel"].values[0])
+                det_rel_err = det["l1_hit_rate_rel_err"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+
+                    nondet_l1_hit_rate = int(nondet["l1_hit_rate_parallel"].values[0])
+                    nondet_rel_err = nondet["l1_hit_rate_rel_err"].values[0]
+                    nondet_values.append("${:>2.1f}\\%~({:>2.1f}\\%)$".format(nondet_l1_hit_rate, 100.0 * nondet_rel_err))
+
+                table_rows.append(TableRow(
+                    metric=r"L1D\\hit rate",
+                    threads=threads,
+                    serial_value="${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
+                    det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(det_l1_hit_rate, 100.0 * det_rel_err),
+                    nondet_values=nondet_values,
+                ))
+
+                # l2 data hit rate (rel err)
+                serial_l2_hit_rate = int(aggregated.loc[mask & threads_mask, "l2_hit_rate_serial"].values[0])
+                det_l2_hit_rate = int(det["l2_hit_rate_parallel"].values[0])
+                det_rel_err = det["l2_hit_rate_rel_err"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+
+                    nondet_l2_hit_rate = int(nondet["l2_hit_rate_parallel"].values[0])
+                    nondet_rel_err = nondet["l2_hit_rate_rel_err"].values[0]
+                    nondet_values.append("${:>2.1f}\\%~({:>2.1f}\\%)$".format(nondet_l2_hit_rate, 100.0 * nondet_rel_err))
+
+                table_rows.append(TableRow(
+                    metric=r"L2D\\hit rate",
+                    threads=threads,
+                    serial_value="${:>2.1f}\\%$".format(100.0 * serial_l2_hit_rate),
+                    det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(det_l2_hit_rate, 100.0 * det_rel_err),
+                    nondet_values=nondet_values,
+                ))
+
+                # dram reads (rel err)
+                serial_dram_reads = int(aggregated.loc[mask & threads_mask, "dram_reads_serial"].values[0])
+                det_dram_reads = int(det["dram_reads_parallel"].values[0])
+                det_rel_err = det["dram_reads_rel_err"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+
+                    nondet_dram_reads = int(nondet["dram_reads_parallel"].values[0])
+                    nondet_rel_err = nondet["dram_reads_rel_err"].values[0]
+                    nondet_values.append("${:>4}~({:>2.1f}\\%)$".format(nondet_dram_reads, 100.0 * nondet_rel_err))
+
+                table_rows.append(TableRow(
+                    metric=r"DRAM\\reads",
+                    threads=threads,
+                    serial_value="${:>4}$".format(serial_dram_reads),
+                    det_value="${:>4}~({:>2.1f}\\%)$".format(det_dram_reads, 100.0 * det_rel_err),
+                    nondet_values=nondet_values,
+                ))
+
+                # dram writes (rel err)
+                serial_dram_writes = int(aggregated.loc[mask & threads_mask, "dram_writes_serial"].values[0])
+                det_dram_writes = int(det["dram_writes_parallel"].values[0])
+                det_rel_err = det["dram_writes_rel_err"].values[0]
+                nondet_values = []
+                for interleave, n in interleave_n:
+                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+
+                    nondet_dram_writes = int(nondet["dram_writes_parallel"].values[0])
+                    nondet_rel_err = nondet["dram_writes_rel_err"].values[0]
+                    nondet_values.append("${:>4}~({:>2.1f}\\%)$".format(nondet_dram_writes, 100.0 * nondet_rel_err))
+
+                table_rows.append(TableRow(
+                    metric=r"DRAM\\writes",
+                    threads=threads,
+                    serial_value="${:>4}$".format(serial_dram_writes),
+                    det_value="${:>4}~({:>2.1f}\\%)$".format(det_dram_writes, 100.0 * det_rel_err),
+                    nondet_values=nondet_values,
+                ))
+
+
+
+
+
+                # serial_exec_time = aggregated.loc[mask & threads_mask, "exec_time_sec_serial"].values[0]
+                # serial_cycles = aggregated.loc[mask & threads_mask, "cycles_serial"].values[0]
+                #
+                # # get deterministic value
+                # assert len(deterministic) == 1
+                # # print(deterministic_4["exec_time_sec_speedup"].values[0])
+                # determ_speedup = deterministic["exec_time_sec_speedup"].values[0]
+                # determ_exec_time = deterministic["exec_time_sec_parallel"].values[0]
+                # determ_cycles = deterministic["cycles_parallel"].values[0]
+
+                # exec time
+
+            # for row_num, threads in enumerate([4, 8]):
+            #     threads_mask = aggregated["input_threads_parallel"] == threads
+            #     det_mask = aggregated["input_mode_parallel"] == "deterministic"
+            #     nondet_mask = aggregated["input_mode_parallel"] == "nondeterministic"
+            #     nondet_interleave_mask = aggregated["input_mode_parallel"] == "nondeterministic_interleaved"
+            #
+            #     # print([m.sum() for m in [mask, threads_4_mask, deterministic_mask]])
+            #
+            #     assert len(aggregated.loc[mask,
+            #         ["exec_time_sec_serial", "cycles_serial", "input_id_serial"]].drop_duplicates()) == 1
+            #
+            #     serial_exec_time = aggregated.loc[mask & threads_mask, "exec_time_sec_serial"].values[0]
+            #     serial_cycles = aggregated.loc[mask & threads_mask, "cycles_serial"].values[0]
+            #
+            #     # get deterministic value
+            #     deterministic = aggregated[mask & threads_mask & determ_mask]
+            #     assert len(deterministic) == 1
+            #     # print(deterministic_4["exec_time_sec_speedup"].values[0])
+            #     determ_speedup = deterministic["exec_time_sec_speedup"].values[0]
+            #     determ_exec_time = deterministic["exec_time_sec_parallel"].values[0]
+            #     determ_cycles = deterministic["cycles_parallel"].values[0]
+            #     # deterministic_speedup = "{:1.1f}x".format(deterministic_4["exec_time_sec_speedup"].values[0])
+            #     # print(deterministic_speedup)
+            #
+            #     # table += r" & $t=" + str(threads) + r"$ "
+            #     # # serial value
+            #     # if row_num == 0:
+            #     #     table += r" & \multirow{2}{*}{" + "${:3.2f}s".format(serial_exec_time) + r"$} "
+            #     # else:
+            #     #     table += r" &  "
+            #     # # deterministic value
+            #     # table += r" & " + "${:3.2f}s~({:1.1f}x)".format(determ_exec_time, determ_speedup) + r"$ "
+            #     # # nondeterministic value
+            #     # table += r" & " + "${:3.2f}s".format(0) + r"$ "
+            #     # table += r" & " + "${:3.2f}s".format(0) + r"$ "
+            #     # table += r" & " + "${:3.2f}s".format(0) + r"$ "
+            #     # table += r" & " + "${:3.2f}s".format(0) + r"$ "
+            #     # table += r"\\ " + "\n"
+
+            # 8 threads
+            # table += r" & $t=" + str(8) + r"$ "
+            # r" & & $10\%$ & $10\%$ & $10\%$ & $10\%$ & $10\%$ \\ \hline"
+
+            # last_metric = None
+            table_rows = sorted(table_rows, key=lambda row: (row.metric, row.threads))
+            for row in table_rows:
+                # if row.metric != last_metric:
+                #     table += r"\multirow{2}{*}{" + row.metric + r"}"
+                table += write_table_row(row)
+                # last_metric = row.metric
+
+        print(table)
+
+    return
+
+
+
+    # table_values = dict()
+    # table_df = []
 
 
     # table_df = joined.groupby(group_cols, dropna=False).agg(aggregations, squeeze=False).reset_index()

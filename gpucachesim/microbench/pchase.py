@@ -15,6 +15,7 @@ import logicmin
 import re
 import bitarray
 import bitarray.util
+from collections import OrderedDict
 from pathlib import Path
 from pprint import pprint
 from io import StringIO
@@ -400,7 +401,7 @@ def set_mapping(mem, stride_bytes, warmup, size_bytes,
     cmd = " ".join(cmd)
     print(cmd)
 
-    timeout_sec=1 * (20 * MIN if sim else 10 * SEC)
+    timeout_sec=repetitions * (20 * MIN if sim else 10 * SEC)
     _, stdout, stderr, _ = cmd_utils.run_cmd(
         cmd,
         timeout_sec=int(timeout_sec),
@@ -796,18 +797,15 @@ def split_at_indices(s, indices):
 
 
 @main.command()
-# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
-# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-@click.option("--repetitions", "repetitions", default=10, type=int, help="number of repetitions")
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option("--mem", "mem", default="l1data", type=str, help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 def find_cache_set_mapping(repetitions, mem, cached, sim):
-    repetitions = max(repetitions, 1)
+    repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
 
     known_cache_size_bytes = 24 * KB
     known_cache_line_bytes = 128
-    sector_size_bytes = 32
     known_num_sets = 4
     
     derived_num_ways = known_cache_size_bytes // (known_cache_line_bytes * known_num_sets)
@@ -816,7 +814,6 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
     assert known_cache_size_bytes == known_num_sets * derived_num_ways * known_cache_line_bytes
 
     stride_bytes = known_cache_line_bytes
-    # stride_bytes = sector_size_bytes
 
     match mem.lower():
         case "l1readonly":
@@ -827,35 +824,32 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = set_mapping(
             mem=mem,
             size_bytes=known_cache_size_bytes,
             stride_bytes=stride_bytes,
             warmup=1 if sim else 2,
-            repetitions=repetitions or (1 if sim else 5),
+            repetitions=repetitions,
             sim=sim,
         )
         print(stderr)
 
+        print(combined)
         combined = combined.drop(columns=["r"])
-        # combined = combined.groupby(["n", "i", "index", "virt_addr"]).mean()
         combined = combined.groupby(["n", "overflow_index", "index", "virt_addr"]).median()
-        # combined = combined.groupby(["n", "index", "virt_addr"]).agg({"r": "first", "latency": "mean"})
         combined = combined.reset_index()
         combined = compute_hits(combined, sim=sim)
-        # combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
-    # print(len(combined))
-    # return
-
-    from collections import OrderedDict
     total_sets = OrderedDict()
+    combined = combined.sort_values(["n", "overflow_index", "k"])
+
+    print(combined["virt_addr"].value_counts().value_counts())
 
     # compute misses per overflow index
     for overflow_index, _ in combined.groupby("overflow_index"):
@@ -867,32 +861,25 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
             print(color("found {:<2} ways (expected {})".format(misses.sum(), derived_num_ways), fg="red"))
 
         total_sets[tuple(combined.loc[misses, "virt_addr"].astype(int).to_numpy())] = True
-        # combined.loc[mask, ] = 
 
     total_sets = list(total_sets.keys())
     num_sets = len(total_sets)
     num_sets_log2 = int(np.log2(num_sets))
-    print("total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2))
+    print(color(
+        "total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2),
+        fg="green" if num_sets == known_num_sets else "red",
+    ))
 
     total_sets = sorted([list(s) for s in total_sets])
-    # total_sets = pd.DataFrame(np.array(total_sets), columns=["set", "addr"])
-    # set_addresses = total_sets.to_numpy()
     set_addresses = np.array(total_sets)
     base_addr = np.amin(total_sets)
-    # set_addresses.sort(axis=0)
-    # print(np.argsort(set_addresses, axis=0))
-    # print(np.argsort(set_addresses, axis=0).shape)
-    # for set_id in range(set_addresses.shape[1]):
-    #     set_addresses = set_addresses[np.argsort(set_addresses[set_id,:], axis=0)]
     print(set_addresses.shape)
-    # set_addresses -= base_addr
     print(set_addresses[:,0:2])
     assert set_addresses.shape == (num_sets, derived_num_ways)
     offsets = np.argmin(set_addresses, axis=0)
     print(offsets)
     assert offsets.shape == (derived_num_ways,)
 
-    # base_addr = min([min(s) for s in total_sets])
     def check_duplicates(needle):
         count = 0
         for s in total_sets:
@@ -918,20 +905,14 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
     for way_id in range(derived_num_ways):
         way = combined.index[way_id*num_sets:(way_id+1)*num_sets]
         sets = combined.loc[way, "set"].to_numpy()
-        expected = np.arange(num_sets)
-        # print(expected)
-        # offsets = (2 * sets - expected) % num_sets
-        # offsets = np.argsort(sets)
-        # offsets = np.argsort(offsets)
-        # print("sets:", sets, " => offsets=", offsets)
-        # combined.loc[way, "set_offset"] = offsets
-        #np.argmin(sets, axis=0)
         combined.loc[way, "offset"] = sets[0] 
 
     print(combined.head(n=10))
     print(combined.shape)
 
     print(compute_set_probability(combined))
+
+    return
    
     max_bits = 64
     num_bits = 64

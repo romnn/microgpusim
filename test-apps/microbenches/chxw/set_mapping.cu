@@ -2,11 +2,24 @@
 #include <assert.h>
 #include <cstdlib>
 #include <ctype.h>
+#include <random>
 #include <stdint.h>
 #include <stdio.h>
 
 #include "common.hpp"
 #include "cuda_runtime.h"
+
+// When using a random pointer chase, we are no longer guaranteed to cause
+// misses of a single set.
+const bool FIRST_STAGE_USE_RANDOM_CHASE = false;
+
+// Use host mapped memory instead of shared memory to store measurements.
+// As host mapped memory is not cached on the GPU, this should not disturb
+// measurements just like shared memory.
+//
+// Pro: works for larger cache sizes (e.g. multiple rounds of L2)
+// Con: slower
+const bool USE_HOST_MAPPED_MEMORY = true;
 
 const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
@@ -28,34 +41,6 @@ global_latency_l1_set_mapping(unsigned int *array, int array_length,
     s_index[k] = 0;
     s_tvalue[k] = 0;
   }
-
-  // // stage 1: pre-fill the entire cache
-  // for (int w = 0; w < warmup_iterations; w++) {
-  //   // j = 0;
-  //   for (int k = 0; k < iter_size; k++) {
-  //     // printf("warmup %d: load j=%u\n", w, j);
-  //     j = array[j];
-  //     s_index[k] = j;
-  //   }
-  // }
-  // // for (int k = 0; k < warmup_iterations * iter_size; k++) {
-  // //   j = array[j];
-  // //   s_index[k % iter_size] = j;
-  // // }
-  //
-  // // stage 2: overflow by a single cache line
-  // // unsigned int temp = array[overflow_index];
-  //
-  // // stage 3: measure the latency of the access
-  // // j = 0;
-  // for (int k = 0; k < iter_size; k++) {
-  //   // printf("timing: load j=%u\n", j);
-  //   start_time = clock();
-  //   j = array[j];
-  //   s_index[k] = j;
-  //   end_time = clock();
-  //   s_tvalue[k] = end_time - start_time;
-  // }
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k >= 0 && j == 0) {
@@ -84,6 +69,51 @@ global_latency_l1_set_mapping(unsigned int *array, int array_length,
   }
 }
 
+__global__ __noinline__ void global_latency_l1_set_mapping_host_mapped(
+    unsigned int *array, int array_length, unsigned int *duration,
+    unsigned int *index, int iter_size, size_t warmup_iterations,
+    unsigned int overflow_index) {
+  // const int max_iter_size = ITER_SIZE;
+  // assert(iter_size <= max_iter_size);
+
+  unsigned int start_time, end_time;
+  volatile uint32_t j = 0;
+
+  // __shared__ volatile uint32_t s_tvalue[max_iter_size];
+  // __shared__ volatile uint32_t s_index[max_iter_size];
+
+  // for (size_t k = 0; k < iter_size; k++) {
+  //   s_index[k] = 0;
+  //   s_tvalue[k] = 0;
+  // }
+
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+    if (k >= 0 && j == 0) {
+      // overflow the cache now
+      index[k] = array[array_length + overflow_index];
+    }
+    if (k >= 0) {
+      start_time = clock();
+      j = array[j];
+      index[k] = j;
+      end_time = clock();
+
+      duration[k] = end_time - start_time;
+    } else {
+      j = array[j];
+    }
+  }
+
+  // store to avoid caching in readonly?
+  array[array_length] = j;
+  array[array_length + 1] = array[j];
+
+  // for (size_t k = 0; k < iter_size; k++) {
+  //   index[k] = s_index[k];
+  //   duration[k] = s_tvalue[k];
+  // }
+}
+
 int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
                               size_t N, size_t stride, size_t iter_size,
                               size_t warmup_iterations,
@@ -94,26 +124,41 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     h_a[i] = (i + stride) % N;
   }
 
+  if (FIRST_STAGE_USE_RANDOM_CHASE) {
+    const unsigned long seed = 0;
+    shuffle(h_a, h_a + N, std::default_random_engine(seed));
+  }
+
   overflow_index = overflow_index % N;
 
   h_a[N] = 0;
   h_a[N + 1] = 0;
 
-  CUDA_SAFECALL(
+  CUDA_CHECK(
       cudaMemcpy(d_a, h_a, N * sizeof(uint32_t), cudaMemcpyHostToDevice));
 
-  unsigned int *h_index =
-      (unsigned int *)malloc(iter_size * sizeof(unsigned int));
-  unsigned int *h_timeinfo =
-      (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+  unsigned int *h_index, *h_timeinfo, *d_index, *duration;
+  if (USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaHostAlloc(&h_index, iter_size * sizeof(unsigned int),
+                             cudaHostAllocMapped));
+    CUDA_CHECK(cudaHostAlloc(&h_timeinfo, iter_size * sizeof(unsigned int),
+                             cudaHostAllocMapped));
 
-  unsigned int *duration;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&duration, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(cudaHostGetDevicePointer(&d_index, h_index, 0));
+    CUDA_CHECK(cudaHostGetDevicePointer(&duration, h_timeinfo, 0));
+  } else {
+    h_index = (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+    h_timeinfo = (unsigned int *)malloc(iter_size * sizeof(unsigned int));
 
-  unsigned int *d_index;
-  CUDA_SAFECALL(
-      cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(
+        cudaMalloc((void **)&duration, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
+  }
+
+  for (size_t k = 0; k < iter_size; k++) {
+    h_index[k] = 0;
+    h_timeinfo[k] = 0;
+  }
 
   cudaTextureObject_t texObj = 0;
 
@@ -153,21 +198,28 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
     cudaDeviceSynchronize();
 
-    // CUDA_SAFECALL((global_latency_l1_texture<<<grid_dim, block_dim>>>(
+    // CUDA_CHECK((global_latency_l1_texture<<<grid_dim, block_dim>>>(
     //     d_a, texObj, N, duration, d_index, iter_size, warmup_iterations)));
     assert(0 && "todo");
     break;
   case L1ReadOnly:
     block_dim = dim3(32, 1, 1);
     assert(0 && "todo");
-    // CUDA_SAFECALL((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
+    // CUDA_CHECK((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
     //     d_a, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L2:
   case L1Data:
-    CUDA_SAFECALL((global_latency_l1_set_mapping<<<grid_dim, block_dim>>>(
-        d_a, N, duration, d_index, iter_size, warmup_iterations,
-        overflow_index)));
+    if (USE_HOST_MAPPED_MEMORY) {
+      CUDA_CHECK(
+          (global_latency_l1_set_mapping_host_mapped<<<grid_dim, block_dim>>>(
+              d_a, N, duration, d_index, iter_size, warmup_iterations,
+              overflow_index)));
+    } else {
+      CUDA_CHECK((global_latency_l1_set_mapping<<<grid_dim, block_dim>>>(
+          d_a, N, duration, d_index, iter_size, warmup_iterations,
+          overflow_index)));
+    }
     break;
   default:
     assert(false && "error dispatching to memory");
@@ -175,17 +227,19 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   };
   cudaDeviceSynchronize();
 
-  CUDA_SAFECALL(cudaGetLastError());
+  CUDA_CHECK(cudaGetLastError());
 
   // copy results from GPU to CPU
   cudaDeviceSynchronize();
 
-  CUDA_SAFECALL(cudaMemcpy((void *)h_timeinfo, (void *)duration,
-                           sizeof(unsigned int) * iter_size,
-                           cudaMemcpyDeviceToHost));
-  CUDA_SAFECALL(cudaMemcpy((void *)h_index, (void *)d_index,
-                           sizeof(unsigned int) * iter_size,
-                           cudaMemcpyDeviceToHost));
+  if (!USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaMemcpy((void *)h_timeinfo, (void *)duration,
+                          sizeof(unsigned int) * iter_size,
+                          cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy((void *)h_index, (void *)d_index,
+                          sizeof(unsigned int) * iter_size,
+                          cudaMemcpyDeviceToHost));
+  }
 
   cudaDeviceSynchronize();
 
@@ -216,15 +270,17 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     break;
   default:
     for (size_t k = 0; k < iter_size; k++) {
-      unsigned int index = (N + h_index[k] - stride) % N;
+      unsigned int index;
+      index = indexof(h_a, N, h_index[k]);
       unsigned int latency = (int)h_timeinfo[k] - (int)clock_overhead;
       unsigned long long virt_addr =
           (unsigned long long)d_a +
           (unsigned long long)index * (unsigned long long)sizeof(uint32_t);
 
-      fprintf(stdout, "%8lu,%3d,%4u,%4lu,%4lu,%10llu,%4d\n",
-              N * sizeof(uint32_t), repetition, overflow_index, k,
-              index * sizeof(uint32_t), virt_addr, latency);
+      // r,n,overflow_index,k,index,virt_addr,latency
+      fprintf(stdout, "%3d,%8lu,%4u,%4lu,%4lu,%10llu,%4d\n", repetition,
+              N * sizeof(uint32_t), overflow_index, k, index * sizeof(uint32_t),
+              virt_addr, latency);
     }
     break;
   }
@@ -234,13 +290,18 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     cudaDestroyTextureObject(texObj);
   }
 
-  // free memory on GPU
-  cudaFree(d_index);
-  cudaFree(duration);
+  if (USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaFreeHost(h_index));
+    CUDA_CHECK(cudaFreeHost(h_timeinfo));
+  } else {
+    // free memory on GPU
+    cudaFree(d_index);
+    cudaFree(duration);
 
-  // free memory on CPU
-  free(h_index);
-  free(h_timeinfo);
+    // free memory on CPU
+    free(h_index);
+    free(h_timeinfo);
+  }
 
   return EXIT_SUCCESS;
 }
@@ -302,6 +363,14 @@ int main(int argc, char *argv[]) {
 
   unsigned int clock_overhead = measure_clock_overhead();
 
+  cudaDeviceProp prop;
+  CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
+  if (!prop.canMapHostMemory) {
+    fprintf(stderr, "ERROR: device does not support host-mapped memory\n");
+    fflush(stderr);
+    return EXIT_FAILURE;
+  }
+
   size_t max_iter_size = ITER_SIZE;
   iter_size = std::min(iter_size, max_iter_size);
 
@@ -314,13 +383,14 @@ int main(int argc, char *argv[]) {
   }
 
   // allocate arrays on CPU
-  // unsigned int *h_a = (unsigned int *)malloc((size + 2) * sizeof(uint32_t));
+  // we fill the cache with 0..size and overflow by a single index in
+  // size..(2*size)
   unsigned int *h_a =
       (unsigned int *)malloc(((size * 2) + 2) * sizeof(uint32_t));
 
   // allocate arrays on GPU
   unsigned int *d_a;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_a, ((size * 2) + 2) * sizeof(uint32_t)));
+  CUDA_CHECK(cudaMalloc((void **)&d_a, ((size * 2) + 2) * sizeof(uint32_t)));
 
   int exit_code = EXIT_SUCCESS;
 
@@ -341,17 +411,15 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "\tITERATIONS         = %lu\n", iter_size);
   fprintf(stderr, "\tREPETITIONS        = %lu\n", repetitions);
   fprintf(stderr, "\tWARMUP ITERATIONS  = %lu\n", warmup_iterations);
+  fprintf(stderr, "\tBACKING MEM        = %s\n",
+          USE_HOST_MAPPED_MEMORY ? "HOST MAPPED" : "SHARED MEM");
 
   // print CSV header
-  fprintf(stdout, "n,r,overflow_index,i,index,virt_addr,latency\n");
+  fprintf(stdout, "r,n,overflow_index,k,index,virt_addr,latency\n");
 
-  // size_t overflow_index = 10 * stride;
-  // size_t start_overflow_index = 130; //  * sizeof(uint32_t);
-  // size_t start_overflow_index = 130; //  * sizeof(uint32_t);
   for (int r = 0; r < repetitions; r++) {
     for (unsigned int overflow_index = 0; overflow_index < iter_size;
          overflow_index += stride) {
-      // size_t overflow_index = 130; //  * sizeof(uint32_t);
       exit_code = parametric_measure_global(h_a, d_a, mem, size, stride,
                                             iter_size, warmup_iterations,
                                             clock_overhead, r, overflow_index);

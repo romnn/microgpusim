@@ -22,17 +22,17 @@ unsigned int measure_clock_overhead() {
   uint32_t *h_clock_overhead = (uint32_t *)malloc(sizeof(uint32_t) * 1);
 
   uint32_t *d_clock_overhead;
-  CUDA_SAFECALL(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) * 1));
+  CUDA_CHECK(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) * 1));
 
   // launch kernel
   dim3 block_dim = dim3(1);
   dim3 grid_dim = dim3(1, 1, 1);
 
-  CUDA_SAFECALL((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
+  CUDA_CHECK((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
       d_clock_overhead)));
 
-  CUDA_SAFECALL(cudaMemcpy((void *)h_clock_overhead, (void *)d_clock_overhead,
-                           sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy((void *)h_clock_overhead, (void *)d_clock_overhead,
+                        sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost));
 
   fprintf(stderr, "clock overhead is %u cycles\n", *h_clock_overhead);
 

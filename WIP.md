@@ -67,16 +67,35 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
+  - p-chase: use pinned host memory for pchase l1 and refactor
+  - p-chase: use same parameters for the l1 latency distribution plot
+
+  - DONE: p-chase: try random (seeded) initialization of pointer index array (makes no sense)
+  - DONE: p-chase: try using pinned host memory to bypass all caching for analyzing larger l2 cache
+
+  - look into (fix) 4 threads
+  - look into (fix) 4 threads
+  - make the parallel version table
+  - DONE: add more metrics to parallel table
+  - add overall secton to parallel table
+  - p-chase: refactor way mapping
+
   - refactor: do not print reservation failure for L1 acceses (those are actually mshr merge fails because the mshr is full, hence we need to block the l1_latency_queue)
-  - debug: why does the latency not change
+  - DONE: debug: why does the latency not change
 
-  - refactor: move plots crate to deprecated to make way for plotting results
-  - p-chase: collect mem access latencies for the simulator
-  - p-chase: measure the overhead of clock() in isolation
-  - p-chase: make some plots
-  - p-chase: infer l2 pre-fetch policy
   - p-chase: infer way mapping through tracing misses back
+  - p-chase: watch videos on how to automatically extract cache mappings
 
+  - p-chase: measure the overhead of the other lines in isolation??
+  - p-chase: infer l2 pre-fetch policy
+
+  - GIVE UP: p-chase: get physical address
+  - DONE: p-chase: reuse memory allocation
+  - DONE: p-chase: infer set mapping function using sympy and AND and XOR using physical address
+  - DONE: p-chase: make some plots
+  - DONE: refactor: move plots crate to deprecated to make way for plotting results
+  - DONE: p-chase: collect mem access latencies for the simulator
+  - DONE: p-chase: measure the overhead of clock() in isolation
   - DONE: test set index functions in test: basically the same test as the p-chase
   - DONE: p-chase: add cli options to run the outer loop in process to avoid address space randomization.
   - DONE: lockstep: update gpucachesim config and see if everything still works
