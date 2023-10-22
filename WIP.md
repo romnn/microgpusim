@@ -67,11 +67,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - p-chase: use pinned host memory for pchase l1 and refactor
-  - p-chase: use same parameters for the l1 latency distribution plot
-
-  - DONE: p-chase: try random (seeded) initialization of pointer index array (makes no sense)
-  - DONE: p-chase: try using pinned host memory to bypass all caching for analyzing larger l2 cache
+  - p-chase: implement l1 bypass in rust pchase
 
   - look into (fix) 4 threads
   - look into (fix) 4 threads
@@ -81,7 +77,6 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
   - p-chase: refactor way mapping
 
   - refactor: do not print reservation failure for L1 acceses (those are actually mshr merge fails because the mshr is full, hence we need to block the l1_latency_queue)
-  - DONE: debug: why does the latency not change
 
   - p-chase: infer way mapping through tracing misses back
   - p-chase: watch videos on how to automatically extract cache mappings
@@ -89,6 +84,11 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
   - p-chase: measure the overhead of the other lines in isolation??
   - p-chase: infer l2 pre-fetch policy
 
+  - DONE: debug: why does the latency not change
+  - DONE: p-chase: use pinned host memory for pchase l1 and refactor
+  - DONE: p-chase: use same parameters for the l1 latency distribution plot
+  - DONE: p-chase: try random (seeded) initialization of pointer index array (makes no sense)
+  - DONE: p-chase: try using pinned host memory to bypass all caching for analyzing larger l2 cache
   - GIVE UP: p-chase: get physical address
   - DONE: p-chase: reuse memory allocation
   - DONE: p-chase: infer set mapping function using sympy and AND and XOR using physical address

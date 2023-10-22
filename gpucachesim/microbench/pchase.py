@@ -177,7 +177,6 @@ def predict_is_hit(latencies, fit=None, num_clusters=3):
 
 def get_latency_distribution(latencies, bins=None):
     if bins is None:
-        # bins = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
         bins = np.array([0, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 1000, 2000, np.inf])
     bin_cols = ["{:>5} - {:<5}".format(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
 
@@ -190,39 +189,133 @@ def get_latency_distribution(latencies, bins=None):
     hist_df["bin_mid"] = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
     return hist_df
 
+class PChaseConfig(typing.NamedTuple):
+    mem: str
+    sim: bool
+    start_size_bytes: int
+    end_size_bytes: int
+    step_size_bytes: int
+    stride_bytes: int
+    warmup: typing.Optional[int]
+    max_rounds: typing.Optional[int]
+    iter_size: typing.Optional[int]
+    repetitions: typing.Optional[int]
 
-def collect_full_latency_distribution(sim, fair=False):
+
+def collect_full_latency_distribution(sim, configs=None):
+    if configs is None:
+        configs = []
+
+        # include 64 l1 hit (size_bytes < l1 size)
+        size_bytes=256 
+        stride_bytes=4
+        assert size_bytes / stride_bytes <= 64
+        configs.append(PChaseConfig(
+            mem="l1data",
+            start_size_bytes=size_bytes,
+            end_size_bytes=size_bytes, 
+            step_size_bytes=1,
+            stride_bytes=stride_bytes,
+            warmup=1,
+            iter_size=64,
+            max_rounds=None,
+            repetitions=1,
+            sim=sim
+       ))
+
+        # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
+        size_bytes=256 
+        stride_bytes=4
+        assert size_bytes / stride_bytes <= 64
+        configs.append(PChaseConfig(
+            mem="l2",
+            start_size_bytes=size_bytes,
+            end_size_bytes=size_bytes,
+            step_size_bytes=1,
+            stride_bytes=stride_bytes,
+            warmup=1,
+            repetitions=1,
+            max_rounds=None,
+            iter_size=64,
+            sim=sim,
+        ))
+
+        # include 64 l1 miss + l2 miss (l2 size < size_bytes)
+        size_bytes=4 * MB
+        stride_bytes=128
+        assert size_bytes / stride_bytes >= 64
+        configs.append(PChaseConfig(
+            mem="l2",
+            start_size_bytes=size_bytes,
+            end_size_bytes=size_bytes,
+            step_size_bytes=1,
+            stride_bytes=stride_bytes,
+            warmup=0,
+            repetitions=1,
+            iter_size=64,
+            max_rounds=None,
+            sim=sim,
+        ))
+
     latencies = []
-    # include l1 hits (size_bytes < l1 size)
-    if True:
-        size_bytes=128 
-        max_rounds=None if fair else 2 
-        hit_latencies_df, _ = pchase(
-                mem="l1data", start_size_bytes=size_bytes, end_size_bytes=size_bytes, 
-                step_size_bytes=1, stride_bytes=4, warmup=0, max_rounds=max_rounds, sim=sim)
+    for config in configs:
+        hit_latencies_df, _ = pchase(**config._asdict())
         hit_latencies = hit_latencies_df["latency"].to_numpy()
         latencies.append(hit_latencies)
 
-    if True:
-        # include l2 hits (l1 size < size_bytes < l2 size)
-        size_bytes=256 * KB
-        max_rounds = None if fair else 2
-        miss_latencies_df, _ = pchase(
-                mem="l1data", start_size_bytes=size_bytes,
-                end_size_bytes=size_bytes, step_size_bytes=1, stride_bytes=128,
-                warmup=0, max_rounds=max_rounds, sim=sim)
-        miss_latencies = miss_latencies_df["latency"].to_numpy()
-        latencies.append(miss_latencies)
 
-    # include l2 misses (l2 size < size_bytes)
-    if True:
-        size_bytes=2 * MB
-        iter_size = None if fair else 512
-        long_miss_latencies_df, _ = pchase(
-                mem="l2", start_size_bytes=size_bytes, end_size_bytes=size_bytes,
-                step_size_bytes=1, stride_bytes=128, warmup=0, iter_size=iter_size, sim=sim)
-        long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
-        latencies.append(long_miss_latencies)
+    # if True:
+    #     size_bytes=128 
+    #     # max_rounds=None if fair else 2 
+    #     hit_latencies_df, _ = pchase(
+    #         mem="l1data",
+    #         start_size_bytes=size_bytes,
+    #         end_size_bytes=size_bytes, 
+    #         step_size_bytes=1,
+    #         stride_bytes=4,
+    #         warmup=0,
+    #         max_rounds=max_rounds,
+    #         repetitions=repetitions,
+    #         sim=sim,
+    #     )
+    #     hit_latencies = hit_latencies_df["latency"].to_numpy()
+    #     latencies.append(hit_latencies)
+    #
+    # if True:
+    #     # include l2 hits (l1 size < size_bytes < l2 size)
+    #     size_bytes=256 * KB
+    #     # max_rounds = None if fair else 2
+    #     miss_latencies_df, _ = pchase(
+    #         mem="l1data",
+    #         start_size_bytes=size_bytes,
+    #         end_size_bytes=size_bytes,
+    #         step_size_bytes=1,
+    #         stride_bytes=128,
+    #         warmup=0,
+    #         max_rounds=max_rounds,
+    #         repetitions=repetitions,
+    #         sim=sim,
+    #     )
+    #     miss_latencies = miss_latencies_df["latency"].to_numpy()
+    #     latencies.append(miss_latencies)
+    #
+    # # include l2 misses (l2 size < size_bytes)
+    # if True:
+    #     size_bytes=2 * MB
+    #     # iter_size = None if fair else 512
+    #     long_miss_latencies_df, _ = pchase(
+    #         mem="l2",
+    #         start_size_bytes=size_bytes,
+    #         end_size_bytes=size_bytes,
+    #         step_size_bytes=1,
+    #         stride_bytes=128,
+    #         warmup=0,
+    #         iter_size=iter_size,
+    #         repetitions=repetitions,
+    #         sim=sim,
+    #     )
+    #     long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
+    #     latencies.append(long_miss_latencies)
 
     return np.hstack(latencies)
 
@@ -230,62 +323,35 @@ def collect_full_latency_distribution(sim, fair=False):
 def compute_hits(df, sim, force_misses=True):
     latencies = df["latency"].to_numpy()
     fit_latencies = latencies.copy()
+    combined_latencies = latencies.copy()
 
-    if force_misses or True:
-        # new_fit_latencies = [latencies]
-        # new_fit_latencies = []
-        #
-        # # include l1 hits (size_bytes < l1 size)
-        # if True:
-        #     size_bytes=128 
-        #     hit_latencies_df, _ = pchase(
-        #             mem="l1data", start_size_bytes=size_bytes, end_size_bytes=size_bytes, 
-        #             step_size_bytes=1, stride_bytes=4, warmup=0, max_rounds=2, sim=sim)
-        #     hit_latencies = hit_latencies_df["latency"].to_numpy()
-        #     new_fit_latencies.append(hit_latencies)
-        #
-        # if True:
-        #     # include l2 hits (l1 size < size_bytes < l2 size)
-        #     size_bytes=256 * KB
-        #     miss_latencies_df, _ = pchase(
-        #             mem="l1data", start_size_bytes=size_bytes,
-        #             end_size_bytes=size_bytes, step_size_bytes=1, stride_bytes=128,
-        #             warmup=0, max_rounds=2, sim=sim)
-        #     miss_latencies = miss_latencies_df["latency"].to_numpy()
-        #     new_fit_latencies.append(miss_latencies)
-        #
-        # # include l2 misses (l2 size < size_bytes)
-        # if True:
-        #     size_bytes=2 * MB
-        #     long_miss_latencies_df, _ = pchase(
-        #             mem="l2", start_size_bytes=size_bytes, end_size_bytes=size_bytes,
-        #             step_size_bytes=1, stride_bytes=128, warmup=0, iter_size=512, sim=sim)
-        #     long_miss_latencies = long_miss_latencies_df["latency"].to_numpy()
-        #     new_fit_latencies.append(long_miss_latencies)
-
-        # fit_latencies = np.hstack([new_fit_latencies)
-        fit_latencies = np.hstack([latencies, collect_full_latency_distribution(sim=sim)])
-
+    if force_misses:
+        fit_latencies = collect_full_latency_distribution(sim=sim)
+        combined_latencies = np.hstack([latencies, fit_latencies])
 
     latencies = np.abs(latencies)
-    fit_latencies = np.abs(fit_latencies)
-
     latencies = latencies.reshape(-1, 1)
+
+    fit_latencies = np.abs(fit_latencies)
     fit_latencies = fit_latencies.reshape(-1, 1)
 
+    combined_latencies= np.abs(combined_latencies)
+    combined_latencies= combined_latencies.reshape(-1, 1)
+
+    if force_misses:
+        pred_hist_df = get_latency_distribution(latencies)
+        print("=== LATENCY HISTOGRAM (prediction)")
+        print(pred_hist_df[["bin", "count"]])
+        print("")
+
+        fit_hist_df = get_latency_distribution(fit_latencies)
+        print("=== LATENCY HISTOGRAM (fitting)")
+        print(fit_hist_df[["bin", "count"]])
+        print("")
     
-    # pred_hist, _ = np.histogram(latencies, bins=bins)
-    pred_hist_df = get_latency_distribution(latencies)
-
-    # fit_hist, _ = np.histogram(fit_latencies, bins=bins)
-    # fit_hist_df = pd.DataFrame(fit_hist.reshape(1, -1), columns=bin_cols).T
-    fit_hist_df = get_latency_distribution(fit_latencies)
-
-    print("=== LATENCY HISTOGRAM (prediction)")
-    print(pred_hist_df[["bin", "count"]])
-    print("")
-    print("=== LATENCY HISTOGRAM (fitting)")
-    print(fit_hist_df[["bin", "count"]])
+    combined_hist_df = get_latency_distribution(combined_latencies)
+    print("=== LATENCY HISTOGRAM (combined)")
+    print(combined_hist_df[["bin", "count"]])
     print("")
 
     # clustering_bins = fit_hist[bins[:-1] <= 1000.0]
@@ -296,7 +362,8 @@ def compute_hits(df, sim, force_misses=True):
     # valid_latency_bins = hist[hist_percent > 0.5]
     # latency_cutoff = np.min(valid_latency_bins)
 
-    print("BEFORE: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+    print("BEFORE: mean={:4.2f} min={:4.2f} max={:4.2f}".format(
+        fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
 
     # latency_abs_z_score = np.abs(latencies - np.median(fit_latencies))
     # outliers = latency_abs_z_score > 1000
@@ -305,29 +372,29 @@ def compute_hits(df, sim, force_misses=True):
     num_outliers = outliers.sum()
     print(num_outliers)
     print(len(df))
-    print("found {} outliers ({:1.4}%)".format(num_outliers, float(num_outliers) / float(len(df))))
+    print("found {} outliers ({:1.4}%)".format(
+        num_outliers,
+        float(num_outliers) / float(len(df)),
+    ))
     fit_latencies[outliers] = np.amax(fit_latencies[~outliers])
-    print("AFTER: mean=%4.2f min=%4.2f max=%4.2f" % (fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
+    print("AFTER: mean={:4.2f} min={:4.2f} max={:4.2f}".format(
+        fit_latencies.mean(), fit_latencies.min(), fit_latencies.max()))
 
-    # df["hit_cluster"], (
-    #     hit_latency_centroid,
-    #     miss_latency_centroids,
-    # ) = predict_is_hit(latencies, fit=fit_latencies)
     df["hit_cluster"], latency_centroids = predict_is_hit(latencies, fit=fit_latencies)
 
-    # df["is_hit"] = df["hit_cluster"] == 0
-    # df["is_miss"] = ~df["is_hit"]
-
     print("latency_centroids = {}".format(latency_centroids))
-    # print("hit_latency_centroid   = {}".format(np.array(hit_latency_centroid)))
-    # print("miss_latency_centroids = {}".format(np.array(miss_latency_centroids)))
     return df
 
 SEC = 1
 MIN = 60 * SEC
 
-def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_size_bytes, max_rounds=None, iter_size=None, sim=False):
+def pchase(
+        mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_size_bytes,
+        max_rounds=None, repetitions=None, iter_size=None, sim=False):
     executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
+    warmup = max(0, int(warmup))
+    repetitions = max(1, int(repetitions if repetitions is not None else 1))
+
     cmd = [
         str(executable.absolute()),
         str(mem.lower()),
@@ -339,24 +406,35 @@ def pchase(mem, stride_bytes, warmup, start_size_bytes, end_size_bytes, step_siz
     ]
     cmd += [
         str(int(stride_bytes)),
-        str(int(warmup)),
+        str(warmup),
+        str(repetitions),
     ]
+
+    derived_iter_size = None
+    round_size = float(end_size_bytes) / float(stride_bytes)
 
     # custom limit to iter size
     if iter_size is not None:
-        cmd += [str(int(iter_size))]
+        derived_iter_size = int(iter_size)
+        cmd += [str(derived_iter_size)]
     elif max_rounds is not None:
-        round_size = end_size_bytes / stride_bytes
-        cmd += [
-            str(int(float(max_rounds) * float(round_size)))
-        ]
+        derived_iter_size = int(float(max_rounds) * float(round_size))
+        cmd += ["R{}".format(max_rounds)]
+    else:
+        derived_iter_size = round_size * 4
 
     cmd = " ".join(cmd)
-    print(cmd)
 
-    steps = max(1, abs(end_size_bytes - start_size_bytes) / step_size_bytes)
+    unit = 2 * MIN if sim else 1 * SEC
+    per_size_timeout = [
+        ((derived_iter_size * (1 + warmup)) / 1000) * unit
+        for _ in range(start_size_bytes, end_size_bytes+1, step_size_bytes)
+    ]
+    timeout_sec = repetitions * sum(per_size_timeout)
+    timeout_sec = max(5, 2 * timeout_sec)
 
-    timeout_sec=steps * (20 * MIN if sim else 10 * SEC)
+    print("[timeout {: >5.1f} sec]\t{}".format(timeout_sec, cmd))
+
     _, stdout, stderr, _ = cmd_utils.run_cmd(
         cmd,
         timeout_sec=int(timeout_sec),
@@ -389,19 +467,22 @@ def set_mapping(mem, stride_bytes, warmup, size_bytes,
     # repetitions
     cmd += [str(int(repetitions))]
 
+    # derived iter size
+    derived_iter_size = None
+
     # custom limit to iter size
     if iter_size is not None:
-        cmd += [str(int(iter_size))]
+        derived_iter_size = int(iter_size)
+        cmd += [str(derived_iter_size)]
     elif max_rounds is not None:
         round_size = size_bytes / stride_bytes
-        cmd += [
-            str(int(float(max_rounds) * float(round_size)))
-        ]
+        derived_iter_size = int(float(max_rounds) * float(round_size))
+        cmd += [str(derived_iter_size)]
 
     cmd = " ".join(cmd)
     print(cmd)
 
-    timeout_sec=repetitions * (20 * MIN if sim else 10 * SEC)
+    timeout_sec = repetitions * (20 * MIN if sim else 10 * SEC)
     _, stdout, stderr, _ = cmd_utils.run_cmd(
         cmd,
         timeout_sec=int(timeout_sec),
@@ -419,80 +500,54 @@ def set_mapping(mem, stride_bytes, warmup, size_bytes,
 
 @main.command()
 @click.option("--warmup", "warmup", type=int, help="cache warmup")
-@click.option("--repetitions", "repetitiions", type=int, default=10, help="repetitions")
+@click.option("--repetitions", "repetitions", type=int, help="repetitions")
 @click.option("--mem", "mem", default="l2", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
+    repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 10))
     warmup = warmup or 0
 
     total_l2_cache_size_bytes = 2 * MB
-    step_bytes = 100 * KB
+    step_bytes = 128 * KB
+    step_bytes = 64 * KB
     start_cache_size_bytes = step_bytes
-    # start_cache_size_bytes = 800 * KB
-    end_cache_size_bytes = 8 * MB
-    # end_cache_size_bytes = 900 * KB
-    # stride_bytes = 10 * KB
-
-    # strides = [2**i for i in range(int(np.floor(np.log2(start_cache_size_bytes))))]
-    # print(strides)
-
-    total_l2_cache_size_bytes = 2 * MB
-    start_cache_size_bytes = 32 * KB
     end_cache_size_bytes = 3 * MB
-    end_cache_size_bytes = 1 * MB
-    # end_cache_size_bytes = 512 * KB
-    step_bytes = 32 * KB
-
     stride_bytes = 128
-
-    # combined = []
-    # for repetition in range(repetitiions):
-    #     for n in range(start_cache_size_bytes, end_cache_size_bytes, step_bytes):
-    #         # compute stride that is sufficient to traverse N twice
-    #         # iterations = 48 * KB
-    #         # min_stride = np.floor(np.log2((2 * n) / (iterations * 4)))
-    #         #
-    #         # stride_bytes = 2**min_stride * 4
-    #         # rounds = float(iterations) / (float(n) / float(stride_bytes))
-    #         # assert rounds >= 1.0
-    #         # print(rounds)
-    #
-    #         stride_bytes = 128
-    #
-    #         # stride_bytes = ((2 * n / 4) / (6 * 1024)) * 4
-    #         df, (_, stderr) = pchase(
-    #                 mem="l2", size_bytes=n, stride_bytes=stride_bytes, warmup=warmup, sim=sim)
-    #         print(stderr)
-    #         df["n"] = n
-    #         df["r"] = repetition
-    #         combined.append(df)
-
-    # combined = pd.concat(combined, ignore_index=True)
-    # # compute the mean latency
-    # combined = combined.groupby(["n", "r", "index"]).mean().reset_index()
-    # combined = compute_hits(combined, sim=sim)
-    # combined = compute_rounds(combined)
 
     cache_file = CACHE_DIR / "l2_prefetch_size.{}.{}.csv".format(mem, "sim" if sim else "native")
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
-            mem=mem, start_size_bytes=start_cache_size_bytes, 
-            end_size_bytes=end_cache_size_bytes, step_size_bytes=step_bytes,
-            stride_bytes=stride_bytes, warmup=warmup, sim=sim)
+            mem=mem,
+            start_size_bytes=start_cache_size_bytes, 
+            end_size_bytes=end_cache_size_bytes,
+            step_size_bytes=step_bytes,
+            stride_bytes=stride_bytes,
+            repetitions=repetitions,
+            max_rounds=1,
+            warmup=warmup,
+            sim=sim,
+        )
         print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
 
         combined = compute_hits(combined, sim=sim)
         combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
+    combined = compute_hits(combined, sim=sim)
+    combined = compute_rounds(combined)
+
+    # print(combined)
     # # remove incomplete rounds
     # round_sizes = combined["round"].value_counts()
     # full_round_size = round_sizes.max()
@@ -501,6 +556,9 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
     # combined = combined[combined["round"].isin(full_rounds)]
 
     for n, df in combined.groupby("n"):
+        # print(n)
+        # print(df)
+
         # reindex the numeric index
         df = df.reset_index()
         assert df.index.start == 0
@@ -527,7 +585,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
             )
         )
 
-        for round, round_df in df.groupby("round"):
+        for round, round_df in df.groupby("round", dropna=False):
             # count hits and misses
             hits = round_df["hit_cluster"] <= 1  # l1 hits or l1 miss & l2 hit
             misses = round_df["hit_cluster"] > 1  # l1 miss & l2 miss
@@ -539,7 +597,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
             miss_rate = float(num_misses) / float(len(round_df))
             hit_rate = float(num_hits) / float(len(round_df))
             print(
-                "\t\tround={:>2} \t\thits={:<4} ({}) misses={:<4} ({})".format(
+                "round={:>2} hits={:<4} ({}) misses={:<4} ({})".format(
                     round,
                     color(num_hits, fg="green", bold=True),
                     color("{:>3.1f}%".format(hit_rate * 100.0), fg="green"),
@@ -547,7 +605,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
                     color("{:>3.1f}%".format(miss_rate * 100.0), fg="red"),
                 )
             )
-        print("\n")
+        # print("\n")
 
 
 def compute_rounds_old(df):
@@ -679,7 +737,7 @@ def compute_rounds(df):
         start_index_value = arr_indices.min()
         assert start_index_value == 0.0
         intra_round_start_indices = df[mask].index[arr_indices == start_index_value]
-        print(n, intra_round_start_indices)
+        # print(n, intra_round_start_indices)
 
         for round in range(len(intra_round_start_indices) - 1):
             start_idx = intra_round_start_indices[round]
@@ -836,10 +894,9 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
         )
         print(stderr)
 
-        print(combined)
         combined = combined.drop(columns=["r"])
-        combined = combined.groupby(["n", "overflow_index", "index", "virt_addr"]).median()
-        combined = combined.reset_index()
+        combined = combined.groupby(["n", "overflow_index", "index", "virt_addr"]).median().reset_index()
+
         combined = compute_hits(combined, sim=sim)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1583,7 +1640,7 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
-@click.option("--repetitions", "repetitions", default=1, type=int, help="number of repetitions")
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option("--mem", "mem", default="l1data", type=str, help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
@@ -1606,7 +1663,7 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
     memory access process and find how the cache lines
     are updated.
     """
-    repetitions = max(1, repetitions)
+    repetitions = max(1, repetitions or (1 if sim else 4))
 
     known_cache_size_bytes = 24 * KB
     known_cache_line_bytes = 128
@@ -1642,7 +1699,7 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         # combined = []
         # for repetition in range(repetitions):
@@ -1661,29 +1718,27 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
         #         df["set"] = set_idx
         #         combined.append(df)
         #
-        combined = []
-        for repetition in range(repetitions):
-            step_size_bytes = known_cache_line_bytes
-            # step_size_bytes = 32
-            start_size_bytes = known_cache_size_bytes + 1 * step_size_bytes
-            end_size_bytes = known_cache_size_bytes + known_num_sets * step_size_bytes
-            df, (_, stderr) = pchase(
-                    mem=mem,
-                    start_size_bytes=start_size_bytes,
-                    end_size_bytes=end_size_bytes,
-                    step_size_bytes=step_size_bytes,
-                    stride_bytes=stride_bytes,
-                    warmup=5,
-                    sim=sim,
-            )
-            print(stderr)
-            df["r"] = repetition
-            df["set"] = (df["n"] % known_cache_size_bytes) // step_size_bytes
-            combined.append(df)
+        step_size_bytes = known_cache_line_bytes
+        # step_size_bytes = 32
+        start_size_bytes = known_cache_size_bytes + 1 * step_size_bytes
+        end_size_bytes = known_cache_size_bytes + known_num_sets * step_size_bytes
+        combined, (_, stderr) = pchase(
+            mem=mem,
+            start_size_bytes=start_size_bytes,
+            end_size_bytes=end_size_bytes,
+            step_size_bytes=step_size_bytes,
+            stride_bytes=stride_bytes,
+            repetitions=repetitions,
+            warmup=1 if sim else 5,
+            sim=sim,
+        )
+        print(stderr)
 
-        combined = pd.concat(combined, ignore_index=True)
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
 
-        # combined = combined.groupby(["n", "set", "latency", "index", "virt_addr"]).mean().reset_index()
+        combined["set"] = (combined["n"] % known_cache_size_bytes) // step_size_bytes
+
         combined = compute_hits(combined, sim=sim)
         # for (set_idx, n), set_df in combined.groupby(["set", "n"]):
         #     print(set_idx)
@@ -1705,12 +1760,9 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
 
         combined = compute_rounds(combined)
 
-        
-
-
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
 
     # remove incomplete rounds
@@ -1721,7 +1773,7 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
         cache_size_bytes=known_cache_size_bytes, 
         sector_size_bytes=sector_size_bytes,
         cache_line_bytes=known_cache_line_bytes,
-        )
+    )
 
     if False:
         for (set_idx, n), set_df in combined.groupby(["set", "n"]):
@@ -1800,8 +1852,6 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
         # print(set_df.head(n=1000))
         # return
 
-    # return
-
     # for round, _ in combined.groupby("round"):
     #     # round_mask = combined["round"] == round
     #     # lines = combined.loc[round_mask, "index"] // known_cache_line_bytes
@@ -1831,22 +1881,23 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
 
         human_size = humanize.naturalsize(n, binary=True)
 
+        # compute mean occurences per index
+        mean_rounds = df["index"].value_counts().mean()
+        assert mean_rounds >= 2.0
+
         print(
-            "size={:<10} cache lines={:<3.1f} hits={:<4} ({:2.2f}%) misses={:<4} ({:2.2f}%)".format(
+            "size={:<10} cache lines={:<3.1f} hits={} ({}) misses={} ({}) rounds={:3.3f}".format(
                 human_size,
                 float(n) / float(known_cache_line_bytes),
-                color(num_hits, fg="green", bold=True),
-                float(num_hits) / float(len(df)) * 100.0,
-                color(num_misses, fg="red", bold=True),
-                float(num_misses) / float(len(df)) * 100.0,
+                color("{: <5}".format(num_hits), fg="green", bold=True),
+                color("{: >6.2f}%".format(float(num_hits) / float(len(df)) * 100.0), fg="green", bold=True),
+                color("{: <5}".format(num_misses), fg="red", bold=True),
+                color("{: >6.2f}%".format(float(num_misses) / float(len(df)) * 100.0), fg="red", bold=True),
+                mean_rounds,
             )
         )
 
-        # compute mean occurences per index
-        mean_rounds = df["index"].value_counts().mean()
-        print(mean_rounds)
-        print("mean occurences per index (ROUNDS) = {:3.3f}".format(mean_rounds))
-        assert mean_rounds >= 1.0
+        
 
     # check if pattern is periodic
     for (set_idx, n), df in combined.groupby(["set", "n"]):
@@ -1984,6 +2035,8 @@ def find_cache_replacement_policy(repetitions, mem, cached, sim):
             )
             for round, miss_lines in enumerate(miss_patterns):
                 print("========== set={: <2} round[{: <2}] ===========\t {: >5} missed lines:\n{}".format(set_idx, round, len(miss_lines), miss_lines))
+
+    return
 
     for (set_idx, n), set_df in combined.groupby(["set", "n"]):
         set_misses = set_df.loc[set_df["hit_cluster"] != 0, "cache_line"]
@@ -2326,7 +2379,8 @@ So the relationship stands like this:
 @click.option("--mem", "mem", type=str, default="l1data", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def find_cache_sets(mem, cached, sim):
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
+def find_cache_sets(mem, cached, sim, repetitions):
     """
     Determine number of cache sets T.
 
@@ -2336,6 +2390,7 @@ def find_cache_sets(mem, cached, sim):
     When N > C + (T − 1)b, all cache sets are missed.
     We can then deduce T from cache miss patterns accordingly.
     """
+    repetitions = max(1, repetitions or (1 if sim else 10))
     stride_bytes = 8
     step_bytes = 8
 
@@ -2376,20 +2431,27 @@ def find_cache_sets(mem, cached, sim):
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
             mem=mem, start_size_bytes=start_cache_size_bytes,
             end_size_bytes=end_cache_size_bytes, step_size_bytes=step_bytes,
-            stride_bytes=stride_bytes, warmup=1, sim=sim)
+            stride_bytes=stride_bytes,
+            max_rounds=1,
+            warmup=1 if sim else 2,
+            repetitions=repetitions,
+            sim=sim)
         print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
 
         combined = compute_hits(combined, sim=sim)
         combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
 
     for n, df in combined.groupby("n"):
@@ -2415,14 +2477,14 @@ def find_cache_sets(mem, cached, sim):
 
         human_size = humanize.naturalsize(n, binary=True)
         print(
-            "size={: <10} lsbs={: <3} hits={: <4} ({}) l1 misses={: <4} l2 misses={: <4} (miss rate={}) l1 misses={}.. l2 misses= {}..".format(
+            "size={: <10} lsbs={: <4} hits={} ({}) l1 misses={} l2 misses={} (miss rate={}) l1 misses={}.. l2 misses= {}..".format(
                 human_size,
-                n % 128,
-                str(color(num_hits, fg="green", bold=True)),
-                color("{: >2.2f}%".format(hit_rate), fg="green"),
-                str(color(num_l1_misses, fg="red", bold=True)),
-                str(color(num_l2_misses, fg="red", bold=True)),
-                color("{: >2.2f}%".format(miss_rate), fg="red"),
+                int(n % 128),
+                color("{: <5}".format(num_hits), fg="green", bold=True),
+                color("{: >3.2f}%".format(hit_rate), fg="green"),
+                color("{: <5}".format(num_l1_misses), fg="red", bold=True),
+                color("{: <5}".format(num_l2_misses), fg="red", bold=True),
+                color("{: >3.2f}%".format(miss_rate), fg="red"),
                 l1_misses[:10],
                 l2_misses[:10],
             )
@@ -2512,7 +2574,8 @@ def find_cache_sets(mem, cached, sim):
 @click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def find_cache_line_size(mem, cached, sim):
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
+def find_cache_line_size(mem, cached, sim, repetitions):
     """
     Step 2.
 
@@ -2525,6 +2588,7 @@ def find_cache_line_size(mem, cached, sim):
     Based on the memory access patterns, we can also have
     a general idea on the cache replacement policy.
     """
+    repetitions = max(1, repetitions or (1 if sim else 10))
     known_cache_size_bytes = 24 * KB
     predicted_cache_line_bytes = 128
 
@@ -2555,18 +2619,30 @@ def find_cache_line_size(mem, cached, sim):
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
-                mem=mem, start_size_bytes=start_size_bytes, end_size_bytes=end_size_bytes,
-                step_size_bytes=step_bytes,  stride_bytes=stride_bytes, warmup=1, sim=sim)
+            mem=mem,
+            start_size_bytes=start_size_bytes,
+            end_size_bytes=end_size_bytes,
+            step_size_bytes=step_bytes,
+            stride_bytes=stride_bytes,
+            warmup=1 if sim else 2,
+            max_rounds=1,
+            repetitions=repetitions,
+            sim=sim,
+        )
         print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
+
         combined = compute_hits(combined, sim=sim)
         combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
 
     num_unique_indices = len(combined["index"].unique())
@@ -2580,7 +2656,6 @@ def find_cache_line_size(mem, cached, sim):
     # combined = combined[combined["round"].isin(full_rounds)]
     # # combined = combined[combined["round"].isin([0, 1])]
 
-    i = 0
     for n, df in combined.groupby("n"):
         if n % KB == 0:
             print("==> {} KB".format(n / KB))
@@ -2623,20 +2698,18 @@ def find_cache_line_size(mem, cached, sim):
         human_size = humanize.naturalsize(n, binary=True)
         print(
              # short miss pattern ={}.. long miss pattern = {}..".format(
-            "i={: >3} size={: >10} lsbs={: <3} hits={: <4} ({}) l1 misses={: <4} l2 misses={: <4} (miss rate={})".format(
-                i,
+            "size={: >10} lsbs={: <4} hits={} ({}) l1 misses={} l2 misses={} (miss rate={})".format(
                 human_size,
-                n % 128,
-                str(color(num_hits, fg="green", bold=True)),
-                color("{: >2.2f}%".format(hit_rate), fg="green"),
-                str(color(num_l1_misses, fg="red", bold=True)),
-                str(color(num_l2_misses, fg="red", bold=True)),
-                color("{: >2.2f}%".format(miss_rate), fg="red"),
+                int(n % 128),
+                color("{: <5}".format(num_hits), fg="green", bold=True),
+                color("{: >3.2f}%".format(hit_rate), fg="green"),
+                color("{: <5}".format(num_l1_misses), fg="red", bold=True),
+                color("{: <5}".format(num_l2_misses), fg="red", bold=True),
+                color("{: >3.2f}%".format(miss_rate), fg="red"),
                 # miss_pattern1[:6],
                 # miss_pattern2[:6],
             )
         )
-        i += 1
 
     def agg_miss_rate(hit_clusters): 
         cluster_counts = hit_clusters.value_counts().reset_index()
@@ -2719,14 +2792,16 @@ def quantize_latency(latency, bin_size=50):
 # @click.option("--end", "end_size", type=int, help="end cache size in bytes")
 @click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def latency_n_graph(mem, cached, sim):
+def latency_n_graph(mem, cached, repetitions, sim):
     """
     Compute latency-N graph.
 
     This is not by itself sufficient to deduce cache parameters but our simulator should match
     this behaviour.
     """
+    repetitions = max(1, repetitions or (1 if sim else 10))
     known_cache_line_bytes = 128
     known_cache_size_bytes = 24 * KB
     known_cache_sets = 4
@@ -2756,20 +2831,30 @@ def latency_n_graph(mem, cached, sim):
 
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
-            mem=mem, start_size_bytes=start_cache_size_bytes,
-            end_size_bytes=end_cache_size_bytes, step_size_bytes=step_size_bytes,
-            stride_bytes=stride_bytes, warmup=1, sim=sim)
+            mem=mem,
+            start_size_bytes=start_cache_size_bytes,
+            end_size_bytes=end_cache_size_bytes,
+            step_size_bytes=step_size_bytes,
+            stride_bytes=stride_bytes,
+            warmup=1 if sim else 2,
+            max_rounds=1,
+            repetitions=repetitions,
+            sim=sim,
+        )
         print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
 
         combined = compute_hits(combined, sim=sim)
         combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
 
     # remove incomplete rounds
@@ -2931,30 +3016,34 @@ def latency_n_graph(mem, cached, sim):
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
-def plot_latency_distribution(cached, mem, sim):
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
+def plot_latency_distribution(cached, mem, sim, repetitions):
+    repetitions = max(1, repetitions or 1)
+
     # plot latency distribution
     cache_file = CACHE_DIR / "latency_distribution.{}.{}.csv".format(mem, "sim" if sim else "native")
     if cached and cache_file.is_file():
         # open cached files
-        latencies = pd.read_csv(cache_file, header=0)
+        latencies = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         latencies = pd.DataFrame(
-                collect_full_latency_distribution(sim=sim, fair=True), columns=["latency"])
+            collect_full_latency_distribution(sim=sim),
+            columns=["latency"],
+        )
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        latencies.to_csv(cache_file)
+        latencies.to_csv(cache_file, index=False)
 
-    # bins = np.array(list(range(0, 1000, 10)) + [np.inf])
     bin_size =  20
-    bins = np.array(list(range(0, 700, bin_size)))
+    bins = np.arange(0, 700, step=bin_size)
     latency_hist_df = get_latency_distribution(latencies["latency"], bins=bins)
     _, latency_centroids = predict_is_hit(latencies["latency"].to_numpy().reshape(-1, 1))
     print(latency_centroids)
     # print(latency_hist_df)
 
     ylabel = "count"
-    xlabel = "latency"
+    xlabel = "latency (cycles)"
     fontsize= FONT_SIZE_PT
     font_family="Helvetica"
 
@@ -2970,9 +3059,9 @@ def plot_latency_distribution(cached, mem, sim):
             edgecolor='black',
             label="gpucachesim" if sim else "GTX 1080")
     for centroid, label in zip(latency_centroids, ["L1 Hit", "L2 Hit", "L2 Miss"]):
-        centroid_bins = latency_hist_df["bin_start"] <= centroid
-        centroid_bins &= centroid <= latency_hist_df["bin_end"]
-        y = latency_hist_df.loc[centroid_bins,"count"].max()
+        centroid_bins = latency_hist_df["bin_start"] <= centroid + 2 * bin_size
+        centroid_bins &= centroid - 2 * bin_size <= latency_hist_df["bin_end"]
+        y = latency_hist_df.loc[centroid_bins, "count"].max()
         ax.annotate("{}\n({:3.1f})".format(label, centroid),
             xy=(centroid, y),
             # xytext=(0, 4),  # 4 points vertical offset.
@@ -3051,8 +3140,9 @@ def plot_latency_distribution(cached, mem, sim):
 @click.option("--mem", "mem", type=str, default="l1data", help="mem to microbenchmark")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option("--max_rounds", "max_rounds", type=int, help="maximum number of rounds")
-def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_rounds):
+def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetitions, max_rounds):
     """
     Step 1.
 
@@ -3062,7 +3152,8 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
     where all memory accesses are cache hits.
     """
     
-    max_rounds = max_rounds or 1
+    repetitions = max(1, repetitions or (1 if sim else 4))
+    max_rounds = max(1, max_rounds or 1)
     predicted_cache_size_bytes = 24 * KB
 
     step_size_bytes = 1 * KB
@@ -3096,20 +3187,26 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
     cache_file = CACHE_DIR / "cache_size.{}.{}.csv".format(mem, "sim" if sim else "native")
     if cached and cache_file.is_file():
         # open cached files
-        combined = pd.read_csv(cache_file, header=0)
+        combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
                 mem=mem, start_size_bytes=start_size_bytes, end_size_bytes=end_size_bytes, 
                 step_size_bytes=step_size_bytes, stride_bytes=stride_bytes, 
-                warmup=1, max_rounds=max_rounds, sim=sim)
+                warmup=1,
+                repetitions=repetitions,
+                max_rounds=max_rounds,
+                sim=sim)
         print(stderr)
+
+        combined = combined.drop(columns=["r"])
+        combined = combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
 
         combined = compute_hits(combined, sim=sim)
         combined = compute_rounds(combined)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
-        combined.to_csv(cache_file)
+        combined.to_csv(cache_file, index=False)
 
 
     
@@ -3185,26 +3282,35 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, max_roun
 
 @main.command()
 def test():
-    print(16 * KB, 128 * 32 * 4)
+    # print(16 * KB, 128 * 32 * 4)
+    pass
 
 
 @main.command()
 @click.option("--mem", "mem", type=str, default="l1data", help="memory to microbenchmark")
 @click.option("--warmup", type=int, help="number of warmup interations")
+@click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
+@click.option("--rounds", "rounds", type=int, help="number of rounds")
 @click.option("--size", type=int, help="size in bytes")
 @click.option("--stride", type=int, help="stride in bytes")
 @click.option("--verbose", type=bool, is_flag=True, help="verbose output")
 @click.option("--sim", type=bool, is_flag=True, help="use simulator")
-def run(mem, warmup, size, stride, verbose, sim):
-    if warmup is None:
-        warmup = 1
-    if stride is None:
-        stride = 32
-    if size is None:
-        size = 16 * KB
+def run(mem, warmup, repetitions, rounds, size, stride, verbose, sim):
+    repetitions = repetitions or 1
+    warmup = warmup or 1
+    stride = stride or 32
+    size = size or 24 * KB
     df, (stdout, stderr) = pchase(
-            mem=mem, start_size_bytes=size, end_size_bytes=size, step_size_bytes=1,
-            stride_bytes=stride, warmup=warmup,sim=sim)
+        mem=mem,
+        start_size_bytes=size,
+        end_size_bytes=size,
+        step_size_bytes=1,
+        stride_bytes=stride,
+        repetitions=warmup,
+        max_rounds=rounds,
+        warmup=warmup,
+        sim=sim,
+    )
     if verbose:
         print(stdout)
         print(stderr)

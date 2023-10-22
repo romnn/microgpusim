@@ -9,80 +9,27 @@
 
 #include "common.hpp"
 
-// #define CUDA_CHECK(call)                                                    \
-//   {                                                                            \
-//     call;                                                                      \
-//     cudaError err = cudaGetLastError();                                        \
-//     if (cudaSuccess != err) {                                                  \
-//       fprintf(stderr,                                                          \
-//               "Cuda error in function '%s' file '%s' in line %i : %s.\n",      \
-//               #call, __FILE__, __LINE__, cudaGetErrorString(err));             \
-//       fflush(stderr);                                                          \
-//       exit(EXIT_FAILURE);                                                      \
-//     }                                                                          \
-//   }
+// const bool USE_COMPRESSION = false;
+const bool USE_HOST_MAPPED_MEMORY = true;
 
-const bool USE_COMPRESSION = false;
-
-const size_t ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
-
-// __global__ __noinline__ void
-// global_measure_clock_overhead(unsigned int *clock_cycles) {
-//   const size_t iterations = 200;
-//   __shared__ unsigned int s_overhead[2 * iterations];
-//
-//   for (size_t i = 0; i < 2 * iterations; i++) {
-//     volatile unsigned int start_time = clock();
-//     unsigned int end_time = clock();
-//     s_overhead[i] = (end_time - start_time);
-//   }
-//
-//   unsigned int sum = 0;
-//   for (size_t i = 0; i < iterations; i++) {
-//     sum += s_overhead[iterations + i];
-//   }
-//   *clock_cycles = float(sum) / float(iterations);
-// }
-//
-// unsigned int measure_clock_overhead() {
-//   uint32_t *h_clock_overhead = (uint32_t *)malloc(sizeof(uint32_t) * 1);
-//
-//   uint32_t *d_clock_overhead;
-//   CUDA_CHECK(cudaMalloc((void **)&d_clock_overhead, sizeof(uint32_t) *
-//   1));
-//
-//   // launch kernel
-//   dim3 block_dim = dim3(1);
-//   dim3 grid_dim = dim3(1, 1, 1);
-//
-//   CUDA_CHECK((global_measure_clock_overhead<<<grid_dim, block_dim>>>(
-//       d_clock_overhead)));
-//
-//   CUDA_CHECK(cudaMemcpy((void *)h_clock_overhead, (void
-//   *)d_clock_overhead,
-//                            sizeof(uint32_t) * 1, cudaMemcpyDeviceToHost));
-//
-//   fprintf(stderr, "clock overhead is %u cycles\n", *h_clock_overhead);
-//
-//   return *h_clock_overhead;
-// }
+const size_t SHARED_MEMORY_MAX_ITER_SIZE = ((48 * KB) / 2) / sizeof(uint32_t);
 
 __global__ __noinline__ void
-global_latency_l1_data(unsigned int *array, int array_length,
-                       unsigned int *duration, unsigned int *index,
-                       int iter_size, size_t warmup_iterations) {
-  const int max_iter_size = ITER_SIZE;
+global_latency_l1_data_shared_memory(unsigned int *array, int array_length,
+                                     unsigned int *latency, unsigned int *index,
+                                     int iter_size, size_t warmup_iterations) {
+  const int max_iter_size = SHARED_MEMORY_MAX_ITER_SIZE;
   assert(iter_size <= max_iter_size);
 
   unsigned int start_time, end_time;
   uint32_t j = 0;
 
-  __shared__ uint32_t s_tvalue[max_iter_size];
+  __shared__ uint32_t s_latency[max_iter_size];
   __shared__ uint32_t s_index[max_iter_size];
 
   for (size_t k = 0; k < iter_size; k++) {
     s_index[k] = 0;
-    s_tvalue[k] = 0;
+    s_latency[k] = 0;
   }
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
@@ -92,7 +39,7 @@ global_latency_l1_data(unsigned int *array, int array_length,
       s_index[k] = j;
       end_time = clock();
 
-      s_tvalue[k] = end_time - start_time;
+      s_latency[k] = end_time - start_time;
     } else {
       j = array[j];
     }
@@ -104,120 +51,122 @@ global_latency_l1_data(unsigned int *array, int array_length,
 
   for (size_t k = 0; k < iter_size; k++) {
     index[k] = s_index[k];
-    duration[k] = s_tvalue[k];
+    latency[k] = s_latency[k];
   }
 }
 
-// can store latencies 0-100, 100-200, .. 1500-1600
-// const static unsigned int LATENCY_BIN_COUNT = 16;
-const static unsigned int LATENCY_BIN_SIZE = 16;
-// const static unsigned int LATENCY_BIN_BITS = 4; //
-// const static unsigned int LATENCIES_PER_TVALUE = 8;
-//
-// constexpr unsigned floorlog2(unsigned x) {
-//   return x == 1 ? 0 : 1 + floorlog2(x >> 1);
-// }
-//
-// constexpr unsigned ceillog2(unsigned x) {
-//   return x == 1 ? 0 : floorlog2(x - 1) + 1;
-// }
-//
-// static_assert(ceillog2(LATENCY_BIN_COUNT) == LATENCY_BIN_BITS,
-//               "correct latency bin bits");
-// static_assert(sizeof(uint32_t) * 8 / LATENCY_BIN_BITS ==
-// LATENCIES_PER_TVALUE,
-//               "correct latencies per tvalue");
-// static_assert(sizeof(uint32_t) * 8 == 32, "uint32 is 32 bits");
-// static_assert(CHAR_BIT == 8, "have 8 bits per byte");
-
-// const int ITER_SIZE_COMPRESSED = 12 * 1024;
-const size_t ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
-
 __global__ __noinline__ void
-global_latency_compressed(unsigned int *array, int array_length,
-                          unsigned int *duration, unsigned int *index,
-                          int iter_size, size_t warmup_iterations) {
-  const int max_iter_size = ITER_SIZE_COMPRESSED;
-  assert(iter_size <= max_iter_size);
-
-  unsigned int start_time, end_time, dur;
+global_latency_l1_data_host_mapped(unsigned int *array, int array_length,
+                                   unsigned int *latency, unsigned int *index,
+                                   int iter_size, size_t warmup_iterations) {
+  unsigned int start_time, end_time;
   uint32_t j = 0;
-
-  __shared__ uint8_t s_tvalue[max_iter_size];
-  // __shared__ uint32_t s_index[max_iter_size];
-
-  for (size_t k = 0; k < iter_size; k++) {
-    // s_index[k] = 0;
-    s_tvalue[k] = 0;
-  }
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k >= 0) {
       start_time = clock();
       j = array[j];
-      // s_index[k] = j;
-      s_tvalue[k] = j;
+      index[k] = j;
       end_time = clock();
 
-      dur = (end_time - start_time) / LATENCY_BIN_SIZE;
-      dur = dur < 256 ? dur : 255;
-      s_tvalue[k] = (uint8_t)dur;
-
-      // s_tvalue[iter_size - 1] = end_time - start_time;
-      //
-      // // 4 bit latency bin
-      // unsigned int latency_bin = s_tvalue[iter_size - 1];
-      // // unsigned int latency_bin = end_time - start_time;
-      // latency_bin = (latency_bin / LATENCY_BIN_SIZE) % LATENCY_BIN_COUNT;
-      // // assert(latency_bin >= 1);
-      // // assert(((135 / LATENCY_BIN_SIZE) % LATENCY_BIN_COUNT) == 1);
-      // const size_t tvalue_idx = k / LATENCIES_PER_TVALUE;
-      // const size_t tvalue_offset = k % LATENCIES_PER_TVALUE;
-      // const size_t latency_mask = (1 << LATENCY_BIN_BITS) - 1;
-      // // printf("k=%u t_idx=%lu t_offset=%lu\n", k, tvalue_idx,
-      // tvalue_offset);
-      // // assert(latency_mask == 0xF);
-      // // clear out the old bits
-      // s_tvalue[tvalue_idx] &=
-      //     ~(latency_mask << (tvalue_offset * LATENCY_BIN_BITS));
-      // // set the new bits
-      // // assert((latency_bin & ~latency_mask) == 0);
-      // s_tvalue[tvalue_idx] |= (latency_bin & latency_mask)
-      //                         << (tvalue_offset * LATENCY_BIN_BITS);
+      latency[k] = end_time - start_time;
     } else {
       j = array[j];
     }
   }
 
+  // store to avoid caching in readonly?
   array[array_length] = j;
   array[array_length + 1] = array[j];
-
-  for (size_t k = 0; k < iter_size; k++) {
-    // index[k] = s_index[k];
-    duration[k] = s_tvalue[k];
-  }
 }
 
-const size_t READONLY_ITER_SIZE = (48 * KB) / sizeof(uint32_t);
-
 __global__ __noinline__ void
-global_latency_l1_readonly(const unsigned int *__restrict__ array,
-                           int array_length, unsigned int *duration,
-                           unsigned int *index, int iter_size,
-                           size_t warmup_iterations) {
-  const int max_iter_size = READONLY_ITER_SIZE;
+global_latency_l2_data_host_mapped(unsigned int *array, int array_length,
+                                   unsigned int *latency, unsigned int *index,
+                                   int iter_size, size_t warmup_iterations) {
+  unsigned int start_time, end_time;
+  uint32_t j = 0;
+
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+    if (k >= 0) {
+      start_time = clock();
+      j = __ldcg(&array[j]);
+      index[k] = j;
+      end_time = clock();
+
+      latency[k] = end_time - start_time;
+    } else {
+      j = __ldcg(&array[j]);
+    }
+  }
+
+  // store to avoid caching in readonly?
+  array[array_length] = j;
+  array[array_length + 1] = array[j];
+}
+
+// const static unsigned int LATENCY_BIN_SIZE = 16;
+// const size_t ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
+//
+// __global__ __noinline__ void
+// global_latency_compressed(unsigned int *array, int array_length,
+//                           unsigned int *duration, unsigned int *index,
+//                           int iter_size, size_t warmup_iterations) {
+//   const int max_iter_size = ITER_SIZE_COMPRESSED;
+//   assert(iter_size <= max_iter_size);
+//
+//   unsigned int start_time, end_time, dur;
+//   uint32_t j = 0;
+//
+//   __shared__ uint8_t s_tvalue[max_iter_size];
+//
+//   for (size_t k = 0; k < iter_size; k++) {
+//     s_tvalue[k] = 0;
+//   }
+//
+//   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+//     if (k >= 0) {
+//       start_time = clock();
+//       j = array[j];
+//       s_tvalue[k] = j;
+//       end_time = clock();
+//
+//       dur = (end_time - start_time) / LATENCY_BIN_SIZE;
+//       dur = dur < 256 ? dur : 255;
+//       s_tvalue[k] = (uint8_t)dur;
+//     } else {
+//       j = array[j];
+//     }
+//   }
+//
+//   array[array_length] = j;
+//   array[array_length + 1] = array[j];
+//
+//   for (size_t k = 0; k < iter_size; k++) {
+//     duration[k] = s_tvalue[k];
+//   }
+// }
+
+const size_t SHARED_MEMORY_MAX_READONLY_ITER_SIZE =
+    (48 * KB) / sizeof(uint32_t);
+
+__global__ __noinline__ void global_latency_l1_readonly_shared_memory(
+    const unsigned int *__restrict__ array, int array_length,
+    unsigned int *latency, unsigned int *index, int iter_size,
+    size_t warmup_iterations) {
+  const int max_iter_size = SHARED_MEMORY_MAX_READONLY_ITER_SIZE;
   assert(iter_size <= max_iter_size);
   unsigned int start_time, end_time;
   size_t it;
   // uint32_t j = threadIdx.x;
   uint32_t j = 0;
 
-  __shared__ uint32_t s_tvalue[max_iter_size];
+  __shared__ uint32_t s_latency[max_iter_size];
   // __shared__ uint32_t s_index[max_iter_size];
 
   for (size_t k = 0; k < iter_size; k++) {
     // s_index[k] = 0;
-    s_tvalue[k] = 0;
+    s_latency[k] = 0;
   }
 
   // no-timing iterations, for large arrays
@@ -232,10 +181,10 @@ global_latency_l1_readonly(const unsigned int *__restrict__ array,
     j = __ldg(&array[j]);
     // s_index[k] = j;
     // s_tvalue[k] = j;
-    s_tvalue[iter_size - 1] = j;
+    s_latency[iter_size - 1] = j;
     end_time = clock();
 
-    s_tvalue[k] = end_time - start_time;
+    s_latency[k] = end_time - start_time;
   }
 
   // cannot no longer write to it!
@@ -245,31 +194,30 @@ global_latency_l1_readonly(const unsigned int *__restrict__ array,
   for (it = 0; it < iter_size / 32; it++) {
     int k = it * blockDim.x + threadIdx.x;
     // index[k] = s_index[k];
-    duration[k] = s_tvalue[k];
+    latency[k] = s_latency[k];
   }
 }
 
 // declare the texture
 // texture<int, 1, cudaReadModeElementType> tex_ref;
 
-__global__ __noinline__ void
-global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
-                          int array_length, unsigned int *duration,
-                          unsigned int *index, int iter_size,
-                          size_t warmup_iterations) {
-  const int max_iter_size = ITER_SIZE;
+__global__ __noinline__ void global_latency_l1_texture_shared_memory(
+    unsigned int *array, cudaTextureObject_t tex, int array_length,
+    unsigned int *latency, unsigned int *index, int iter_size,
+    size_t warmup_iterations) {
+  const int max_iter_size = SHARED_MEMORY_MAX_ITER_SIZE;
   assert(iter_size <= max_iter_size);
 
   unsigned int start_time, end_time;
   uint32_t j = 0;
   // uint32_t j = threadIdx.x;
 
-  __shared__ uint32_t s_tvalue[max_iter_size];
+  __shared__ uint32_t s_latency[max_iter_size];
   __shared__ uint32_t s_index[max_iter_size];
 
   for (size_t k = 0; k < iter_size; k++) {
     s_index[k] = 0;
-    s_tvalue[k] = 0;
+    s_latency[k] = 0;
   }
 
   for (int it = (int)warmup_iterations * -iter_size; it < iter_size; it++) {
@@ -283,7 +231,7 @@ global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
       s_index[k] = j;
       end_time = clock();
 
-      s_tvalue[k] = end_time - start_time;
+      s_latency[k] = end_time - start_time;
     } else {
       j = tex1Dfetch<unsigned int>(tex, j);
       // j = tex1Dfetch(tex_ref, j);
@@ -299,18 +247,19 @@ global_latency_l1_texture(unsigned int *array, cudaTextureObject_t tex,
     // int k = it * blockDim.x + threadIdx.x;
     // int k = it;
     index[it] = s_index[it];
-    duration[it] = s_tvalue[it];
+    latency[it] = s_latency[it];
   }
 
   // why is this so different?
   array[array_length] = it;
-  array[array_length + 1] = s_tvalue[it - 1];
+  array[array_length + 1] = s_latency[it - 1];
 }
 
 int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
                               size_t N, size_t stride, size_t iter_size,
-                              size_t warmup_iterations,
+                              size_t warmup_iterations, size_t repetition,
                               unsigned int clock_overhead) {
+  assert(iter_size < (size_t)-1);
   // cudaDeviceReset();
 
   // if (true) {
@@ -354,20 +303,44 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   h_a[N + 1] = 0;
 
   // copy array elements from CPU to GPU
-  fprintf(stderr, "copy %lu elements\n", N * sizeof(uint32_t));
   CUDA_CHECK(
       cudaMemcpy(d_a, h_a, N * sizeof(uint32_t), cudaMemcpyHostToDevice));
 
-  unsigned int *h_index =
-      (unsigned int *)malloc(iter_size * sizeof(unsigned int));
-  unsigned int *h_timeinfo =
-      (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+  unsigned int *h_index, *h_latency, *d_index, *d_latency;
+  if (USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaHostAlloc(&h_index, iter_size * sizeof(unsigned int),
+                             cudaHostAllocMapped));
+    CUDA_CHECK(cudaHostAlloc(&h_latency, iter_size * sizeof(unsigned int),
+                             cudaHostAllocMapped));
 
-  unsigned int *duration;
-  CUDA_CHECK(cudaMalloc((void **)&duration, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(cudaHostGetDevicePointer(&d_index, h_index, 0));
+    CUDA_CHECK(cudaHostGetDevicePointer(&d_latency, h_latency, 0));
+  } else {
+    h_index = (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+    h_latency = (unsigned int *)malloc(iter_size * sizeof(unsigned int));
 
-  unsigned int *d_index;
-  CUDA_CHECK(cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(
+        cudaMalloc((void **)&d_latency, iter_size * sizeof(unsigned int)));
+    CUDA_CHECK(cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned int)));
+  }
+
+  for (size_t k = 0; k < iter_size; k++) {
+    h_index[k] = 0;
+    h_latency[k] = 0;
+  }
+
+  // unsigned int *h_index =
+  //     (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+  // unsigned int *h_timeinfo =
+  //     (unsigned int *)malloc(iter_size * sizeof(unsigned int));
+  //
+  // unsigned int *duration;
+  // CUDA_CHECK(cudaMalloc((void **)&duration, iter_size * sizeof(unsigned
+  // int)));
+  //
+  // unsigned int *d_index;
+  // CUDA_CHECK(cudaMalloc((void **)&d_index, iter_size * sizeof(unsigned
+  // int)));
 
   cudaTextureObject_t texObj = 0;
 
@@ -407,22 +380,29 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
     cudaDeviceSynchronize();
 
-    CUDA_CHECK((global_latency_l1_texture<<<grid_dim, block_dim>>>(
-        d_a, texObj, N, duration, d_index, iter_size, warmup_iterations)));
+    CUDA_CHECK(
+        (global_latency_l1_texture_shared_memory<<<grid_dim, block_dim>>>(
+            d_a, texObj, N, d_latency, d_index, iter_size, warmup_iterations)));
     break;
   case L1ReadOnly:
     block_dim = dim3(32, 1, 1);
-    CUDA_CHECK((global_latency_l1_readonly<<<grid_dim, block_dim>>>(
-        d_a, N, duration, d_index, iter_size, warmup_iterations)));
+    CUDA_CHECK(
+        (global_latency_l1_readonly_shared_memory<<<grid_dim, block_dim>>>(
+            d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
     break;
   case L2:
+    assert(USE_HOST_MAPPED_MEMORY);
+    CUDA_CHECK((global_latency_l2_data_host_mapped<<<grid_dim, block_dim>>>(
+        d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
+    break;
+
   case L1Data:
-    if (USE_COMPRESSION) {
-      CUDA_CHECK((global_latency_compressed<<<grid_dim, block_dim>>>(
-          d_a, N, duration, d_index, iter_size, warmup_iterations)));
+    if (USE_HOST_MAPPED_MEMORY) {
+      CUDA_CHECK((global_latency_l1_data_host_mapped<<<grid_dim, block_dim>>>(
+          d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
     } else {
-      CUDA_CHECK((global_latency_l1_data<<<grid_dim, block_dim>>>(
-          d_a, N, duration, d_index, iter_size, warmup_iterations)));
+      CUDA_CHECK((global_latency_l1_data_shared_memory<<<grid_dim, block_dim>>>(
+          d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
     }
     break;
   default:
@@ -436,12 +416,14 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   // copy results from GPU to CPU
   cudaDeviceSynchronize();
 
-  CUDA_CHECK(cudaMemcpy((void *)h_timeinfo, (void *)duration,
-                        sizeof(unsigned int) * iter_size,
-                        cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaMemcpy((void *)h_index, (void *)d_index,
-                        sizeof(unsigned int) * iter_size,
-                        cudaMemcpyDeviceToHost));
+  if (!USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaMemcpy((void *)h_latency, (void *)d_latency,
+                          sizeof(unsigned int) * iter_size,
+                          cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy((void *)h_index, (void *)d_index,
+                          sizeof(unsigned int) * iter_size,
+                          cudaMemcpyDeviceToHost));
+  }
 
   cudaDeviceSynchronize();
 
@@ -473,91 +455,72 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
         //   return EXIT_FAILURE;
         // }
 
-        mean_latency += (float)h_timeinfo[k * 32];
+        mean_latency += (float)h_latency[k * 32];
       }
       mean_latency /= 32.0;
-      fprintf(stdout, "%8lu,%4lu,%10llu,%4.10f\n", N * sizeof(uint32_t),
-              index * sizeof(uint32_t),
-              (unsigned long long)d_a +
-                  (unsigned long long)index *
-                      (unsigned long long)sizeof(uint32_t),
-              (float)mean_latency - (float)clock_overhead);
+      mean_latency -= (float)clock_overhead;
+      unsigned long long virt_addr =
+          (unsigned long long)d_a +
+          (unsigned long long)index * (unsigned long long)sizeof(uint32_t);
+
+      // r,n,k,index,virt_addr,latency
+      fprintf(stdout, "%3lu,%8lu,%4lu,%4lu,%10llu,%4.10f\n", repetition,
+              N * sizeof(uint32_t), k, index * sizeof(uint32_t), virt_addr,
+              mean_latency);
     }
     break;
   default:
-    if (USE_COMPRESSION) {
-      // unsigned int j = 0;
-      for (int k = (int)warmup_iterations * -(int)iter_size; k < (int)iter_size;
-           k++) {
-        if (k >= 0) {
-          unsigned int index = j;
-          j = h_a[j];
-          unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
-          fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
-                  index * sizeof(uint32_t),
-                  (unsigned long long)d_a +
-                      (unsigned long long)index *
-                          (unsigned long long)sizeof(uint32_t),
-                  (int)binned_latency - (int)clock_overhead);
-        } else {
-          j = h_a[j];
-        }
-      }
-    } else {
-      for (size_t k = 0; k < iter_size; k++) {
-        unsigned int index = (N + h_index[k] - stride) % N;
-        unsigned int latency = h_timeinfo[k];
-        fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
-                index * sizeof(uint32_t),
-                (unsigned long long)d_a +
-                    (unsigned long long)index *
-                        (unsigned long long)sizeof(uint32_t),
-                (int)latency - (int)clock_overhead);
-      }
+    // if (USE_COMPRESSION) {
+    //   // unsigned int j = 0;
+    //   for (int k = (int)warmup_iterations * -(int)iter_size; k <
+    //   (int)iter_size;
+    //        k++) {
+    //     if (k >= 0) {
+    //       unsigned int index = j;
+    //       j = h_a[j];
+    //       unsigned int binned_latency = h_timeinfo[k] * LATENCY_BIN_SIZE;
+    //       fprintf(stdout, "%8lu,%4lu,%10llu,%4d\n", N * sizeof(uint32_t),
+    //               index * sizeof(uint32_t),
+    //               (unsigned long long)d_a +
+    //                   (unsigned long long)index *
+    //                       (unsigned long long)sizeof(uint32_t),
+    //               (int)binned_latency - (int)clock_overhead);
+    //     } else {
+    //       j = h_a[j];
+    //     }
+    //   }
+    // } else {
+    for (size_t k = 0; k < iter_size; k++) {
+      // unsigned int index = (N + h_index[k] - stride) % N;
+      unsigned int index = indexof(h_a, N, h_index[k]);
+      unsigned int latency = (int)h_latency[k] - (int)clock_overhead;
+      unsigned long long virt_addr =
+          (unsigned long long)d_a +
+          (unsigned long long)index * (unsigned long long)sizeof(uint32_t);
+
+      // r,n,k,index,virt_addr,latency
+      fprintf(stdout, "%3lu,%8lu,%4lu,%4lu,%10llu,%4d\n", repetition,
+              N * sizeof(uint32_t), k, index * sizeof(uint32_t), virt_addr,
+              latency);
     }
+    // }
     break;
   }
-
-  // unsigned int j = 0;
-  // for (size_t k = 0; k < iter_size ; k++) {
-  //   // print as CSV to stdout
-  //   unsigned int index = h_index[k];
-  //   unsigned int latency;
-  //   if (USE_COMPRESSION) {
-  //     latency = h_timeinfo[k];
-  //     j = d_a[j];
-  //     index = j;
-  //
-  //     // size_t tvalue_idx = i / LATENCIES_PER_TVALUE;
-  //     // size_t tvalue_offset = i % LATENCIES_PER_TVALUE;
-  //     // size_t latency_mask = (1 << LATENCY_BIN_BITS) - 1;
-  //     // assert(latency_mask == 0xF);
-  //     // latency = h_timeinfo[tvalue_idx] & (latency_mask << tvalue_offset);
-  //     // latency = latency >> tvalue_offset;
-  //     // latency = latency * LATENCY_BIN_SIZE;
-  //   } else {
-  //     latency = h_timeinfo[k];
-  //   }
-  //
-  //   fprintf(stdout, "%4d,%4d\n", index, latency);
-  // }
 
   // destroy texture object
   if (texObj != 0) {
     cudaDestroyTextureObject(texObj);
   }
 
-  // free memory on GPU
-  // cudaFree(d_a);
-  cudaFree(d_index);
-  cudaFree(duration);
-
-  // free memory on CPU
-  // free(h_a);
-  free(h_index);
-  free(h_timeinfo);
-
-  // cudaDeviceReset();
+  if (USE_HOST_MAPPED_MEMORY) {
+    CUDA_CHECK(cudaFreeHost(h_index));
+    CUDA_CHECK(cudaFreeHost(h_latency));
+  } else {
+    CUDA_CHECK(cudaFree(d_index));
+    CUDA_CHECK(cudaFree(d_latency));
+    free(h_index);
+    free(h_latency);
+  }
 
   return EXIT_SUCCESS;
 }
@@ -567,6 +530,8 @@ int main(int argc, char *argv[]) {
   memory mem;
   size_t stride_bytes, warmup_iterations;
   size_t start_size_bytes, end_size_bytes, step_size_bytes;
+  size_t repetitions = 1;
+  size_t max_rounds = (size_t)-1;
   size_t iter_size = (size_t)-1;
 
   // parse arguments
@@ -593,31 +558,40 @@ int main(int argc, char *argv[]) {
 
     mem = (memory)(*mem_found);
 
-    if (argc >= 7) {
+    if (argc >= 8) {
       start_size_bytes = atoi(argv[2]);
       end_size_bytes = atoi(argv[3]);
       step_size_bytes = atoi(argv[4]);
       stride_bytes = atoi(argv[5]);
       warmup_iterations = atoi(argv[6]);
-      if (argc >= 8) {
-        iter_size = atoi(argv[7]);
+      repetitions = atoi(argv[7]);
+      if (argc >= 9) {
+        sscanf(argv[8], "R%lu", &max_rounds);
+        if (max_rounds == (size_t)-1) {
+          iter_size = atoi(argv[8]);
+        }
       }
-    } else if (argc >= 5) {
+    } else if (argc >= 6) {
       start_size_bytes = atoi(argv[2]);
       end_size_bytes = start_size_bytes;
       step_size_bytes = 1;
       stride_bytes = atoi(argv[3]);
       warmup_iterations = atoi(argv[4]);
-      if (argc >= 6) {
-        iter_size = atoi(argv[5]);
+      repetitions = atoi(argv[5]);
+      if (argc >= 7) {
+        sscanf(argv[6], "R%lu", &max_rounds);
+        if (max_rounds == (size_t)-1) {
+          iter_size = atoi(argv[6]);
+        }
       }
     }
   } else {
     fprintf(stderr, "usage:  p_chase_l1 <MEM> <SIZE_BYTES> <STRIDE_BYTES> "
-                    "<WARMUP> <ITER_SIZE?>\n");
+                    "<WARMUP> <REPETITIONS> <ITER_SIZE?>\n");
     fprintf(stderr,
             "        p_chase_l1 <MEM> <START_SIZE_BYTES> <END_SIZE_BYTES> "
-            "<STEP_SIZE_BYTES> <STRIDE_BYTES> <WARMUP> <ITER_SIZE?>\n");
+            "<STEP_SIZE_BYTES> <STRIDE_BYTES> <WARMUP> <REPETITIONS> "
+            "<ITER_SIZE?>\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    <MEM>:\t");
     for (int k = 0; k < NUM_MEMORIES; k++) {
@@ -648,23 +622,7 @@ int main(int argc, char *argv[]) {
   // return EXIT_SUCCESS;
 
   // print CSV header
-  fprintf(stdout, "n,index,virt_addr,latency\n");
-
-  size_t max_iter_size;
-  switch (mem) {
-  case L1ReadOnly:
-    max_iter_size = READONLY_ITER_SIZE;
-    break;
-  case L1Data:
-  case L1Texture:
-  case L2:
-    max_iter_size = USE_COMPRESSION ? ITER_SIZE_COMPRESSED : ITER_SIZE;
-    break;
-  case NUM_MEMORIES:
-    assert(false && "panic dispatching to memory");
-  };
-
-  iter_size = std::min(iter_size, max_iter_size);
+  fprintf(stdout, "r,n,k,index,virt_addr,latency\n");
 
   size_t end_size = end_size_bytes / sizeof(uint32_t);
   fprintf(stderr, "alloc %lu elements\n", (end_size + 2) * sizeof(uint32_t));
@@ -680,10 +638,41 @@ int main(int argc, char *argv[]) {
 
   for (size_t size_bytes = start_size_bytes; size_bytes <= end_size_bytes;
        size_bytes += step_size_bytes) {
-    // the number of resulting patterns P (full iterations through size) is
-    // P = iter_size / stride
-    float one_round = (float)size_bytes / (float)stride_bytes;
-    float num_rounds = (float)iter_size / one_round;
+
+    float one_round_size = (float)size_bytes / (float)stride_bytes;
+
+    size_t per_config_iter_size = iter_size;
+    if (USE_HOST_MAPPED_MEMORY) {
+      if (per_config_iter_size == (size_t)-1) {
+        size_t per_config_max_rounds = max_rounds;
+        if (per_config_max_rounds == (size_t)-1) {
+          // default to 4 rounds through N
+          per_config_max_rounds = 4;
+        }
+        per_config_iter_size =
+            std::ceil(per_config_max_rounds * (size_t)one_round_size);
+      }
+    } else {
+      switch (mem) {
+      case L1ReadOnly:
+        per_config_iter_size = std::min(per_config_iter_size,
+                                        SHARED_MEMORY_MAX_READONLY_ITER_SIZE);
+        break;
+      case L1Data:
+      case L1Texture:
+      case L2:
+        per_config_iter_size =
+            std::min(per_config_iter_size, SHARED_MEMORY_MAX_ITER_SIZE);
+        break;
+      case NUM_MEMORIES:
+        assert(false && "panic dispatching to memory");
+      };
+
+      per_config_iter_size =
+          std::min(per_config_iter_size, max_rounds * (size_t)one_round_size);
+    }
+
+    float num_rounds = (float)per_config_iter_size / one_round_size;
 
     size_t size = size_bytes / sizeof(uint32_t);
     size_t stride = stride_bytes / sizeof(uint32_t);
@@ -699,15 +688,19 @@ int main(int argc, char *argv[]) {
             size_bytes, size, (float)size_bytes / 1024.0);
     fprintf(stderr, "\tSTRIDE             = %10lu bytes (%10lu uint32)\n",
             stride_bytes, stride);
-    fprintf(stderr, "\tROUNDS             = %3.3f\n", num_rounds);
-    fprintf(stderr, "\tONE ROUND          = %3.3f (have %5lu)\n", one_round,
-            iter_size);
-    fprintf(stderr, "\tITERATIONS         = %lu\n", iter_size);
+    fprintf(stderr, "\tROUNDS             = %3.3f (%3.1f uint32 per round)\n",
+            num_rounds, one_round_size);
+    fprintf(stderr, "\tITERATIONS         = %lu\n", per_config_iter_size);
+    fprintf(stderr, "\tMAX ROUNDS         = %d\n",
+            (max_rounds == (size_t)-1) ? -1 : (int)max_rounds);
+    fprintf(stderr, "\tREPETITIONS        = %lu\n", repetitions);
     fprintf(stderr, "\tWARMUP ITERATIONS  = %lu\n", warmup_iterations);
+    fprintf(stderr, "\tBACKING MEM        = %s\n",
+            USE_HOST_MAPPED_MEMORY ? "HOST MAPPED" : "SHARED MEM");
 
     // assert(num_rounds > 1 &&
     //        "array size is too big (rounds should be at least two)");
-    // assert(iter_size > size / stride);
+    // assert(per_config_iter_size > size / stride);
 
     // validate parameters
     if (size < stride) {
@@ -718,8 +711,8 @@ int main(int argc, char *argv[]) {
     }
     // if (size % stride != 0) {
     //   fprintf(stderr,
-    //           "ERROR: size (%lu) is not an exact multiple of stride (%lu)\n",
-    //           size, stride);
+    //           "ERROR: size (%lu) is not an exact multiple of stride
+    //           (%lu)\n", size, stride);
     //   fflush(stderr);
     //   return EXIT_FAILURE;
     // }
@@ -734,11 +727,11 @@ int main(int argc, char *argv[]) {
     //   return EXIT_FAILURE;
     // }
 
-    // The `cudaDeviceSetCacheConfig` function can be used to set preference for
-    // shared memory or L1 cache globally for all CUDA kernels in your code and
-    // even those used by Thrust.
-    // The option cudaFuncCachePreferShared prefers shared memory, that is,
-    // it sets 48 KB for shared memory and 16 KB for L1 cache.
+    // The `cudaDeviceSetCacheConfig` function can be used to set preference
+    // for shared memory or L1 cache globally for all CUDA kernels in your
+    // code and even those used by Thrust. The option
+    // cudaFuncCachePreferShared prefers shared memory, that is, it sets 48 KB
+    // for shared memory and 16 KB for L1 cache.
     //
     // `cudaFuncCachePreferL1` prefers L1, that is, it sets 16 KB for
     // shared memory and 48 KB for L1 cache.
@@ -746,29 +739,37 @@ int main(int argc, char *argv[]) {
     // `cudaFuncCachePreferNone` uses the preference set for the device or
     // thread.
 
-    cudaFuncCache want_cache_config = cudaFuncCachePreferShared;
-    // cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
-    CUDA_CHECK(cudaDeviceSetCacheConfig(want_cache_config));
-    CUDA_CHECK(
-        cudaFuncSetCacheConfig(global_latency_compressed, want_cache_config));
+    cudaFuncCache prefer_shared_mem_config = cudaFuncCachePreferShared;
+    cudaFuncCache prefer_l1_config = cudaFuncCachePreferL1;
+    CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_data_host_mapped,
+                                      prefer_shared_mem_config));
+    CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_data_shared_memory,
+                                      prefer_shared_mem_config));
+
+    CUDA_CHECK(cudaDeviceSetCacheConfig(prefer_shared_mem_config));
     cudaFuncCache have_cache_config;
     CUDA_CHECK(cudaDeviceGetCacheConfig(&have_cache_config));
-    assert(want_cache_config == have_cache_config);
-
-    // CUDA_CHECK(cudaFuncSetAttribute(
-    //     global_latency_compressed,
-    //     cudaFuncAttributeMaxDynamicSharedMemorySize, 12 * 1024));
+    assert(have_cache_config == prefer_shared_mem_config);
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    fprintf(stderr, "\tSHMEM PER BLOCK   = %lu\n", prop.sharedMemPerBlock);
-    fprintf(stderr, "\tSHMEM PER SM      = %lu\n",
-            prop.sharedMemPerMultiprocessor);
-    fprintf(stderr, "\tL2 size           = %u\n", prop.l2CacheSize);
+    fprintf(stderr, "\tSHMEM PER BLOCK    = %10lu (%10.4f KB)\n",
+            prop.sharedMemPerBlock, (float)prop.sharedMemPerBlock / 1024.0);
+    fprintf(stderr, "\tSHMEM PER SM       = %10lu (%10.4f KB)\n",
+            prop.sharedMemPerMultiprocessor,
+            (float)prop.sharedMemPerMultiprocessor / 1024.0);
+    fprintf(stderr, "\tL2 size            = %10u (%10.4f KB)\n",
+            prop.l2CacheSize, (float)prop.l2CacheSize / 1024.0);
 
-    exit_code =
-        parametric_measure_global(h_a, d_a, mem, size, stride, iter_size,
-                                  warmup_iterations, clock_overhead);
+    for (size_t r = 0; r < repetitions; r++) {
+      exit_code = parametric_measure_global(
+          h_a, d_a, mem, size, stride, per_config_iter_size, warmup_iterations,
+          r, clock_overhead);
+      if (exit_code != EXIT_SUCCESS) {
+        break;
+      }
+    }
+
     if (exit_code != EXIT_SUCCESS) {
       break;
     }
