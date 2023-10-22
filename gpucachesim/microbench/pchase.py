@@ -34,7 +34,7 @@ from gpucachesim.asm import solve_mapping_table_xor_fast, solve_mapping_table_xo
 from gpucachesim.benchmarks import REPO_ROOT_DIR
 import gpucachesim.cmd as cmd_utils
 
-NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/p_chase_l1"
+NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/pchase"
 NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
 
 SIM_P_CHASE = REPO_ROOT_DIR / "target/release/pchase"
@@ -86,6 +86,10 @@ HEX_COLORS = {
 
 RGB_COLORS = {k: hex_to_rgb(v) for k, v in HEX_COLORS.items() }
 
+SIM_RGB_COLORS = {
+    "gpucachesim": RGB_COLORS["green1"],
+    "native": RGB_COLORS["blue1"],
+} 
 
 
 
@@ -501,18 +505,17 @@ def set_mapping(mem, stride_bytes, warmup, size_bytes,
 @main.command()
 @click.option("--warmup", "warmup", type=int, help="cache warmup")
 @click.option("--repetitions", "repetitions", type=int, help="repetitions")
-@click.option("--mem", "mem", default="l2", help="memory to microbenchmark")
+@click.option("--mem", "mem", default="l1data", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
-    repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 10))
+    repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup or 0
 
-    total_l2_cache_size_bytes = 2 * MB
-    step_bytes = 128 * KB
+    known_l2_cache_size_bytes = 2 * MB
     step_bytes = 64 * KB
     start_cache_size_bytes = step_bytes
-    end_cache_size_bytes = 3 * MB
+    end_cache_size_bytes = 2 * MB
     stride_bytes = 128
 
     cache_file = CACHE_DIR / "l2_prefetch_size.{}.{}.csv".format(mem, "sim" if sim else "native")
@@ -544,8 +547,8 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
         print("wrote cache file to ", cache_file)
         combined.to_csv(cache_file, index=False)
 
-    combined = compute_hits(combined, sim=sim)
-    combined = compute_rounds(combined)
+    # combined = compute_hits(combined, sim=sim)
+    # combined = compute_rounds(combined)
 
     # print(combined)
     # # remove incomplete rounds
@@ -575,9 +578,9 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
         hit_rate = float(num_hits) / float(len(df))
         print(
             # \t\thits={:<4} ({}) misses={:<4} ({})".format(
-            "size {:>15} ({:>3.1f}%)".format(
+            "size {:>15} ({:>5.1f}%)".format(
                 human_size,
-                float(n) / float(total_l2_cache_size_bytes) * 100.0,
+                float(n) / float(known_l2_cache_size_bytes) * 100.0,
                 # color(num_hits, fg="green", bold=True),
                 # color("{:>3.1f}%".format(hit_rate * 100.0), fg="green"),
                 # color(num_misses, fg="red", bold=True),
@@ -587,25 +590,93 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
 
         for round, round_df in df.groupby("round", dropna=False):
             # count hits and misses
-            hits = round_df["hit_cluster"] <= 1  # l1 hits or l1 miss & l2 hit
+            l1_hits = round_df["hit_cluster"] == 0
+            l2_hits = round_df["hit_cluster"] == 1
             misses = round_df["hit_cluster"] > 1  # l1 miss & l2 miss
 
-            num_hits = hits.sum()
+            num_l1_hits = l1_hits.sum()
+            num_l2_hits = l2_hits.sum()
             num_misses = misses.sum()
 
             human_size = humanize.naturalsize(n, binary=True)
             miss_rate = float(num_misses) / float(len(round_df))
-            hit_rate = float(num_hits) / float(len(round_df))
+            l1_hit_rate = float(num_l1_hits) / float(len(round_df))
+            l2_hit_rate = float(num_l2_hits) / float(len(round_df))
             print(
-                "round={:>2} hits={:<4} ({}) misses={:<4} ({})".format(
-                    round,
-                    color(num_hits, fg="green", bold=True),
-                    color("{:>3.1f}%".format(hit_rate * 100.0), fg="green"),
-                    color(num_misses, fg="red", bold=True),
-                    color("{:>3.1f}%".format(miss_rate * 100.0), fg="red"),
+                "round={:>4} L1 hits={} ({}) L2 hits={} ({}) misses={} ({})".format(
+                    str(round),
+                    color("{:<6}".format(num_l1_hits), fg="green", bold=True),
+                    color("{: >5.1f}%".format(l1_hit_rate * 100.0), fg="green"),
+                    color("{:<6}".format(num_l2_hits), fg="green", bold=True),
+                    color("{: >5.1f}%".format(l2_hit_rate * 100.0), fg="green"),
+                    color("{:<6}".format(num_misses), fg="red", bold=True),
+                    color("{: >5.1f}%".format(miss_rate * 100.0), fg="red"),
                 )
             )
-        # print("\n")
+
+    plot_df = combined.groupby("n").agg({
+        'hit_cluster': [agg_l1_hit_rate, agg_l2_hit_rate],
+    }).reset_index()
+    plot_df.columns = ['_'.join([col for col in cols if col != ""]) for cols in plot_df.columns]
+    print(plot_df)
+    print(plot_df.columns)
+
+    ylabel = r"hit rate ($\%$)"
+    xlabel = r"$N$ (bytes)"
+    fontsize= FONT_SIZE_PT
+    font_family="Helvetica"
+
+    plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+
+    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    ax = plt.axes()
+
+    min_x = round_down_to_multiple_of(plot_df["n"].min(), 128)
+    max_x = round_up_to_multiple_of(plot_df["n"].max(), 128)
+
+    ax.axvline(x=0.25 * known_l2_cache_size_bytes,
+       color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+       linestyle='--',
+       label=r"25% L2 size")
+
+    marker_size = 10
+    ax.scatter(plot_df["n"], plot_df["hit_cluster_agg_l1_hit_rate"] * 100.0, 
+        marker_size,
+        # [3] * len(plot_df["n"]),
+        # linewidth=1.5,
+        # linestyle='--',
+        marker='o',
+        # markersize=marker_size,
+        color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+        # color=plt_rgba(*SIM_RGB_COLORS["gpucachesim" if sim else "native"], 1.0),
+        # label="gpucachesim" if sim else "GTX 1080",
+        label="L1",
+    )
+
+    ax.scatter(plot_df["n"], plot_df["hit_cluster_agg_l2_hit_rate"] * 100.0, 
+        marker_size,
+        # [3] * len(plot_df["n"]),
+        # linewidth=1.5,
+        # linestyle='--',
+        marker='x',
+        # markersize=marker_size,
+        color=plt_rgba(*RGB_COLORS["blue1"], 1.0),
+        # color=plt_rgba(*SIM_RGB_COLORS["gpucachesim" if sim else "native"], 1.0),
+        # label="gpucachesim" if sim else "GTX 1080",
+        label="L2",
+   )
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    xticks = np.arange(min_x, max_x, step=256 * KB)
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    ax.set_xticks(xticks, xticklabels, rotation=45)
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(0, 100.0)
+    ax.legend()
+    filename = PLOT_DIR / "l2_prefetch_policy.{}.{}.matplotlib.pdf".format(mem, "sim" if sim else "native")
+    fig.savefig(filename)
+
 
 
 def compute_rounds_old(df):
@@ -2372,6 +2443,27 @@ So the relationship stands like this:
     cache size = number of sets in cache * number of cache lines in each set * cache line size
 """
 
+def agg_miss_rate(hit_clusters): 
+    cluster_counts = hit_clusters.value_counts().reset_index()
+    num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+    total = cluster_counts["count"].sum()
+    return num_misses / total
+
+
+def agg_l1_hit_rate(hit_clusters): 
+    cluster_counts = hit_clusters.value_counts().reset_index()
+    num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] == 0, "count"].sum()
+    total = cluster_counts["count"].sum()
+    return num_misses / total
+
+
+def agg_l2_hit_rate(hit_clusters): 
+    cluster_counts = hit_clusters.value_counts().reset_index()
+    num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] == 1, "count"].sum()
+    total = cluster_counts["count"].sum()
+    return num_misses / total
+
+
 
 @main.command()
 # @click.option("--start", "start_size", type=int, help="start cache size in bytes")
@@ -2498,14 +2590,8 @@ def find_cache_sets(mem, cached, sim, repetitions):
 
     derived_num_sets, _misses_per_set = compute_number_of_sets(combined)
 
-    def agg_miss_rate(hit_clusters): 
-        cluster_counts = hit_clusters.value_counts().reset_index()
-        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
-        total = cluster_counts["count"].sum()
-        return num_misses / total
-
-    plot_df = combined.groupby("n").agg({'hit_cluster': agg_miss_rate}).reset_index()
-    plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
+    plot_df = combined.groupby("n").agg({'hit_cluster': [agg_miss_rate]}).reset_index()
+    plot_df.columns = ['_'.join([col for col in cols if col != ""]) for cols in plot_df.columns]
 
     ylabel = r"miss rate ($\%$)"
     xlabel = r"$N$ (bytes)"
@@ -2529,16 +2615,14 @@ def find_cache_sets(mem, cached, sim, repetitions):
                linestyle='--',
                label="cache line boundary" if i == 0 else None)
 
-    # ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0, 
-    ax.scatter(plot_df["n"], plot_df["miss_rate"] * 100.0, 
-           3,
-           # [3] * len(plot_df["n"]),
-            # linewidth=1.5,
-            # linestyle='--',
-            marker='x',
-            # markersize=3,
-            color=plt_rgba(*RGB_COLORS["green1"], 1.0),
-            label="gpucachesim" if sim else "GTX 1080")
+    marker_size = 5
+    ax.scatter(plot_df["n"], plot_df["hit_cluster_agg_miss_rate"] * 100.0, 
+        marker_size,
+        # linewidth=1.5,
+        # linestyle='--',
+        marker='x',
+        color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+        label="gpucachesim" if sim else "GTX 1080")
 
     for set_idx in range(derived_num_sets):
         x = known_cache_size_bytes + (set_idx + 0.5) * known_cache_line_bytes
