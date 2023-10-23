@@ -132,6 +132,7 @@ impl LoadStoreUnit {
                 let cache_controller = cache::controller::pascal::L1DataCacheController::new(
                     cache::Config::from(l1_config.inner.as_ref()),
                     l1_config,
+                    config.accelsim_compat,
                 );
 
                 let mut data_cache: cache::data::Data<
@@ -471,13 +472,12 @@ impl LoadStoreUnit {
 
         let mut bypass_l1 = false;
 
-        if self.data_l1.is_none() || dispatch_instr.cache_operator == CacheOperator::GLOBAL {
+        if self.data_l1.is_none() || dispatch_instr.cache_operator == Some(CacheOperator::Global) {
             bypass_l1 = true;
         } else if dispatch_instr.memory_space == Some(MemorySpace::Global) {
-            // global memory access
-            // skip L1 cache if the option is enabled
+            // skip L1 if global memory access does not use L1 by default
             if self.config.global_mem_skip_l1_data_cache
-                && dispatch_instr.cache_operator != CacheOperator::L1
+                && dispatch_instr.cache_operator != Some(CacheOperator::L1)
             {
                 bypass_l1 = true;
             }
@@ -575,7 +575,7 @@ impl LoadStoreUnit {
                 });
             }
         } else {
-            debug_assert_ne!(dispatch_instr.cache_operator, CacheOperator::UNDEFINED);
+            debug_assert_ne!(dispatch_instr.cache_operator, None);
             stall_cond = self.process_memory_access_queue_l1cache(cycle);
         }
 
@@ -1101,8 +1101,8 @@ impl crate::engine::cycle::Component for LoadStoreUnit {
                         debug_assert!(!fetch.is_write());
                         let mut bypass_l1 = false;
 
-                        let cache_op = fetch.instr.as_ref().map(|i| i.cache_operator);
-                        if self.data_l1.is_none() || cache_op == Some(CacheOperator::GLOBAL) {
+                        let cache_op = fetch.instr.as_ref().and_then(|i| i.cache_operator);
+                        if self.data_l1.is_none() || cache_op == Some(CacheOperator::Global) {
                             bypass_l1 = true;
                         } else if fetch.access_kind().is_global()
                             && self.config.global_mem_skip_l1_data_cache

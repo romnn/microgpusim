@@ -81,8 +81,6 @@ pub struct Config {
     ///
     /// NOTE: CAN BE COMPUTED from sets and associativity.
     pub total_lines: usize,
-    pub line_size_log2: u32,
-    pub num_sets_log2: u32,
 }
 
 impl From<&config::Cache> for Config {
@@ -100,8 +98,6 @@ impl From<&config::Cache> for Config {
             mshr_kind: config.mshr_kind,
             total_lines: config.num_sets * config.associativity,
             line_size: config.line_size,
-            line_size_log2: config.line_size_log2(),
-            num_sets_log2: config.num_sets_log2(),
         }
     }
 }

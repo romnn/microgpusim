@@ -47,7 +47,7 @@ pub trait CacheController: Sync + Send + 'static {
 }
 
 pub mod pascal {
-    use crate::{address, cache, mcu::logb2};
+    use crate::{address, cache};
 
     #[derive(Debug, Clone)]
     pub struct DataCacheController {
@@ -58,9 +58,11 @@ pub mod pascal {
     impl DataCacheController {
         #[must_use]
         pub fn new(config: cache::Config) -> Self {
+            let set_index_function =
+                cache::set_index::linear::SetIndex::new(config.num_sets, config.line_size as usize);
             Self {
                 config,
-                set_index_function: cache::set_index::linear::SetIndex::default(),
+                set_index_function,
             }
         }
     }
@@ -93,9 +95,9 @@ pub mod pascal {
             use cache::set_index::SetIndexer;
             self.set_index_function.compute_set_index(
                 addr,
-                self.config.num_sets,
-                self.config.line_size_log2,
-                self.config.num_sets_log2,
+                // self.config.num_sets,
+                // self.config.line_size_log2,
+                // self.config.num_sets_log2,
             )
         }
 
@@ -117,32 +119,41 @@ pub mod pascal {
     #[derive(Debug, Clone)]
     pub struct L1DataCacheController {
         inner: DataCacheController,
-        // set_index_function: cache::set_index::fermi::SetIndex,
-        set_index_function: cache::set_index::linear::SetIndex,
+        set_index_function: cache::set_index::pascal::SetIndex,
         banks_set_index_function: cache::set_index::linear::SetIndex,
 
         #[allow(dead_code)]
         l1_latency: usize,
         #[allow(dead_code)]
         banks_byte_interleaving: usize,
-        banks_byte_interleaving_log2: u32,
-        num_banks: usize,
-        num_banks_log2: u32,
+        // banks_byte_interleaving_log2: u32,
+        // num_banks: usize,
+        // num_banks_log2: u32,
     }
 
     impl L1DataCacheController {
         #[must_use]
-        pub fn new(config: cache::Config, l1_config: &crate::config::L1DCache) -> Self {
+        pub fn new(
+            config: cache::Config,
+            l1_config: &crate::config::L1DCache,
+            accelsim_compat_mode: bool,
+        ) -> Self {
+            let mut set_index_function = cache::set_index::pascal::SetIndex::default();
+            set_index_function.accelsim_compat_mode = accelsim_compat_mode;
+            let banks_set_index_function = cache::set_index::linear::SetIndex::new(
+                l1_config.l1_banks,
+                l1_config.l1_banks_byte_interleaving,
+            );
+
             Self {
                 inner: DataCacheController::new(config),
-                // set_index_function: cache::set_index::fermi::SetIndex::default(),
-                set_index_function: cache::set_index::linear::SetIndex::default(),
-                banks_set_index_function: cache::set_index::linear::SetIndex::default(),
+                set_index_function,
+                banks_set_index_function,
                 l1_latency: l1_config.l1_latency,
                 banks_byte_interleaving: l1_config.l1_banks_byte_interleaving,
-                banks_byte_interleaving_log2: logb2(l1_config.l1_banks_byte_interleaving as u32),
-                num_banks: l1_config.l1_banks,
-                num_banks_log2: logb2(l1_config.l1_banks as u32),
+                // banks_byte_interleaving_log2: l1_config.l1_banks_byte_interleaving.ilog2(),
+                // num_banks: l1_config.l1_banks,
+                // num_banks_log2: l1_config.l1_banks.ilog2(),
             }
         }
     }
@@ -163,9 +174,9 @@ pub mod pascal {
             use cache::set_index::SetIndexer;
             self.set_index_function.compute_set_index(
                 addr,
-                self.inner.config.num_sets,
-                self.inner.config.line_size_log2,
-                self.inner.config.num_sets_log2,
+                // self.inner.config.num_sets,
+                // self.inner.config.line_size_log2,
+                // self.inner.config.num_sets_log2,
             )
         }
 
@@ -188,9 +199,9 @@ pub mod pascal {
             // interleaving) otherwise, line interleaving
             self.banks_set_index_function.compute_set_index(
                 addr,
-                self.num_banks,
-                self.banks_byte_interleaving_log2,
-                self.num_banks_log2,
+                // self.num_banks,
+                // self.banks_byte_interleaving_log2,
+                // self.num_banks_log2,
             )
         }
     }

@@ -63,17 +63,17 @@ pub struct L1DCache {
 }
 
 impl L1DCache {
-    // #[inline]
-    #[must_use]
-    pub fn l1_banks_log2(&self) -> u32 {
-        mcu::logb2(self.l1_banks as u32)
-    }
+    // // #[inline]
+    // #[must_use]
+    // pub fn l1_banks_log2(&self) -> u32 {
+    //     self.l1_banks.ilog2()
+    // }
 
-    // #[inline]
-    #[must_use]
-    pub fn l1_banks_byte_interleaving_log2(&self) -> u32 {
-        mcu::logb2(self.l1_banks_byte_interleaving as u32)
-    }
+    // // #[inline]
+    // #[must_use]
+    // pub fn l1_banks_byte_interleaving_log2(&self) -> u32 {
+    //     self.l1_banks_byte_interleaving.ilog2()
+    // }
 
     // // #[inline]
     // #[must_use]
@@ -182,17 +182,17 @@ impl Cache {
         MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
     }
 
-    // #[inline]
-    #[must_use]
-    pub fn line_size_log2(&self) -> u32 {
-        mcu::logb2(self.line_size)
-    }
+    // // #[inline]
+    // #[must_use]
+    // pub fn line_size_log2(&self) -> u32 {
+    //     self.line_size.ilog2()
+    // }
 
-    // #[inline]
-    #[must_use]
-    pub fn num_sets_log2(&self) -> u32 {
-        mcu::logb2(self.num_sets as u32)
-    }
+    // // #[inline]
+    // #[must_use]
+    // pub fn num_sets_log2(&self) -> u32 {
+    //     self.num_sets.ilog2()
+    // }
 
     // // #[inline]
     // #[must_use]
@@ -1065,6 +1065,9 @@ impl Default for GPU {
                 inner: Arc::new(Cache {
                     kind: CacheKind::Sector,
                     // kind: CacheKind::Normal,
+                    // num_sets: 64,
+                    // num_memory_controllers=8 * num_sub_partitions_per_memory_controller=2 = 16
+                    // 16 * 64 * 128 * 16 = 2097152 = 2MiB
                     num_sets: 64,
                     line_size: 128,
                     associativity: 16,
@@ -1199,8 +1202,8 @@ impl Default for GPU {
             // CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0"
             dram_timing_options: TimingOptions { num_banks: 16 },
             // this is the l2 latency 216 L2 latency
-            l2_rop_latency: 120,
-            dram_latency: 100,
+            l2_rop_latency: 130, // was 120
+            dram_latency: 180,   // was 100
             dram_dual_bus_interface: false,
             dram_bank_indexing_policy: DRAMBankIndexPolicy::Normal,
             dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy::HigherBits,

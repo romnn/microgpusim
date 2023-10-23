@@ -445,10 +445,9 @@ where
             .to_lowercase()
             == "yes";
 
-        let num_threads = self
-            .config
-            .simulation_threads
-            .map_or_else(super::get_num_threads, Result::Ok)?;
+        let num_threads = super::get_num_threads()?
+            .or(self.config.simulation_threads)
+            .unwrap_or_else(num_cpus::get_physical);
 
         let _ = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)

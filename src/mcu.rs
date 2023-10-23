@@ -3,14 +3,16 @@ use color_eyre::eyre::{self, WrapErr};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// Base 2 logarithm of n.
-///
-/// Effectively the minium number of bits required to store n.
-#[must_use]
-// #[inline]
-pub fn logb2(n: u32) -> u32 {
-    n.max(1).ilog2()
-}
+// /// Base 2 logarithm of n.
+// ///
+// /// Effectively the minium number of bits required to store n.
+// /// TODO: this could be removed or refactored into a num_bits() trait for all integers.
+// #[must_use]
+// // #[inline]
+// pub fn logb2<T>(n: T) -> T {
+//     n.ilog2()
+//     // n.max(1).ilog2()
+// }
 
 /// Compute power of two greater than or equal to n
 ///
@@ -221,9 +223,9 @@ impl MemoryControllerUnit {
         let num_channels = config.num_memory_controllers;
         let num_sub_partitions_per_channel = config.num_sub_partitions_per_memory_controller;
 
-        let num_channels_log2 = logb2(num_channels as u32);
+        let num_channels_log2 = num_channels.ilog2();
         let num_channels_next_power2 = next_power2(num_channels as u32);
-        let num_sub_partitions_per_channel_log2 = logb2(num_sub_partitions_per_channel as u32);
+        let num_sub_partitions_per_channel_log2 = num_sub_partitions_per_channel.ilog2();
 
         let mut num_chip_bits = num_channels_log2;
         let gap = num_channels as i64 - i64::from(2u32.pow(num_chip_bits));
@@ -729,12 +731,12 @@ mod tests {
 
     #[test]
     fn test_logb2() {
-        assert_eq!(super::logb2(0), playground::addrdec::LOGB2_32(0));
-        assert_eq!(super::logb2(1), playground::addrdec::LOGB2_32(1));
-        assert_eq!(super::logb2(2), playground::addrdec::LOGB2_32(2));
-        assert_eq!(super::logb2(3), playground::addrdec::LOGB2_32(3));
-        assert_eq!(super::logb2(40), playground::addrdec::LOGB2_32(40));
-        assert_eq!(super::logb2(42), playground::addrdec::LOGB2_32(42));
+        // assert_eq!(0u64.ilog2(), playground::addrdec::LOGB2_32(0));
+        assert_eq!(1u64.ilog2(), playground::addrdec::LOGB2_32(1));
+        assert_eq!(2u64.ilog2(), playground::addrdec::LOGB2_32(2));
+        assert_eq!(3u64.ilog2(), playground::addrdec::LOGB2_32(3));
+        assert_eq!(40u64.ilog2(), playground::addrdec::LOGB2_32(40));
+        assert_eq!(42u64.ilog2(), playground::addrdec::LOGB2_32(42));
     }
 
     #[test]

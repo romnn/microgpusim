@@ -109,18 +109,17 @@ pub struct PerThreadInfo {
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CacheOperator {
-    UNDEFINED,
     // loads
-    ALL,      // .ca
-    LAST_USE, // .lu
-    VOLATILE, // .cv
+    All,      // .ca
+    LastUse,  // .lu
+    Volatile, // .cv
     L1,       // .nc
     // loads and stores
-    STREAMING, // .cs
-    GLOBAL,    // .cg
+    Streaming, // .cs
+    Global,    // .cg
     // stores
-    WRITE_BACK,    // .wb
-    WRITE_THROUGH, // .wt
+    WriteBack,    // .wb
+    WriteThrough, // .wt
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -155,7 +154,7 @@ pub struct WarpInstruction {
     pub trace_idx: usize,
     pub opcode: Opcode,
     pub active_mask: warp::ActiveMask,
-    pub cache_operator: CacheOperator,
+    pub cache_operator: Option<CacheOperator>,
     pub memory_space: Option<MemorySpace>,
     pub barrier: Option<BarrierInfo>,
     pub threads: Vec<PerThreadInfo>,
@@ -193,7 +192,23 @@ impl std::cmp::PartialOrd for WarpInstruction {
 
 impl std::fmt::Display for WarpInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+        write!(
+            f,
+            "{}{}[pc={},warp={}]",
+            self.opcode,
+            match self.cache_operator {
+                None | Some(CacheOperator::All) => "",
+                Some(CacheOperator::L1) => "[L1]",
+                Some(CacheOperator::Streaming) => "[STREAM]",
+                Some(CacheOperator::Global) => "[GLOBAL]",
+                Some(CacheOperator::LastUse) => "[LAST_USE]",
+                Some(CacheOperator::Volatile) => "[VOLATILE]",
+                Some(CacheOperator::WriteBack) => "[WB]",
+                Some(CacheOperator::WriteThrough) => "[WT]",
+            },
+            self.pc,
+            self.warp_id
+        )
     }
 }
 
@@ -281,7 +296,7 @@ impl WarpInstruction {
         // let mut memory_op: Option<MemOp> = None;
         let mut is_atomic = false;
         // let mut const_cache_operand = false;
-        let mut cache_operator = CacheOperator::UNDEFINED; // TODO: convert to none?
+        let mut cache_operator = None;
         let mut memory_space = None;
         let mut barrier = None;
 
@@ -292,12 +307,12 @@ impl WarpInstruction {
                 data_size = 4;
                 // const_cache_operand = true;
                 memory_space = Some(MemorySpace::Constant);
-                cache_operator = CacheOperator::ALL;
+                cache_operator = Some(CacheOperator::All);
             }
             Op::LDG | Op::LDL => {
                 assert!(data_size > 0);
                 // memory_op = Some(MemOp::Load);
-                cache_operator = CacheOperator::ALL;
+                cache_operator = Some(CacheOperator::All);
                 memory_space = if opcode.op == Op::LDL {
                     Some(MemorySpace::Local)
                 } else {
@@ -305,13 +320,16 @@ impl WarpInstruction {
                 };
                 // check the cache scope, if its strong GPU, then bypass L1
                 if opcode_tokens.contains(&"STRONG") && opcode_tokens.contains(&"GPU") {
-                    cache_operator = CacheOperator::GLOBAL;
+                    cache_operator = Some(CacheOperator::Global);
+                }
+                if opcode_tokens.contains(&"CG") {
+                    cache_operator = Some(CacheOperator::Global);
                 }
             }
             Op::STG | Op::STL => {
                 assert!(data_size > 0);
                 // memory_op = Some(MemOp::Store);
-                cache_operator = CacheOperator::ALL;
+                cache_operator = Some(CacheOperator::All);
                 memory_space = if opcode.op == Op::STL {
                     Some(MemorySpace::Local)
                 } else {
@@ -325,7 +343,7 @@ impl WarpInstruction {
                 memory_space = Some(MemorySpace::Global);
                 is_atomic = true;
                 // all the atomics should be done at L2
-                cache_operator = CacheOperator::GLOBAL;
+                cache_operator = Some(CacheOperator::Global);
             }
             Op::LDS => {
                 assert!(data_size > 0);
@@ -401,10 +419,10 @@ impl WarpInstruction {
                             memory_space = Some(MemorySpace::Shared);
                         } else if local_mem_space.contains(&addr) {
                             memory_space = Some(MemorySpace::Local);
-                            cache_operator = CacheOperator::ALL;
+                            cache_operator = Some(CacheOperator::All);
                         } else {
                             memory_space = Some(MemorySpace::Global);
-                            cache_operator = CacheOperator::ALL;
+                            cache_operator = Some(CacheOperator::All);
                         }
                     }
                 }
@@ -719,7 +737,8 @@ impl WarpInstruction {
 
         let use_sector_segment_size = if (20..39).contains(&coalescing_arch) {
             // Fermi and Kepler, L1 is normal and L2 is sector
-            config.global_mem_skip_l1_data_cache || self.cache_operator == CacheOperator::GLOBAL
+            config.global_mem_skip_l1_data_cache
+                || self.cache_operator == Some(CacheOperator::Global)
         } else {
             coalescing_arch >= 40
         };

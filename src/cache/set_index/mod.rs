@@ -3,38 +3,48 @@ use super::address;
 pub trait SetIndexer: std::fmt::Debug + Send + Sync + 'static {
     /// Compute set index using
     #[must_use]
-    fn compute_set_index(
-        &self,
-        addr: address,
-        num_sets: usize,
-        line_size_log2: u32,
-        num_sets_log2: u32,
-    ) -> u64;
+    fn compute_set_index(&self, addr: address) -> u64;
 }
 
 pub mod fermi {
     // Set Indexing function from
     // "A Detailed GPU Cache Model Based on Reuse
     // Distance Theory" Cedric Nugteren et al. HPCA 2014
-    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct SetIndex {}
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct SetIndex {
+        pub num_sets: usize,
+        pub line_size_log2: u32,
+        pub num_sets_log2: u32,
+    }
+
+    impl SetIndex {
+        pub fn new(num_sets: usize, line_size: usize) -> Self {
+            Self {
+                num_sets,
+                line_size_log2: line_size.ilog2(),
+                num_sets_log2: num_sets.ilog2(),
+            }
+        }
+    }
+
     impl super::SetIndexer for SetIndex {
         // #[inline]
         fn compute_set_index(
             &self,
             addr: super::address,
-            num_sets: usize,
-            line_size_log2: u32,
-            _num_sets_log2: u32,
+            // num_sets: usize,
+            // line_size_log2: u32,
+            // _num_sets_log2: u32,
         ) -> u64 {
             // check for incorrect number of sets
             assert!(
-                matches!(num_sets, 32 | 64),
-                "bad cache config: num sets should be 32 or 64 for fermi set index function (got {num_sets})",
+                matches!(self.num_sets, 32 | 64),
+                "bad cache config: num sets should be 32 or 64 for fermi set index function (got {})",
+                self.num_sets
             );
 
             // lower xor value is bits 7-11
-            let lower_xor = (addr >> line_size_log2) & 0x1F;
+            let lower_xor = (addr >> self.line_size_log2) & 0x1F;
 
             // upper xor value is bits 13, 14, 15, 17, and 19
             let mut upper_xor = (addr & 0xE000) >> 13; // Bits 13, 14, 15
@@ -44,10 +54,10 @@ pub mod fermi {
             let mut set_idx = lower_xor ^ upper_xor;
 
             // 48KB cache prepends the set_index with bit 12
-            if num_sets == 64 {
+            if self.num_sets == 64 {
                 set_idx |= (addr & 0x1000) >> 7;
             }
-            assert!(set_idx < num_sets as u64, "set index out of bounds");
+            assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }
     }
@@ -63,23 +73,32 @@ pub mod bitwise_xor {
         index as u64 ^ (higher_bits & (bank_set_num as u64 - 1))
     }
 
-    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct SetIndex {}
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct SetIndex {
+        pub num_sets: usize,
+        pub line_size_log2: u32,
+        pub num_sets_log2: u32,
+    }
+
+    impl SetIndex {
+        pub fn new(num_sets: usize, line_size: usize) -> Self {
+            Self {
+                num_sets,
+                line_size_log2: line_size.ilog2(),
+                num_sets_log2: num_sets.ilog2(),
+            }
+        }
+    }
+
     impl super::SetIndexer for SetIndex {
         // #[inline]
-        fn compute_set_index(
-            &self,
-            addr: super::address,
-            num_sets: usize,
-            line_size_log2: u32,
-            num_sets_log2: u32,
-        ) -> u64 {
-            let bits = line_size_log2 + num_sets_log2;
+        fn compute_set_index(&self, addr: super::address) -> u64 {
+            let bits = self.line_size_log2 + self.num_sets_log2;
             let higher_bits = addr >> bits;
-            let mut index = (addr >> line_size_log2) as usize;
-            index &= num_sets - 1;
-            let set_idx = bitwise_hash_function(higher_bits, index, num_sets);
-            assert!(set_idx < num_sets as u64, "set index out of bounds");
+            let mut index = (addr >> self.line_size_log2) as usize;
+            index &= self.num_sets - 1;
+            let set_idx = bitwise_hash_function(higher_bits, index, self.num_sets);
+            assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }
     }
@@ -117,43 +136,123 @@ pub mod ipoly {
         todo!("ipoly_hash_function");
     }
 
-    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct SetIndex {}
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct SetIndex {
+        pub num_sets: usize,
+        pub line_size_log2: u32,
+        pub num_sets_log2: u32,
+    }
+
+    impl SetIndex {
+        pub fn new(num_sets: usize, line_size: usize) -> Self {
+            Self {
+                num_sets,
+                line_size_log2: line_size.ilog2(),
+                num_sets_log2: num_sets.ilog2(),
+            }
+        }
+    }
+
     impl super::SetIndexer for SetIndex {
         // #[inline]
-        fn compute_set_index(
-            &self,
-            addr: super::address,
-            num_sets: usize,
-            line_size_log2: u32,
-            num_sets_log2: u32,
-        ) -> u64 {
-            let bits = line_size_log2 + num_sets_log2;
+        fn compute_set_index(&self, addr: super::address) -> u64 {
+            let bits = self.line_size_log2 + self.num_sets_log2;
             let higher_bits = addr >> bits;
-            let mut index = (addr >> line_size_log2) as usize;
-            index &= num_sets - 1;
-            let set_idx = hash(higher_bits, index, num_sets);
-            assert!(set_idx < num_sets as u64, "set index out of bounds");
+            let mut index = (addr >> self.line_size_log2) as usize;
+            index &= self.num_sets - 1;
+            let set_idx = hash(higher_bits, index, self.num_sets);
+            assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }
     }
 }
 
 pub mod linear {
-    #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct SetIndex {}
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct SetIndex {
+        pub num_sets: usize,
+        pub line_size_log2: u32,
+        pub num_sets_log2: u32,
+    }
+
+    impl SetIndex {
+        pub fn new(num_sets: usize, line_size: usize) -> Self {
+            Self {
+                num_sets,
+                line_size_log2: line_size.ilog2(),
+                num_sets_log2: num_sets.ilog2(),
+            }
+        }
+    }
+
     impl super::SetIndexer for SetIndex {
         // #[inline]
-        fn compute_set_index(
-            &self,
-            addr: super::address,
-            num_sets: usize,
-            line_size_log2: u32,
-            _num_sets_log2: u32,
-        ) -> u64 {
-            let set_idx = (addr >> line_size_log2) & (num_sets as u64 - 1);
-            assert!(set_idx < num_sets as u64, "set index out of bounds");
+        fn compute_set_index(&self, addr: super::address) -> u64 {
+            let set_idx = (addr >> self.line_size_log2) & (self.num_sets as u64 - 1);
+            assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
+        }
+    }
+}
+
+pub mod pascal {
+    use bitvec::{array::BitArray, field::BitField, order::Lsb0, BitArr};
+
+    pub const NUM_SETS: usize = 4;
+    pub const NUM_SETS_LOG2: u32 = NUM_SETS.ilog2();
+    pub const LINE_SIZE: u64 = 128;
+    pub const LINE_SIZE_LOG2: u32 = LINE_SIZE.ilog2();
+
+    /// Pascal set index function.
+    ///
+    /// This uses 4 sets with 128B cache lines.
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct SetIndex {
+        pub accelsim_compat_mode: bool,
+        linear_set_index: super::linear::SetIndex,
+    }
+
+    impl Default for SetIndex {
+        fn default() -> Self {
+            Self {
+                accelsim_compat_mode: false,
+                linear_set_index: super::linear::SetIndex::new(4, 128),
+            }
+        }
+    }
+
+    impl SetIndex {
+        pub fn compute_way_offset(&self, addr: super::address) -> u64 {
+            let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+            addr_bits.store(addr);
+
+            debug_assert_eq!(9, LINE_SIZE_LOG2 + NUM_SETS_LOG2);
+            let offset0 =
+                addr_bits[9] ^ addr_bits[9] ^ addr_bits[10] ^ addr_bits[12] ^ addr_bits[14];
+            let offset1 = !offset0
+                ^ addr_bits[9]
+                ^ addr_bits[10]
+                ^ addr_bits[11]
+                ^ addr_bits[12]
+                ^ addr_bits[13]
+                ^ addr_bits[14];
+
+            let mut offset: BitArr!(for 2, in u8, Lsb0) = BitArray::ZERO;
+            offset.set(0, offset0);
+            offset.set(1, offset1);
+            offset.load()
+        }
+    }
+
+    impl super::SetIndexer for SetIndex {
+        // #[inline]
+        fn compute_set_index(&self, addr: super::address) -> u64 {
+            let set_idx = self.linear_set_index.compute_set_index(addr);
+            if self.accelsim_compat_mode {
+                return set_idx;
+            }
+            let way_offset = self.compute_way_offset(addr);
+            (set_idx + way_offset) % (NUM_SETS as u64)
         }
     }
 }
@@ -161,57 +260,73 @@ pub mod linear {
 #[cfg(test)]
 mod tests {
     use crate::cache::set_index::SetIndexer;
+    use itertools::Itertools;
+    use utils::diff;
+
+    #[test]
+    fn test_pascal_way_offset() {
+        use super::pascal::{LINE_SIZE, NUM_SETS};
+        let cache_size_bytes: u64 = 24 * 1024;
+        let set_index = super::pascal::SetIndex::default();
+
+        let base_addr = 140180606419456;
+        let line_offsets: Vec<_> = (0..cache_size_bytes)
+            .step_by(LINE_SIZE as usize)
+            .map(|line_offset| set_index.compute_way_offset(base_addr + line_offset))
+            .collect();
+
+        dbg!(&line_offsets);
+
+        // check that all consecutive NUM_SETS cache lines (each way) share the same offset.
+        assert!(line_offsets
+            .chunks(NUM_SETS)
+            .all(|way| way.iter().all_equal()));
+
+        // check the offsets that are assigned to each way.
+        let way_offsets: Vec<_> = line_offsets.into_iter().step_by(NUM_SETS).collect();
+        let want = vec![
+            0, 3, 1, 0, 2, 1, 3, 3, 1, 2, 0, 1, 3, 0, 2, 0, 2, 1, 3, 2, 0, 3, 1, 1, 3, 0, 2, 3, 1,
+            2, 0, 3, 1, 2, 0, 1, 3, 0, 2, 2, 0, 3, 1, 0, 2, 1, 3, 1,
+        ];
+
+        diff::assert_eq!(have: way_offsets, want: want);
+    }
 
     #[test]
     fn test_linear() {
-        let set_index = super::linear::SetIndex {};
-        let line_size = 128;
         let num_sets = 4;
+        let line_size = 128;
+        let set_index = super::linear::SetIndex::new(num_sets, line_size);
         for set in 0..num_sets {
             assert_eq!(
-                set_index.compute_set_index(
-                    set * line_size + 32,
-                    num_sets as usize,
-                    line_size.ilog2(),
-                    num_sets.ilog2(),
-                ),
-                set,
+                set_index.compute_set_index((set * line_size + 32) as u64),
+                set as u64
             );
         }
     }
 
     #[test]
     fn test_bitwise_xor() {
-        let set_index = super::bitwise_xor::SetIndex {};
-        let line_size = 128;
         let num_sets = 4;
+        let line_size = 128;
+        let set_index = super::bitwise_xor::SetIndex::new(num_sets, line_size);
         for set in 0..num_sets {
             assert_eq!(
-                set_index.compute_set_index(
-                    set * line_size + 32,
-                    num_sets as usize,
-                    line_size.ilog2(),
-                    num_sets.ilog2(),
-                ),
-                set
+                set_index.compute_set_index((set * line_size + 32) as u64),
+                set as u64
             );
         }
     }
 
     #[test]
     fn test_fermi() {
-        let set_index = super::fermi::SetIndex {};
-        let line_size = 128;
         let num_sets = 32;
+        let line_size = 128;
+        let set_index = super::fermi::SetIndex::new(num_sets, line_size);
         for set in 0..num_sets {
             assert_eq!(
-                set_index.compute_set_index(
-                    set * line_size + 32,
-                    num_sets as usize,
-                    line_size.ilog2(),
-                    num_sets.ilog2(),
-                ),
-                set
+                set_index.compute_set_index((set * line_size + 32) as u64),
+                set as u64
             );
         }
     }

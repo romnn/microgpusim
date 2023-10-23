@@ -57,7 +57,7 @@ use once_cell::sync::Lazy;
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
-use bitvec::{array::BitArray, BitArr};
+use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
 use crossbeam::utils::CachePadded;
@@ -65,6 +65,8 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 
 pub type address = u64;
+
+pub const DEBUG_PRINT: bool = true;
 
 /// Start address of the global heap on device.
 ///
@@ -1740,7 +1742,10 @@ where
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
-        println!("serial for {} cores", self.config.total_cores());
+        let log_every = 10_000;
+        let mut last_time = std::time::Instant::now();
+
+        log::info!("serial for {} cores", self.config.total_cores());
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
@@ -1750,6 +1755,13 @@ where
             loop {
                 log::info!("======== cycle {cycle} ========");
                 log::info!("");
+                if cycle % log_every == 0 && cycle > 0 {
+                    eprintln!(
+                        "cycle {cycle:<10} ({:>8.4} cycle/sec)",
+                        log_every as f64 / last_time.elapsed().as_secs_f64()
+                    );
+                    last_time = std::time::Instant::now()
+                }
 
                 if self.reached_limit(cycle) || !self.active() {
                     break;

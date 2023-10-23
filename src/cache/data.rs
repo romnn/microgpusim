@@ -81,7 +81,7 @@ where
         cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        _events: &mut [cache::Event],
+        _events: &mut Vec<cache::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         assert_eq!(addr, fetch.addr());
@@ -111,6 +111,55 @@ where
         self.update_readable(fetch, cache_index);
 
         cache::RequestStatus::HIT
+    }
+
+    /// Write-evict hit.
+    /// Send request to lower level memory and invalidate corresponding block
+    fn write_hit_write_evict(
+        &mut self,
+        addr: address,
+        cache_index: usize,
+        fetch: &mem_fetch::MemFetch,
+        time: u64,
+        events: &mut Vec<cache::Event>,
+        _probe_status: cache::RequestStatus,
+    ) -> cache::RequestStatus {
+        if self.inner.miss_queue_full() {
+            // m_stats.inc_fail_stats(mf->get_access_type(), MISS_QUEUE_FULL);
+            // return RESERVATION_FAIL;  // cannot handle request this cycle
+        }
+
+        // generate a write-through/evict
+        let block = self.inner.tag_array.get_block_mut(cache_index);
+
+        // Invalidate block
+        block.set_status(cache::block::Status::INVALID, &fetch.access.sector_mask);
+
+        let event = cache::Event::WriteRequestSent {};
+        self.send_write_request(fetch.clone(), event, time, events);
+
+        cache::RequestStatus::HIT
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn write_hit_global_write_evict_local_write_back(
+        &mut self,
+        addr: address,
+        cache_index: usize,
+        fetch: &mem_fetch::MemFetch,
+        time: u64,
+        events: &mut Vec<cache::Event>,
+        probe_status: cache::RequestStatus,
+    ) -> cache::RequestStatus {
+        // evict a line that hits on global memory write
+        let evict = fetch.access_kind() == mem_fetch::access::Kind::GLOBAL_ACC_W;
+        if evict {
+            // write-evict
+            self.write_hit_write_evict(addr, cache_index, fetch, time, events, probe_status)
+        } else {
+            // write-back
+            self.write_hit_write_back(addr, cache_index, fetch, time, events, probe_status)
+        }
     }
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
@@ -548,7 +597,7 @@ where
         cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
-        events: &mut [cache::Event],
+        events: &mut Vec<cache::Event>,
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         use cache::config::WritePolicy;
@@ -559,7 +608,7 @@ where
             WritePolicy::WRITE_BACK => Self::write_hit_write_back,
             WritePolicy::WRITE_THROUGH => unimplemented!("Self::wr_hit_wt"),
             WritePolicy::WRITE_EVICT => unimplemented!("Self::wr_hit_we"),
-            WritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("Self::wr_hit_global_we_local_wb"),
+            WritePolicy::LOCAL_WB_GLOBAL_WT => Self::write_hit_global_write_evict_local_write_back,
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
     }
@@ -753,14 +802,15 @@ where
                 cache::AccessStat::Status(cache::select_status(probe_status, access_status));
             kernel_stats.inc(allocation_id, access_kind, access_stat, 1);
 
-            if (probe_status, access_status)
-                != (
-                    cache::RequestStatus::HIT_RESERVED,
-                    cache::RequestStatus::RESERVATION_FAIL,
-                )
+            if crate::DEBUG_PRINT
+                && (probe_status, access_status)
+                    != (
+                        cache::RequestStatus::HIT_RESERVED,
+                        cache::RequestStatus::RESERVATION_FAIL,
+                    )
             {
                 let addr = fetch.relative_byte_addr();
-                println!(
+                eprintln!(
                     "{:>40}: cycle={:<5} fetch {:<30}\t inst={:<15}  addr={:<5}  space={:<10?} sector={} probe status={:<10?} access status={:<10?}",
                     self.inner.name,
                     time,
