@@ -9,3 +9,9 @@ pub fn get_num_threads() -> Result<Option<usize>, std::num::ParseIntError> {
         .transpose()?;
     Ok(count)
 }
+
+pub fn rayon_pool(num_threads: usize) -> Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build()
+}

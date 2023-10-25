@@ -957,7 +957,7 @@ impl Default for GPU {
             parallelization: Parallelization::Serial,
             memory_only: false,
             simulation_threads: None,
-            deadlock_check: true,
+            deadlock_check: false,
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,

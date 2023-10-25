@@ -2,12 +2,6 @@ use crate::sync::{Arc, RwLock};
 use crate::{config, engine::cycle::Component, ic, mem_fetch, MockSimulator};
 use color_eyre::eyre;
 
-pub fn rayon_pool(num_threads: usize) -> Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build()
-}
-
 impl<I> MockSimulator<I>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
@@ -19,17 +13,7 @@ where
             .or(self.config.simulation_threads)
             .unwrap_or_else(num_cpus::get_physical);
 
-        // let _ = rayon::ThreadPoolBuilder::new()
-        //     .num_threads(num_threads)
-        //     .build_global();
-
-        // assert_eq!(
-        //     rayon::current_num_threads(),
-        //     num_threads,
-        //     "number of threads matches"
-        // );
-
-        rayon_pool(num_threads)?.install(|| {
+        super::rayon_pool(num_threads)?.install(|| {
             println!("parallel (deterministic)");
             println!(
                 "\t => launching {num_threads} worker threads for {} cores",
@@ -45,6 +29,9 @@ where
 
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
 
+            let log_every = 10_000;
+            let mut last_time = std::time::Instant::now();
+
             while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
                 self.process_commands(cycle);
                 self.launch_kernels(cycle);
@@ -53,6 +40,13 @@ where
                 loop {
                     log::info!("======== cycle {cycle} ========");
                     log::info!("");
+                    if cycle % log_every == 0 && cycle > 0 {
+                        eprintln!(
+                            "cycle {cycle:<10} ({:>8.4} cycle/sec)",
+                            log_every as f64 / last_time.elapsed().as_secs_f64()
+                        );
+                        last_time = std::time::Instant::now()
+                    }
 
                     if self.reached_limit(cycle) || !self.active() {
                         break;

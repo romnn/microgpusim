@@ -66,7 +66,7 @@ use std::path::{Path, PathBuf};
 
 pub type address = u64;
 
-pub const DEBUG_PRINT: bool = true;
+pub const DEBUG_PRINT: bool = false;
 
 /// Start address of the global heap on device.
 ///
@@ -966,8 +966,11 @@ where
             .or_default()
             .add(start_total.elapsed());
 
-        // if cycle > 35_000 {
-        // if cycle > 10 {
+        // self.debug_non_exit();
+    }
+
+    #[allow(dead_code)]
+    fn debug_non_exit(&self) {
         use itertools::Itertools;
         log::trace!(
             "all clusters completed: {}",
@@ -1742,7 +1745,7 @@ where
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
-        let log_every = 10_000;
+        let log_every = 5_000;
         let mut last_time = std::time::Instant::now();
 
         log::info!("serial for {} cores", self.config.total_cores());
