@@ -185,10 +185,18 @@ def construct_playground_simulate_target_config(self, node):
 BenchmarkLoader.add_constructor("!Profile", construct_profile_target_config)
 BenchmarkLoader.add_constructor("!Trace", construct_trace_target_config)
 BenchmarkLoader.add_constructor("!Simulate", construct_simulate_target_config)
-BenchmarkLoader.add_constructor("!ExecDrivenSimulate", construct_exec_driven_simulate_target_config)
-BenchmarkLoader.add_constructor("!AccelsimSimulate", construct_accelsim_simulate_target_config)
-BenchmarkLoader.add_constructor("!AccelsimTrace", construct_accelsim_trace_target_config)
-BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simulate_target_config)
+BenchmarkLoader.add_constructor(
+    "!ExecDrivenSimulate", construct_exec_driven_simulate_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!AccelsimSimulate", construct_accelsim_simulate_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!AccelsimTrace", construct_accelsim_trace_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!PlaygroundSimulate", construct_playground_simulate_target_config
+)
 
 
 class Benchmarks:
@@ -221,7 +229,9 @@ class Benchmarks:
 
 
 @click.command()
-@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+@click.option(
+    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
+)
 def main(path):
     from pprint import pprint
 

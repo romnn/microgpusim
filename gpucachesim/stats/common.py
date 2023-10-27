@@ -172,7 +172,9 @@ def stat_cols(col):
     return [col + suf for suf in STAT_SUFFIXES]
 
 
-def compute_df_statistics(df: pd.DataFrame, group_by: typing.List[str] | None, agg=None):
+def compute_df_statistics(
+    df: pd.DataFrame, group_by: typing.List[str] | None, agg=None
+):
     all_columns = set(df.columns.tolist())
     all_columns = all_columns.difference(group_by or [])
     all_columns = sorted(list(all_columns))

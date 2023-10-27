@@ -137,7 +137,13 @@ def dump_sass(compile, fail_fast, arch):
     # sample_apps = sorted(list(CUDA_SAMPLES.rglob("*/*/")))
     if compile:
         sample_apps = sorted(
-            list([Path(f) for f in glob.glob(str(CUDA_SAMPLES.absolute()) + "/*/*/*") if Path(f).is_dir()])
+            list(
+                [
+                    Path(f)
+                    for f in glob.glob(str(CUDA_SAMPLES.absolute()) + "/*/*/*")
+                    if Path(f).is_dir()
+                ]
+            )
         )
         # pprint(sample_apps)
         for sample_app_dir in sample_apps:
@@ -182,7 +188,11 @@ def dump_sass(compile, fail_fast, arch):
         sass_path = SASS_CODE_REPO / arch / "{}.{}.sass".format(executable.name, arch)
         sass_path.parent.mkdir(parents=True, exist_ok=True)
 
-        print("wrote SASS for {} to {}".format(executable.name, color(sass_path, fg="cyan")))
+        print(
+            "wrote SASS for {} to {}".format(
+                executable.name, color(sass_path, fg="cyan")
+            )
+        )
         with open(sass_path, "w+") as f:
             f.write(sass)
 
@@ -220,11 +230,15 @@ def ASSERT_DRV(err):
     if isinstance(err, cuda.CUresult):
         if err != cuda.CUresult.CUDA_SUCCESS:
             _, err_string = cuda.cudaGetErrorString(err)
-            raise RuntimeError("Cuda Error ({}): {}".format(err, err_string.decode("utf-8")))
+            raise RuntimeError(
+                "Cuda Error ({}): {}".format(err, err_string.decode("utf-8"))
+            )
     elif isinstance(err, nvrtc.nvrtcResult):
         if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
             _, err_string = nvrtc.nvrtcGetErrorString(err)
-            raise RuntimeError("Nvrtc Error ({}): {}".format(err, err_string.decode("utf-8")))
+            raise RuntimeError(
+                "Nvrtc Error ({}): {}".format(err, err_string.decode("utf-8"))
+            )
     else:
         raise RuntimeError("Unknown error type: {}".format(err))
 
@@ -329,7 +343,11 @@ def instruction_latency(arch):
 
         # get the code
         kernel_asm_regex = re.compile(
-            r"(" + kernel_name + r":\n\s*\.text\." + kernel_name + r":(\n.*)*END of sections)",
+            r"("
+            + kernel_name
+            + r":\n\s*\.text\."
+            + kernel_name
+            + r":(\n.*)*END of sections)",
             re.MULTILINE,
         )
         kernel_asm = kernel_asm_regex.findall(cuasm)[0][0]
@@ -649,7 +667,9 @@ def solve_mapping_table(df, num_bits=64, use_and=False):
         #         # assert not wrong
 
         all_models = True
-        per_bit_solutions = list(sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models))
+        per_bit_solutions = list(
+            sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models)
+        )
         for sol_num, sol in enumerate(per_bit_solutions):
             if isinstance(sol, dict):
                 for symbol, enabled in sol.items():
@@ -658,9 +678,21 @@ def solve_mapping_table(df, num_bits=64, use_and=False):
             elif isinstance(sol, bool):
                 pass
             if sol == False:
-                print(color("NO solution {} for set bit {}".format(sol_num, output_set_bit), fg="red"))
+                print(
+                    color(
+                        "NO solution {} for set bit {}".format(sol_num, output_set_bit),
+                        fg="red",
+                    )
+                )
             else:
-                print(color("FOUND solution {} for set bit {}: {}".format(sol_num, output_set_bit, sol), fg="green"))
+                print(
+                    color(
+                        "FOUND solution {} for set bit {}: {}".format(
+                            sol_num, output_set_bit, sol
+                        ),
+                        fg="green",
+                    )
+                )
             sols[output_set_bit].append(sol)
 
     return sols
@@ -670,7 +702,7 @@ def sympy_to_pycrypto_cnf(equations):
     """Convert sympy to pycryptosat CNF clauses.
 
     Warning: this is astronomically slow for XOR.
-    XOR is converted using cut and convert and results in exponential explosion of clauses. 
+    XOR is converted using cut and convert and results in exponential explosion of clauses.
     Even without simplification, generating a single XOR CNF with degree 8 can take more than 15 seconds.
     """
     symbol_mapping = dict()
@@ -689,13 +721,12 @@ def sympy_to_pycrypto_cnf(equations):
                 var_id = len(symbol_mapping) + 1
                 symbol_mapping[var] = var_id
 
-
             var_id *= -1 if negated else 1
             return var_id
 
         # print(eq)
         # print(type(eq))
-        
+
         if isinstance(eq, DummyXor):
             vars = []
             for var in eq.vars:
@@ -751,7 +782,9 @@ def sympy_to_pycrypto_cnf(equations):
                 elif is_free_standing_symbol(clause):
                     clauses.append([convert_free_standing_var(clause)])
                 else:
-                    raise TypeError(f"unexpected expression {clause} of type {type(clause)}")
+                    raise TypeError(
+                        f"unexpected expression {clause} of type {type(clause)}"
+                    )
 
         elif isinstance(eq, sym.logic.boolalg.Or):
             clauses.append(convert_or(eq))
@@ -764,7 +797,9 @@ def sympy_to_pycrypto_cnf(equations):
     return (clauses, xor_clauses), symbol_mapping
 
 
-def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models=False, use_sympy=False):
+def solve_mapping_table_xor(
+    df, num_bits=64, degree=2, use_bits=None, all_models=False, use_sympy=False
+):
     sets = list(df["set"].unique())
     num_sets = len(sets)
     print("num sets", num_sets)
@@ -782,7 +817,9 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
                 bits = []
                 for bit in use_bits:
                     toggle = sym.symbols(f"b{bit}")
-                    gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                    gate = sym.logic.boolalg.And(
+                        toggle, bool(get_bit(int(bit), int(addr)))
+                    )
                     bits.append(gate)
 
                 return sym.logic.boolalg.Xor(*bits)
@@ -792,7 +829,9 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
                     bits = []
                     for bit in range(num_bits):
                         toggle = sym.symbols(f"b{bit}_{deg}")
-                        gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                        gate = sym.logic.boolalg.And(
+                            toggle, bool(get_bit(int(bit), int(addr)))
+                        )
                         bits.append(gate)
 
                     degrees.append(sym.logic.boolalg.Or(*bits))
@@ -817,7 +856,9 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
             unknown_vars += [sym.symbols(f"b{bit}") for bit in use_bits]
         else:
             for deg in range(degree):
-                unknown_vars += [sym.symbols(f"b{bit}_{deg}") for bit in range(num_bits)]
+                unknown_vars += [
+                    sym.symbols(f"b{bit}_{deg}") for bit in range(num_bits)
+                ]
 
         # if False:
         #     default_sol = {v: False for v in unknown_vars}
@@ -861,7 +902,11 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
         if use_sympy:
             start = time.time()
             print("sympy: start solving")
-            per_bit_sols = list(sym.satisfiable(sym.logic.boolalg.And(*equations), all_models=all_models))
+            per_bit_sols = list(
+                sym.satisfiable(
+                    sym.logic.boolalg.And(*equations), all_models=all_models
+                )
+            )
             for sol_num, sol in enumerate(per_bit_sols):
                 if isinstance(sol, dict):
                     for symbol, enabled in sol.items():
@@ -875,9 +920,23 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
                 # sol = sym.solve(equations, unknown_vars, dict=True)
                 # sol = sym.solveset(equations, unknown_vars, domain=sym.FiniteSet(0, 1))
                 if sol == False:
-                    print(color("NO solution {} for set bit {}".format(sol_num, output_set_bit, sol), fg="green"))
+                    print(
+                        color(
+                            "NO solution {} for set bit {}".format(
+                                sol_num, output_set_bit, sol
+                            ),
+                            fg="green",
+                        )
+                    )
                 else:
-                    print(color("FOUND solution {} for set bit {}: {}".format(sol_num, output_set_bit, sol), fg="red"))
+                    print(
+                        color(
+                            "FOUND solution {} for set bit {}: {}".format(
+                                sol_num, output_set_bit, sol
+                            ),
+                            fg="red",
+                        )
+                    )
                 sols[output_set_bit].append(sol)
 
             print("sympy: completed in {:8.2f} sec".format(time.time() - start))
@@ -888,7 +947,7 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
             # for clause in clauses:
             #     print(clause)
             #     assert isinstance(clause, list)
-            
+
             # pprint(clauses)
             # pprint(symbol_mapping)
             start = time.time()
@@ -897,30 +956,39 @@ def solve_mapping_table_xor(df, num_bits=64, degree=2, use_bits=None, all_models
             s.add_clauses(clauses)
             sat, solution_values = s.solve()
             if not sat:
-                print(color("NO solution for set bit {}".format(output_set_bit), fg="red"))
+                print(
+                    color("NO solution for set bit {}".format(output_set_bit), fg="red")
+                )
             else:
                 sol = dict()
                 for var, var_id in symbol_mapping.items():
                     if solution_values[var_id]:
                         sol[var] = True
 
-                print(color("FOUND solution for set bit {}: {}".format(output_set_bit, sol), fg="green"))
+                print(
+                    color(
+                        "FOUND solution for set bit {}: {}".format(output_set_bit, sol),
+                        fg="green",
+                    )
+                )
                 sols[output_set_bit].append(sol)
 
             print("pycryptosat: completed in {:8.2f} sec".format(time.time() - start))
 
-
     return sols
+
 
 def bool_equal(a, b):
     both_true = sym.logic.boolalg.And(a, b)
     both_false = sym.logic.boolalg.And(~a, ~b)
     return both_true | both_false
 
+
 class DummyXor:
     def __init__(self, vars, rhs):
         self.vars = vars
         self.rhs = rhs
+
 
 def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
     sets = list(df["set"].unique())
@@ -943,14 +1011,17 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
                 bits = []
                 for bit in range(num_bits):
                     toggle = sym.symbols(f"b{bit}_{deg}", bit=bit, deg=deg)
-                    gate = sym.logic.boolalg.And(toggle, bool(get_bit(int(bit), int(addr))))
+                    gate = sym.logic.boolalg.And(
+                        toggle, bool(get_bit(int(bit), int(addr)))
+                    )
                     if bool(get_bit(int(bit), int(addr))):
                         toggles.append(str(toggle))
                     bits.append(gate)
 
-                
                 dest = "d_" + "_".join(toggles)
-                variable_declarations.append((sym.symbols(dest), sym.logic.boolalg.Or(*bits)))
+                variable_declarations.append(
+                    (sym.symbols(dest), sym.logic.boolalg.Or(*bits))
+                )
                 # degrees.append(bool_eq(sym.symbols(f"d{deg}"), sym.logic.boolalg.Or(*bits)))
                 # degrees.append([b+1 for b in range(num_bits) if bool(get_bit(int(b), int(addr))])
 
@@ -964,10 +1035,9 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
             for var, eq in build_eq(addr):
                 # declare that var == eq
                 if eq == True or eq == False:
-                     continue
+                    continue
                 # print(var, "==", eq)
                 equations.append(bool_equal(var, eq))
-
 
                 # if not bool(get_bit(output_set_bit, set_id)):
                 #     eq = ~eq
@@ -980,7 +1050,6 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
             # if len(equations) > 30:
             #     break
 
-
         # pprint(equations)
         (clauses, xor_clauses), symbol_mapping = sympy_to_pycrypto_cnf(equations)
         # pprint(xor_clauses)
@@ -988,7 +1057,6 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
         # pprint(symbol_mapping)
         #
         # return
-
 
         # print(
         #     "solving {} equations with {} unknown variables for set bit {}".format(
@@ -998,7 +1066,7 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
 
         # print("pycryptosat: rewriting equations as CNF")
         # clauses, symbol_mapping = sympy_to_pycrypto_cnf(equations)
-        
+
         print("pycryptosat: start solving")
         start = time.time()
 
@@ -1006,7 +1074,7 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
         s.add_clauses(clauses)
 
         # add the xor clauses
-        for (vars, rhs) in xor_clauses:
+        for vars, rhs in xor_clauses:
             s.add_xor_clause(vars, rhs=rhs)
 
         # s.add_xor_clause([symbol_mapping[f"d{deg}"] for deg in range(degree)], rhs=True)
@@ -1020,12 +1088,15 @@ def solve_mapping_table_xor_fast(df, num_bits=64, degree=2):
                 if solution_values[var_id]:
                     sol[var] = True
 
-            print(color("FOUND solution for set bit {}: {}".format(output_set_bit, sol), fg="green"))
+            print(
+                color(
+                    "FOUND solution for set bit {}: {}".format(output_set_bit, sol),
+                    fg="green",
+                )
+            )
             sols[output_set_bit].append(sol)
 
         print("pycryptosat: completed in {:8.2f} sec".format(time.time() - start))
-
-
 
 
 @main.command()
@@ -1084,12 +1155,11 @@ def solve_bitwise_hash():
     # print("is satisfiable:", sat)
     # print("solution:", solution[1:])
 
-    # expect: set[0] = 7 xor 9 
+    # expect: set[0] = 7 xor 9
     # expect: set[2] = 8 xor 10
     # sols = solve_mapping_table_xor(df, num_bits=num_bits)
     sols = solve_mapping_table_xor_fast(df, num_bits=num_bits)
     # print(sols)
-
 
 
 @main.command()
@@ -1204,7 +1274,6 @@ def solve_ipoly_hash():
     # df.loc[set_mask, "set"] = 1
     # df.loc[~set_mask, "set"] = 0
 
-
     if False:
         deg1 = sym.symbols("b1_1") | sym.symbols("b2_1") | sym.symbols("b3_1")
         deg2 = sym.symbols("b1_2") | sym.symbols("b2_2") | sym.symbols("b3_2")
@@ -1230,9 +1299,8 @@ def solve_ipoly_hash():
         pprint(eq.args)
         print(len(eq.args))
         # print((2**(num_xors - 1)))
-        print((2**(num_xors - 1)) * 2**(num_ors) + (num_ors))
+        print((2 ** (num_xors - 1)) * 2 ** (num_ors) + (num_ors))
         # print((2**(num_xors - 1)) * (num_ors + 1) + 1)
-
 
     if False:
         higher_bits_start = line_size_log2 + num_sets_log2
@@ -1252,15 +1320,20 @@ def solve_ipoly_hash():
         sols = solve_mapping_table_xor(df, num_bits=num_bits, use_bits=bit_combination)
         return
 
-
     for degree in range(8, 10):
-        bit_combinations = list(itertools.combinations(
-            [line_size_log2 + bit for bit in range(num_bits - line_size_log2)], degree))
+        bit_combinations = list(
+            itertools.combinations(
+                [line_size_log2 + bit for bit in range(num_bits - line_size_log2)],
+                degree,
+            )
+        )
         print(bit_combinations[0])
         for bit_combination in bit_combinations:
             assert len(bit_combination) == degree
             print(f"==== SOLVING XOR [degree={degree}, bits={bit_combination}]")
-            sols = solve_mapping_table_xor(df, num_bits=num_bits, use_bits=bit_combination)
+            sols = solve_mapping_table_xor(
+                df, num_bits=num_bits, use_bits=bit_combination
+            )
     # print(sols)
 
 
@@ -1268,6 +1341,7 @@ def compute_set_probability(df):
     set_probability = df["set"].value_counts().reset_index()
     set_probability["prob"] = set_probability["count"] / set_probability["count"].sum()
     return set_probability
+
 
 @main.command()
 def solve_linear():

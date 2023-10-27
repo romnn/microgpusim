@@ -54,7 +54,11 @@ def run_cmd(
         if verbose:
             print("running {} (attempt {}/{})".format(cmd, attempt + 1, retries))
             if isinstance(cmd, list):
-                print("running {} (attempt {}/{})".format(" ".join(cmd), attempt + 1, retries))
+                print(
+                    "running {} (attempt {}/{})".format(
+                        " ".join(cmd), attempt + 1, retries
+                    )
+                )
 
         if dry_run:
             return 0, "", "", 0
@@ -69,7 +73,9 @@ def run_cmd(
         # the subprocess may take a long time, hence flush all buffers before
         sys.stdout.flush()
         start = timer()
-        proc = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd, env=env, shell=shell)
+        proc = sp.Popen(
+            cmd, stdout=sp.PIPE, stderr=sp.PIPE, cwd=cwd, env=env, shell=shell
+        )
         try:
             stdout, stderr = proc.communicate(timeout=timeout_sec)
         except sp.TimeoutExpired as timeout:
@@ -103,9 +109,13 @@ def run_cmd(
         # print(stderr)
 
         if save_to is not None:
-            with open(str((save_to.parent / (save_to.name + ".stdout")).absolute()), "w") as f:
+            with open(
+                str((save_to.parent / (save_to.name + ".stdout")).absolute()), "w"
+            ) as f:
                 f.write(stdout)
-            with open(str((save_to.parent / (save_to.name + ".stderr")).absolute()), "w") as f:
+            with open(
+                str((save_to.parent / (save_to.name + ".stderr")).absolute()), "w"
+            ) as f:
                 f.write(stderr)
 
         if proc.returncode != 0:
@@ -114,7 +124,9 @@ def run_cmd(
             print("\nstderr (last 15 lines):\n")
             print("\n".join(stderr.splitlines()[-15:]))
             sys.stdout.flush()
-            err = ExecStatusError(cmd=cmd, status=proc.returncode, stdout=stdout, stderr=stderr)
+            err = ExecStatusError(
+                cmd=cmd, status=proc.returncode, stdout=stdout, stderr=stderr
+            )
             # try again
             continue
 

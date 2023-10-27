@@ -18,6 +18,7 @@ import gpucachesim.stats.playground as playground
 import gpucachesim.benchmarks as benchmarks
 from gpucachesim.stats.human import human_readable
 import gpucachesim.plot as plot
+
 # from gpucachesim.plot import (
 #     FONT_SIZE_PT, DINA4_WIDTH_INCHES, DINA4_HEIGHT_INCHES, SIM_HATCHES, SIM_RGB_COLORS, RGB_COLORS, plt_rgba, PLOT_DIR
 # )
@@ -53,7 +54,7 @@ SIMULATE_EXECUTION_CONFIG_COLS = [
     "input_threads",
     "input_run_ahead",
 ]
-SIMULATE_INPUT_COLS = SIMULATE_EXECUTION_CONFIG_COLS + SIMULATE_FUNCTIONAL_CONFIG_COLS 
+SIMULATE_INPUT_COLS = SIMULATE_EXECUTION_CONFIG_COLS + SIMULATE_FUNCTIONAL_CONFIG_COLS
 
 BENCHMARK_INPUT_COLS = {
     "vectorAdd": ["input_dtype", "input_length"],
@@ -102,7 +103,16 @@ STAT_COLS = [
 # BENCH_TARGET_INDEX_COLS = ["target", "benchmark", "input_id"]
 BENCH_TARGET_INDEX_COLS = ["target", "benchmark"]
 
-def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd.DataFrame:
+
+def aggregate_benchmark_results(
+    sim_df: pd.DataFrame,
+    bench_name: str,
+    targets=None,
+    mode="serial",
+    memory_only=False,
+    cores_per_cluster=1,
+    num_clusters=20,
+) -> pd.DataFrame:
     """View results for a benchmark"""
 
     selected_df = sim_df.copy()
@@ -118,10 +128,10 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     non_gpucachesim = selected_df["input_mode"].isnull()
     print(selected_df[non_gpucachesim]["target"].unique().tolist())
 
-    serial_gpucachesim = selected_df["input_mode"] == "serial"
-    compute_gpucachesim = selected_df["input_memory_only"] == False
-    gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == 1
-    gtx1080_gpucachesim &= selected_df["input_num_clusters"] == 20
+    serial_gpucachesim = selected_df["input_mode"] == mode
+    compute_gpucachesim = selected_df["input_memory_only"] == memory_only
+    gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == cores_per_cluster
+    gtx1080_gpucachesim &= selected_df["input_num_clusters"] == num_clusters
     gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
     print(
         "gpucachesim gold input ids:",
@@ -133,7 +143,11 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     # kernels = selected_df[non_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates()
     # print(kernels)
     #
-    print(selected_df[gold_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates())
+    print(
+        selected_df[gold_gpucachesim][
+            ["kernel_name_mangled", "kernel_name"]
+        ].drop_duplicates()
+    )
     # kernels = selected_df[gold_gpucachesim][["kernel_name_mangled", "kernel_name"]].drop_duplicates()
     kernels = selected_df[gold_gpucachesim]["kernel_name"].unique().tolist()
     print(kernels)
@@ -146,7 +160,9 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 
     no_kernel = selected_df["kernel_name"].isna() ^ (selected_df["kernel_name"] == "")
     valid_kernel = selected_df["kernel_name"].isin(kernels)
-    selected_df = selected_df[(gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)]
+    selected_df = selected_df[
+        (gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)
+    ]
 
     if isinstance(targets, list):
         selected_df = selected_df[selected_df["target"].isin(targets)]
@@ -158,7 +174,9 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
         # n: [32, 64, 128]
         # p: [32, 64, 128]
 
-        subset = pd.DataFrame.from_records([(32, 32, 32), (128, 128, 128)], columns=["input_m", "input_n", "input_p"])
+        subset = pd.DataFrame.from_records(
+            [(32, 32, 32), (128, 128, 128)], columns=["input_m", "input_n", "input_p"]
+        )
         # print(subset.index)
         # print(selected_df.index)
         selected_df = selected_df.merge(subset, how="inner")
@@ -168,10 +186,6 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
         # pprint([c for c in selected_df.columns if "input_" in c])
         # print(selected_df[["input_m", "input_n", "input_p"]])
         # selected_df = selected_df[selected_df[["input_m", "input_n", "input_p"]].isin(subset)]
-
-    # assert False
-
-    # assert (selected_df["is_release_build"] == True).all()
 
     input_cols = BENCHMARK_INPUT_COLS[bench_name]
     # print(selected_df[input_cols].drop_duplicates())
@@ -188,14 +202,19 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
 
     profile_df = selected_df[selected_df["target"] == "Profile"]
     if False:
-        print(profile_df[
-            BENCH_TARGET_INDEX_COLS + input_cols
-            + ["l2_hits", "l2_misses", "l2_hit_rate"]
-            + ["l1_hits", "l1_misses", "l1_hit_rate"]
-        ])
+        print(
+            profile_df[
+                BENCH_TARGET_INDEX_COLS
+                + input_cols
+                + ["l2_hits", "l2_misses", "l2_hit_rate"]
+                + ["l1_hits", "l1_misses", "l1_hit_rate"]
+            ]
+        )
 
     group_cols = BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols
-    per_kernel = selected_df.groupby(group_cols, dropna=False)[STAT_COLS].mean().reset_index()
+    per_kernel = (
+        selected_df.groupby(group_cols, dropna=False)[STAT_COLS].mean().reset_index()
+    )
 
     # per_kernel["label"] = per_kernel.apply(compute_label, axis=1)
     # per_kernel["target_name"] = per_kernel["target"].apply(compute_target_name)
@@ -210,9 +229,11 @@ def benchmark_results(sim_df: pd.DataFrame, bench_name: str, targets=None) -> pd
     # print(averaged)
     # print(averaged.drop_duplicates())
 
-    per_target_pivoted = averaged.pivot(index=["benchmark"] + input_cols, columns="target", values=STAT_COLS)
+    per_target_pivoted = averaged.pivot(
+        index=["benchmark"] + input_cols, columns="target", values=STAT_COLS
+    )
     # per_target = averaged.set_index(["target", "benchmark"] + input_cols)
-    return per_kernel, per_target_pivoted 
+    return per_kernel, per_target_pivoted
 
 
 @main.command()
@@ -226,7 +247,9 @@ def parallel_plot(path, bench_name, nvprof):
     if bench_name is None:
         stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
     else:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(profiler, bench_name)
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+            profiler, bench_name
+        )
 
     selected_df = pd.read_csv(stats_file, header=0)
     selected_df = selected_df[selected_df["benchmark"] == bench_name]
@@ -244,7 +267,7 @@ def parallel_plot(path, bench_name, nvprof):
     # 'input_mode', 'input_threads', 'input_run_ahead', 'input_memory_only', 'input_num_clusters', 'input_cores_per_cluster'
     # input_cols = ["input_dtype", "input_length", "input_memory_only", "input_cores_per_cluster"]
     bench_input_cols = BENCHMARK_INPUT_COLS[bench_name]
-    input_cols = SIMULATE_INPUT_COLS 
+    input_cols = SIMULATE_INPUT_COLS
     print(bench_input_cols)
     print(input_cols)
 
@@ -262,19 +285,19 @@ def parallel_plot(path, bench_name, nvprof):
     # non_numeric_cols = sorted(serial.select_dtypes(include=["object"]).columns.tolist())
     # print(sorted(set(non_numeric_cols) - set(group_cols)))
 
-    non_numeric_cols= {
+    non_numeric_cols = {
         "Host Name": "first",
-       'Process Name': "first",
-       'device': "first",
-       'is_release_build': "first",
-       'kernel_function_signature': "first",
-       'kernel_name': "first",
-       'kernel_name_mangled': "first",
-       'input_id': "first",
+        "Process Name": "first",
+        "device": "first",
+        "is_release_build": "first",
+        "kernel_function_signature": "first",
+        "kernel_name": "first",
+        "kernel_name_mangled": "first",
+        "input_id": "first",
     }
     aggregations = {
         **{c: "mean" for c in set(serial.columns) - set(group_cols)},
-        **non_numeric_cols
+        **non_numeric_cols,
     }
     aggregations = {col: agg for col, agg in aggregations.items() if col in serial}
     mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
@@ -286,9 +309,17 @@ def parallel_plot(path, bench_name, nvprof):
         print("averaged", mean_serial.shape)
 
         print("before:")
-        print(serial.sort_values(input_cols + bench_input_cols)[input_cols + bench_input_cols + metric_cols])
+        print(
+            serial.sort_values(input_cols + bench_input_cols)[
+                input_cols + bench_input_cols + metric_cols
+            ]
+        )
         print("averaged:")
-        print(mean_serial.sort_values(input_cols + bench_input_cols)[input_cols + bench_input_cols + metric_cols])
+        print(
+            mean_serial.sort_values(input_cols + bench_input_cols)[
+                input_cols + bench_input_cols + metric_cols
+            ]
+        )
 
     # assert mean_serial.shape == serial.shape, "this does not hold when we have repetitions"
     serial = mean_serial
@@ -339,13 +370,25 @@ def parallel_plot(path, bench_name, nvprof):
     # those are fully distinct
     print("serial input ids", len(serial["input_id"].unique()))
     print("parallel input ids", len(parallel["input_id"].unique()))
-    input_id_partitoning = set(serial["input_id"].unique()).intersection(set(parallel["input_id"].unique()))
+    input_id_partitoning = set(serial["input_id"].unique()).intersection(
+        set(parallel["input_id"].unique())
+    )
     if len(input_id_partitoning) > 0:
         for input_id in input_id_partitoning:
             print("serial input", input_id)
-            print(serial.loc[serial["input_id"] == input_id, bench_cols + bench_input_cols + SIMULATE_INPUT_COLS])
+            print(
+                serial.loc[
+                    serial["input_id"] == input_id,
+                    bench_cols + bench_input_cols + SIMULATE_INPUT_COLS,
+                ]
+            )
             print("parallel input", input_id)
-            print(parallel.loc[parallel["input_id"] == input_id, bench_cols + bench_input_cols + SIMULATE_INPUT_COLS])
+            print(
+                parallel.loc[
+                    parallel["input_id"] == input_id,
+                    bench_cols + bench_input_cols + SIMULATE_INPUT_COLS,
+                ]
+            )
             break
         assert len(input_id_partitoning) == 0
 
@@ -354,14 +397,16 @@ def parallel_plot(path, bench_name, nvprof):
         serial,
         on=bench_cols + bench_input_cols + SIMULATE_FUNCTIONAL_CONFIG_COLS,
         how="left",
-        suffixes=('_parallel', '_serial'),
+        suffixes=("_parallel", "_serial"),
     )
     print(joined.shape)
     assert joined.shape[0] == parallel.shape[0]
     # assert joined.shape[0] == len(parallel["input_id"].unique())
 
     PREVIEW_COLS = sorted(
-        bench_cols + bench_input_cols + SIMULATE_FUNCTIONAL_CONFIG_COLS
+        bench_cols
+        + bench_input_cols
+        + SIMULATE_FUNCTIONAL_CONFIG_COLS
         + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
         + [c + "_parallel" for c in metric_cols]
         + [c + "_serial" for c in metric_cols]
@@ -371,7 +416,6 @@ def parallel_plot(path, bench_name, nvprof):
     if True:
         print(joined.loc[0:3, PREVIEW_COLS].T)
 
-    
     # if False:
     #     # compute speedup
     #     joined["exec_time_sec_speedup"] = speedup(
@@ -393,21 +437,25 @@ def parallel_plot(path, bench_name, nvprof):
     # print(thread_values)
     # print(run_ahead_values)
 
-    print(joined[
-        ["benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel"]
-        # ["benchmark"] + bench_input_cols + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
-    ].drop_duplicates())
+    print(
+        joined[
+            [
+                "benchmark",
+                "input_mode_parallel",
+                "input_threads_parallel",
+                "input_run_ahead_parallel",
+            ]
+            # ["benchmark"] + bench_input_cols + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
+        ].drop_duplicates()
+    )
     # print(joined[[
     #     "benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel", "cycles_rmse",
     # ]].drop_duplicates())
-
-    
 
     # def dummy_first(_df):
     #     print("first of", _df, type(_df))
     #     return _df
 
-    
     # def first(_df):
     #     print("=====")
     #     if isinstance(_df, pd.Series):
@@ -419,9 +467,10 @@ def parallel_plot(path, bench_name, nvprof):
     #     # print(_df.first())
     #     # return _df
 
-
     group_cols = sorted(
-        bench_cols + bench_input_cols + SIMULATE_FUNCTIONAL_CONFIG_COLS
+        bench_cols
+        + bench_input_cols
+        + SIMULATE_FUNCTIONAL_CONFIG_COLS
         + [col + "_parallel" for col in SIMULATE_EXECUTION_CONFIG_COLS]
         + [col + "_serial" for col in SIMULATE_EXECUTION_CONFIG_COLS]
     )
@@ -446,11 +495,13 @@ def parallel_plot(path, bench_name, nvprof):
     # print(joined[non_numeric_cols])
     # return
 
-
     if set(joined.columns.tolist()) - set(group_cols) != set(aggregations.keys()):
-        pprint((set(joined.columns.tolist()) - set(group_cols)).symmetric_difference(set(aggregations.keys())))
+        pprint(
+            (set(joined.columns.tolist()) - set(group_cols)).symmetric_difference(
+                set(aggregations.keys())
+            )
+        )
         raise ValueError
-    
 
     # table_df = []
     # for _, df in joined.groupby(group_cols, dropna=False):
@@ -465,7 +516,6 @@ def parallel_plot(path, bench_name, nvprof):
     #     # print(test)
     #     # test = joined.groupby(group_cols, dropna=False).agg({)
 
-    
     # def compute_per_config_metrics(_df):
     #     print("=====")
     #     # print(_df.T)
@@ -475,7 +525,7 @@ def parallel_plot(path, bench_name, nvprof):
     #     # print(list(_df["exec_time_sec_parallel"]))
     #     # print(_df["exec_time_sec_parallel"].groups)
     #
-    #     
+    #
     #
     #     if False:
     #         per_config_metrics["exec_time_sec_speedup"] = _df[["exec_time_sec_serial", "exec_time_sec_parallel"]].apply(compute_speedup)
@@ -499,7 +549,7 @@ def parallel_plot(path, bench_name, nvprof):
     #     # _df["cycles_rmse"] = rmse(true_values=_df["cycles_serial"], values=_df["cycles_parallel"])
     #     # _df["cycles_mae"] = mae(true_values=_df["cycles_serial"], values=_df["cycles_parallel"])
     #     # return _df
-    #     return per_config_metrics 
+    #     return per_config_metrics
 
     def speedup(baseline, values):
         return baseline / values
@@ -510,11 +560,10 @@ def parallel_plot(path, bench_name, nvprof):
         return rel_err
 
     def rmse(true_values, values):
-        return((values - true_values) ** 2).mean() ** .5
+        return ((values - true_values) ** 2).mean() ** 0.5
 
     def mae(true_values, values):
         return (true_values - values).abs().mean()
-
 
     # def compute_mean_speedup(_df):
     #     return speedup(baseline=_df["exec_time_sec_serial"], values=_df["exec_time_sec_parallel"]).mean()
@@ -528,12 +577,13 @@ def parallel_plot(path, bench_name, nvprof):
     #
     # def compute_mean_cycles_rmse(_df):
     #     return rmse(true_values=_df["cycles_serial"], values=_df["cycles_parallel"])
-    
+
     print(joined.shape)
     grouped = joined.groupby(group_cols, dropna=False)
     aggregated = grouped.agg(aggregations, squeeze=False)
 
     if False:
+
         def inspect_func(df):
             if (df["input_mode_parallel"] == "deterministic").all():
                 print(df[["input_mode_parallel", "cycles_serial", "cycles_parallel"]])
@@ -543,27 +593,50 @@ def parallel_plot(path, bench_name, nvprof):
 
     # speedup
     aggregated["exec_time_sec_speedup"] = grouped.apply(
-        lambda df: speedup(baseline=df["exec_time_sec_serial"], values=df["exec_time_sec_parallel"]).mean())
+        lambda df: speedup(
+            baseline=df["exec_time_sec_serial"], values=df["exec_time_sec_parallel"]
+        ).mean()
+    )
     # cycles error
     aggregated["cycles_rel_err"] = grouped.apply(
-        lambda df: rel_err(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
+        lambda df: rel_err(
+            true_values=df["cycles_serial"], values=df["cycles_parallel"]
+        ).mean()
+    )
     aggregated["cycles_rmse"] = grouped.apply(
-        lambda df: rmse(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
+        lambda df: rmse(
+            true_values=df["cycles_serial"], values=df["cycles_parallel"]
+        ).mean()
+    )
     aggregated["cycles_mae"] = grouped.apply(
-        lambda df: mae(true_values=df["cycles_serial"], values=df["cycles_parallel"]).mean())
+        lambda df: mae(
+            true_values=df["cycles_serial"], values=df["cycles_parallel"]
+        ).mean()
+    )
     # l1 hit rate error
     aggregated["l1_hit_rate_rel_err"] = grouped.apply(
-        lambda df: rel_err(true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]).mean())
+        lambda df: rel_err(
+            true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]
+        ).mean()
+    )
     # l2 hit rate error
     aggregated["l2_hit_rate_rel_err"] = grouped.apply(
-        lambda df: rel_err(true_values=df["l2_hit_rate_serial"], values=df["l2_hit_rate_parallel"]).mean())
+        lambda df: rel_err(
+            true_values=df["l2_hit_rate_serial"], values=df["l2_hit_rate_parallel"]
+        ).mean()
+    )
     # dram reads error
     aggregated["dram_reads_rel_err"] = grouped.apply(
-        lambda df: rel_err(true_values=df["dram_reads_serial"], values=df["dram_reads_parallel"]).mean())
+        lambda df: rel_err(
+            true_values=df["dram_reads_serial"], values=df["dram_reads_parallel"]
+        ).mean()
+    )
     # dram writes error
     aggregated["dram_writes_rel_err"] = grouped.apply(
-        lambda df: rel_err(true_values=df["dram_writes_serial"], values=df["dram_writes_parallel"]).mean())
-
+        lambda df: rel_err(
+            true_values=df["dram_writes_serial"], values=df["dram_writes_parallel"]
+        ).mean()
+    )
 
     # aggregated["exec_time_sec_speedup"] = joined.groupby(group_cols, dropna=False)[
     #     ["exec_time_sec_serial", "exec_time_sec_parallel"]].apply(compute_speedup).mean()
@@ -575,17 +648,27 @@ def parallel_plot(path, bench_name, nvprof):
     print(aggregated.shape)
     # print(joined.T)
     # print(aggregated.loc[0:4, PREVIEW_COLS].T.drop_duplicates())
-    print(aggregated.reset_index().loc[0:4,
-        PREVIEW_COLS + bench_input_cols + ["cycles_rel_err", "exec_time_sec_speedup"]].T.drop_duplicates())
+    print(
+        aggregated.reset_index()
+        .loc[
+            0:4,
+            PREVIEW_COLS
+            + bench_input_cols
+            + ["cycles_rel_err", "exec_time_sec_speedup"],
+        ]
+        .T.drop_duplicates()
+    )
 
-    print(aggregated.loc[
-        (aggregated["input_mode_parallel"] == "deterministic") & (aggregated["input_threads_parallel"] == 4),
-        PREVIEW_COLS + ["cycles_rel_err", "exec_time_sec_speedup"]].T.drop_duplicates())
-
+    print(
+        aggregated.loc[
+            (aggregated["input_mode_parallel"] == "deterministic")
+            & (aggregated["input_threads_parallel"] == 4),
+            PREVIEW_COLS + ["cycles_rel_err", "exec_time_sec_speedup"],
+        ].T.drop_duplicates()
+    )
 
     # print(aggregated.reset_index().loc[0:4,
     #     ["cycles_rel_err", "cycles_serial", "cycles_parallel"]].T) #.drop_duplicates())
-
 
     # build the table data
     functional_config = {
@@ -595,35 +678,58 @@ def parallel_plot(path, bench_name, nvprof):
         # "input_cores_per_cluster": 8,
     }
     selected_benchmarks: typing.Dict[str, typing.Any] = {
-        "vectorAdd": dict(label="VectorAdd", inputs={"input_dtype": 32, "input_length": 500_000}),
+        "vectorAdd": dict(
+            label="VectorAdd", inputs={"input_dtype": 32, "input_length": 500_000}
+        ),
     }
 
     interleave_n = list(itertools.product([False, True], [5, 10]))
 
     tables = [(functional_config, selected_benchmarks)]
-    for (functional_config, selected_benchmarks) in tables:
+    for functional_config, selected_benchmarks in tables:
         print(functional_config, selected_benchmarks)
 
         table = ""
 
         assert set(functional_config.keys()) == set(SIMULATE_FUNCTIONAL_CONFIG_COLS)
 
-        assert all([bench_name in BENCHMARK_INPUT_COLS.keys() for bench_name in selected_benchmarks.keys()])
-        assert all([
-            set(BENCHMARK_INPUT_COLS[bench_name]) == set(bench_config["inputs"].keys())
-            for bench_name, bench_config in selected_benchmarks.items()
-        ])
+        assert all(
+            [
+                bench_name in BENCHMARK_INPUT_COLS.keys()
+                for bench_name in selected_benchmarks.keys()
+            ]
+        )
+        assert all(
+            [
+                set(BENCHMARK_INPUT_COLS[bench_name])
+                == set(bench_config["inputs"].keys())
+                for bench_name, bench_config in selected_benchmarks.items()
+            ]
+        )
 
         for bench_name, bench_config in selected_benchmarks.items():
             bench_inputs: typing.Dict[str, typing.Any] = bench_config["inputs"]
-            mask_cols = list(functional_config.keys()) + ["benchmark"] + list(bench_inputs.keys())
-            mask_values = list(functional_config.values()) + [bench_name] + list(bench_inputs.values())
+            mask_cols = (
+                list(functional_config.keys())
+                + ["benchmark"]
+                + list(bench_inputs.keys())
+            )
+            mask_values = (
+                list(functional_config.values())
+                + [bench_name]
+                + list(bench_inputs.values())
+            )
             # mask = aggregated["benchmark"] == bench_name
             # for col, value in zip(mask_cols, mask_values):
             #     mask &= aggregated[col] == value
             # print((aggregated[mask_cols] == mask_values).sum(axis=0))
             mask = (aggregated[mask_cols] == mask_values).all(axis=1)
-            table += r"\rowcolor{gray!10} \multicolumn{8}{c}{" + str(bench_config["label"]) + r"} \\ \hline" + "\n"
+            table += (
+                r"\rowcolor{gray!10} \multicolumn{8}{c}{"
+                + str(bench_config["label"])
+                + r"} \\ \hline"
+                + "\n"
+            )
             # print(mask)
             # print(mask.shape)
             # print(mask.sum())
@@ -638,13 +744,19 @@ def parallel_plot(path, bench_name, nvprof):
                 table_row = ""
                 # metric name
                 if is_first_metric_row:
-                    table_row += r"\multirow{2}{*}{\shortstack[l]{" + str(row.metric) + r"}}"
+                    table_row += (
+                        r"\multirow{2}{*}{\shortstack[l]{" + str(row.metric) + r"}}"
+                    )
                 # threads
                 table_row += r" & $t=" + str(row.threads) + r"$ "
                 # serial value
                 # if row.serial_value is not None:
                 if is_first_metric_row:
-                    table_row += r" & \multirow{2}{*}{\shortstack[l]{" + str(row.serial_value) + r"}} "
+                    table_row += (
+                        r" & \multirow{2}{*}{\shortstack[l]{"
+                        + str(row.serial_value)
+                        + r"}} "
+                    )
                 else:
                     table_row += r" &  "
                 # deterministic value
@@ -652,8 +764,8 @@ def parallel_plot(path, bench_name, nvprof):
                 # nondeterministic value
                 for nondet_value in row.nondet_values:
                     table_row += r" & " + str(nondet_value)
-                table_row += r" \\ " 
-                if is_last_metric_row: 
+                table_row += r" \\ "
+                if is_last_metric_row:
                     table_row += r" \hline "
                 table_row += "\n"
                 return table_row
@@ -666,169 +778,247 @@ def parallel_plot(path, bench_name, nvprof):
                 nondet_values: typing.Sequence[typing.Union[float, int, str]]
 
             table_rows: typing.Sequence[TableRow] = []
-            
 
             for threads in [4, 8]:
                 threads_mask = aggregated["input_threads_parallel"] == threads
                 det_mask = aggregated["input_mode_parallel"] == "deterministic"
-                nondet_no_interleave_mask = aggregated["input_mode_parallel"] == "nondeterministic"
-                nondet_interleave_mask = aggregated["input_mode_parallel"] == "nondeterministic_interleave"
+                nondet_no_interleave_mask = (
+                    aggregated["input_mode_parallel"] == "nondeterministic"
+                )
+                nondet_interleave_mask = (
+                    aggregated["input_mode_parallel"] == "nondeterministic_interleave"
+                )
                 # print([m.sum() for m in [
                 #     mask, threads_mask, det_mask, nondet_no_interleave_mask, nondet_interleave_mask
                 # ]])
 
                 det = aggregated[mask & threads_mask & det_mask]
-                print(det[
-                    bench_input_cols
-                    + [
-                        "input_threads_parallel", "exec_time_sec_parallel",
-                        "input_id_parallel", "input_id_serial",
+                print(
+                    det[
+                        bench_input_cols
+                        + [
+                            "input_threads_parallel",
+                            "exec_time_sec_parallel",
+                            "input_id_parallel",
+                            "input_id_serial",
+                        ]
                     ]
-                ])
+                )
                 print("===")
                 assert len(det) == 1
-                nondet_no_interleave = aggregated[mask & threads_mask & nondet_no_interleave_mask]
+                nondet_no_interleave = aggregated[
+                    mask & threads_mask & nondet_no_interleave_mask
+                ]
                 assert len(nondet_no_interleave) == 2
-                nondet_interleave = aggregated[mask & threads_mask & nondet_interleave_mask]
+                nondet_interleave = aggregated[
+                    mask & threads_mask & nondet_interleave_mask
+                ]
                 assert len(nondet_interleave) == 2
 
                 # print([len(df) for df in [det, nondet_no_interleave, nondet_interleave]])
                 # assert all([len(df) > 0 for df in [det, nondet_no_interleave, nondet_interleave]])
-                assert len(aggregated.loc[mask,
-                    ["exec_time_sec_serial", "cycles_serial", "input_id_serial"]].drop_duplicates()) == 1
+                assert (
+                    len(
+                        aggregated.loc[
+                            mask,
+                            [
+                                "exec_time_sec_serial",
+                                "cycles_serial",
+                                "input_id_serial",
+                            ],
+                        ].drop_duplicates()
+                    )
+                    == 1
+                )
 
                 # exec time (speedup)
-                serial_exec_time = aggregated.loc[mask & threads_mask, "exec_time_sec_serial"].values[0]
+                serial_exec_time = aggregated.loc[
+                    mask & threads_mask, "exec_time_sec_serial"
+                ].values[0]
                 det_exec_time = det["exec_time_sec_parallel"].values[0]
                 det_speedup = det["exec_time_sec_speedup"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
                     # print(interleave, n)
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     # print(nondet["input_run_ahead_parallel"])
                     # print(nondet["input_run_ahead_parallel"] == n)
                     # print(nondet.shape)
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
                     nondet_exec_time = nondet["exec_time_sec_parallel"].values[0]
                     nondet_speedup = nondet["exec_time_sec_speedup"].values[0]
-                    nondet_values.append("${:>3.1f}s~({:>1.1f}x)$".format(nondet_exec_time, nondet_speedup))
+                    nondet_values.append(
+                        "${:>3.1f}s~({:>1.1f}x)$".format(
+                            nondet_exec_time, nondet_speedup
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric="exec time",
-                    threads=threads,
-                    serial_value="${:>3.1f}s$".format(serial_exec_time),
-                    det_value="${:>3.1f}s~({:1.1f}x)$".format(det_exec_time, det_speedup),
-                    nondet_values=nondet_values,
-                ))
+                table_rows.append(
+                    TableRow(
+                        metric="exec time",
+                        threads=threads,
+                        serial_value="${:>3.1f}s$".format(serial_exec_time),
+                        det_value="${:>3.1f}s~({:1.1f}x)$".format(
+                            det_exec_time, det_speedup
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # cycles (rel err)
-                serial_cycles = int(aggregated.loc[mask & threads_mask, "cycles_serial"].values[0])
+                serial_cycles = int(
+                    aggregated.loc[mask & threads_mask, "cycles_serial"].values[0]
+                )
                 det_cycles = int(det["cycles_parallel"].values[0])
                 det_rel_err = det["cycles_rel_err"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
 
                     nondet_cycles = int(nondet["cycles_parallel"].values[0])
                     nondet_rel_err = nondet["cycles_rel_err"].values[0]
-                    nondet_values.append("${:>5}~({:>2.1f}\\%)$".format(nondet_cycles, 100.0 * nondet_rel_err))
+                    nondet_values.append(
+                        "${:>5}~({:>2.1f}\\%)$".format(
+                            nondet_cycles, 100.0 * nondet_rel_err
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric="cycles",
-                    threads=threads,
-                    serial_value="${:>5}$".format(serial_cycles),
-                    det_value="${:>5}~({:>2.1f}\\%)$".format(det_cycles, 100.0 * det_rel_err),
-                    nondet_values=nondet_values,
-                ))
+                table_rows.append(
+                    TableRow(
+                        metric="cycles",
+                        threads=threads,
+                        serial_value="${:>5}$".format(serial_cycles),
+                        det_value="${:>5}~({:>2.1f}\\%)$".format(
+                            det_cycles, 100.0 * det_rel_err
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # l1 data hit rate (rel err)
-                serial_l1_hit_rate = int(aggregated.loc[mask & threads_mask, "l1_hit_rate_serial"].values[0])
+                serial_l1_hit_rate = int(
+                    aggregated.loc[mask & threads_mask, "l1_hit_rate_serial"].values[0]
+                )
                 det_l1_hit_rate = int(det["l1_hit_rate_parallel"].values[0])
                 det_rel_err = det["l1_hit_rate_rel_err"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
 
                     nondet_l1_hit_rate = int(nondet["l1_hit_rate_parallel"].values[0])
                     nondet_rel_err = nondet["l1_hit_rate_rel_err"].values[0]
-                    nondet_values.append("${:>2.1f}\\%~({:>2.1f}\\%)$".format(nondet_l1_hit_rate, 100.0 * nondet_rel_err))
+                    nondet_values.append(
+                        "${:>2.1f}\\%~({:>2.1f}\\%)$".format(
+                            nondet_l1_hit_rate, 100.0 * nondet_rel_err
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric=r"L1D\\hit rate",
-                    threads=threads,
-                    serial_value="${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
-                    det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(det_l1_hit_rate, 100.0 * det_rel_err),
-                    nondet_values=nondet_values,
-                ))
+                table_rows.append(
+                    TableRow(
+                        metric=r"L1D\\hit rate",
+                        threads=threads,
+                        serial_value="${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
+                        det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(
+                            det_l1_hit_rate, 100.0 * det_rel_err
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # l2 data hit rate (rel err)
-                serial_l2_hit_rate = int(aggregated.loc[mask & threads_mask, "l2_hit_rate_serial"].values[0])
+                serial_l2_hit_rate = int(
+                    aggregated.loc[mask & threads_mask, "l2_hit_rate_serial"].values[0]
+                )
                 det_l2_hit_rate = int(det["l2_hit_rate_parallel"].values[0])
                 det_rel_err = det["l2_hit_rate_rel_err"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
 
                     nondet_l2_hit_rate = int(nondet["l2_hit_rate_parallel"].values[0])
                     nondet_rel_err = nondet["l2_hit_rate_rel_err"].values[0]
-                    nondet_values.append("${:>2.1f}\\%~({:>2.1f}\\%)$".format(nondet_l2_hit_rate, 100.0 * nondet_rel_err))
+                    nondet_values.append(
+                        "${:>2.1f}\\%~({:>2.1f}\\%)$".format(
+                            nondet_l2_hit_rate, 100.0 * nondet_rel_err
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric=r"L2D\\hit rate",
-                    threads=threads,
-                    serial_value="${:>2.1f}\\%$".format(100.0 * serial_l2_hit_rate),
-                    det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(det_l2_hit_rate, 100.0 * det_rel_err),
-                    nondet_values=nondet_values,
-                ))
+                table_rows.append(
+                    TableRow(
+                        metric=r"L2D\\hit rate",
+                        threads=threads,
+                        serial_value="${:>2.1f}\\%$".format(100.0 * serial_l2_hit_rate),
+                        det_value="${:>2.1f}\\%~({:>2.1f}\\%)$".format(
+                            det_l2_hit_rate, 100.0 * det_rel_err
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # dram reads (rel err)
-                serial_dram_reads = int(aggregated.loc[mask & threads_mask, "dram_reads_serial"].values[0])
+                serial_dram_reads = int(
+                    aggregated.loc[mask & threads_mask, "dram_reads_serial"].values[0]
+                )
                 det_dram_reads = int(det["dram_reads_parallel"].values[0])
                 det_rel_err = det["dram_reads_rel_err"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
 
                     nondet_dram_reads = int(nondet["dram_reads_parallel"].values[0])
                     nondet_rel_err = nondet["dram_reads_rel_err"].values[0]
-                    nondet_values.append("${:>4}~({:>2.1f}\\%)$".format(nondet_dram_reads, 100.0 * nondet_rel_err))
+                    nondet_values.append(
+                        "${:>4}~({:>2.1f}\\%)$".format(
+                            nondet_dram_reads, 100.0 * nondet_rel_err
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric=r"DRAM\\reads",
-                    threads=threads,
-                    serial_value="${:>4}$".format(serial_dram_reads),
-                    det_value="${:>4}~({:>2.1f}\\%)$".format(det_dram_reads, 100.0 * det_rel_err),
-                    nondet_values=nondet_values,
-                ))
+                table_rows.append(
+                    TableRow(
+                        metric=r"DRAM\\reads",
+                        threads=threads,
+                        serial_value="${:>4}$".format(serial_dram_reads),
+                        det_value="${:>4}~({:>2.1f}\\%)$".format(
+                            det_dram_reads, 100.0 * det_rel_err
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # dram writes (rel err)
-                serial_dram_writes = int(aggregated.loc[mask & threads_mask, "dram_writes_serial"].values[0])
+                serial_dram_writes = int(
+                    aggregated.loc[mask & threads_mask, "dram_writes_serial"].values[0]
+                )
                 det_dram_writes = int(det["dram_writes_parallel"].values[0])
                 det_rel_err = det["dram_writes_rel_err"].values[0]
                 nondet_values = []
                 for interleave, n in interleave_n:
-                    nondet = nondet_interleave if interleave else nondet_no_interleave 
+                    nondet = nondet_interleave if interleave else nondet_no_interleave
                     nondet = nondet[nondet["input_run_ahead_parallel"] == n]
 
                     nondet_dram_writes = int(nondet["dram_writes_parallel"].values[0])
                     nondet_rel_err = nondet["dram_writes_rel_err"].values[0]
-                    nondet_values.append("${:>4}~({:>2.1f}\\%)$".format(nondet_dram_writes, 100.0 * nondet_rel_err))
+                    nondet_values.append(
+                        "${:>4}~({:>2.1f}\\%)$".format(
+                            nondet_dram_writes, 100.0 * nondet_rel_err
+                        )
+                    )
 
-                table_rows.append(TableRow(
-                    metric=r"DRAM\\writes",
-                    threads=threads,
-                    serial_value="${:>4}$".format(serial_dram_writes),
-                    det_value="${:>4}~({:>2.1f}\\%)$".format(det_dram_writes, 100.0 * det_rel_err),
-                    nondet_values=nondet_values,
-                ))
-
-
-
-
+                table_rows.append(
+                    TableRow(
+                        metric=r"DRAM\\writes",
+                        threads=threads,
+                        serial_value="${:>4}$".format(serial_dram_writes),
+                        det_value="${:>4}~({:>2.1f}\\%)$".format(
+                            det_dram_writes, 100.0 * det_rel_err
+                        ),
+                        nondet_values=nondet_values,
+                    )
+                )
 
                 # serial_exec_time = aggregated.loc[mask & threads_mask, "exec_time_sec_serial"].values[0]
                 # serial_cycles = aggregated.loc[mask & threads_mask, "cycles_serial"].values[0]
@@ -895,82 +1085,6 @@ def parallel_plot(path, bench_name, nvprof):
 
         print(table)
 
-    return
-
-
-
-    # table_values = dict()
-    # table_df = []
-
-
-    # table_df = joined.groupby(group_cols, dropna=False).agg(aggregations, squeeze=False).reset_index()
-    # table_df["test"] = 1
-    # table_df = table_df.agg(aggregations).reset_index()
-    # table_df = table_df
-    # print(table_df)
-    return
-    # table_df = table_df.apply(test_func).agg(aggregations, squeeze=False).reset_index()
-    # table_df = joined.groupby(group_cols, dropna=False).apply(test_func).agg({
-    #     k: first for k in aggregations.keys()
-    # }).reset_index()
-
-    # assert "target" not in df.columns
-    # assert "input_mode" not in df.columns
-
-    # out = df.copy().agg(aggregations)
-
-    # print(df.reset_index().loc[0:4, PREVIEW_COLS].T.drop_duplicates())
-    # print(df.reset_index().loc[0:4, ["cycles_rel_err", "cycles_rmse"]].T.drop_duplicates())
-    # print(df)
-
-    # table_df.append(out)
-
-        # per_config = df[ 
-    # for (mode, benchmark, threads, run_ahead) in itertools.product(
-    #         mode_values, benchmark_values, thread_values, run_ahead_values):
-    #     print(
-    #         "\n==> collecting [ mode={:<35} benchmark={:<15} threads={:<3} run ahead={:<3} ]".format(
-    #         str(color(mode, fg="cyan")),
-    #         str(color(benchmark, fg="cyan")),
-    #         str(color(threads, fg="cyan")),
-    #         str(color(run_ahead, fg="cyan"),
-    #     )))
-    #     mask = joined["benchmark"] == benchmark
-    #     mask &= joined["input_mode_parallel"] == mode
-    #     mask &= joined["input_threads_parallel"] == threads
-    #     mask &= joined["input_run_ahead_parallel"] == run_ahead
-    #     # for col, value in functional_config.items():
-    #     #     df &= joined[col] == value
-    #     df = joined.loc[mask,:].copy()
-    #     for df in df.groupby()
-    #     # print(len(df))
-    #     # print(df.reset_index().loc[0:3, PREVIEW_COLS].T.drop_duplicates())
-
-    
-    # table_df = pd.concat(table_df, ignore_index=True)
-    print(table_df[[
-        "benchmark", "input_mode_parallel", "input_threads_parallel", "input_run_ahead_parallel", # "cycles_rmse",
-    ]].drop_duplicates())
-
-
-    # pprint(table_values)
-    return
-
-    
-
-    # joined = joined[joined["input_id_parallel"] == 41]
-    # print(joined["cycles_parallel"] - joined["cycles_serial"])
-    # joined[[
-    #     "benchmark", "input_dtype", "input_length", "input_memory_only", "input_cores_per_cluster", "input_id_parallel", "input_id_serial",
-    #     "input_threads_parallel", "input_run_ahead_parallel", "parallelization_method_parallel",
-    #     "exec_time_sec_parallel", "exec_time_sec_serial",
-    #     "cycles_parallel", "cycles_serial",
-    #     "l2_accesses_parallel", "l2_accesses_serial",
-    #
-    #     # computed
-    #     "exec_time_sec_speedup", "cycles_rel_err", "cycles_rmse", "cycles_mae",
-    # ]].T
-
 
 @main.command()
 # @click.pass_context
@@ -978,21 +1092,23 @@ def parallel_plot(path, bench_name, nvprof):
 # @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
+@click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
 # @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name, nvprof):
+def view(path, bench_name, nvprof, mem_only):
     # load the materialized benchmark config
     profiler = "nvprof" if nvprof else "nsight"
     if bench_name is None:
         stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
     else:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(profiler, bench_name)
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+            profiler, bench_name
+        )
 
     sim_df = pd.read_csv(stats_file, header=0)
-    # assert (sim_df["input_mode"] == "serial").sum() > 0
 
-    # print(sim_df)
-
-    per_kernel, per_target_pivoted = benchmark_results(sim_df, bench_name)
+    per_kernel, per_target_pivoted = aggregate_benchmark_results(
+        sim_df, bench_name, memory_only=mem_only
+    )
     stat_cols = [
         "num_blocks",
         "exec_time_sec",
@@ -1029,8 +1145,6 @@ def view(path, bench_name, nvprof):
             "l1_hit_rate",
         ]
 
-    
-
     def compute_label(df):
         assert isinstance(df, pd.Series)
 
@@ -1042,28 +1156,11 @@ def view(path, bench_name, nvprof):
         match benchmark.lower():
             case "vectoradd":
                 label += "\n"
-                label += "f{:<2} {:<5}".format(int(df["input_dtype"]), int(df["input_length"]))
+                label += "f{:<2} {:<5}".format(
+                    int(df["input_dtype"]), int(df["input_length"])
+                )
 
         return label
-
-    # def compute_label(df):
-    #     assert isinstance(df, pd.DataFrame)
-    #
-    #     print(df)
-    #     df = df.reset_index()
-    #     benchmark = df["benchmark"].unique()
-    #     assert len(benchmark) == 1
-    #     benchmark = benchmark[0]
-    #     bench_input_cols = BENCHMARK_INPUT_COLS[benchmark]
-    #     assert all([c in df for c in bench_input_cols])
-    #
-    #     label = str(benchmark)
-    #     match benchmark.lower():
-    #         case "vectoradd":
-    #             label += "\n"
-    #             label += "f{:<2} {:<5}".format(int(df["input_dtype"].iloc[0]), int(df["input_length"]))
-    #
-    #     return df
 
     def compute_target_name(name):
         assert isinstance(name, str)
@@ -1076,7 +1173,6 @@ def view(path, bench_name, nvprof):
             case "profile":
                 return "Native"
 
-    # per_target = per_target[stat_cols].reset_index()
     per_kernel["label"] = per_kernel.apply(compute_label, axis=1)
     per_kernel["target_name"] = per_kernel["target"].apply(compute_target_name)
 
@@ -1085,33 +1181,22 @@ def view(path, bench_name, nvprof):
     benchmarks = sorted(per_kernel["benchmark"].unique().tolist())
     pprint(benchmarks)
     benchmark_inputs = {
-        benchmark: per_kernel[["label"] + BENCHMARK_INPUT_COLS[benchmark]].drop_duplicates()
+        benchmark: per_kernel[
+            ["label"] + BENCHMARK_INPUT_COLS[benchmark]
+        ].drop_duplicates()
         for benchmark in benchmarks
     }
     pprint(benchmark_inputs)
 
-    targets = [target for target in targets if target in ["Profile", "Simulate", "AccelsimSimulate"]]
-
+    targets = [
+        target
+        for target in targets
+        if target in ["Profile", "Simulate", "AccelsimSimulate"]
+    ]
 
     input_cols = BENCHMARK_INPUT_COLS[bench_name]
     group_cols = BENCH_TARGET_INDEX_COLS + input_cols
     per_target = per_kernel.set_index(group_cols).sort_index()
-
-    # non_numeric_cols = sorted(
-    #     set(per_kernel.columns.tolist())
-    #     - set(per_kernel.select_dtypes(include=["number"]).columns.tolist())
-    #     - set(BENCH_TARGET_INDEX_COLS + input_cols)
-    # )
-    # aggregations = {
-    #     **{c: "mean" for c in set(per_kernel.columns) - set(group_cols)},
-    #     **{
-    #         "kernel_name": "first",
-    #         "label": "first",
-    #         "target": "first",
-    #         "target_name": "first",
-    #     },
-    # }
-    # per_target = per_kernel.groupby(group_cols, dropna=False)
 
     print(" === {} === ".format(profiler))
     print(per_target_pivoted[stat_cols].T)
@@ -1121,10 +1206,6 @@ def view(path, bench_name, nvprof):
         log_y_axis: bool
         grid: bool
 
-        # @classmethod
-        # def new(cls, **kwargs):
-        #     return cls(**{**default_stat_config._asdict(), **kwargs})
-
     default_stat_config = StatConfig(
         label="",
         log_y_axis=False,
@@ -1132,76 +1213,93 @@ def view(path, bench_name, nvprof):
     )
 
     stat_configs = {
-        "instructions": StatConfig(**{
-            **default_stat_config._asdict(),
-            **dict(label="instruction count", log_y_axis=True),
-        }),
-        "cycles": StatConfig(**{
-            **default_stat_config._asdict(),
-            **dict(label="cycles", log_y_axis=True),
-        }),
-        "dram_reads": StatConfig(**{
-            **default_stat_config._asdict(),
-            **dict(label="DRAM reads", log_y_axis=True),
-        }),
-        "dram_writes": StatConfig(**{
-            **default_stat_config._asdict(),
-            **dict(label="DRAM writes", log_y_axis=True),
-        }),
-
+        "instructions": StatConfig(
+            **{
+                **default_stat_config._asdict(),
+                **dict(label="instruction count", log_y_axis=True),
+            }
+        ),
+        "cycles": StatConfig(
+            **{
+                **default_stat_config._asdict(),
+                **dict(label="cycles", log_y_axis=True),
+            }
+        ),
+        "dram_reads": StatConfig(
+            **{
+                **default_stat_config._asdict(),
+                **dict(label="DRAM reads", log_y_axis=True),
+            }
+        ),
+        "dram_writes": StatConfig(
+            **{
+                **default_stat_config._asdict(),
+                **dict(label="DRAM writes", log_y_axis=True),
+            }
+        ),
     }
 
     if False:
         stat_cols = ["cycles", "dram_reads", "dram_writes"]
 
     for stat_col, benchmark in itertools.product(stat_cols, benchmarks):
-        stat_config = stat_configs.get(stat_col) or StatConfig(**{
-            **default_stat_config._asdict(), **dict(label=stat_col)})
+        stat_config = stat_configs.get(stat_col) or StatConfig(
+            **{**default_stat_config._asdict(), **dict(label=stat_col)}
+        )
         ylabel = stat_config.label
-        fontsize= plot.FONT_SIZE_PT
-        font_family="Helvetica"
+        fontsize = plot.FONT_SIZE_PT
+        font_family = "Helvetica"
 
         bar_width = 10
         spacing = 2
         group_spacing = 2 * bar_width
 
-        group_width = (len(targets) * (bar_width + spacing) + group_spacing)
+        group_width = len(targets) * (bar_width + spacing) + group_spacing
 
-        plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
+        plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
         fig = plt.figure(
-            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.25 * plot.DINA4_HEIGHT_INCHES), layout="constrained")
+            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.25 * plot.DINA4_HEIGHT_INCHES),
+            layout="constrained",
+        )
         ax = plt.axes()
 
-        ax.grid(stat_config.grid, axis="y", linestyle='-', linewidth=1, color="black", alpha=0.1, zorder=1)
+        ax.grid(
+            stat_config.grid,
+            axis="y",
+            linestyle="-",
+            linewidth=1,
+            color="black",
+            alpha=0.1,
+            zorder=1,
+        )
 
-        for target, (inputs_idx, inputs) in itertools.product(targets, benchmark_inputs[benchmark].iterrows()):
-            key = [target, benchmark] + [inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]]
-            target_df = per_target.loc[tuple(key),:]
+        for target, (inputs_idx, inputs) in itertools.product(
+            targets, benchmark_inputs[benchmark].iterrows()
+        ):
+            key = [target, benchmark] + [
+                inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]
+            ]
+            target_df = per_target.loc[tuple(key), :]
             target_df = target_df.groupby(group_cols, dropna=False)
-            # print(target_df)
-
-            # target_df = per_target["benchmark"] == benchmark
-            # target_df &= per_target["target"] == target
-            # print(target_df)
-            # for col in BENCHMARK_INPUT_COLS[benchmark]:
-            #     target_df &= per_target[col] == inputs[col]
-            # assert target_df.sum() == 1
-            # target_df = per_target[target_df]
-            # target_df = target_df.iloc[0]
-            # target_df = target_df.fillna(0.0)
 
             target_idx = targets.index(target)
             idx = inputs_idx * group_width + (target_idx + 0.5) * (bar_width + spacing)
 
             target_name = target_df["target_name"].first().values[0]
 
-            print("{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
-                benchmark, stat_col, target_name, target_idx,
-                str(inputs[BENCHMARK_INPUT_COLS[benchmark]].tolist()),
-                inputs_idx, idx,
-                target_df[stat_col].fillna(0.0).mean(),
-                target_df[stat_col].fillna(0.0).std(),
-            ))
+            print(
+                "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
+                    benchmark,
+                    stat_col,
+                    target_name,
+                    target_idx,
+                    str(inputs[BENCHMARK_INPUT_COLS[benchmark]].tolist()),
+                    inputs_idx,
+                    idx,
+                    target_df[stat_col].fillna(0.0).mean(),
+                    target_df[stat_col].fillna(0.0).std(),
+                )
+            )
 
             x = [idx]
             y = target_df[stat_col].fillna(0.0).mean()
@@ -1209,15 +1307,16 @@ def view(path, bench_name, nvprof):
 
             color = plot.plt_rgba(*plot.SIM_RGB_COLORS[target_name.lower()], 1.0)
             ax.bar(
-                x, 
-                y, 
+                x,
+                y,
                 color=color,
                 hatch=plot.SIM_HATCHES[target_name.lower()] * 1,
                 width=bar_width,
                 linewidth=1,
                 edgecolor="black",
                 zorder=2,
-                label=target_name if inputs_idx == 0 else None)
+                label=target_name if inputs_idx == 0 else None,
+            )
 
             ax.errorbar(
                 x,
@@ -1230,7 +1329,7 @@ def view(path, bench_name, nvprof):
                 ecolor="black",
                 capsize=0.5 * bar_width,
                 # marker='o', markersize=4,
-                linestyle='-'
+                linestyle="-",
             )
             # hatch.color and hatch.linewidth
 
@@ -1250,10 +1349,10 @@ def view(path, bench_name, nvprof):
         ytick_values = np.linspace(0, ymax, 6)
         if stat_config.log_y_axis:
             ymax_log = np.ceil(np.log10(ymax))
-            ytick_values = np.arange(0, ymax_log, step=int(np.ceil(ymax_log/6)))
+            ytick_values = np.arange(0, ymax_log, step=int(np.ceil(ymax_log / 6)))
             ytick_values = np.power(10, ytick_values)
             print(ytick_values)
-            ax.set_yscale('log', base=10)
+            ax.set_yscale("log", base=10)
             ax.set_ylim(1, 10 * ymax)
         else:
             ax.set_ylim(0, ymax)
@@ -1262,25 +1361,37 @@ def view(path, bench_name, nvprof):
         ax.set_yticks(ytick_values, ytick_labels)
 
         ax.legend()
-        filename = plot.PLOT_DIR / "validation/{}.{}.{}.pdf".format(profiler, bench_name, stat_col)
+        filename = plot.PLOT_DIR / "validation/{}.{}.{}.pdf".format(
+            profiler, bench_name, stat_col
+        )
         filename.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(filename)
-
 
 
 @main.command()
 # @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
-@click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
+@click.option(
+    "--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config"
+)
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--input", "input_idx", type=int, help="Input index")
-@click.option("--limit", "limit", type=int, help="Limit number of benchmark configs generated")
-@click.option("--quick", "quick", type=bool, is_flag=True,
-              help="Fast mode: only collect baseline benchmark configurations")
+@click.option(
+    "--limit", "limit", type=int, help="Limit number of benchmark configs generated"
+)
+@click.option(
+    "--quick",
+    "quick",
+    type=bool,
+    is_flag=True,
+    help="Fast mode: only collect baseline benchmark configurations",
+)
 @click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
 @click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
 @click.option("--out", "output_path", help="Output path for combined stats")
-def generate(path, config_path, bench_name, input_idx, limit, quick, verbose, output_path, nvprof):
+def generate(
+    path, config_path, bench_name, input_idx, limit, quick, verbose, output_path, nvprof
+):
     benches = []
 
     b = Benchmarks(path)
@@ -1344,13 +1455,25 @@ def generate(path, config_path, bench_name, input_idx, limit, quick, verbose, ou
                     case ("playgroundsimulate", _):
                         bench_stats = playground.Stats(config, bench_config)
                     case other:
-                        print(color(f"WARNING: {name} has unknown target {other}", fg="red"))
+                        print(
+                            color(
+                                f"WARNING: {name} has unknown target {other}", fg="red"
+                            )
+                        )
                         continue
             except Exception as e:
-                print(" ===> {:>20} {:>15}@{:<4} {}".format(target_name, name, input_idx, input_values))
+                print(
+                    " ===> {:>20} {:>15}@{:<4} {}".format(
+                        target_name, name, input_idx, input_values
+                    )
+                )
                 raise e
 
-            print(" ===> {:>20} {:>15}@{:<4} {}".format(target_name, name, input_idx, input_values))
+            print(
+                " ===> {:>20} {:>15}@{:<4} {}".format(
+                    target_name, name, input_idx, input_values
+                )
+            )
             # print(f" ===> {target_name} \t {name}@{input_idx} \t {input_values}")
 
             values = pd.DataFrame.from_records([bench_config["values"]])
@@ -1382,7 +1505,9 @@ def generate(path, config_path, bench_name, input_idx, limit, quick, verbose, ou
         if bench_name is None:
             all_stats_output_path = results_dir / f"combined.stats.{profiler}.csv"
         else:
-            all_stats_output_path = results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
+            all_stats_output_path = (
+                results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
+            )
 
         if output_path is not None:
             all_stats_output_path = Path(output_path)

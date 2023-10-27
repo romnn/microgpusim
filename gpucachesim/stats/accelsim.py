@@ -18,7 +18,9 @@ class Stats(stats.Stats):
     bench_config: BenchConfig[AccelsimSimulateTargetConfig]
     target_config: AccelsimSimulateConfig
 
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig[AccelsimSimulateTargetConfig]) -> None:
+    def __init__(
+        self, config: GPUConfig, bench_config: BenchConfig[AccelsimSimulateTargetConfig]
+    ) -> None:
         self.bench_config = bench_config
         self.target_config = self.bench_config["target_config"].value
         self.path = Path(self.target_config["stats_dir"])
@@ -29,7 +31,11 @@ class Stats(stats.Stats):
         self.load_raw_stats()
 
         self.compute_result_df()
-        print(self.result_df[["kernel_name", "kernel_name_mangled", "kernel_function_signature"]].drop_duplicates())
+        print(
+            self.result_df[
+                ["kernel_name", "kernel_name_mangled", "kernel_function_signature"]
+            ].drop_duplicates()
+        )
 
         # add the input configs
 
@@ -37,10 +43,15 @@ class Stats(stats.Stats):
             # sanity checks
             assert self.raw_stats_df["num_issued_blocks"].sum() == self.num_blocks()
             assert self.raw_stats_df["gpu_tot_sim_cycle"].sum() == self.cycles()
-            assert self.raw_stats_df["gpu_total_instructions"].sum() == self.instructions()
+            assert (
+                self.raw_stats_df["gpu_total_instructions"].sum() == self.instructions()
+            )
             assert self.raw_stats_df["total_dram_reads"].sum() == self.dram_reads()
             assert self.raw_stats_df["total_dram_writes"].sum() == self.dram_writes()
-            assert self.raw_stats_df[["total_dram_writes", "total_dram_reads"]].sum().sum() == self.dram_accesses()
+            assert (
+                self.raw_stats_df[["total_dram_writes", "total_dram_reads"]].sum().sum()
+                == self.dram_accesses()
+            )
 
             # l2_cache_global_write_total == l2_cache_GLOBAL_ACC_W_TOTAL_ACCESS
             # l2_cache_global_read_total == l2_cache_GLOBAL_ACC_R_TOTAL_ACCESS
@@ -49,30 +60,57 @@ class Stats(stats.Stats):
             # print(self._get_raw_l2_stats(["GLOBAL_ACC_W"], stats.ACCESS_STATUSES).sum().sum())
             # print(self.raw_stats_df["l2_cache_global_write_total"])
             assert (
-                self._get_raw_l2_stats(["GLOBAL_ACC_W"], ["HIT", "HIT_RESERVED", "MISS", "SECTOR_MISS"]).sum().sum()
+                self._get_raw_l2_stats(
+                    ["GLOBAL_ACC_W"], ["HIT", "HIT_RESERVED", "MISS", "SECTOR_MISS"]
+                )
+                .sum()
+                .sum()
                 == self.raw_stats_df["l2_cache_global_write_total"].sum()
             )
             assert (
-                self._get_raw_l2_stats(["GLOBAL_ACC_R"], ["HIT", "MISS", "SECTOR_MISS"]).sum().sum()
+                self._get_raw_l2_stats(["GLOBAL_ACC_R"], ["HIT", "MISS", "SECTOR_MISS"])
+                .sum()
+                .sum()
                 == self.raw_stats_df["l2_cache_global_read_total"].sum()
             )
-            assert self.raw_stats_df["l2_cache_global_write_total"].sum() == self.l2_writes()
-            assert self.raw_stats_df["l2_cache_global_read_total"].sum() == self.l2_reads()
-
-            assert self._get_raw_l2_read_stats(["HIT"]).sum().sum() == self.l2_read_hits()
-            assert self._get_raw_l2_write_stats(["HIT"]).sum().sum() == self.l2_write_hits()
-            assert self._get_raw_l2_read_stats(["MISS", "SECTOR_MISS"]).sum().sum() == self.l2_read_misses()
-            assert self._get_raw_l2_write_stats(["MISS", "SECTOR_MISS"]).sum().sum() == self.l2_write_misses()
+            assert (
+                self.raw_stats_df["l2_cache_global_write_total"].sum()
+                == self.l2_writes()
+            )
+            assert (
+                self.raw_stats_df["l2_cache_global_read_total"].sum() == self.l2_reads()
+            )
 
             assert (
-                self.raw_stats_df["l2_cache_GLOBAL_ACC_W_HIT"] / self.raw_stats_df["l2_cache_global_write_total"]
+                self._get_raw_l2_read_stats(["HIT"]).sum().sum() == self.l2_read_hits()
+            )
+            assert (
+                self._get_raw_l2_write_stats(["HIT"]).sum().sum()
+                == self.l2_write_hits()
+            )
+            assert (
+                self._get_raw_l2_read_stats(["MISS", "SECTOR_MISS"]).sum().sum()
+                == self.l2_read_misses()
+            )
+            assert (
+                self._get_raw_l2_write_stats(["MISS", "SECTOR_MISS"]).sum().sum()
+                == self.l2_write_misses()
+            )
+
+            assert (
+                self.raw_stats_df["l2_cache_GLOBAL_ACC_W_HIT"]
+                / self.raw_stats_df["l2_cache_global_write_total"]
             ).sum() == self.l2_write_hit_rate()
             assert (
-                self.raw_stats_df["l2_cache_GLOBAL_ACC_R_HIT"] / self.raw_stats_df["l2_cache_global_read_total"]
+                self.raw_stats_df["l2_cache_GLOBAL_ACC_R_HIT"]
+                / self.raw_stats_df["l2_cache_global_read_total"]
             ).sum() == self.l2_read_hit_rate()
 
             # print(self.raw_stats_df[[c for c in self.raw_stats_df if "l1_data_cache" in c]])
-            assert self.raw_stats_df["l1_data_cache_global_read_total"].sum() == self.l1_reads()
+            assert (
+                self.raw_stats_df["l1_data_cache_global_read_total"].sum()
+                == self.l1_reads()
+            )
         except AssertionError as e:
             print(f"WARNING: {e}")
 
@@ -108,14 +146,19 @@ class Stats(stats.Stats):
         return self._get_raw_l2_stats(stats.WRITE_ACCESS_KINDS, status)
 
     def _get_raw_l2_stats(self, kind: Sequence[str], status: Sequence[str]):
-        cols = [f"l2_cache_{k.upper()}_{s.upper()}" for (k, s) in itertools.product(kind, status)]
+        cols = [
+            f"l2_cache_{k.upper()}_{s.upper()}"
+            for (k, s) in itertools.product(kind, status)
+        ]
         return self.raw_stats_df[cols]
 
     def _compute_warp_instructions(self):
         num_warps = self.result_df["num_blocks"] * stats.WARP_SIZE
         # print("this", self.raw_stats_df["warp_instruction_count"].values)
         # print(num_warps)
-        self.result_df["warp_inst"] = self.raw_stats_df["warp_instruction_count"].values / num_warps
+        self.result_df["warp_inst"] = (
+            self.raw_stats_df["warp_instruction_count"].values / num_warps
+        )
         # for s in STAT_SUFFIXES:
         #     self.result_df["warp_inst" + s] = self.raw_stats_df["warp_instruction_count" + s]
         #     self.result_df["warp_inst" + s] /= self.result_df["num_blocks" + s] * stats.WARP_SIZE

@@ -16,7 +16,12 @@ def human_readable(n) -> str:
     before, after = parts[0], "".join(parts[1:])
 
     num_segments = int(math.ceil(float(len(before)) / 3.0))
-    before = reversed([before[max(len(before) - (3 * i) - 3, 0) : len(before) - (3 * i)] for i in range(num_segments)])
+    before = reversed(
+        [
+            before[max(len(before) - (3 * i) - 3, 0) : len(before) - (3 * i)]
+            for i in range(num_segments)
+        ]
+    )
     before = " ".join(before)
     if after == "":
         # print(before.replace(" ", ""))
