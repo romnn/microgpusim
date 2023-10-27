@@ -62,6 +62,10 @@ def run_cmd(
         if isinstance(cwd, Path):
             cwd = str(cwd.absolute())
 
+        if isinstance(timeout_sec, (int, float)):
+            if timeout_sec > 2**20:
+                timeout_sec = None
+
         # the subprocess may take a long time, hence flush all buffers before
         sys.stdout.flush()
         start = timer()

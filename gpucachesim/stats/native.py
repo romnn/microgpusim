@@ -216,9 +216,9 @@ class NsightStats(common.Stats):
 
         self.df = pd.concat(dfs)
 
-        self.compute_native_result_df()
+        self.compute_native_result_df_nsight()
 
-    def compute_native_result_df(self):
+    def compute_native_result_df_nsight(self):
         self.result_df = pd.DataFrame()
         self._compute_cycles()
         self._compute_num_blocks()
@@ -621,7 +621,7 @@ class NvprofStats(common.Stats):
 
         self.commands_df = pd.concat(command_dfs)
 
-        self.compute_native_result_df()
+        self.compute_native_result_df_nvprof()
 
         # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
         if False:
@@ -641,7 +641,7 @@ class NvprofStats(common.Stats):
 
         # print(commands_df.select_dtypes(include=["object"]).columns)
 
-    def compute_native_result_df(self):
+    def compute_native_result_df_nvprof(self):
         self.result_df = pd.DataFrame()
         self._compute_cycles()
         self._compute_num_blocks()
@@ -682,6 +682,8 @@ class NvprofStats(common.Stats):
 
         # L1 rates
         self._compute_l1_hit_rate()
+        self._compute_l1_global_hit_rate()
+        self._compute_l1_local_hit_rate()
         self._compute_l1_hits()
         self._compute_l1_miss_rate()
         self._compute_l1_misses()
@@ -1061,12 +1063,23 @@ class NvprofStats(common.Stats):
     def _compute_l1_writes(self):
         self.result_df["l1_writes"] = np.nan
 
-    def _compute_l1_hit_rate(self):
+    def _compute_l1_global_hit_rate(self):
         # global_hit_rate: (GLOBAL_ACC_R[HIT]+GLOBAL_ACC_W[HIT]) / (GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
         # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        self.result_df["l1_hit_rate"] = grouped["global_hit_rate"].mean()
-        # self.result_df["l1_hit_rate"] = grouped["tex_cache_hit_rate"].mean()
+        self.result_df["l1_global_hit_rate"] = grouped["global_hit_rate"].mean()
+        self.result_df["l1_global_hit_rate"] /= 100.0
+
+    def _compute_l1_local_hit_rate(self):
+        # global_hit_rate: (GLOBAL_ACC_R[HIT]+GLOBAL_ACC_W[HIT]) / (GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
+        self.result_df["l1_local_hit_rate"] = grouped["local_hit_rate"].mean()
+        self.result_df["l1_local_hit_rate"] /= 100.0
+
+    def _compute_l1_hit_rate(self):
+        grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
+        self.result_df["l1_hit_rate"] = grouped["tex_cache_hit_rate"].mean()
         self.result_df["l1_hit_rate"] /= 100.0
 
     def _compute_l1_hits(self):

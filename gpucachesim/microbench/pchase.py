@@ -29,10 +29,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-
 from gpucachesim.asm import solve_mapping_table_xor_fast, solve_mapping_table_xor, solve_mapping_table
 from gpucachesim.benchmarks import REPO_ROOT_DIR
+from gpucachesim.plot import PLOT_DIR
 import gpucachesim.cmd as cmd_utils
+import gpucachesim.plot as plot
 
 NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/pchase"
 NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
@@ -40,57 +41,9 @@ NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
 SIM_P_CHASE = REPO_ROOT_DIR / "target/release/pchase"
 SIM_SET_MAPPING = REPO_ROOT_DIR / "target/release/pchase"
 
-PLOT_DIR = REPO_ROOT_DIR / "plot"
 CACHE_DIR = PLOT_DIR / "cache"
 
 PDF_OPTS = dict(format='pdf', scale=8)
-
-PPI = 300
-FONT_SIZE_PT = 11
-
-DINA4_WIDTH_MM = 210
-DINA4_HEIGHT_MM = 297 
-
-def mm_to_inch(mm):
-    return mm / 25.4
-
-DINA4_WIDTH_INCHES = mm_to_inch(DINA4_WIDTH_MM)
-DINA4_HEIGHT_INCHES = mm_to_inch(DINA4_HEIGHT_MM) 
-
-
-def pt_to_px(pt):
-    return int(pt * 4.0/3.0)
-
-DINA4_WIDTH = PPI * mm_to_inch(DINA4_WIDTH_MM)
-DINA4_HEIGHT = PPI * mm_to_inch(DINA4_HEIGHT_MM)
-FONT_SIZE_PX = pt_to_px(FONT_SIZE_PT)
-
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    if len(hex_color) == 3:
-        hex_color = hex_color * 2
-    return int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-
-def plotly_rgba(r, g, b, a):
-    return "rgba(%d, %d, %d, %f)" % (r, g, b, a)
-
-def plt_rgba(r, g, b, a):
-    return (float(r) / 255.0, float(g) / 255.0, float(b) / 255.0, a)
-
-
-HEX_COLORS = {
-    "green1": "#81bc4f",
-    "purple1": "#c21b7b",
-    "blue1": "#196fac",
-}
-
-RGB_COLORS = {k: hex_to_rgb(v) for k, v in HEX_COLORS.items() }
-
-SIM_RGB_COLORS = {
-    "gpucachesim": RGB_COLORS["green1"],
-    "native": RGB_COLORS["blue1"],
-} 
-
 
 
 
@@ -429,7 +382,7 @@ def pchase(
 
     cmd = " ".join(cmd)
 
-    unit = 2 * MIN if sim else 1 * SEC
+    unit = 1 * MIN if sim else 1 * SEC
     per_size_timeout = [
         ((derived_iter_size * (1 + warmup)) / 1000) * unit
         for _ in range(start_size_bytes, end_size_bytes+1, step_size_bytes)
@@ -500,6 +453,33 @@ def set_mapping(mem, stride_bytes, warmup, size_bytes,
         dtype=float,
     )
     return df, (stdout, stderr)
+
+
+def get_known_cache_size_bytes(mem: str) -> int:
+    match mem.lower():
+        case "l1data":
+            return 24 * KB
+        case "l2":
+            return 2 * MB
+    raise ValueError("unknown num sets for {}".format(mem))
+
+def get_known_cache_line_bytes(mem: str) -> int:
+    match mem.lower():
+        case "l1data":
+            return 128
+        case "l2":
+            return 128
+    raise ValueError("unknown num sets for {}".format(mem))
+
+def get_known_cache_num_sets(mem: str) -> int:
+    match mem.lower():
+        case "l1data":
+            return 4
+        case "l2":
+            return 4
+    raise ValueError("unknown num sets for {}".format(mem))
+
+
 
 
 @main.command()
@@ -623,19 +603,21 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
 
     ylabel = r"hit rate ($\%$)"
     xlabel = r"$N$ (bytes)"
-    fontsize= FONT_SIZE_PT
+    fontsize= plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+            figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+            layout="constrained")
     ax = plt.axes()
 
     min_x = round_down_to_multiple_of(plot_df["n"].min(), 128)
     max_x = round_up_to_multiple_of(plot_df["n"].max(), 128)
 
     ax.axvline(x=0.25 * known_l2_cache_size_bytes,
-       color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+       color=plot.plt_rgba(*plot.RGB_COLORS["purple1"], 0.5),
        linestyle='--',
        label=r"25% L2 size")
 
@@ -647,7 +629,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
         # linestyle='--',
         marker='o',
         # markersize=marker_size,
-        color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+        color=plot.plt_rgba(*plot.RGB_COLORS["green1"], 1.0),
         # color=plt_rgba(*SIM_RGB_COLORS["gpucachesim" if sim else "native"], 1.0),
         # label="gpucachesim" if sim else "GTX 1080",
         label="L1",
@@ -660,7 +642,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim):
         # linestyle='--',
         marker='x',
         # markersize=marker_size,
-        color=plt_rgba(*RGB_COLORS["blue1"], 1.0),
+        color=plot.plt_rgba(*plot.RGB_COLORS["blue1"], 1.0),
         # color=plt_rgba(*SIM_RGB_COLORS["gpucachesim" if sim else "native"], 1.0),
         # label="gpucachesim" if sim else "GTX 1080",
         label="L2",
@@ -1001,6 +983,7 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
     total_sets = sorted([list(s) for s in total_sets])
     set_addresses = np.array(total_sets)
     base_addr = np.amin(total_sets)
+    print("base addr={}".format(base_addr))
     print(set_addresses.shape)
     print(set_addresses[:,0:2])
     assert set_addresses.shape == (num_sets, derived_num_ways)
@@ -1040,7 +1023,7 @@ def find_cache_set_mapping(repetitions, mem, cached, sim):
 
     print(compute_set_probability(combined))
 
-    return
+    # return
    
     max_bits = 64
     num_bits = 64
@@ -2595,12 +2578,14 @@ def find_cache_sets(mem, cached, sim, repetitions):
 
     ylabel = r"miss rate ($\%$)"
     xlabel = r"$N$ (bytes)"
-    fontsize= FONT_SIZE_PT
+    fontsize= plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+            figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+            layout="constrained")
     ax = plt.axes()
 
     min_x = round_down_to_multiple_of(plot_df["n"].min(), known_cache_line_bytes)
@@ -2673,8 +2658,8 @@ def find_cache_line_size(mem, cached, sim, repetitions):
     a general idea on the cache replacement policy.
     """
     repetitions = max(1, repetitions or (1 if sim else 10))
-    known_cache_size_bytes = 24 * KB
-    predicted_cache_line_bytes = 128
+    known_cache_size_bytes = get_known_cache_size_bytes(mem)
+    predicted_cache_line_bytes = get_known_cache_line_bytes(mem)
 
     step_bytes = 8
     stride_bytes = 8
@@ -2807,12 +2792,14 @@ def find_cache_line_size(mem, cached, sim, repetitions):
 
     ylabel = r"miss rate ($\%$)"
     xlabel = r"$N$ (bytes)"
-    fontsize= FONT_SIZE_PT
+    fontsize= plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        layout="constrained")
     ax = plt.axes()
 
     min_kb = round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes)
@@ -2980,7 +2967,7 @@ def latency_n_graph(mem, cached, repetitions, sim):
 
     ylabel = r"mean latency"
     xlabel = r"$N$ (bytes)"
-    fontsize= FONT_SIZE_PT
+    fontsize= plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     # manager = matplotlib.font_manager.FontManager()
@@ -2996,13 +2983,15 @@ def latency_n_graph(mem, cached, repetitions, sim):
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        layout="constrained")
     # ax = fig.gca()
     ax = plt.axes()
     # axs = fig.subplots(1, 1) # , sharex=True, sharey=True)
     # axs[0].plot(mean_latency["n"], mean_latency["latency"], "k--", linewidth=1.5, linestyle='--', marker='o', color='b', label="GTX 1080")
     ax.plot(mean_latency["n"], mean_latency["latency"], 
-            linewidth=1.5, linestyle='--', marker='o', color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            linewidth=1.5, linestyle='--', marker='o', color=plot.plt_rgba(*plot.RGB_COLORS["green1"], 1.0),
             label="GTX 1080")
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
@@ -3128,16 +3117,18 @@ def plot_latency_distribution(cached, mem, sim, repetitions):
 
     ylabel = "count"
     xlabel = "latency (cycles)"
-    fontsize= FONT_SIZE_PT
+    fontsize = plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        layout="constrained")
     ax = plt.axes()
     ax.bar(latency_hist_df["bin_mid"], 
            latency_hist_df["count"], 
-            color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            color=plot.plt_rgba(*plot.RGB_COLORS["green1"], 1.0),
             hatch="/",
             width=bin_size,
             edgecolor='black',
@@ -3217,7 +3208,6 @@ def plot_latency_distribution(cached, mem, sim, repetitions):
             time.sleep(1)
             fig.write_image(filename, **PDF_OPTS)
 
-
 @main.command()
 @click.option("--start", "start_size_bytes", type=int, help="start cache size in bytes")
 @click.option("--end", "end_size_bytes", type=int, help="end cache size in bytes")
@@ -3238,35 +3228,27 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetiti
     
     repetitions = max(1, repetitions or (1 if sim else 4))
     max_rounds = max(1, max_rounds or 1)
-    predicted_cache_size_bytes = 24 * KB
+    predicted_cache_size_bytes = get_known_cache_size_bytes(mem)
 
-    step_size_bytes = 1 * KB
-    step_size_bytes = 128
-    stride_bytes = 8
+    # match mem.lower():
+    #     case "l1readonly":
+    #         stride_bytes = 16
 
-    match mem.lower():
-        case "l1readonly":
-            stride_bytes = 16
+    if mem == "l2":
+        stride_bytes = 32
+        step_size_bytes = 256 * KB
+        start_size_bytes = start_size_bytes or step_size_bytes # or (1 * MB)
+        # end_size_bytes = start_size_bytes + 3 * step_size_bytes
+        end_size_bytes = end_size_bytes or (predicted_cache_size_bytes + 2 * step_size_bytes)
+    else:
+        stride_bytes = 8
+        step_size_bytes = get_known_cache_line_bytes(mem)
+        search_interval_bytes = 2 * step_size_bytes
+        start_size_bytes = start_size_bytes or (predicted_cache_size_bytes - search_interval_bytes)
+        end_size_bytes = end_size_bytes or (predicted_cache_size_bytes + search_interval_bytes)
 
-    search_interval_bytes = 4 * KB
-    search_interval_bytes = 2 * KB
-
-    # temp
-    # predicted_cache_size_bytes = 1 * KB
-    # search_interval_bytes = 1 * KB
-
-    start_size_bytes = start_size_bytes or (predicted_cache_size_bytes - search_interval_bytes)
-    end_size_bytes = end_size_bytes or (predicted_cache_size_bytes + search_interval_bytes)
     start_size_bytes = max(0, start_size_bytes)
     end_size_bytes = max(0, end_size_bytes)
-
-    # combined = []
-    # for n in range(start_size, end_size, step_size_bytes):
-    #     df, (_, stderr) = pchase(mem=mem, size_bytes=n, stride_bytes=stride_bytes, warmup=1, sim=sim)
-    #     print(stderr)
-    #     df["n"] = n
-    #     combined.append(df)
-    # combined = pd.concat(combined, ignore_index=True)
 
     cache_file = CACHE_DIR / "cache_size.{}.{}.csv".format(mem, "sim" if sim else "native")
     if cached and cache_file.is_file():
@@ -3274,12 +3256,12 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetiti
         combined = pd.read_csv(cache_file, header=0, index_col=None)
     else:
         combined, (_, stderr) = pchase(
-                mem=mem, start_size_bytes=start_size_bytes, end_size_bytes=end_size_bytes, 
-                step_size_bytes=step_size_bytes, stride_bytes=stride_bytes, 
-                warmup=1,
-                repetitions=repetitions,
-                max_rounds=max_rounds,
-                sim=sim)
+            mem=mem, start_size_bytes=start_size_bytes, end_size_bytes=end_size_bytes, 
+            step_size_bytes=step_size_bytes, stride_bytes=stride_bytes, 
+            warmup=1,
+            repetitions=repetitions,
+            max_rounds=max_rounds,
+            sim=sim)
         print(stderr)
 
         combined = combined.drop(columns=["r"])
@@ -3295,13 +3277,14 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetiti
 
     
     print("number of unqiue indices = {: <4}".format(len(combined["index"].unique())))
+    hit_cluster = 1 if mem == "l2" else 0
 
     for n, df in combined.groupby("n"):
         if n % KB == 0:
             print("==> {} KB".format(n / KB))
 
-        num_hits = (df["hit_cluster"] == 0).sum()
-        num_misses = (df["hit_cluster"] != 0).sum()
+        num_hits = (df["hit_cluster"] <= hit_cluster).sum()
+        num_misses = (df["hit_cluster"] > hit_cluster).sum()
 
         hit_rate = float(num_hits) / float(len(df)) * 100.0
         miss_rate = float(num_misses) / float(len(df)) * 100.0
@@ -3320,7 +3303,7 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetiti
 
     def agg_miss_rate(hit_clusters): 
         cluster_counts = hit_clusters.value_counts().reset_index()
-        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+        num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] > hit_cluster, "count"].sum()
         total = cluster_counts["count"].sum()
         return num_misses / total
 
@@ -3330,31 +3313,34 @@ def find_cache_size(start_size_bytes, end_size_bytes, mem, sim, cached, repetiti
 
     ylabel = r"miss rate ($\%$)"
     xlabel = r"$N$ (bytes)"
-    fontsize= FONT_SIZE_PT
+    fontsize = plot.FONT_SIZE_PT
     font_family="Helvetica"
 
     plt.rcParams.update({'font.size': fontsize, 'font.family' : font_family})
 
-    fig = plt.figure(figsize=(0.5 * DINA4_WIDTH_INCHES, 0.2 * DINA4_HEIGHT_INCHES), layout="constrained")
+    fig = plt.figure(
+        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        layout="constrained")
     ax = plt.axes()
     ax.axvline(x=predicted_cache_size_bytes,
-               color=plt_rgba(*RGB_COLORS["purple1"], 0.5),
+               color=plot.plt_rgba(*plot.RGB_COLORS["purple1"], 0.5),
                linestyle='--',
                label="cache size")
     ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0, 
-            linewidth=1.5, linestyle='--', marker='x', color=plt_rgba(*RGB_COLORS["green1"], 1.0),
+            linewidth=1.5, linestyle='--', marker='x',
+            color=plot.plt_rgba(*plot.RGB_COLORS["green1"], 1.0),
             label="GTX 1080")
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
 
-    min_kb = round_down_to_multiple_of(plot_df["n"].min(), KB)
-    max_kb = round_up_to_multiple_of(plot_df["n"].max(), KB)
-    xticks = np.arange(min_kb, max_kb, step=KB)
+    min_kb = round_down_to_multiple_of(plot_df["n"].min(), step_size_bytes)
+    max_kb = round_up_to_multiple_of(plot_df["n"].max(), step_size_bytes)
+    xticks = np.arange(min_kb, max_kb, step=step_size_bytes)
     # xticks = np.linspace(
     #         round_to_multiple_of(plot_df["n"].min(), KB),
     #         round_to_multiple_of(plot_df["n"].max(), KB), num=4)
     xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
-    ax.set_xticks(xticks, xticklabels)
+    ax.set_xticks(xticks, xticklabels, rotation=45)
     ax.set_xlim(min_kb, max_kb)
     ax.set_ylim(0, 100.0)
     ax.legend()
