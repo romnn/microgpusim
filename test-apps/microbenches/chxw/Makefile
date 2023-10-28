@@ -1,5 +1,5 @@
 CUDA_PATH ?= /usr/local/cuda
-NV_FLAGS = -arch sm_61 -Xptxas="-O3 -dlcm=ca"
+NV_FLAGS = -Xptxas="-O3 -dlcm=ca"
 NV_DEBUG_FLAGS = -g -lineinfo
 
 # NVCC          := $(CUDA_PATH)/bin/nvcc -ccbin $(CXX)
@@ -13,22 +13,27 @@ CUFILES := $(wildcard *.cu)
 EXECUTABLES := $(CUFILES:%.cu=%)
 EXECUTABLES := $(filter-out common, $(EXECUTABLES))
 DEBUG_EXECUTABLES := $(EXECUTABLES:%=%_debug)
+AMPERE_EXECUTABLES := $(EXECUTABLES:%=%_86)
 CUBINS := $(EXECUTABLES:%=%.cubin)
 
 # Default target: build all executables
-all: $(EXECUTABLES) $(DEBUG_EXECUTABLES) $(CUBINS)
+all: $(EXECUTABLES) $(AMPERE_EXECUTABLES) $(DEBUG_EXECUTABLES) $(CUBINS)
 
 # Rule to build each executable
 %: %.cu common.cu
-	$(NVCC) $(NVFLAGS) $^ -o $@
+	$(NVCC) $(NV_FLAGS) -arch sm_61 $^ -o $@
 
 # Rule to build each debug executable
 %_debug: %.cu common.cu
-	$(NVCC) $(NVFLAGS) $(NV_DEBUG_FLAGS) $^ -o $@
+	$(NVCC) $(NV_FLAGS) -arch sm_61 $(NV_DEBUG_FLAGS) $^ -o $@
+
+# Rule to build each debug executable
+%_86: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_86 $(NV_DEBUG_FLAGS) $^ -o $@
 
 # Rule to build each cubin
 %.cubin: %.cu common.cu
-	$(NVCC) $(NVFLAGS) -cubin -dlink $^ -o $@
+	$(NVCC) $(NV_FLAGS) -arch sm_61 -cubin -dlink $^ -o $@
 
 # Clean build directory
 clean:
@@ -37,6 +42,7 @@ clean:
 	rm -rf *.cubin
 	rm -rf *.cuasm
 	rm -rf $(EXECUTABLES)
+	rm -rf $(AMPERE_EXECUTABLES)
 	rm -rf $(DEBUG_EXECUTABLES)
 
 .PHONY: all clean

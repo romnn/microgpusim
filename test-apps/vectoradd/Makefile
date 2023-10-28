@@ -1,10 +1,10 @@
-# -flcm (force)
-# -fscm
-# -dlcm (default)
-# -dscm
-# =cg (disable) =ca (enable)
-# cv =	Cache as volatile
-#		(consider cached system memory lines stale fetch again).
+# -flcm (force load cache modifier)
+# -fscm (force store cache modifier)
+# -dlcm (default load cache modifier)
+# -dscm (defualt store cache modifier)
+# cg = cache global (only L2)
+# ca = all (L1 + L2)
+# cv = volatile (consider cached system memory lines stale fetch again).
 
 # .ca Cache at all levels, likely to be accessed again.
 # .cg Cache at global level (cache in L2 and below, not L1).
@@ -14,10 +14,10 @@
 all: vectoradd_l1_enabled vectoradd_l1_disabled
 
 vectoradd_l1_enabled:
-	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -dlcm=ca" vectoradd.cu -o vectoradd_l1_enabled
+	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -flcm=ca" vectoradd.cu -o vectoradd_l1_enabled
 
 vectoradd_l1_disabled:
-	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -dlcm=cg" vectoradd.cu -o vectoradd_l1_disabled
+	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -flcm=cg -fscm=cg" vectoradd.cu -o vectoradd_l1_disabled
 
 clean:
 	rm -f vectoradd_l1_enabled
