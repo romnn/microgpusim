@@ -494,10 +494,11 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     //     }
     //   }
     // } else {
-    for (size_t k = 0; k < 5; k++) {
-      fprintf(stderr, "k=%lu h_a[%lu]=%d, h_index[%lu]=%d\n", k, k, h_a[k], k,
-              h_index[k]);
-    }
+    // for (size_t k = 0; k < 5; k++) {
+    //   fprintf(stderr, "k=%lu h_a[%lu]=%d, h_index[%lu]=%d\n", k, k, h_a[k],
+    //   k,
+    //           h_index[k]);
+    // }
     for (size_t k = 0; k < iter_size; k++) {
       unsigned int index = indexof(h_a, N, h_index[k]);
       assert(index == (N + h_index[k] - stride) % N);
@@ -754,6 +755,9 @@ int main(int argc, char *argv[]) {
         cudaFuncSetAttribute(global_latency_l2_data_host_mapped,
                              cudaFuncAttributePreferredSharedMemoryCarveout,
                              cudaSharedmemCarveoutMaxL1));
+
+    // fetch full 128B cache lines
+    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 128))
 
     CUDA_CHECK(cudaDeviceSetCacheConfig(prefer_shared_mem_config));
     cudaFuncCache have_cache_config;
