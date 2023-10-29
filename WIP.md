@@ -67,23 +67,30 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - pchase: PLOT: l2 prefill policy use l1data config and plot both l1 hits and l2 hits (or misses?)
-  - simulator: l1 latency should only affect HITS
-
-  - look into (fix) 4 threads
-  - make the parallel version table
-  - DONE: add more metrics to parallel table
+  - plot: compare mem only simulation and trace reconstruction error
+  - connect to das6
+  - research: try to understand the l1 tex cache hit rate nvprof metric
+  - plot: compute overall correlations for all metrics
+  - simulator: l1 latency should only affect HITS ==> l1 return queue
   - add overall secton to parallel table
-  - p-chase: refactor way mapping
-
-  - refactor: do not print reservation failure for L1 acceses (those are actually mshr merge fails because the mshr is full, hence we need to block the l1_latency_queue)
 
   - p-chase: infer way mapping through tracing misses back
-  - p-chase: watch videos on how to automatically extract cache mappings
 
-  - p-chase: measure the overhead of the other lines in isolation??
-  - p-chase: infer l2 pre-fetch policy
+    - check if any line ever has different hit_cluster, otherwise makes no sense
+    - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: clock domains
+  - DONE: validate: add baseline cli option
+  - DONE: add plots for simulation metrics per bechmark with all different configs for each simulator
+  - DONE: look into (fix) 4 threads
+  - DONE: make the parallel version table
+  - DONE: add more metrics to parallel table
+  - DONE: refactor: do not print reservation failure for L1 acceses (those are actually mshr merge fails because the mshr is full, hence we need to block the l1_latency_queue)
+  - DONE: sim: implement and test the new l1 set mapping function with compatibility for lockstep
+  - DONE: p-chase: watch videos on how to automatically extract cache mappings
+  - SKIP: p-chase: measure the overhead of the other lines in isolation
+  - DONE: p-chase: infer l2 pre-fetch policy
+  - DONE: pchase: PLOT: l2 prefill policy use l1data config and plot both l1 hits and l2 hits (or misses?)
   - DONE: p-chase: implement l1 bypass in rust pchase
   - DONE: debug: why does the latency not change
   - DONE: p-chase: use pinned host memory for pchase l1 and refactor
