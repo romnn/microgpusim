@@ -32,7 +32,7 @@ global_latency_l1_data_shared_memory(unsigned int *array, int array_length,
     s_latency[k] = 0;
   }
 
-  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+  for (int k = (int)warmup_iterations * -iter_size; k <= iter_size; k++) {
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -62,7 +62,11 @@ global_latency_l1_data_host_mapped(unsigned int *array, int array_length,
   unsigned int start_time, end_time;
   uint32_t j = 0;
 
-  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+  for (int k = (int)warmup_iterations * -(iter_size + 0); k <= iter_size; k++) {
+    if (k == 0) {
+      // printf("array 0=%d j=%d\n", array[0], j);
+      assert(j == 0);
+    }
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -490,9 +494,16 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     //     }
     //   }
     // } else {
+    for (size_t k = 0; k < 5; k++) {
+      fprintf(stderr, "k=%lu h_a[%lu]=%d, h_index[%lu]=%d\n", k, k, h_a[k], k,
+              h_index[k]);
+    }
     for (size_t k = 0; k < iter_size; k++) {
-      // unsigned int index = (N + h_index[k] - stride) % N;
       unsigned int index = indexof(h_a, N, h_index[k]);
+      assert(index == (N + h_index[k] - stride) % N);
+      if (k == 0) {
+        assert(index == 0);
+      }
       unsigned int latency = (int)h_latency[k] - (int)clock_overhead;
       unsigned long long virt_addr =
           (unsigned long long)d_a +
@@ -709,35 +720,19 @@ int main(int argc, char *argv[]) {
       fflush(stderr);
       return EXIT_FAILURE;
     }
-    // if (size % stride != 0) {
-    //   fprintf(stderr,
-    //           "ERROR: size (%lu) is not an exact multiple of stride
-    //           (%lu)\n", size, stride);
-    //   fflush(stderr);
-    //   return EXIT_FAILURE;
-    // }
+    if (size % stride != 0) {
+      fprintf(stderr,
+              "ERROR: size (%lu uint32) is not an exact multiple of stride "
+              "(%lu uint32)\n",
+              size, stride);
+      fflush(stderr);
+      return EXIT_FAILURE;
+    }
     if (size < 1) {
       fprintf(stderr, "ERROR: size is < 1 (%lu)\n", size);
       fflush(stderr);
       return EXIT_FAILURE;
     }
-    // if (stride < 1) {
-    //   fprintf(stderr, "ERROR: stride is < 1 (%lu)\n", stride);
-    //   fflush(stderr);
-    //   return EXIT_FAILURE;
-    // }
-
-    // The `cudaDeviceSetCacheConfig` function can be used to set preference
-    // for shared memory or L1 cache globally for all CUDA kernels in your
-    // code and even those used by Thrust. The option
-    // cudaFuncCachePreferShared prefers shared memory, that is, it sets 48 KB
-    // for shared memory and 16 KB for L1 cache.
-    //
-    // `cudaFuncCachePreferL1` prefers L1, that is, it sets 16 KB for
-    // shared memory and 48 KB for L1 cache.
-    //
-    // `cudaFuncCachePreferNone` uses the preference set for the device or
-    // thread.
 
     cudaFuncCache prefer_shared_mem_config = cudaFuncCachePreferShared;
     cudaFuncCache prefer_l1_config = cudaFuncCachePreferL1;
@@ -745,6 +740,20 @@ int main(int argc, char *argv[]) {
                                       prefer_shared_mem_config));
     CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_data_shared_memory,
                                       prefer_shared_mem_config));
+
+    // use maximum L1 data cache on volta+
+    CUDA_CHECK(
+        cudaFuncSetAttribute(global_latency_l1_data_host_mapped,
+                             cudaFuncAttributePreferredSharedMemoryCarveout,
+                             cudaSharedmemCarveoutMaxL1));
+    CUDA_CHECK(
+        cudaFuncSetAttribute(global_latency_l1_data_shared_memory,
+                             cudaFuncAttributePreferredSharedMemoryCarveout,
+                             cudaSharedmemCarveoutMaxL1));
+    CUDA_CHECK(
+        cudaFuncSetAttribute(global_latency_l2_data_host_mapped,
+                             cudaFuncAttributePreferredSharedMemoryCarveout,
+                             cudaSharedmemCarveoutMaxL1));
 
     CUDA_CHECK(cudaDeviceSetCacheConfig(prefer_shared_mem_config));
     cudaFuncCache have_cache_config;
