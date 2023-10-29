@@ -19,9 +19,6 @@ import gpucachesim.benchmarks as benchmarks
 from gpucachesim.stats.human import human_readable
 import gpucachesim.plot as plot
 
-# from gpucachesim.plot import (
-#     FONT_SIZE_PT, DINA4_WIDTH_INCHES, DINA4_HEIGHT_INCHES, SIM_HATCHES, SIM_RGB_COLORS, RGB_COLORS, plt_rgba, PLOT_DIR
-# )
 from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
 
@@ -235,6 +232,18 @@ def aggregate_benchmark_results(
     # per_target = averaged.set_index(["target", "benchmark"] + input_cols)
     return per_kernel, per_target_pivoted
 
+NON_NUMERIC_COLS = {
+    "benchmark": "first",
+    "Host Name": "first",
+    "Process Name": "first",
+    "device": "first",
+    "is_release_build": "first",
+    "kernel_function_signature": "first",
+    "kernel_name": "first",
+    "kernel_name_mangled": "first",
+    "input_id": "first",
+}
+
 
 @main.command()
 # @click.pass_context
@@ -285,19 +294,9 @@ def parallel_plot(path, bench_name, nvprof):
     # non_numeric_cols = sorted(serial.select_dtypes(include=["object"]).columns.tolist())
     # print(sorted(set(non_numeric_cols) - set(group_cols)))
 
-    non_numeric_cols = {
-        "Host Name": "first",
-        "Process Name": "first",
-        "device": "first",
-        "is_release_build": "first",
-        "kernel_function_signature": "first",
-        "kernel_name": "first",
-        "kernel_name_mangled": "first",
-        "input_id": "first",
-    }
     aggregations = {
         **{c: "mean" for c in set(serial.columns) - set(group_cols)},
-        **non_numeric_cols,
+        **NON_NUMERIC_COLS,
     }
     aggregations = {col: agg for col, agg in aggregations.items() if col in serial}
     mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
@@ -1085,30 +1084,186 @@ def parallel_plot(path, bench_name, nvprof):
 
         print(table)
 
+def flatten(l):
+    return [item for ll in l for item in ll]
 
 @main.command()
-# @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
-# @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
-@click.option("--bench", "bench_name", help="Benchmark name")
-@click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
-@click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
-# @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name, nvprof, mem_only):
-    # load the materialized benchmark config
-    profiler = "nvprof" if nvprof else "nsight"
-    if bench_name is None:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
+@click.option("--bench", "bench_name_arg", help="Benchmark name")
+@click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
+def correlation_plots(path, bench_name_arg, nsight):
+    profiler = "nsight" if nsight else "nvprof"
+    stats = []
+    if bench_name_arg is not None:
+        stats.append(pd.read_csv(REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+            profiler, bench_name_arg
+        )))
     else:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
-            profiler, bench_name
+        b = Benchmarks(path)
+        benches = flatten(list(b.benchmarks[Target.Profile.value].values()))
+        bench_names = set([b["name"] for b in benches])
+        for bench_name in bench_names:
+            stats.append(pd.read_csv(REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+                profiler, bench_name
+            )))
+    stats = pd.concat(stats, ignore_index=False)
+    stats = stats.sort_values(["benchmark", "target"])
+    print(stats.shape)
+
+    stat_cols = stat_cols_for_profiler(profiler)
+    if True:
+        stat_cols = []
+        stat_cols += ["cycles"]
+        stat_cols += ["instructions", "l2_accesses", "dram_reads", "dram_writes"]
+
+    for stat_col in stat_cols:
+
+        stat_config = STAT_CONFIGS.get(stat_col) or StatConfig(
+            **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
         )
+        xlabel = "{} (native)".format(stat_config.label)
+        ylabel = "{} (simulated)".format(stat_config.label)
+        fontsize = plot.FONT_SIZE_PT
+        font_family = "Helvetica"
 
-    sim_df = pd.read_csv(stats_file, header=0)
+        # create one plot per benchmark
+        for bench_name, bench_df in stats.groupby("benchmark"):
+            print(bench_name)
 
-    per_kernel, per_target_pivoted = aggregate_benchmark_results(
-        sim_df, bench_name, memory_only=mem_only
-    )
+            bench_input_cols = BENCHMARK_INPUT_COLS[bench_name]
+            bench_df = bench_df.set_index(["target"] + SIMULATE_INPUT_COLS).sort_index()
+
+            def gpucachesim_baseline(target, memory_only=False):
+                # "input_mode", "input_threads", "input_run_ahead",
+                # "input_memory_only", "input_num_clusters", "input_cores_per_cluster",
+                return (target, "serial", 4, 5, memory_only, 20, 1)
+
+            group_cols = bench_input_cols
+
+            aggregations = {
+                **{c: "mean" for c in set(bench_df.columns) - set(group_cols)},
+                **NON_NUMERIC_COLS,
+            }
+            aggregations = {col: agg for col, agg in aggregations.items() if col in bench_df}
+
+            native = bench_df.loc[Target.Profile.value]
+            native = native.groupby(bench_input_cols).agg(aggregations)
+
+            accelsim = bench_df.loc[Target.AccelsimSimulate.value]
+            accelsim = accelsim.groupby(bench_input_cols).agg(aggregations)
+
+            gpucachesim = bench_df.loc[gpucachesim_baseline(target=Target.Simulate.value, memory_only=False)]
+            gpucachesim = gpucachesim.groupby(bench_input_cols).agg(aggregations)
+
+            gpucachesim_memory_only = bench_df.loc[gpucachesim_baseline(Target.Simulate.value, memory_only=True)]
+            gpucachesim_memory_only = gpucachesim_memory_only.groupby(bench_input_cols).agg(aggregations)
+
+            gpucachesim_trace_reconstruction = bench_df.loc[Target.ExecDrivenSimulate.value]
+            gpucachesim_trace_reconstruction = gpucachesim_trace_reconstruction.groupby(bench_input_cols).agg(aggregations)
+
+            print("native                    ", native.shape)
+            print("accelsim                  ", accelsim.shape)
+            print("gpucachesim               ", gpucachesim.shape)
+            print("gpucachesim (mem only)    ", gpucachesim_memory_only.shape)
+            print("gpucachesim (exec driven) ", gpucachesim_trace_reconstruction.shape)
+
+            
+            targets = [
+                (("native", "native", "o"), native),
+                (("AccelSim", "accelsim", "o"), accelsim),
+                (("gpucachesim", "gpucachesim", "o"), gpucachesim),
+                (("gpucachesim (memory only)", "gpucachesim", "x"), gpucachesim_memory_only),
+                (("gpucachesim (exec driven)", "gpucachesim", "D"), gpucachesim_trace_reconstruction),
+            ]
+            assert all([len(target_df) == len(targets[0][1]) for _, target_df in targets])
+            
+            plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
+            fig = plt.figure(
+                figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.5 * plot.DINA4_WIDTH_INCHES),
+                layout="constrained",
+            )
+            ax = plt.axes()
+
+            marker_size = {
+                "native": 30,
+                "accelsim": 20,
+                "gpucachesim": 10,
+            }
+
+            for (target_name, target, marker), target_df in targets:
+                target_df.sort_values(bench_input_cols)
+                ax.scatter(
+                    native[stat_col],
+                    target_df[stat_col],
+                    marker_size[target],
+                    # marker=plot.SIM_MARKER[target],
+                    marker=marker,
+                    facecolor=plot.plt_rgba(*plot.SIM_RGB_COLOR[target], 0.5),
+                    edgecolor="none" if marker != "x" else None,
+                    label=target_name,
+                )
+
+            all_targets_df = pd.concat([target_df for _, target_df in targets])
+            print(all_targets_df.shape)
+
+            stat_col_min = all_targets_df[stat_col].min()
+            stat_col_max = all_targets_df[stat_col].max()
+            
+            if stat_config.log_y_axis:
+                log_stat_col_max = np.ceil(np.log10(stat_col_max))
+                stat_col_max = 10 ** log_stat_col_max
+                log_stat_col_min = np.floor(np.log10(stat_col_min))
+                stat_col_min = 10 ** log_stat_col_min
+                tick_values = np.arange(log_stat_col_min, log_stat_col_max, 
+                                        step=int(np.ceil(log_stat_col_max / 6)))
+                tick_values = np.power(10, tick_values)
+                xyrange = np.arange(1, stat_col_max)
+
+                ax.set_yscale("log", base=10)
+                ax.set_xscale("log", base=10)
+            else:
+                xyrange = np.arange(stat_col_min, stat_col_max, step=1)
+                tick_values = np.linspace(stat_col_min, stat_col_max, 6)
+            
+            ax.plot(
+                xyrange,
+                xyrange,
+                color="gray",
+                linewidth=1,
+            )
+
+            ax.grid(
+                stat_config.grid,
+                axis="both",
+                linestyle="-",
+                linewidth=1,
+                color="black",
+                alpha=0.1,
+                zorder=1,
+            )
+
+            tick_labels = [plot.human_format_thousands(v, round_to=0) for v in tick_values]
+            
+            ax.set_ylabel(ylabel)
+            ax.set_xlabel(xlabel)
+            ax.set_xticks(tick_values, tick_labels)
+            ax.set_yticks(tick_values, tick_labels)
+            ax.set_xlim(stat_col_min, stat_col_max)
+            ax.set_ylim(stat_col_min, stat_col_max)
+            ax.legend(loc="upper left")
+            filename = plot.PLOT_DIR / "correlations/{}.{}.{}.pdf".format(
+                profiler, bench_name, stat_col
+            )
+            print("writing to ", filename)
+            filename.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(filename)
+
+            
+        # create one plot for all benchmarks
+        if bench_name_arg is not None:
+            bench_df = stats.set_index(["target"] + SIMULATE_INPUT_COLS).sort_index()
+
+def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
     stat_cols = [
         "num_blocks",
         "exec_time_sec",
@@ -1122,7 +1277,8 @@ def view(path, bench_name, nvprof, mem_only):
         "l2_writes",
     ]
 
-    if nvprof:
+    if profiler == "nvprof":
+        # nvprof
         stat_cols += [
             "l2_read_hit_rate",
             "l2_write_hit_rate",
@@ -1137,6 +1293,7 @@ def view(path, bench_name, nvprof, mem_only):
             # "l1_misses",
         ]
     else:
+        # nsight
         stat_cols += [
             "l2_hits",
             "l2_misses",
@@ -1144,7 +1301,73 @@ def view(path, bench_name, nvprof, mem_only):
             # "l2_miss_rate",
             "l1_hit_rate",
         ]
+    return stat_cols
 
+
+class StatConfig(typing.NamedTuple):
+    label: str
+    log_y_axis: bool
+    grid: bool
+
+DEFAULT_STAT_CONFIG = StatConfig(
+    label="",
+    log_y_axis=False,
+    grid=True,
+)
+
+STAT_CONFIGS = {
+    "instructions": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="instruction count", log_y_axis=True),
+        }
+    ),
+    "cycles": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="cycles", log_y_axis=True),
+        }
+    ),
+    "dram_reads": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="DRAM reads", log_y_axis=True),
+        }
+    ),
+    "dram_writes": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="DRAM writes", log_y_axis=True),
+        }
+    ),
+}
+
+
+@main.command()
+# @click.pass_context
+@click.option("--path", help="Path to materialized benchmark config")
+# @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
+@click.option("--bench", "bench_name", help="Benchmark name")
+@click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
+@click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
+# @click.option("--input", "input_idx", type=int, help="Input index")
+def view(path, bench_name, nsight, mem_only):
+    # load the materialized benchmark config
+    profiler = "nsight" if nsight else "nvprof"
+    if bench_name is None:
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
+    else:
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+            profiler, bench_name
+        )
+
+    sim_df = pd.read_csv(stats_file, header=0)
+    stat_cols = stat_cols_for_profiler(profiler)
+
+    per_kernel, per_target_pivoted = aggregate_benchmark_results(
+        sim_df, bench_name, memory_only=mem_only
+    )
+    
     def compute_label(df):
         assert isinstance(df, pd.Series)
 
@@ -1201,50 +1424,13 @@ def view(path, bench_name, nvprof, mem_only):
     print(" === {} === ".format(profiler))
     print(per_target_pivoted[stat_cols].T)
 
-    class StatConfig(typing.NamedTuple):
-        label: str
-        log_y_axis: bool
-        grid: bool
-
-    default_stat_config = StatConfig(
-        label="",
-        log_y_axis=False,
-        grid=True,
-    )
-
-    stat_configs = {
-        "instructions": StatConfig(
-            **{
-                **default_stat_config._asdict(),
-                **dict(label="instruction count", log_y_axis=True),
-            }
-        ),
-        "cycles": StatConfig(
-            **{
-                **default_stat_config._asdict(),
-                **dict(label="cycles", log_y_axis=True),
-            }
-        ),
-        "dram_reads": StatConfig(
-            **{
-                **default_stat_config._asdict(),
-                **dict(label="DRAM reads", log_y_axis=True),
-            }
-        ),
-        "dram_writes": StatConfig(
-            **{
-                **default_stat_config._asdict(),
-                **dict(label="DRAM writes", log_y_axis=True),
-            }
-        ),
-    }
-
+    
     if False:
         stat_cols = ["cycles", "dram_reads", "dram_writes"]
 
     for stat_col, benchmark in itertools.product(stat_cols, benchmarks):
-        stat_config = stat_configs.get(stat_col) or StatConfig(
-            **{**default_stat_config._asdict(), **dict(label=stat_col)}
+        stat_config = STAT_CONFIGS.get(stat_col) or StatConfig(
+            **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
         )
         ylabel = stat_config.label
         fontsize = plot.FONT_SIZE_PT
@@ -1305,12 +1491,12 @@ def view(path, bench_name, nvprof, mem_only):
             y = target_df[stat_col].fillna(0.0).mean()
             ystd = target_df[stat_col].fillna(0.0).std()
 
-            color = plot.plt_rgba(*plot.SIM_RGB_COLORS[target_name.lower()], 1.0)
+            color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target_name.lower()], 1.0)
             ax.bar(
                 x,
                 y,
                 color=color,
-                hatch=plot.SIM_HATCHES[target_name.lower()] * 1,
+                hatch=plot.SIM_HATCH[target_name.lower()] * 1,
                 width=bar_width,
                 linewidth=1,
                 edgecolor="black",
@@ -1400,6 +1586,7 @@ def generate(
     for target in [
         Target.Profile,
         Target.Simulate,
+        Target.ExecDrivenSimulate,
         Target.AccelsimSimulate,
         Target.PlaygroundSimulate,
     ]:
@@ -1419,6 +1606,8 @@ def generate(
 
     for profiler in ["nvprof", "nsight"]:
         all_stats = []
+        assert all([b["name"] == benches[0]["name"] for b in benches])
+        bench_name = benches[0]["name"]
         for bench_config in benches:
             # pprint(bench_config)
             name = bench_config["name"]
@@ -1431,8 +1620,8 @@ def generate(
             if quick:
                 if input_values.get("mode") not in ["serial", None]:
                     continue
-                if input_values.get("memory_only") not in [False, None]:
-                    continue
+                # if input_values.get("memory_only") not in [False, None]:
+                #     continue
                 if input_values.get("cores_per_cluster") not in [1, None]:
                     continue
                 if input_values.get("num_clusters") not in [20, None]:
@@ -1446,9 +1635,7 @@ def generate(
                     case ("profile", "nsight"):
                         target_name += "[nsight]"
                         bench_stats = native.NsightStats(config, bench_config)
-                    case ("simulate", _):
-                        # if bench_config["values"]["mode"] != "serial":
-                        #     continue
+                    case ("simulate", _) | ("execdrivensimulate", _):
                         bench_stats = stats.Stats(config, bench_config)
                     case ("accelsimsimulate", _):
                         bench_stats = accelsim.Stats(config, bench_config)
@@ -1502,19 +1689,16 @@ def generate(
         if verbose:
             print(all_stats)
 
-        if bench_name is None:
-            all_stats_output_path = results_dir / f"combined.stats.{profiler}.csv"
-        else:
-            all_stats_output_path = (
-                results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
-            )
+        stats_output_path = (
+            results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
+        )
 
         if output_path is not None:
-            all_stats_output_path = Path(output_path)
+            stats_output_path = Path(output_path)
 
-        print(f"saving to {all_stats_output_path}")
-        all_stats_output_path.parent.mkdir(parents=True, exist_ok=True)
-        all_stats.to_csv(all_stats_output_path, index=False)
+        print(f"saving to {stats_output_path}")
+        stats_output_path.parent.mkdir(parents=True, exist_ok=True)
+        all_stats.to_csv(stats_output_path, index=False)
 
     return
 

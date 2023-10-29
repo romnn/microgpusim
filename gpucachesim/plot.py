@@ -5,6 +5,8 @@ from gpucachesim.benchmarks import REPO_ROOT_DIR
 
 PLOT_DIR = REPO_ROOT_DIR / "plot"
 
+PLOTLY_PDF_OPTS = dict(format="pdf", scale=8)
+
 PPI = 300
 FONT_SIZE_PT = 11
 
@@ -44,22 +46,28 @@ def plt_rgba(r, g, b, a=1.0):
     return (float(r) / 255.0, float(g) / 255.0, float(b) / 255.0, a)
 
 
-HEX_COLORS = {
+HEX_COLOR = {
     "green1": "#81bc4f",
     "purple1": "#c21b7b",
     "blue1": "#196fac",
 }
 
-RGB_COLORS = {k: hex_to_rgb(v) for k, v in HEX_COLORS.items()}
+RGB_COLOR = {k: hex_to_rgb(v) for k, v in HEX_COLOR.items()}
 
-SIM_RGB_COLORS = {
-    "gpucachesim": RGB_COLORS["green1"],
-    "accelsim": RGB_COLORS["purple1"],
-    "native": RGB_COLORS["blue1"],
+SIM_RGB_COLOR = {
+    "gpucachesim": RGB_COLOR["green1"],
+    "accelsim": RGB_COLOR["purple1"],
+    "native": RGB_COLOR["blue1"],
+}
+
+SIM_MARKER = {
+    "gpucachesim": "x",
+    "accelsim": "D",
+    "native": "o",
 }
 
 # valid hatches: *+-./OX\ox|
-SIM_HATCHES = {
+SIM_HATCHE = {
     "gpucachesim": "/",
     "accelsim": "+",
     "native": "x",
