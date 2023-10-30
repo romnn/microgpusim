@@ -63,7 +63,7 @@ __global__ void mult_gpu(T const *mat_a, T const *mat_b, T *mat_c, size_t m,
                          size_t n, size_t p) {
   // 2D block and 2D thread
   // Each thread computes one cell in mat_3.
-  // the grid + thradidx
+  // the grid + thread idx
   size_t i = blockIdx.y * blockDim.y + threadIdx.y;
   size_t j = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -78,6 +78,9 @@ __global__ void mult_gpu(T const *mat_a, T const *mat_b, T *mat_c, size_t m,
 
   float acc_sum{0};
   for (size_t k = 0; k < n; k++) {
+    // printf("mat_a[%lu, %lu] * mat_b[%lu, %lu]\t\tmat_a[%lu] * mat_b[%lu]\n",
+    // i,
+    //        k, k, j, i * n + k, k * p + j);
     acc_sum += mat_a[i * n + k] * mat_b[k * p + j];
   }
   mat_c[i * p + j] = acc_sum;

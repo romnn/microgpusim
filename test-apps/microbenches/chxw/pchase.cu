@@ -743,21 +743,24 @@ int main(int argc, char *argv[]) {
                                       prefer_shared_mem_config));
 
     // use maximum L1 data cache on volta+
+    // int shared_mem_carveout_percent = cudaSharedmemCarveoutMaxL1;
+    int shared_mem_carveout_percent = 25;
     CUDA_CHECK(
         cudaFuncSetAttribute(global_latency_l1_data_host_mapped,
                              cudaFuncAttributePreferredSharedMemoryCarveout,
-                             cudaSharedmemCarveoutMaxL1));
+                             shared_mem_carveout_percent));
     CUDA_CHECK(
         cudaFuncSetAttribute(global_latency_l1_data_shared_memory,
                              cudaFuncAttributePreferredSharedMemoryCarveout,
-                             cudaSharedmemCarveoutMaxL1));
+                             shared_mem_carveout_percent));
     CUDA_CHECK(
         cudaFuncSetAttribute(global_latency_l2_data_host_mapped,
                              cudaFuncAttributePreferredSharedMemoryCarveout,
-                             cudaSharedmemCarveoutMaxL1));
+                             shared_mem_carveout_percent));
 
     // fetch full 128B cache lines
-    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 128))
+    // CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 128))
+    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 32))
 
     CUDA_CHECK(cudaDeviceSetCacheConfig(prefer_shared_mem_config));
     cudaFuncCache have_cache_config;
