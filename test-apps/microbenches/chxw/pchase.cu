@@ -33,6 +33,10 @@ global_latency_l1_data_shared_memory(unsigned int *array, int array_length,
   }
 
   for (int k = (int)warmup_iterations * -iter_size; k <= iter_size; k++) {
+    if (k == 0) {
+      // printf("array 0=%d j=%d\n", array[0], j);
+      assert(j == 0);
+    }
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -109,47 +113,45 @@ global_latency_l2_data_host_mapped(unsigned int *array, int array_length,
   array[array_length + 1] = array[j];
 }
 
-// const static unsigned int LATENCY_BIN_SIZE = 16;
-// const size_t ITER_SIZE_COMPRESSED = (48 * KB) / sizeof(uint8_t);
-//
-// __global__ __noinline__ void
-// global_latency_compressed(unsigned int *array, int array_length,
-//                           unsigned int *duration, unsigned int *index,
-//                           int iter_size, size_t warmup_iterations) {
-//   const int max_iter_size = ITER_SIZE_COMPRESSED;
-//   assert(iter_size <= max_iter_size);
-//
-//   unsigned int start_time, end_time, dur;
-//   uint32_t j = 0;
-//
-//   __shared__ uint8_t s_tvalue[max_iter_size];
-//
-//   for (size_t k = 0; k < iter_size; k++) {
-//     s_tvalue[k] = 0;
-//   }
-//
-//   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-//     if (k >= 0) {
-//       start_time = clock();
-//       j = array[j];
-//       s_tvalue[k] = j;
-//       end_time = clock();
-//
-//       dur = (end_time - start_time) / LATENCY_BIN_SIZE;
-//       dur = dur < 256 ? dur : 255;
-//       s_tvalue[k] = (uint8_t)dur;
-//     } else {
-//       j = array[j];
-//     }
-//   }
-//
-//   array[array_length] = j;
-//   array[array_length + 1] = array[j];
-//
-//   for (size_t k = 0; k < iter_size; k++) {
-//     duration[k] = s_tvalue[k];
-//   }
-// }
+__global__ __noinline__ void global_latency_l1_texture_host_mapped(
+    unsigned int *array, cudaTextureObject_t tex, int array_length,
+    unsigned int *latency, unsigned int *index, int iter_size,
+    size_t warmup_iterations) {
+  unsigned int start_time, end_time;
+  uint32_t j = 0;
+
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+    if (k == 0) {
+      assert(j == 0);
+    }
+    if (k >= 0) {
+      start_time = clock();
+      // j = tex1Dfetch(tex_ref, j);
+      j = tex1Dfetch<unsigned int>(tex, j);
+      index[k] = j;
+      end_time = clock();
+
+      latency[k] = end_time - start_time;
+    } else {
+      j = tex1Dfetch<unsigned int>(tex, j);
+    }
+  }
+
+  array[array_length] = j;
+  array[array_length + 1] = array[j];
+
+  // size_t it = 0;
+  // for (; it < iter_size; it++) {
+  //   // int k = it * blockDim.x + threadIdx.x;
+  //   // int k = it;
+  //   index[it] = s_index[it];
+  //   latency[it] = s_latency[it];
+  // }
+
+  // why is this so different?
+  // array[array_length] = it;
+  // array[array_length + 1] = s_latency[it - 1];
+}
 
 const size_t SHARED_MEMORY_MAX_READONLY_ITER_SIZE =
     (48 * KB) / sizeof(uint32_t);
@@ -735,6 +737,7 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
 
+    // use smaller 24 KB l1 data cache config on Pascal
     cudaFuncCache prefer_shared_mem_config = cudaFuncCachePreferShared;
     cudaFuncCache prefer_l1_config = cudaFuncCachePreferL1;
     CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_data_host_mapped,
@@ -744,7 +747,7 @@ int main(int argc, char *argv[]) {
 
     // use maximum L1 data cache on volta+
     // int shared_mem_carveout_percent = cudaSharedmemCarveoutMaxL1;
-    int shared_mem_carveout_percent = 25;
+    int shared_mem_carveout_percent = 75;
     CUDA_CHECK(
         cudaFuncSetAttribute(global_latency_l1_data_host_mapped,
                              cudaFuncAttributePreferredSharedMemoryCarveout,

@@ -352,6 +352,34 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  cudaFuncCache prefer_shared_mem_config = cudaFuncCachePreferShared;
+  cudaFuncCache prefer_l1_config = cudaFuncCachePreferL1;
+  CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_set_mapping_shared_memory,
+                                    prefer_shared_mem_config));
+  CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_set_mapping_host_mapped,
+                                    prefer_shared_mem_config));
+
+  // use maximum L1 data cache on volta+
+  // int shared_mem_carveout_percent = cudaSharedmemCarveoutMaxL1;
+  int shared_mem_carveout_percent = 75;
+  CUDA_CHECK(
+      cudaFuncSetAttribute(global_latency_l1_set_mapping_shared_memory,
+                           cudaFuncAttributePreferredSharedMemoryCarveout,
+                           shared_mem_carveout_percent));
+  CUDA_CHECK(
+      cudaFuncSetAttribute(global_latency_l1_set_mapping_host_mapped,
+                           cudaFuncAttributePreferredSharedMemoryCarveout,
+                           shared_mem_carveout_percent));
+
+  // fetch full 128B cache lines
+  // CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 128))
+  CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMaxL2FetchGranularity, 32))
+
+  CUDA_CHECK(cudaDeviceSetCacheConfig(prefer_shared_mem_config));
+  cudaFuncCache have_cache_config;
+  CUDA_CHECK(cudaDeviceGetCacheConfig(&have_cache_config));
+  assert(have_cache_config == prefer_shared_mem_config);
+
   if (USE_HOST_MAPPED_MEMORY) {
     if (iter_size == (size_t)-1) {
       // default to 4 rounds through N
