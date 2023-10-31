@@ -352,6 +352,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  // use smaller 24 KB l1 data cache config on Pascal
   cudaFuncCache prefer_shared_mem_config = cudaFuncCachePreferShared;
   cudaFuncCache prefer_l1_config = cudaFuncCachePreferL1;
   CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_set_mapping_shared_memory,
@@ -431,7 +432,7 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "r,n,overflow_index,k,index,virt_addr,latency\n");
 
   for (size_t r = 0; r < repetitions; r++) {
-    for (unsigned int overflow_index = 0; overflow_index < iter_size;
+    for (unsigned int overflow_index = 0; overflow_index < size_bytes;
          overflow_index += stride) {
       exit_code = parametric_measure_global(h_a, d_a, mem, size, stride,
                                             iter_size, warmup_iterations, r,
