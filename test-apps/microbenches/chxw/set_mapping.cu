@@ -432,7 +432,7 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "r,n,overflow_index,k,index,virt_addr,latency\n");
 
   for (size_t r = 0; r < repetitions; r++) {
-    for (unsigned int overflow_index = 0; overflow_index < size_bytes;
+    for (unsigned int overflow_index = 0; overflow_index < size;
          overflow_index += stride) {
       exit_code = parametric_measure_global(h_a, d_a, mem, size, stride,
                                             iter_size, warmup_iterations, r,
