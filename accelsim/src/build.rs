@@ -27,6 +27,9 @@ pub fn manifest_path() -> eyre::Result<PathBuf> {
     Ok(path)
 }
 
+// #[derive(Debug, thiserror::Error)]
+// struct MissingOutputPath {}
+
 pub fn output_path() -> eyre::Result<PathBuf> {
     let path = PathBuf::from(std::env::var("OUT_DIR")?);
     let path = path

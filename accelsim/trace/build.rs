@@ -15,10 +15,19 @@ fn decompress_tar_bz2(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> eyre::Re
     Ok(())
 }
 
+#[derive(Debug, thiserror::Error)]
+enum DownloadError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+}
+
 fn download_nvbit(
     version: impl AsRef<str>,
     arch: impl AsRef<str>,
     dest: impl AsRef<Path>,
+    // ) -> Result<(), DownloadError> {
 ) -> eyre::Result<()> {
     let nvbit_release_name = format!("nvbit-Linux-{}-{}", arch.as_ref(), version.as_ref());
     let nvbit_release_archive_name = format!("{nvbit_release_name}.tar.bz2");
@@ -61,7 +70,18 @@ fn build_accelsim_tracer_tool(
 
     let nvbit_path = tracer_nvbit_tool_path.join("nvbit_release");
     if force || !nvbit_path.is_dir() {
-        download_nvbit(nvbit_version, target_arch, &tracer_nvbit_tool_path)?;
+        let res = download_nvbit(nvbit_version, target_arch, &tracer_nvbit_tool_path);
+        match res {
+            Err(err) if !nvbit_path.is_dir() => Err(err),
+            Err(_) => {
+                println!(
+                    "cargo:warning=failed to download nvbit, using {}",
+                    nvbit_path.display()
+                );
+                Ok(())
+            }
+            _ => Ok(()),
+        }?;
     }
 
     let artifact = tracer_nvbit_tool_path.join("tracer_tool/tracer_tool.so");

@@ -166,6 +166,17 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
 
       int opcode_id = opcode_to_id_map[instr->getOpcode()];
 
+      int num_operands = instr->getNumOperands();
+      printf("opcode %s has %d operands: ", instr->getOpcode(), num_operands);
+      for(int i = 0; i < num_operands; ++i){
+        const InstrType::operand_t *op = instr->getOperand(i);
+        printf("%s", InstrType::OperandTypeStr[(int)op->type]);
+        if (i+1 < num_operands) {
+          printf(", ");
+        }
+      }
+      printf("\n");
+
       /* check all operands. For now, we ignore constant, TEX, predicates and 
        * unified registers. We only report vector regisers */
       int src_oprd[MAX_SRC];
@@ -197,12 +208,28 @@ void instrument_function_if_needed(CUcontext ctx, CUfunction func) {
             src_oprd[srcNum] = instr->getOperand(i)->u.reg.num;
             srcNum++;
           }
+        } 
+        /* else if (op->type == InstrType::OperandType::CBANK) {
+          // ADDED: Roman
+          printf("opcode %s has cbank\n", instr->getOpcode());
+          if (i == 0){
+            // find dst reg
+            dst_oprd = instr->getOperand(0)->u.reg.num;
+          }
+          else {
+            // find src regs
+            assert(srcNum < MAX_SRC);
+            src_oprd[srcNum] = instr->getOperand(i)->u.reg.num;
+            srcNum++;
+          }
         }
+        */
       }
 
       do{
         /* insert call to the instrumentation function with its
         * arguments */
+        printf("instrumenting instruction %s\n", instr->getOpcode());
         nvbit_insert_call(instr, "instrument_inst", IPOINT_BEFORE);
 
         /* pass predicate value */
