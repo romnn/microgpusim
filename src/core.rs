@@ -509,12 +509,13 @@ where
                 "core-{}-{}-{}",
                 cluster_id,
                 core_id,
-                style("READONLY-INSTR-CACHE").green()
+                style("READONLY-INSTR-CACHE").green(),
             ),
             // core_id,
             // cluster_id,
             cache_stats,
             config.inst_cache_l1.as_ref().unwrap().clone(),
+            config.accelsim_compat,
         );
         instr_l1_cache.set_top_port(mem_port.clone());
 

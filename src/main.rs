@@ -66,6 +66,21 @@ struct Options {
     #[clap(long = "mem-only", help = "simulate only memory instructions")]
     pub memory_only: Option<bool>,
 
+    #[clap(long = "fill-l2", help = "fill L2 cache on CUDA memcopy")]
+    pub fill_l2: Option<bool>,
+
+    #[clap(long = "flush-l1", help = "flush L1 cache between kernel launches")]
+    pub flush_l1: Option<bool>,
+
+    #[clap(long = "flush-l2", help = "flush L2 cache between kernel launches")]
+    pub flush_l2: Option<bool>,
+
+    #[clap(long = "accelsim-compat", help = "accelsim compat mode")]
+    pub accelsim_compat_mode: Option<bool>,
+
+    #[clap(long = "simulate-clock-domains", help = "simulate clock domains")]
+    pub simulate_clock_domains: Option<bool>,
+
     #[clap(flatten)]
     pub accelsim: gpucachesim::config::accelsim::Config,
 }
@@ -121,10 +136,11 @@ fn main() -> eyre::Result<()> {
         num_memory_controllers: 8,                   // 8
         num_dram_chips_per_memory_controller: 1,     // 1
         num_sub_partitions_per_memory_controller: 2, // 2
-        fill_l2_on_memcopy: false,
-        flush_l1_cache: false,
-        flush_l2_cache: false,
-        accelsim_compat: false,
+        simulate_clock_domains: options.simulate_clock_domains.unwrap_or(false),
+        fill_l2_on_memcopy: options.fill_l2.unwrap_or(false),
+        flush_l1_cache: options.flush_l1.unwrap_or(false),
+        flush_l2_cache: options.flush_l2.unwrap_or(false),
+        accelsim_compat: options.accelsim_compat_mode.unwrap_or(false),
         memory_only: options.memory_only.unwrap_or(false),
         parallelization,
         deadlock_check,
@@ -137,6 +153,7 @@ fn main() -> eyre::Result<()> {
     dbg!(&config.num_schedulers_per_core);
     dbg!(&config.num_simt_clusters);
     dbg!(&config.num_cores_per_simt_cluster);
+    dbg!(&config.simulate_clock_domains);
 
     let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
     let stats = sim.stats();

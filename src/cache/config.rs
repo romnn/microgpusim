@@ -81,10 +81,33 @@ pub struct Config {
     ///
     /// NOTE: CAN BE COMPUTED from sets and associativity.
     pub total_lines: usize,
+
+    /// Accelsim compat mode.
+    pub accelsim_compat: bool,
 }
 
-impl From<&config::Cache> for Config {
-    fn from(config: &config::Cache) -> Self {
+// impl From<&config::Cache> for Config {
+//     fn from(config: &config::Cache) -> Self {
+//         Self {
+//             // set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
+//             write_policy: config.write_policy,
+//             write_allocate_policy: config.write_allocate_policy,
+//             allocate_policy: config.allocate_policy,
+//             replacement_policy: config.replacement_policy,
+//             associativity: config.associativity,
+//             num_sets: config.num_sets,
+//             atom_size: config.atom_size(),
+//             miss_queue_size: config.miss_queue_size,
+//             mshr_kind: config.mshr_kind,
+//             total_lines: config.num_sets * config.associativity,
+//             line_size: config.line_size,
+//             accelsim_compat: config.accelsim_compat,
+//         }
+//     }
+// }
+
+impl Config {
+    pub fn new(config: &config::Cache, accelsim_compat: bool) -> Self {
         Self {
             // set_index_function: Arc::<crate::set_index::linear::SetIndex>::default(),
             write_policy: config.write_policy,
@@ -98,6 +121,7 @@ impl From<&config::Cache> for Config {
             mshr_kind: config.mshr_kind,
             total_lines: config.num_sets * config.associativity,
             line_size: config.line_size,
+            accelsim_compat,
         }
     }
 }

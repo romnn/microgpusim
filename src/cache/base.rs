@@ -56,6 +56,7 @@ pub struct Builder<CC, S> {
     pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
+    pub accelsim_compat: bool,
 }
 
 impl<CC, S> Builder<CC, S>
@@ -64,20 +65,26 @@ where
 {
     #[must_use]
     pub fn build(self) -> Base<CC, S> {
-        let cache_config = self.cache_config;
-        let tag_array = tag_array::TagArray::new(&cache_config, self.cache_controller.clone());
+        let tag_array = tag_array::TagArray::new(
+            &self.cache_config,
+            self.cache_controller.clone(),
+            self.accelsim_compat,
+        );
 
         debug_assert!(matches!(
-            cache_config.mshr_kind,
+            self.cache_config.mshr_kind,
             mshr::Kind::ASSOC | mshr::Kind::SECTOR_ASSOC
         ));
-        let mshrs = mshr::Table::new(cache_config.mshr_entries, cache_config.mshr_max_merge);
+        let mshrs = mshr::Table::new(
+            self.cache_config.mshr_entries,
+            self.cache_config.mshr_max_merge,
+        );
 
-        let bandwidth = super::bandwidth::Manager::new(cache_config.clone());
+        let bandwidth = super::bandwidth::Manager::new(self.cache_config.clone());
 
-        let cache_config = cache::Config::from(&*cache_config);
+        let cache_config = cache::Config::new(&*self.cache_config, self.accelsim_compat);
 
-        let miss_queue = VecDeque::with_capacity(cache_config.miss_queue_size);
+        let miss_queue = VecDeque::with_capacity(self.cache_config.miss_queue_size);
 
         Base {
             name: self.name,
@@ -146,7 +153,11 @@ where
                     fetch.allocation_id(),
                     fetch.access_kind(),
                     super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                    1,
+                    if self.cache_config.accelsim_compat {
+                        1
+                    } else {
+                        fetch.access.num_transactions()
+                    },
                 );
             }
 
@@ -209,7 +220,16 @@ where
             if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
                 let mut stats = self.stats.lock();
                 let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(fetch.allocation_id(), fetch.access_kind(), access_stat, 1);
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    access_stat,
+                    if self.cache_config.accelsim_compat {
+                        1
+                    } else {
+                        fetch.access.num_transactions()
+                    },
+                );
             }
         } else {
             panic!(

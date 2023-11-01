@@ -16,29 +16,49 @@ use strum::EnumCount;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct LoadStoreUnit {
+    /// Core ID
     core_id: usize,
+    /// Cluster ID
     cluster_id: usize,
+    /// Next writeback instruction
     next_writeback: Option<WarpInstruction>,
+    /// Response fifo queue
     pub response_fifo: VecDeque<MemFetch>,
     warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
+    /// Config
     config: Arc<config::GPU>,
+    /// Memory controller
     mem_controller: Arc<dyn mcu::MemoryController>,
+    /// Statistics
     pub stats: Arc<Mutex<stats::PerKernel>>,
+    /// Scoreboard
     scoreboard: Arc<RwLock<Scoreboard>>,
+    /// Next global access
     next_global: Option<MemFetch>,
+    /// Pending writes per register
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
-    // pub l1_latency_queue: Box<[VecDeque<Option<mem_fetch::MemFetch>>]>,
+
+    /// L1 tag latency queue
     pub l1_latency_queue: Box<[Box<[Option<mem_fetch::MemFetch>]>]>,
+    /// L1 hit latency queue
+    pub l1_hit_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
+
+    /// Memory port
     pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
 
+    /// Operand collector
     operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
 
-    /// round-robin arbiter for writeback contention between L1T, L1C, shared
+    /// Round-robin write-back arbiter.
+    ///
+    /// The arbiter handles contention between L1T, L1C, and shared memory
     writeback_arb: usize,
+    /// Number of writeback clients (L1T, L1C, and shared memory)
     num_writeback_clients: usize,
 
+    /// Callbacks
     pub l1_access_callback:
         Option<Box<dyn Fn(u64, &mem_fetch::MemFetch, cache::RequestStatus) + Send + Sync>>,
 }
@@ -130,7 +150,7 @@ impl LoadStoreUnit {
                 // let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
 
                 let cache_controller = cache::controller::pascal::L1DataCacheController::new(
-                    cache::Config::from(l1_config.inner.as_ref()),
+                    cache::Config::new(l1_config.inner.as_ref(), config.accelsim_compat),
                     l1_config,
                     config.accelsim_compat,
                 );
@@ -169,6 +189,8 @@ impl LoadStoreUnit {
 
         assert!(data_l1.is_some());
 
+        let l1_hit_latency_queue = VecDeque::new();
+
         Self {
             core_id,
             cluster_id,
@@ -188,6 +210,7 @@ impl LoadStoreUnit {
             num_writeback_clients: WritebackClient::COUNT,
             writeback_arb: 0,
             l1_latency_queue,
+            l1_hit_latency_queue,
             l1_access_callback: None,
         }
     }
@@ -843,44 +866,18 @@ impl LoadStoreUnit {
                     1
                 };
 
-                if let Some(l1_access_callback) = &self.l1_access_callback {
-                    l1_access_callback(cycle, fetch, access_status);
-                }
-
                 if access_status == cache::RequestStatus::HIT {
                     debug_assert!(!read_sent);
                     let mut fetch = self.l1_latency_queue[bank][0].take().unwrap();
-                    let instr = fetch.instr.as_mut().unwrap();
 
-                    if instr.is_load() {
-                        let mut completed = false;
-                        for out_reg in instr.outputs() {
-                            let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
-
-                            let still_pending = pending.get_mut(out_reg).unwrap();
-                            debug_assert!(*still_pending > 0);
-                            *still_pending -= 1;
-                            log::trace!(
-                                "warp {} register {}: decrement from {} to {}",
-                                instr.warp_id,
-                                out_reg,
-                                *still_pending + 1,
-                                *still_pending
-                            );
-
-                            if *still_pending == 0 {
-                                pending.remove(out_reg);
-                                log::trace!("l1 latency queue release registers");
-                                self.scoreboard.try_write().release(instr.warp_id, *out_reg);
-                                completed = true;
-                            }
-                        }
-                        if completed {
-                            crate::warp_inst_complete(instr, &self.stats);
-                        }
-                    }
+                    let latency = if self.config.accelsim_compat {
+                        0
+                    } else {
+                        l1_config.l1_hit_latency
+                    };
 
                     // For write hit in WB policy
+                    let instr = fetch.instr.as_mut().unwrap();
                     if instr.is_store() && !write_sent {
                         fetch.set_reply();
 
@@ -888,30 +885,79 @@ impl LoadStoreUnit {
                             self.store_ack(&fetch);
                         }
                     }
-                } else if access_status == cache::RequestStatus::RESERVATION_FAIL {
-                    debug_assert!(!read_sent);
-                    debug_assert!(!write_sent);
-                } else {
-                    debug_assert!(matches!(
-                        access_status,
-                        cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
-                    ));
-                    let mut fetch = self.l1_latency_queue[bank][0].take().unwrap();
-                    let instr = fetch.instr.as_ref().unwrap();
 
-                    let should_fetch = matches!(
-                        l1_config.inner.write_allocate_policy,
-                        cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
-                            | cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ
-                    );
-                    if l1_config.inner.write_policy != cache::config::WritePolicy::WRITE_THROUGH
-                        && instr.is_store()
-                        && should_fetch
-                        && !write_allocate_sent
-                    {
-                        fetch.set_reply();
-                        for _ in 0..dec_ack {
-                            self.store_ack(&fetch);
+                    log::debug!("{}: {fetch}", style("PUSH TO L1 HIT LATENCY QUEUE").red());
+                    self.l1_hit_latency_queue
+                        .push_back((cycle + latency as u64, fetch));
+
+                    // let instr = fetch.instr.as_mut().unwrap();
+                    //
+                    // if instr.is_load() {
+                    //     let mut completed = false;
+                    //     for out_reg in instr.outputs() {
+                    //         let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
+                    //
+                    //         let still_pending = pending.get_mut(out_reg).unwrap();
+                    //         debug_assert!(*still_pending > 0);
+                    //         *still_pending -= 1;
+                    //         log::trace!(
+                    //             "warp {} register {}: decrement from {} to {}",
+                    //             instr.warp_id,
+                    //             out_reg,
+                    //             *still_pending + 1,
+                    //             *still_pending
+                    //         );
+                    //
+                    //         if *still_pending == 0 {
+                    //             pending.remove(out_reg);
+                    //             log::trace!("l1 latency queue release registers");
+                    //             self.scoreboard.try_write().release(instr.warp_id, *out_reg);
+                    //             completed = true;
+                    //         }
+                    //     }
+                    //     if completed {
+                    //         crate::warp_inst_complete(instr, &self.stats);
+                    //     }
+                    // }
+                    //
+                    // // For write hit in WB policy
+                    // if instr.is_store() && !write_sent {
+                    //     fetch.set_reply();
+                    //
+                    //     for _ in 0..dec_ack {
+                    //         self.store_ack(&fetch);
+                    //     }
+                    // }
+                } else {
+                    if let Some(l1_access_callback) = &self.l1_access_callback {
+                        l1_access_callback(cycle, &fetch, access_status);
+                    }
+
+                    if access_status == cache::RequestStatus::RESERVATION_FAIL {
+                        debug_assert!(!read_sent);
+                        debug_assert!(!write_sent);
+                    } else {
+                        debug_assert!(matches!(
+                            access_status,
+                            cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
+                        ));
+                        let mut fetch = self.l1_latency_queue[bank][0].take().unwrap();
+                        let instr = fetch.instr.as_ref().unwrap();
+
+                        let should_fetch = matches!(
+                            l1_config.inner.write_allocate_policy,
+                            cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
+                                | cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ
+                        );
+                        if l1_config.inner.write_policy != cache::config::WritePolicy::WRITE_THROUGH
+                            && instr.is_store()
+                            && should_fetch
+                            && !write_allocate_sent
+                        {
+                            fetch.set_reply();
+                            for _ in 0..dec_ack {
+                                self.store_ack(&fetch);
+                            }
                         }
                     }
                 }
@@ -923,6 +969,64 @@ impl LoadStoreUnit {
                         self.l1_latency_queue[bank][stage + 1].take();
                 }
             }
+        }
+
+        // check for ready L1 hits
+        match self.l1_hit_latency_queue.front() {
+            Some((ready_cycle, _)) if cycle >= *ready_cycle => {
+                let (_, mut fetch) = self.l1_hit_latency_queue.pop_front().unwrap();
+                log::debug!("{}: {fetch}", style("POP FROM L1 HIT LATENCY QUEUE").red());
+
+                if let Some(l1_access_callback) = &self.l1_access_callback {
+                    l1_access_callback(cycle, &fetch, cache::RequestStatus::HIT);
+                }
+
+                let instr = fetch.instr.as_mut().unwrap();
+
+                if instr.is_load() {
+                    let mut completed = false;
+                    for out_reg in instr.outputs() {
+                        let pending = self.pending_writes.get_mut(&instr.warp_id).unwrap();
+
+                        let still_pending = pending.get_mut(out_reg).unwrap();
+                        debug_assert!(*still_pending > 0);
+                        *still_pending -= 1;
+                        log::trace!(
+                            "warp {} register {}: decrement from {} to {}",
+                            instr.warp_id,
+                            out_reg,
+                            *still_pending + 1,
+                            *still_pending
+                        );
+
+                        if *still_pending == 0 {
+                            pending.remove(out_reg);
+                            log::trace!("l1 latency queue release registers");
+                            self.scoreboard.try_write().release(instr.warp_id, *out_reg);
+                            completed = true;
+                        }
+                    }
+                    if completed {
+                        crate::warp_inst_complete(instr, &self.stats);
+                    }
+                }
+
+                // let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                //     fetch.data_size() / mem_sub_partition::SECTOR_SIZE
+                // } else {
+                //     1
+                // };
+                //
+                // // For write hit in WB policy
+                // if instr.is_store() && !write_sent {
+                //     fetch.set_reply();
+                //
+                //     for _ in 0..dec_ack {
+                //         self.store_ack(&fetch);
+                //     }
+                // }
+            }
+            _ => {}
         }
     }
 

@@ -227,8 +227,7 @@ pub mod pascal {
             addr_bits.store(addr);
 
             debug_assert_eq!(9, LINE_SIZE_LOG2 + NUM_SETS_LOG2);
-            let offset0 =
-                addr_bits[9] ^ addr_bits[9] ^ addr_bits[10] ^ addr_bits[12] ^ addr_bits[14];
+            let offset0 = addr_bits[10] ^ addr_bits[12] ^ addr_bits[14];
             let offset1 = !offset0
                 ^ addr_bits[9]
                 ^ addr_bits[10]

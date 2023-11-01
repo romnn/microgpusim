@@ -72,7 +72,7 @@ impl DataL2 {
     ) -> Self {
         let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
         let default_cache_controller = cache::controller::pascal::DataCacheController::new(
-            cache::Config::from(cache_config.inner.as_ref()),
+            cache::Config::new(cache_config.inner.as_ref(), config.accelsim_compat),
         );
         // let cache_controller = default_cache_controller;
         let cache_controller = L2DataCacheController {
@@ -212,13 +212,14 @@ mod tests {
 
     #[test]
     fn test_l2d_set_index() -> eyre::Result<()> {
+        let accelsim_compat = false;
         let config = crate::config::GPU::default();
         let l2_cache_config = &config.data_cache_l2.as_ref().unwrap().inner;
 
         // create l2 data cache controller
         let memory_controller = crate::mcu::MemoryControllerUnit::new(&config)?;
         let cache_controller = crate::cache::controller::pascal::DataCacheController::new(
-            l2_cache_config.as_ref().into(),
+            crate::cache::Config::new(l2_cache_config.as_ref(), accelsim_compat),
         );
         let l2_cache_controller = super::L2DataCacheController {
             memory_controller,

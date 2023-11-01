@@ -286,6 +286,13 @@ pub mod access {
             self.allocation.as_ref().map(|alloc| alloc.id)
         }
 
+        // #[inline]
+        #[must_use]
+        pub fn num_transactions(&self) -> usize {
+            let transaction_size = crate::WARP_SIZE / crate::mem_sub_partition::SECTOR_CHUNK_SIZE;
+            (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
+        }
+
         #[must_use]
         // #[inline]
         pub fn control_size(&self) -> u32 {

@@ -18,9 +18,10 @@ impl ReadOnly {
         // cluster_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         cache_config: Arc<config::Cache>,
+        accelsim_compat: bool,
     ) -> Self {
         let cache_controller = cache::controller::pascal::DataCacheController::new(
-            cache::config::Config::from(&*cache_config),
+            cache::config::Config::new(&*cache_config, accelsim_compat),
         );
         let inner = cache::base::Builder {
             name,
@@ -29,6 +30,7 @@ impl ReadOnly {
             stats,
             cache_controller,
             cache_config,
+            accelsim_compat,
         }
         .build();
         Self { inner }

@@ -779,13 +779,13 @@ impl WarpInstruction {
                 if !self.active_mask[thread_id] {
                     continue;
                 }
-                let mut data_size_coales = self.data_size;
+                let mut data_size_coalesced = self.data_size;
                 let mut num_accesses = 1;
 
                 if self.memory_space == Some(MemorySpace::Local) {
                     // Local memory accesses >4B were split into 4B chunks
                     if self.data_size >= 4 {
-                        data_size_coales = 4;
+                        data_size_coalesced = 4;
                         num_accesses = self.data_size / 4;
                     }
                     // Otherwise keep the same data_size for sub-4B
@@ -800,17 +800,15 @@ impl WarpInstruction {
                 {
                     let addr = thread.mem_req_addr[access];
                     let block_addr = line_size_based_tag_func(addr, segment_size);
-                    // which 32-byte chunk within in a 128-byte
+                    // 32-byte chunk within in a 128-byte accesses by this thread
                     let chunk = (addr & 127) / 32;
-                    // chunk does this thread access?
                     let tx = subwarp_transactions.entry(block_addr).or_default();
-                    // can only write to one segment
 
                     tx.chunk_mask.set(chunk as usize, true);
                     tx.active_mask.set(thread_id, true);
                     let idx = addr & 127;
 
-                    for i in 0..data_size_coales {
+                    for i in 0..data_size_coalesced {
                         let next_idx = idx as usize + i as usize;
                         if next_idx < (MAX_MEMORY_ACCESS_SIZE as usize) {
                             tx.byte_mask.set(next_idx, true);
@@ -819,14 +817,14 @@ impl WarpInstruction {
 
                     // it seems like in trace driven, a thread can write to more than one
                     // segment handle
-                    let coalesc_end_addr = addr + u64::from(data_size_coales) - 1;
-                    if block_addr != line_size_based_tag_func(coalesc_end_addr, segment_size) {
-                        let block_addr = line_size_based_tag_func(coalesc_end_addr, segment_size);
-                        let chunk = (coalesc_end_addr & 127) / 32;
+                    let coalesced_end_addr = addr + u64::from(data_size_coalesced) - 1;
+                    if block_addr != line_size_based_tag_func(coalesced_end_addr, segment_size) {
+                        let block_addr = line_size_based_tag_func(coalesced_end_addr, segment_size);
+                        let chunk = (coalesced_end_addr & 127) / 32;
                         let tx = subwarp_transactions.entry(block_addr).or_default();
                         tx.chunk_mask.set(chunk as usize, true);
                         tx.active_mask.set(thread_id, true);
-                        for i in 0..data_size_coales {
+                        for i in 0..data_size_coalesced {
                             let next_idx = idx as usize + i as usize;
                             if next_idx < (MAX_MEMORY_ACCESS_SIZE as usize) {
                                 tx.byte_mask.set(next_idx, true);
@@ -847,7 +845,6 @@ impl WarpInstruction {
             let mut subwarp_accesses: Vec<_> = subwarp_transactions.into_iter().collect();
 
             // sort for deterministic ordering: add smallest addresses first
-            // subwarp_accesses.sort_by_key(|(block_addr, _)| std::cmp::Reverse(*block_addr));
             subwarp_accesses.sort_by_key(|(block_addr, _)| *block_addr);
 
             // step 2: reduce each transaction size, if possible

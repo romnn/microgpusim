@@ -56,11 +56,11 @@ where
     B: Default,
 {
     #[must_use]
-    pub fn new(config: &config::Cache, cache_controller: CC) -> Self {
+    pub fn new(config: &config::Cache, cache_controller: CC, accelsim_compat: bool) -> Self {
         let num_cache_lines = config.max_num_lines();
         let lines = (0..num_cache_lines).map(|_| B::default()).collect();
 
-        let cache_config = cache::Config::from(config);
+        let cache_config = cache::Config::new(config, accelsim_compat);
 
         Self {
             lines,

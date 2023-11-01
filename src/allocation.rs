@@ -11,6 +11,14 @@ pub struct Allocation {
     pub end_addr: Option<address>,
 }
 
+impl Allocation {
+    pub fn num_bytes(&self) -> u64 {
+        self.end_addr
+            .and_then(|end_addr| end_addr.checked_sub(self.start_addr))
+            .unwrap_or(0)
+    }
+}
+
 impl std::cmp::Ord for Allocation {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.id.cmp(&other.id)

@@ -51,6 +51,7 @@ where
             stats: self.stats,
             cache_controller: self.cache_controller,
             cache_config: self.cache_config,
+            accelsim_compat: self.config.accelsim_compat,
         }
         .build();
         Data {
@@ -259,7 +260,11 @@ where
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::MISS_QUEUE_FULL,
                     ),
-                    1,
+                    if self.inner.cache_config.accelsim_compat {
+                        1
+                    } else {
+                        fetch.access.num_transactions()
+                    },
                 );
             }
             return cache::RequestStatus::RESERVATION_FAIL;
@@ -379,7 +384,11 @@ where
                     cache::AccessStat::ReservationFailure(
                         cache::ReservationFailure::MISS_QUEUE_FULL,
                     ),
-                    1,
+                    if self.inner.cache_config.accelsim_compat {
+                        1
+                    } else {
+                        fetch.access.num_transactions()
+                    },
                 );
             }
             // cannot handle request this cycle
@@ -436,7 +445,11 @@ where
                     fetch.allocation_id(),
                     fetch.access_kind(),
                     cache::AccessStat::ReservationFailure(failure),
-                    1,
+                    if self.inner.cache_config.accelsim_compat {
+                        1
+                    } else {
+                        fetch.access.num_transactions()
+                    },
                 );
             }
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
@@ -678,7 +691,11 @@ where
                             cache::AccessStat::ReservationFailure(
                                 cache::ReservationFailure::LINE_ALLOC_FAIL,
                             ),
-                            1,
+                            if self.inner.cache_config.accelsim_compat {
+                                1
+                            } else {
+                                fetch.access.num_transactions()
+                            },
                         );
                     }
                 }
@@ -701,7 +718,11 @@ where
                             cache::AccessStat::ReservationFailure(
                                 cache::ReservationFailure::LINE_ALLOC_FAIL,
                             ),
-                            1,
+                            if self.inner.cache_config.accelsim_compat {
+                                1
+                            } else {
+                                fetch.access.num_transactions()
+                            },
                         );
                     }
                 }
@@ -800,7 +821,16 @@ where
             let kernel_stats = stats.get_mut(kernel_launch_id);
             let access_stat =
                 cache::AccessStat::Status(cache::select_status(probe_status, access_status));
-            kernel_stats.inc(allocation_id, access_kind, access_stat, 1);
+            kernel_stats.inc(
+                allocation_id,
+                access_kind,
+                access_stat,
+                if self.inner.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
 
             if crate::DEBUG_PRINT
                 && (probe_status, access_status)
@@ -811,13 +841,16 @@ where
             {
                 let addr = fetch.relative_byte_addr();
                 eprintln!(
-                    "{:>40}: cycle={:<5} fetch {:<30}\t inst={:<15}  addr={:<5}  space={:<10?} sector={} probe status={:<10?} access status={:<10?}",
+                    // space={:<10?} 
+                    "{:>40}: cycle={:<5} fetch {:<40} inst={:<20} addr={:<5} ({:<4}) size={:<2} sector={} probe status={:<10?} access status={:<10?}",
                     self.inner.name,
                     time,
                     fetch,
                     fetch.instr.as_ref().map(ToString::to_string).as_deref().unwrap_or("?"),
                     addr,
-                    fetch.access_kind().memory_space(),
+                    fetch.relative_byte_addr() / 4,
+                    fetch.data_size(),
+                    // fetch.access_kind().memory_space(),
                     trace_model::colorize_bits(fetch.access.sector_mask[..4].to_bit_string(), None),
                     probe_status,
                     access_status,

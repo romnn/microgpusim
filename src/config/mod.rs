@@ -11,6 +11,18 @@ use std::sync::Arc;
 
 pub use gtx1080::GTX1080;
 
+pub const KB: u64 = 1024;
+pub const MB: u64 = 1024 * KB;
+pub const GB: u64 = 1024 * MB;
+#[allow(non_upper_case_globals)]
+pub const Hz: u64 = 1;
+#[allow(non_upper_case_globals)]
+pub const KHz: u64 = 1000 * Hz;
+#[allow(non_upper_case_globals)]
+pub const MHz: u64 = 1000 * KHz;
+#[allow(non_upper_case_globals)]
+pub const GHz: u64 = 1000 * MHz;
+
 /// Memory addressing mask
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum MemoryAddressingMask {
@@ -31,26 +43,11 @@ pub struct L2DCache {
     pub inner: Arc<Cache>,
 }
 
-// impl L2DCache {
-//     // #[inline]
-//     #[must_use]
-//     pub fn set_index(&self, addr: address) -> u64 {
-//         let partition_addr = addr;
-//
-//         // TODO
-//         // if (m_address_mapping) {
-//         //   // Calculate set index without memory partition bits to reduce set camping
-//         //   part_addr = m_address_mapping->partition_address(addr);
-//         // }
-//
-//         self.inner.set_index(partition_addr)
-//     }
-// }
-
 #[derive(Debug)]
 pub struct L1DCache {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
+    pub l1_hit_latency: usize, // 80
     /// l1 banks hashing function
     // pub l1_banks_hashing_function: Box<dyn cache::set_index::SetIndexer>, // 0
     // pub l1_banks_hashing_function: CacheSetIndexFunc, // 0
@@ -124,6 +121,7 @@ pub struct Cache {
 
     // private (should be used with accessor methods)
     pub data_port_width: Option<usize>,
+    // pub accelsim_compat: bool,
 }
 
 impl std::fmt::Display for Cache {
@@ -332,6 +330,61 @@ pub enum Parallelization {
     },
 }
 
+// sscanf(gpgpu_clock_domains, "%lf:%lf:%lf:%lf", &core_freq, &icnt_freq,
+//          &l2_freq, &dram_freq);
+//   core_freq = core_freq MhZ;
+//   icnt_freq = icnt_freq MhZ;
+//   l2_freq = l2_freq MhZ;
+//   dram_freq = dram_freq MhZ;
+//   core_period = 1 / core_freq;
+//   icnt_period = 1 / icnt_freq;
+//   dram_period = 1 / dram_freq;
+//   l2_period = 1 / l2_freq;
+//
+//   if (gpgpu_ctx->accelsim_compat_mode) {
+//     fprintf(gpgpu_ctx->stats_out,
+//             "GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf\n", core_freq,
+//             icnt_freq, l2_freq, dram_freq);
+//     fprintf(gpgpu_ctx->stats_out,
+//             "GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf\n",
+//             core_period, icnt_period, l2_period, dram_period);
+//   }
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug)]
+pub struct ClockFrequencies {
+    pub core_freq_hz: u64,
+    pub interconn_freq_hz: u64,
+    pub l2_freq_hz: u64,
+    pub dram_freq_hz: u64,
+    // derived
+    pub core_period: f64,
+    pub interconn_period: f64,
+    pub l2_period: f64,
+    pub dram_period: f64,
+}
+
+pub struct ClockFrequenciesBuilder {
+    pub core_freq_hz: u64,
+    pub interconn_freq_hz: u64,
+    pub l2_freq_hz: u64,
+    pub dram_freq_hz: u64,
+}
+
+impl ClockFrequenciesBuilder {
+    pub fn build(self) -> ClockFrequencies {
+        ClockFrequencies {
+            core_freq_hz: self.core_freq_hz,
+            interconn_freq_hz: self.interconn_freq_hz,
+            dram_freq_hz: self.dram_freq_hz,
+            l2_freq_hz: self.l2_freq_hz,
+            core_period: 1f64 / self.core_freq_hz as f64,
+            interconn_period: 1f64 / self.interconn_freq_hz as f64,
+            dram_period: 1f64 / self.dram_freq_hz as f64,
+            l2_period: 1f64 / self.l2_freq_hz as f64,
+        }
+    }
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct GPU {
@@ -346,12 +399,16 @@ pub struct GPU {
     pub parallelization: Parallelization,
     /// Simulate memory instructions only
     pub memory_only: bool,
+    /// Simulate different clock domains of core, memory, and interconnect subsystems.
+    pub simulate_clock_domains: bool,
     /// Simulation threads
     ///
     /// If no value is provided, the number of physical cores is used.
     pub simulation_threads: Option<usize>,
     /// Deadlock check
     pub deadlock_check: bool,
+    /// Deadlock check
+    pub l2_prefetch_percent: f32,
 
     pub memory_controller_unit: std::sync::OnceLock<mcu::MemoryControllerUnit>,
     /// The SM number to pass to ptxas when getting register usage for
@@ -361,6 +418,8 @@ pub struct GPU {
     pub max_threads_per_core: usize,
     /// shader core pipeline warp size
     pub warp_size: usize,
+    /// Clock frequencies
+    pub clock_frequencies: ClockFrequencies,
     /// per-shader read-only L1 texture cache config
     pub tex_cache_l1: Option<Arc<Cache>>,
     /// per-shader read-only L1 constant memory cache config
@@ -565,7 +624,7 @@ pub struct GPU {
     /// nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40: CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0
     pub dram_timing_options: TimingOptions,
     /// ROP queue latency (default 85)
-    pub l2_rop_latency: u64, // 120
+    pub l2_rop_latency: u64, // 220
     /// DRAM latency (default 30)
     pub dram_latency: usize, // 100
     /// dual_bus_interface (default = 0)
@@ -840,7 +899,6 @@ impl GPU {
 pub enum CacheSetIndexFunc {
     FERMI_HASH_SET_FUNCTION, // H
     HASH_IPOLY_FUNCTION,     // P
-    // CUSTOM_SET_FUNCTION, // C
     LINEAR_SET_FUNCTION,     // L
     BITWISE_XORING_FUNCTION, // X
 }
@@ -942,29 +1000,34 @@ impl GPU {
     pub fn total_sub_partitions(&self) -> usize {
         self.num_memory_controllers * self.num_sub_partitions_per_memory_controller
     }
-
-    // pub fn address_mapping(&self) -> &dyn mcu::MemoryController {
-    //     self.memory_controller_unit
-    //         .get_or_init(|| mcu::MemoryControllerUnit::new(self).unwrap())
-    // }
 }
 
 impl Default for GPU {
     fn default() -> Self {
         Self {
             log_after_cycle: None,
-            accelsim_compat: false,
             parallelization: Parallelization::Serial,
             memory_only: false,
+            accelsim_compat: false,
+            simulate_clock_domains: false,
             simulation_threads: None,
             deadlock_check: false,
+            l2_prefetch_percent: 25.0,
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,
             warp_size: 32,
+            clock_frequencies: ClockFrequenciesBuilder {
+                core_freq_hz: 1607 * MHz,
+                interconn_freq_hz: 1607 * MHz,
+                l2_freq_hz: 1607 * MHz,
+                dram_freq_hz: 1251 * MHz,
+            }
+            .build(),
             // N:16:128:24,L:R:m:N:L,F:128:4,128:2
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>:<rf>}
             tex_cache_l1: Some(Arc::new(Cache {
+                // accelsim_compat,
                 kind: CacheKind::Normal,
                 num_sets: 4, // 16,
                 line_size: 128,
@@ -986,6 +1049,7 @@ impl Default for GPU {
             // N:128:64:2,L:R:f:N:L,A:2:64,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
             const_cache_l1: Some(Arc::new(Cache {
+                // accelsim_compat,
                 kind: CacheKind::Normal,
                 num_sets: 128,
                 line_size: 64,
@@ -1007,6 +1071,7 @@ impl Default for GPU {
             // N:8:128:4,L:R:f:N:L,A:2:48,4
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
             inst_cache_l1: Some(Arc::new(Cache {
+                // accelsim_compat,
                 kind: CacheKind::Normal,
                 num_sets: 8,
                 line_size: 128,
@@ -1033,11 +1098,13 @@ impl Default for GPU {
             data_cache_l1: Some(Arc::new(L1DCache {
                 // l1_latency: 1,
                 l1_latency: 82,
+                l1_hit_latency: 80,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
                 l1_banks: 1,
                 inner: Arc::new(Cache {
+                    // accelsim_compat,
                     kind: CacheKind::Sector,
                     // kind: CacheKind::Normal,
                     num_sets: 4, // 64,
@@ -1063,6 +1130,7 @@ impl Default for GPU {
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
             data_cache_l2: Some(Arc::new(L2DCache {
                 inner: Arc::new(Cache {
+                    // accelsim_compat,
                     kind: CacheKind::Sector,
                     // kind: CacheKind::Normal,
                     // num_sets: 64,
@@ -1108,14 +1176,14 @@ impl Default for GPU {
             num_cores_per_simt_cluster: 1,
             num_cluster_ejection_buffer_size: 8,
             num_ldst_response_buffer_size: 2,
-            shared_memory_per_block: 49152,
-            shared_memory_size: 98304,
+            shared_memory_per_block: 48 * KB as usize,
+            shared_memory_size: 96 * KB as u32,
             shared_memory_option: false,
             unified_l1_data_cache_size: false,
             adaptive_cache_config: false,
             shared_memory_sizes: vec![],
-            shared_memory_size_pref_l1: 16384,
-            shared_memory_size_pref_shared: 16384,
+            shared_memory_size_pref_l1: 16 * KB as usize,
+            shared_memory_size_pref_shared: 16 * KB as usize,
             shared_memory_num_banks: 32,
             shared_memory_limited_broadcast: false,
             shared_memory_warp_parts: 1,
@@ -1202,7 +1270,9 @@ impl Default for GPU {
             // CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0"
             dram_timing_options: TimingOptions { num_banks: 16 },
             // this is the l2 latency 216 L2 latency
-            l2_rop_latency: 130, // was 120
+            // l2_rop_latency: 1,
+            // dram_latency: 1,
+            l2_rop_latency: 220, // was 120
             dram_latency: 180,   // was 100
             dram_dual_bus_interface: false,
             dram_bank_indexing_policy: DRAMBankIndexPolicy::Normal,
@@ -1407,6 +1477,17 @@ pub struct Input {
     pub cores_per_cluster: Option<usize>,
     pub num_clusters: Option<usize>,
     pub memory_only: Option<bool>,
+}
+
+impl Input {
+    pub fn is_baseline(&self) -> bool {
+        let mut is_baseline = true;
+        is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
+        is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
+        is_baseline &= matches!(self.num_clusters, Some(20) | None);
+        // is_baseline &= matches!(self.memory_only, Some(false) | None);
+        is_baseline
+    }
 }
 
 pub fn parse_input(
