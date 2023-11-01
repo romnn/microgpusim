@@ -164,6 +164,12 @@ pub struct Options {
     #[clap(long = "no-progress", help = "hide progress bar")]
     pub no_progress: bool,
 
+    #[clap(
+        long = "baseline",
+        help = "only run baseline benchmarks (serial, default configuration)"
+    )]
+    pub baseline: bool,
+
     #[clap(subcommand)]
     pub command: Command,
 }

@@ -8,7 +8,7 @@ publish = false
 default = ["remote", "parallel", "cuda"]
 cuda = ["dep:rustacuda", "dep:cuda-driver-sys"]
 parallel = ["gpucachesim/parallel"]
-remote = ["dep:ssh_jumper"]
+remote = ["dep:remote"]
 
 [package.metadata.cargo-feature-combinations]
 denylist = ["default"]
@@ -21,7 +21,6 @@ need_accelsim_build_dependencies = true
 thiserror = "1"
 color-eyre = "0"
 tokio = { version = "1", features = ["full"] }
-dotenv = "0"
 serde = { version = "1", features = ["derive"] }
 serde_path_to_error = "0"
 csv = "1"
@@ -77,8 +76,8 @@ stats = { path = "../stats" }
 # benchmarks
 gpucachesim-benchmarks = { path = "../benchmarks" }
 
-# optional: remove
-ssh_jumper = { version = "0", optional = true }
+# optional: remote
+remote = { path = "./remote", optional = true }
 
 # optional: cuda
 rustacuda = { version = "0", optional = true }

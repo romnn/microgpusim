@@ -391,6 +391,13 @@ fn compute_per_command_bench_configs<'a>(
                         }
                     }
 
+                    // check for baseline
+                    if let Ok(input) = gpucachesim::config::parse_input(&bench_config.values) {
+                        if options.baseline && !input.is_baseline() {
+                            return false;
+                        }
+                    }
+
                     true
                 })
                 .collect();

@@ -68,13 +68,23 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
     // dbg!(&stats.inner.len());
     for kernel_stats in &stats.inner {
         dbg!(&kernel_stats.l1d_stats);
-        dbg!(&kernel_stats.l2d_stats);
-        dbg!(&kernel_stats.dram.reduce());
+        dbg!(&kernel_stats.l1d_stats.reduce());
+        dbg!(&kernel_stats.l1d_stats.reduce().num_accesses());
+        dbg!(&kernel_stats
+            .l1d_stats
+            .reduce()
+            .iter()
+            .map(|(_, num)| num)
+            .sum::<usize>());
+        // dbg!(&kernel_stats.l2d_stats);
+        dbg!(&kernel_stats.l2d_stats.reduce());
+        dbg!(&kernel_stats.l2d_stats.reduce().num_accesses());
+        // dbg!(&kernel_stats.dram.reduce());
         dbg!(&kernel_stats.sim);
     }
 
-    let reduced = stats.clone().reduce();
-    dbg!(&reduced.dram.reduce());
+    // let reduced = stats.clone().reduce();
+    // dbg!(&reduced.dram.reduce());
     let num_kernels_launched = stats.inner.len();
     dbg!(num_kernels_launched);
 
@@ -142,7 +152,6 @@ pub mod exec {
     };
     use color_eyre::{eyre, Help};
     use gpucachesim_benchmarks as benchmarks;
-    use serde::Serialize;
     use std::time::Duration;
     use utils::fs::create_dirs;
 
