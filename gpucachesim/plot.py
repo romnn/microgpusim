@@ -67,7 +67,7 @@ SIM_MARKER = {
 }
 
 # valid hatches: *+-./OX\ox|
-SIM_HATCHE = {
+SIM_HATCH = {
     "gpucachesim": "/",
     "accelsim": "+",
     "native": "x",

@@ -13,7 +13,8 @@ from gpucachesim.benchmarks import (
     SimulateTargetConfig,
 )
 import gpucachesim.stats.common as common
-from gpucachesim.stats.common import stat_cols, STAT_SUFFIXES
+
+# from gpucachesim.stats.common import stat_cols, STAT_SUFFIXES
 
 WARP_SIZE = 32
 
@@ -70,9 +71,7 @@ class Stats(common.Stats):
     bench_config: BenchConfig[SimulateTargetConfig]
     target_config: SimulateConfig
 
-    def __init__(
-        self, config: GPUConfig, bench_config: BenchConfig[SimulateTargetConfig]
-    ) -> None:
+    def __init__(self, config: GPUConfig, bench_config: BenchConfig[SimulateTargetConfig]) -> None:
         self.bench_config = bench_config
         self.target_config = self.bench_config["target_config"].value
         self.path = Path(self.target_config["stats_dir"])
@@ -169,9 +168,7 @@ class Stats(common.Stats):
             l1_data_stats_df["run"] = r
             l1_data_stats_dfs.append(l1_data_stats_df)
 
-            l1_const_stats_df = parse_cache_stats(
-                self.path / f"stats.cache.l1c.{r}.csv"
-            )
+            l1_const_stats_df = parse_cache_stats(self.path / f"stats.cache.l1c.{r}.csv")
             l1_const_stats_df["run"] = r
             l1_const_stats_dfs.append(l1_const_stats_df)
 
@@ -265,6 +262,8 @@ class Stats(common.Stats):
 
         # L1 rates
         self._compute_l1_hit_rate()
+        self._compute_l1_global_hit_rate()
+        self._compute_l1_local_hit_rate()
         self._compute_l1_miss_rate()
 
         # fix the index
@@ -272,18 +271,12 @@ class Stats(common.Stats):
         self.result_df["stream_id"] = np.nan
         self.result_df["context_id"] = np.nan
         self.result_df["device"] = np.nan
-        self.result_df["kernel_name_mangled"] = self.result_df[
-            "kernel_name_mangled"
-        ].bfill()
-        self.result_df["kernel_function_signature"] = self.result_df[
-            "kernel_name_mangled"
-        ].apply(lambda name: np.nan if pd.isnull(name) else cxxfilt.demangle(name))
-        self.result_df["kernel_name"] = self.result_df[
-            "kernel_function_signature"
-        ].apply(
-            lambda sig: np.nan
-            if pd.isnull(sig)
-            else common.function_name_from_signature(sig)
+        self.result_df["kernel_name_mangled"] = self.result_df["kernel_name_mangled"].bfill()
+        self.result_df["kernel_function_signature"] = self.result_df["kernel_name_mangled"].apply(
+            lambda name: np.nan if pd.isnull(name) else cxxfilt.demangle(name)
+        )
+        self.result_df["kernel_name"] = self.result_df["kernel_function_signature"].apply(
+            lambda sig: np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
         )
 
     def _compute_l2_read_hit_rate(self):
@@ -296,9 +289,7 @@ class Stats(common.Stats):
         #
         # total_writes = df[(hit_mask ^ miss_mask) & write_mask].groupby(INDEX_COLS, dropna=False)
         # self.result_df["l2_read_hit_rate"] = grouped["num_accesses"].sum() / total_writes["num_accesses"].sum()
-        self.result_df["l2_read_hit_rate"] = (
-            self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
-        )
+        self.result_df["l2_read_hit_rate"] = self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
 
     def _compute_l2_read_miss_rate(self):
         self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"]
@@ -313,9 +304,7 @@ class Stats(common.Stats):
         #
         # total_writes = df[(hit_mask ^ miss_mask) & write_mask].groupby(INDEX_COLS, dropna=False)
         # self.result_df["l2_write_hit_rate"] = grouped["num_accesses"].sum() / total_writes["num_accesses"].sum()
-        self.result_df["l2_write_hit_rate"] = (
-            self.result_df["l2_write_hits"] / self.result_df["l2_writes"]
-        )
+        self.result_df["l2_write_hit_rate"] = self.result_df["l2_write_hits"] / self.result_df["l2_writes"]
 
         # "100*float(sim[\"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)\"])/"+\
         #     "float(sim[\"\s+L2_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])",
@@ -361,7 +350,7 @@ class Stats(common.Stats):
         df = self.l1_data_stats_df
         # global_write = df["access_kind"] == "GLOBAL_ACC_W"
         global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
-        hit_mask = df["access_status"].isin(["HIT"])
+        hit_mask = df["access_status"].isin(["HIT", "HIT_RESERVED"])
         miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
         accesses = df[(hit_mask ^ miss_mask) & (global_read)]
         # print(accesses)
@@ -395,6 +384,30 @@ class Stats(common.Stats):
         accesses = self.result_df["l1_accesses"].fillna(0.0)
         # print((hits/ accesses).T)
         self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
+
+    def _compute_l1_global_hit_rate(self):
+        df = self.l1_data_stats_df
+        global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        hits = df[global_read & hit_mask]
+        accesses = df[global_read & (hit_mask ^ miss_mask)]
+        hits = hits.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+        accesses = accesses.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+
+        self.result_df["l1_global_hit_rate"] = (hits / accesses).fillna(0.0)
+
+    def _compute_l1_local_hit_rate(self):
+        df = self.l1_data_stats_df
+        global_read = df["access_kind"].isin(["LOCAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        hits = df[global_read & hit_mask]
+        accesses = df[global_read & (hit_mask ^ miss_mask)]
+        hits = hits.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+        accesses = accesses.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+
+        self.result_df["l1_local_hit_rate"] = (hits / accesses).fillna(0.0)
 
     def _compute_l1_miss_rate(self):
         self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
@@ -533,6 +546,12 @@ class Stats(common.Stats):
         mask = df["access_status"].isin(["MISS", "SECTOR_MISS", "HIT"])
         accesses = df[mask]
         grouped = accesses.groupby(INDEX_COLS, dropna=False)
+        print(
+            accesses.groupby(
+                INDEX_COLS + ["allocation_id", "access_kind", "access_status"],
+                dropna=False,
+            )["num_accesses"].mean()
+        )
         self.result_df["l2_accesses"] = grouped["num_accesses"].sum()
 
         # df = self.l2_data_stats_df.reset_index()

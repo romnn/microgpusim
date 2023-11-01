@@ -36,7 +36,15 @@ def main():
 
 
 class SSHClient:
-    def __init__(self, host: str, username: str, password: str, port=22, timeout=60):
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        port=22,
+        timeout=60 * SEC,
+        compress=True,
+    ):
         self.host = host
         self.port = port
         self.username = username
@@ -50,10 +58,13 @@ class SSHClient:
             username=username,
             password=password,
             timeout=timeout,
+            compress=compress,
         )
 
         # setup SCP
-        self.scp_client = scp.SCPClient(self.connection.get_transport())
+        scp_connection = self.connection.get_transport()
+        # scp_connection.use_compression(True)
+        self.scp_client = scp.SCPClient(scp_connection, socket_timeout=timeout)
 
     def run_command(
         self, cmd: str
@@ -101,12 +112,12 @@ class SSHClient:
         size = humanize.naturalsize(Path(local_path).stat().st_size, binary=True)
         print("downloaded {}:{}:{} ({}) to {}".format(self.host, self.port, remote_path, size, local_path))
 
-    def read_file_contents(self, remote_path: os.PathLike):
-        with tempfile.NamedTemporaryFile() as temp_file:
-            self.scp_client.get(remote_path=remote_path, local_path=temp_file.name)
-            size = humanize.naturalsize(Path(temp_file.name).stat().st_size, binary=True)
-            print("read file contents {}:{}:{} ({})".format(self.host, self.port, remote_path, size))
-            return BytesIO(temp_file.read())
+    def read_file_contents(self, remote_path: os.PathLike) -> tempfile.NamedTemporaryFile:
+        temp_file = tempfile.NamedTemporaryFile()
+        self.scp_client.get(remote_path=remote_path, local_path=temp_file.name)
+        size = humanize.naturalsize(Path(temp_file.name).stat().st_size, binary=True)
+        print("read file contents {}:{}:{} ({}) to {}".format(self.host, self.port, remote_path, size, temp_file.name))
+        return temp_file
 
     def close(self):
         try:
@@ -127,7 +138,7 @@ def duration_to_slurm(duration: datetime.timedelta):
 
 
 class DAS6(SSHClient):
-    def __init__(self, port=DAS6_FORWARD_PORT, timeout=60):
+    def __init__(self, port=DAS6_FORWARD_PORT, timeout=60, compress=True):
         load_dotenv(DAS_ENV)
 
         super().__init__(
@@ -136,11 +147,30 @@ class DAS6(SSHClient):
             password=os.environ["DAS6_PASSWORD"],
             port=port,
             timeout=timeout,
+            compress=compress,
         )
 
         self.remote_scratch_dir = Path("/var/scratch") / self.username
         self.remote_pchase_executable = self.remote_scratch_dir / "pchase"
         self.remote_pchase_results_dir = self.remote_scratch_dir / "pchase-results"
+
+    def wait_for_file(self, remote_path: os.PathLike, interval=5 * SEC, retries=10):
+        err = None
+        for r in range(retries):
+            if r > 0:
+                print("reading from {} (attempt {}/{})".format(remote_path, r + 1, retries))
+            try:
+                exit_status, stdout, stderr = self.run_command('stat -c "%s" {}'.format(remote_path))
+                if exit_status != 0:
+                    raise ValueError(stderr.read().decode("utf-8"))
+                if int(stdout.read().decode("utf-8")) > 0:
+                    return
+            except Exception as e:
+                print("reading stdout from {} failed: {}".format(remote_path, e))
+                err = e
+            time.sleep(interval)
+
+        raise err or FileNotFoundError("{} does not exist or is empty".format(remote_path))
 
     def run_pchase_sync(
         self,
@@ -150,8 +180,8 @@ class DAS6(SSHClient):
         force=False,
         timeout=4 * HOUR,
         retries=10,
-    ) -> typing.Tuple[str, str]:
-        executable = executable or self.remote_pchase_executable
+    ) -> typing.Tuple[typing.IO, typing.IO]:
+        executable = executable if executable is not None else self.remote_pchase_executable
 
         job_name = "-".join([Path(executable).name, str(gpu)] + cmd)
         remote_stdout_path = self.remote_pchase_results_dir / "{}.stdout".format(job_name)
@@ -168,7 +198,13 @@ class DAS6(SSHClient):
 
         # check if results already exists
         if force or not self.file_exists(remote_stdout_path):
-            job_id, _, _ = self.submit_pchase(gpu=gpu, name=job_name, args=cmd, timeout=timeout)
+            job_id, _, _ = self.submit_pchase(
+                gpu=gpu,
+                name=job_name,
+                executable=executable,
+                args=cmd,
+                timeout=timeout,
+            )
             print("submitted job <{}> [ID={}]".format(job_name, job_id))
 
             self.wait_for_job(job_id)
@@ -180,22 +216,32 @@ class DAS6(SSHClient):
                 )
             )
 
-        # copy stdout and stderr
-        err = None
-        for r in range(retries):
-            if r > 0:
-                print("reading stdout from {} (attempt {}/{})".format(remote_stdout_path, r + 1, retries))
-            try:
-                stdout = self.read_file_contents(remote_path=remote_stdout_path).read().decode("utf-8")
-                stderr = self.read_file_contents(remote_path=remote_stderr_path).read().decode("utf-8")
-                if stdout.strip() != "":
-                    return stdout, stderr
-            except Exception as e:
-                print("reading stdout from {} failed: {}".format(remote_stdout_path, e))
-                err = e
-            time.sleep(5 * SEC)
+        # wait for file to become available
+        self.wait_for_file(remote_path=remote_stdout_path, retries=retries)
 
-        raise err or ValueError("stdout is empty")
+        # copy stdout and stderr
+        stdout_file = self.read_file_contents(remote_path=remote_stdout_path)
+        stderr_file = self.read_file_contents(remote_path=remote_stderr_path)
+        return stdout_file, stderr_file
+
+        # err = None
+        # for r in range(retries):
+        #     if r > 0:
+        #         print("reading stdout from {} (attempt {}/{})".format(remote_stdout_path, r + 1, retries))
+        #     try:
+        #         stdout_file = self.read_file_contents(remote_path=remote_stdout_path)
+        #         stderr_file = self.read_file_contents(remote_path=remote_stderr_path)
+        #         if stdout_file.read(1):
+        #             stdout_file.seek(0)
+        #             return stdout_file, stderr_file
+        #         # if stdout.name() != "":
+        #         #     return stdout, stderr
+        #     except Exception as e:
+        #         print("reading stdout from {} failed: {}".format(remote_stdout_path, e))
+        #         err = e
+        #     time.sleep(5 * SEC)
+        #
+        # raise err or ValueError("stdout is empty")
 
     def submit_pchase(
         self,
@@ -208,7 +254,7 @@ class DAS6(SSHClient):
         # upload pchase executable
         # client.upload_file(local_path=local_pchase_executable, remote_path=remote_pchase_executable)
 
-        executable = executable or self.remote_pchase_executable
+        executable = executable if executable is not None else self.remote_pchase_executable
 
         # load cuda toolkit
         exit_status, stdout, stderr = self.run_command("module load cuda11.7/toolkit")
@@ -277,13 +323,15 @@ class DAS6(SSHClient):
         job_ids = sorted([int(job_id) for job_id in job_ids[1:]])
         return job_ids
 
-    def wait_for_job(self, job_id, interval_sec=5.0):
+    def wait_for_job(self, job_id, interval_sec=5.0, confidence=2):
         print("waiting for job {} to complete".format(job_id))
         while True:
             job_ids = self.get_running_job_ids()
             if job_id not in job_ids:
-                print("job {} completed".format(job_id))
-                break
+                confidence -= 1
+                if confidence <= 0:
+                    print("job {} completed".format(job_id))
+                    break
             print("running jobs: {}".format(job_ids))
             time.sleep(interval_sec)
 
@@ -383,7 +431,7 @@ def tunnel_das(das_host, local_port):
 
     client = None
     try:
-        client = SSHClient(host=vu_host, username=vu_username, password=vu_password)
+        client = SSHClient(host=vu_host, username=vu_username, password=vu_password, compress=True)
         print("connected to VU")
         forward_tunnel(
             client.connection.get_transport(),

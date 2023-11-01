@@ -172,7 +172,8 @@ def aggregate_benchmark_results(
         # p: [32, 64, 128]
 
         subset = pd.DataFrame.from_records(
-            [(32, 32, 32), (128, 128, 128)], columns=["input_m", "input_n", "input_p"]
+            [(32, 32, 32), (128, 128, 128), (32, 64, 128), (128, 32, 32)],
+            columns=["input_m", "input_n", "input_p"]
         )
         # print(subset.index)
         # print(selected_df.index)
@@ -209,30 +210,62 @@ def aggregate_benchmark_results(
         )
 
     group_cols = BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols
-    per_kernel = (
-        selected_df.groupby(group_cols, dropna=False)[STAT_COLS].mean().reset_index()
-    )
+
+    # print(selected_df.index)
+    # non_numeric_cols = sorted(selected_df.select_dtypes(include=["object"]).columns.tolist())
+    # print(sorted(set(non_numeric_cols) - set(group_cols)))
+
+    pprint(group_cols)
+    aggregations = {
+        **{c: "mean" for c in set(selected_df.columns)},
+        **NON_NUMERIC_COLS,
+    }
+    aggregations = {
+        col: agg for col, agg in aggregations.items()
+        if col in selected_df and col not in group_cols
+    }
+    pprint(aggregations)
+
+    # print(sorted(selected_df.columns.tolist()))
+    per_kernel = selected_df.groupby(group_cols, dropna=False).agg(aggregations).reset_index()
+    # print(sorted(per_kernel.columns.tolist()))
+    # selected_df.groupby(group_cols, dropna=False)[STAT_COLS].mean().reset_index()
 
     # per_kernel["label"] = per_kernel.apply(compute_label, axis=1)
     # per_kernel["target_name"] = per_kernel["target"].apply(compute_target_name)
     # print(per_kernel)
 
-    grouped = per_kernel.groupby(BENCH_TARGET_INDEX_COLS + input_cols, dropna=False)
+    group_cols = BENCH_TARGET_INDEX_COLS + input_cols
+    grouped = per_kernel.groupby(group_cols, dropna=False)
+    aggregations = {
+        **{c: "mean" for c in set(per_kernel.columns)},
+        **NON_NUMERIC_COLS,
+    }
+    aggregations = {
+        col: agg for col, agg in aggregations.items()
+        if col in per_kernel and not col in group_cols
+    }
+    pprint(aggregations)
+
+    per_target = grouped.agg(aggregations).reset_index()
     # print(selected_df[INDEX_COLS + input_cols + ["dram_writes", "l2_accesses"]].head(n=200))
     # print(grouped["dram_writes"].sum())
-    averaged = grouped[STAT_COLS].mean().reset_index()
+    # averaged = grouped.mean().reset_index()
+    # averaged = grouped[STAT_COLS].mean().reset_index()
     # print(per_kernel)
     # averaged = grouped[STAT_COLS + input_cols].mean().reset_index()
     # print(averaged)
     # print(averaged.drop_duplicates())
 
-    per_target_pivoted = averaged.pivot(
-        index=["benchmark"] + input_cols, columns="target", values=STAT_COLS
+    # stat_cols = set(averaged.columns) - set(["benchmark"]) - set(input_cols)
+    per_target_pivoted = per_target.pivot(
+        index=["benchmark"] + input_cols, columns="target", # values=STAT_COLS
     )
     # per_target = averaged.set_index(["target", "benchmark"] + input_cols)
     return per_kernel, per_target_pivoted
 
 NON_NUMERIC_COLS = {
+    "target": "first",
     "benchmark": "first",
     "Host Name": "first",
     "Process Name": "first",
@@ -242,6 +275,8 @@ NON_NUMERIC_COLS = {
     "kernel_name": "first",
     "kernel_name_mangled": "first",
     "input_id": "first",
+    "input_memory_only": "first",
+    "input_mode": "first",
 }
 
 
@@ -1265,12 +1300,13 @@ def correlation_plots(path, bench_name_arg, nsight):
 
 def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
     stat_cols = [
-        "num_blocks",
+        # "num_blocks",
+        "input_id",
         "exec_time_sec",
         "cycles",
         "instructions",
-        "dram_reads",
-        "dram_writes",
+        # "dram_reads",
+        # "dram_writes",
         # l2 stats
         "l2_accesses",
         "l2_reads",
@@ -1282,15 +1318,16 @@ def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
         stat_cols += [
             "l2_read_hit_rate",
             "l2_write_hit_rate",
-            "l2_read_hits",
-            "l2_write_hits",
+            # "l2_read_hits",
+            # "l2_write_hits",
             # "l2_hits",
             # "l2_misses",
-            # l1 stats
             "l1_accesses",
             # "l1_reads",
-            # "l1_hits",
             # "l1_misses",
+            "l1_hit_rate",
+            "l1_global_hit_rate",
+            "l1_local_hit_rate",
         ]
     else:
         # nsight
@@ -1348,10 +1385,11 @@ STAT_CONFIGS = {
 @click.option("--path", help="Path to materialized benchmark config")
 # @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
 @click.option("--bench", "bench_name", help="Benchmark name")
+@click.option("--plot", "should_plot", type=bool, default=True, help="generate plots")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
 # @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name, nsight, mem_only):
+def view(path, bench_name, should_plot, nsight, mem_only):
     # load the materialized benchmark config
     profiler = "nsight" if nsight else "nvprof"
     if bench_name is None:
@@ -1423,6 +1461,9 @@ def view(path, bench_name, nsight, mem_only):
 
     print(" === {} === ".format(profiler))
     print(per_target_pivoted[stat_cols].T)
+
+    if not should_plot:
+        return
 
     
     if False:
@@ -1573,10 +1614,12 @@ def view(path, bench_name, nsight, mem_only):
     help="Fast mode: only collect baseline benchmark configurations",
 )
 @click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
-@click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
+@click.option("--strict", "strict", type=bool, default=True, help="fail on missing results")
+@click.option("--nvprof", "nvprof", type=bool, default=True, help="use nvprof")
+@click.option("--nsight", "nsight", type=bool, default=False, help="use nsight")
 @click.option("--out", "output_path", help="Output path for combined stats")
 def generate(
-    path, config_path, bench_name, input_idx, limit, quick, verbose, output_path, nvprof
+    path, config_path, bench_name, input_idx, limit, quick, verbose, strict, nvprof, nsight, output_path
 ):
     benches = []
 
@@ -1604,7 +1647,13 @@ def generate(
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
 
-    for profiler in ["nvprof", "nsight"]:
+    profilers = []
+    if nvprof:
+        profilers += ["nvprof"]
+    if nsight:
+        profilers += ["nsight"]
+
+    for profiler in profilers:
         all_stats = []
         assert all([b["name"] == benches[0]["name"] for b in benches])
         bench_name = benches[0]["name"]
@@ -1627,6 +1676,10 @@ def generate(
                 if input_values.get("num_clusters") not in [20, None]:
                     continue
 
+            current_bench_log_line = " ===> {:>20} {:>15}@{:<4} {}".format(
+                target_name, name, input_idx, input_values
+            )
+
             try:
                 match (target.lower(), profiler):
                     case ("profile", "nvprof"):
@@ -1648,20 +1701,11 @@ def generate(
                             )
                         )
                         continue
+                print(current_bench_log_line)
             except Exception as e:
-                print(
-                    " ===> {:>20} {:>15}@{:<4} {}".format(
-                        target_name, name, input_idx, input_values
-                    )
-                )
-                raise e
-
-            print(
-                " ===> {:>20} {:>15}@{:<4} {}".format(
-                    target_name, name, input_idx, input_values
-                )
-            )
-            # print(f" ===> {target_name} \t {name}@{input_idx} \t {input_values}")
+                print(color(current_bench_log_line, fg="red"))
+                if strict:
+                    raise e
 
             values = pd.DataFrame.from_records([bench_config["values"]])
             values.columns = ["input_" + c for c in values.columns]
