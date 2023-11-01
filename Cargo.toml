@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "validate",
+  "validate/remote",
   "profile",
   "playground",
   "playground/sys",

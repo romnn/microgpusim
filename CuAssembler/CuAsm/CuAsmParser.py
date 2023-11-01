@@ -707,6 +707,7 @@ class CuAsmParser(object):
 
     def reset(self):
         self.__mLineNo        = 0
+        self.__mLines        = None
         self.__mInTextSection = False
 
         self.__mCurrSection   = None
@@ -1484,7 +1485,8 @@ class CuAsmParser(object):
         if not flag:
             full_msg  =  'Assertion failed in:\n'
             full_msg += f'    File {self.__mFilename}:{self.__mLineNo} :\n'
-            full_msg += f'        {self.__mLines[self.__mLineNo-1].strip()}\n'
+            if self.__mLines is not None:
+                full_msg += f'        {self.__mLines[self.__mLineNo-1].strip()}\n'
             full_msg += f'    {msg}'
             CuAsmLogger.logError(full_msg)
             raise Exception(full_msg)

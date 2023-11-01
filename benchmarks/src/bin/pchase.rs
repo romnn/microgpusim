@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::eyre::{self, WrapErr};
+use color_eyre::eyre;
 use console::style;
 use gpucachesim::config;
 use gpucachesim_benchmarks::pchase;
@@ -8,9 +8,6 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-
-const KB: usize = 1024;
-const DEFAULT_ITER_SIZE: usize = ((48 * KB) / 2) / std::mem::size_of::<u32>();
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub usize);
@@ -184,15 +181,17 @@ where
     );
 
     let mut sim_config = config::gtx1080::build_config(&config::Input::default())?;
-    if false {
+    if true {
         sim_config.data_cache_l1 = Some(Arc::new(gpucachesim::config::L1DCache {
             // l1_latency: 1,
-            l1_latency: 82,
+            l1_latency: 1,
+            l1_hit_latency: 80,
             // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
             // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
             l1_banks_byte_interleaving: 32,
             l1_banks: 1,
             inner: Arc::new(gpucachesim::config::Cache {
+                // accelsim_compat: sim_config.accelsim_compat,
                 kind: gpucachesim::config::CacheKind::Sector,
                 // kind: CacheKind::Normal,
                 // 128B cache
@@ -220,6 +219,13 @@ where
             }),
         }));
     }
+
+    dbg!(&sim_config.memory_only);
+    dbg!(&sim_config.num_schedulers_per_core);
+    dbg!(&sim_config.num_simt_clusters);
+    dbg!(&sim_config.num_cores_per_simt_cluster);
+    dbg!(&sim_config.simulate_clock_domains);
+    dbg!(&sim_config.l2_rop_latency);
 
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));

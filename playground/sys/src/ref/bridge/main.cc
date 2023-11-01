@@ -160,7 +160,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
   accelsim_compat_mode = config.accelsim_compat_mode;
   accelsim_compat_mode |= is_env_set_to("ACCELSIM_COMPAT_MODE", "yes");
 
-  fmt::println("accelsim compat: {}", accelsim_compat_mode);
+  fmt::println("playground: accelsim compat={}", accelsim_compat_mode);
 
   stats_out = stdout;
   const char *stats_file = config.stats_file;

@@ -67,6 +67,7 @@ dependencies = [
  "reqwest",
  "tar",
  "tempfile",
+ "thiserror",
  "tokio",
  "trace-model",
  "utils",
@@ -2949,6 +2950,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3cbb081b9784b07cceb8824c8583f86db4814d172ab043f3c23f7dc600bf83d"
 
 [[package]]
+name = "remote"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "dotenv",
+ "ssh_jumper",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.11.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4103,6 +4116,7 @@ dependencies = [
  "playground",
  "pretty_assertions_sorted",
  "profile",
+ "remote",
  "rmp-serde",
  "rustacuda",
  "serde",
@@ -4112,7 +4126,6 @@ dependencies = [
  "serde_yaml",
  "shell-words",
  "smart-default",
- "ssh_jumper",
  "stats",
  "strum",
  "tempfile",

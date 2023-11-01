@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <iomanip>
 
+#include "bridge/accelsim_config.hpp"
 #include "fmt/format.h"
 #include "hal.hpp"
 #include "io.hpp"
@@ -194,89 +195,105 @@ void trace_gpgpu_sim::simple_cycle() {
   logger->info("=============== cycle {} ===============", gpu_sim_cycle);
   logger->info("");
 
-  for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
-    m_cluster[i]->icnt_cycle();
+  int clock_mask = next_clock_domain();
+  bool simulate_clock_domains =
+      m_shader_config->gpgpu_ctx->accelsim_compat_mode;
+  if (simulate_clock_domains) {
+    logger->trace("clock mask: {}", mask_to_string(std::bitset<8>(clock_mask)));
+  }
+
+  if (!simulate_clock_domains || clock_mask & CORE) {
+    for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
+      m_cluster[i]->icnt_cycle();
+  }
 
   unsigned partiton_replys_in_parallel_per_cycle = 0;
   // pop from memory controller to interconnect
 
-  logger->debug("POP from {} memory sub partitions",
-                m_memory_config->m_n_mem_sub_partition);
+  if (!simulate_clock_domains || clock_mask & ICNT) {
+    logger->debug("POP from {} memory sub partitions",
+                  m_memory_config->m_n_mem_sub_partition);
 
-  for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
-    logger->debug("checking sub partition[{}]:", i);
-    logger->debug("\t icnt to l2 queue = {}",
-                  *(m_memory_sub_partition[i]->m_icnt_L2_queue));
-    logger->debug("\t l2 to icnt queue = {}",
-                  *(m_memory_sub_partition[i]->m_L2_icnt_queue));
-    logger->debug("\t l2 to dram queue = {}",
-                  *(m_memory_sub_partition[i]->m_L2_dram_queue));
-    logger->debug("\t dram to l2 queue = {}",
-                  *(m_memory_sub_partition[i]->m_dram_L2_queue));
+    for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+      logger->debug("checking sub partition[{}]:", i);
+      logger->debug("\t icnt to l2 queue = {}",
+                    *(m_memory_sub_partition[i]->m_icnt_L2_queue));
+      logger->debug("\t l2 to icnt queue = {}",
+                    *(m_memory_sub_partition[i]->m_L2_icnt_queue));
+      logger->debug("\t l2 to dram queue = {}",
+                    *(m_memory_sub_partition[i]->m_L2_dram_queue));
+      logger->debug("\t dram to l2 queue = {}",
+                    *(m_memory_sub_partition[i]->m_dram_L2_queue));
 
-    unsigned partition_id = i / m_memory_config->m_n_mem_sub_partition;
-    assert(partition_id < m_memory_config->m_n_mem);
-    logger->debug(
-        "\t dram latency queue ({:<3}) = [{}]",
-        m_memory_partition_unit[partition_id]->m_dram_latency_queue.size(),
-        fmt::join(m_memory_partition_unit[partition_id]->m_dram_latency_queue,
-                  ","));
+      unsigned partition_id = i / m_memory_config->m_n_mem_sub_partition;
+      assert(partition_id < m_memory_config->m_n_mem);
+      logger->debug(
+          "\t dram latency queue ({:<3}) = [{}]",
+          m_memory_partition_unit[partition_id]->m_dram_latency_queue.size(),
+          fmt::join(m_memory_partition_unit[partition_id]->m_dram_latency_queue,
+                    ","));
 
-    logger->debug("");
+      logger->debug("");
 
-    mem_fetch *mf = m_memory_sub_partition[i]->top();
-    if (mf) {
-      unsigned response_size =
-          mf->get_is_write() ? mf->get_ctrl_size() : mf->size();
-      if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size)) {
-        // if (!mf->get_is_write())
-        mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-        mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
-        ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
-                    response_size);
-        m_memory_sub_partition[i]->pop();
-        partiton_replys_in_parallel_per_cycle++;
+      mem_fetch *mf = m_memory_sub_partition[i]->top();
+      if (mf) {
+        unsigned response_size =
+            mf->get_is_write() ? mf->get_ctrl_size() : mf->size();
+        if (::icnt_has_buffer(m_shader_config->mem2device(i), response_size)) {
+          // if (!mf->get_is_write())
+          mf->set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
+          mf->set_status(IN_ICNT_TO_SHADER, gpu_sim_cycle + gpu_tot_sim_cycle);
+          ::icnt_push(m_shader_config->mem2device(i), mf->get_tpc(), mf,
+                      response_size);
+          m_memory_sub_partition[i]->pop();
+          partiton_replys_in_parallel_per_cycle++;
+        } else {
+          gpu_stall_icnt2sh++;
+        }
       } else {
-        gpu_stall_icnt2sh++;
+        m_memory_sub_partition[i]->pop();
       }
-    } else {
-      m_memory_sub_partition[i]->pop();
     }
   }
   partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
 
-  logger->debug("cycle for {} drams", m_memory_config->m_n_mem);
-  for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
-    if (m_memory_config->simple_dram_model) {
-      m_memory_partition_unit[i]->simple_dram_model_cycle();
-    } else {
-      // Issue the dram command (scheduler + delay model)
-      m_memory_partition_unit[i]->dram_cycle();
+  if (!simulate_clock_domains || clock_mask & DRAM) {
+    logger->debug("cycle for {} drams", m_memory_config->m_n_mem);
+    for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+      if (m_memory_config->simple_dram_model) {
+        m_memory_partition_unit[i]->simple_dram_model_cycle();
+      } else {
+        // Issue the dram command (scheduler + delay model)
+        m_memory_partition_unit[i]->dram_cycle();
+      }
     }
   }
 
-  logger->debug("moving mem requests from interconn to {} mem partitions",
-                m_memory_config->m_n_mem_sub_partition);
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
-  for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
-    // move memory request from interconnect into memory partition (if not
-    // backed up) Note:This needs to be called in DRAM clock domain if there
-    // is no L2 cache in the system In the worst case, we may need to push
-    // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
-    unsigned device = m_shader_config->mem2device(i);
-    if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
-      logger->debug("SKIP sub partition {} ({}): DRAM full stall", i, device);
-      gpu_stall_dramfull++;
-    } else {
-      mem_fetch *mf = (mem_fetch *)icnt_pop(device);
-      if (mf) {
-        logger->debug("got new fetch {} for mem sub partition {} ({})",
-                      mem_fetch_ptr(mf), i, device);
-        m_memory_sub_partition[i]->push(mf, gpu_sim_cycle + gpu_tot_sim_cycle);
+  if (!simulate_clock_domains || clock_mask & L2) {
+    logger->debug("moving mem requests from interconn to {} mem partitions",
+                  m_memory_config->m_n_mem_sub_partition);
+    for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
+      // move memory request from interconnect into memory partition (if not
+      // backed up) Note:This needs to be called in DRAM clock domain if there
+      // is no L2 cache in the system In the worst case, we may need to push
+      // SECTOR_CHUNCK_SIZE requests, so ensure you have enough buffer for them
+      unsigned device = m_shader_config->mem2device(i);
+      if (m_memory_sub_partition[i]->full(SECTOR_CHUNCK_SIZE)) {
+        logger->debug("SKIP sub partition {} ({}): DRAM full stall", i, device);
+        gpu_stall_dramfull++;
+      } else {
+        mem_fetch *mf = (mem_fetch *)icnt_pop(device);
+        if (mf) {
+          logger->debug("got new fetch {} for mem sub partition {} ({})",
+                        mem_fetch_ptr(mf), i, device);
+          m_memory_sub_partition[i]->push(mf,
+                                          gpu_sim_cycle + gpu_tot_sim_cycle);
+        }
+        if (mf) partiton_reqs_in_parallel_per_cycle++;
       }
-      if (mf) partiton_reqs_in_parallel_per_cycle++;
+      m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
     }
-    m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
   }
 
   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
@@ -285,64 +302,69 @@ void trace_gpgpu_sim::simple_cycle() {
     gpu_sim_cycle_parition_util++;
   }
 
-  // logger->debug("icnt transfer");
-  icnt_transfer();
+  if (!simulate_clock_domains || clock_mask & ICNT) {
+    // logger->debug("icnt transfer");
+    icnt_transfer();
+  }
 
   // L1 cache + shader core pipeline stages
-  logger->debug("core cycle for {} clusters", m_shader_config->n_simt_clusters);
-  for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
-    if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
-      m_cluster[i]->core_cycle();
-      *active_sms += m_cluster[i]->get_n_active_sms();
-    }
-    m_cluster[i]->get_current_occupancy(
-        gpu_occupancy.aggregate_warp_slot_filled,
-        gpu_occupancy.aggregate_theoretical_warp_slots);
-  }
-  float temp = 0;
-  for (unsigned i = 0; i < m_shader_config->num_shader(); i++) {
-    temp += m_shader_stats->m_pipeline_duty_cycle[i];
-  }
-  temp = temp / m_shader_config->num_shader();
-  *average_pipeline_duty_cycle = ((*average_pipeline_duty_cycle) + temp);
-
-  gpu_sim_cycle++;
-
-  issue_block2core();
-  decrement_kernel_latency();
-
-  // Depending on configuration, invalidate the caches once all threads
-  // completed.
-  int all_threads_complete = 1;
-  if (m_config.gpgpu_flush_l1_cache) {
-    logger->debug("flushing l1 caches");
+  if (!simulate_clock_domains || clock_mask & CORE) {
+    logger->debug("core cycle for {} clusters",
+                  m_shader_config->n_simt_clusters);
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
-      if (m_cluster[i]->get_not_completed() == 0)
-        m_cluster[i]->cache_invalidate();
-      else
-        all_threads_complete = 0;
+      if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
+        m_cluster[i]->core_cycle();
+        *active_sms += m_cluster[i]->get_n_active_sms();
+      }
+      m_cluster[i]->get_current_occupancy(
+          gpu_occupancy.aggregate_warp_slot_filled,
+          gpu_occupancy.aggregate_theoretical_warp_slots);
     }
-  }
+    float temp = 0;
+    for (unsigned i = 0; i < m_shader_config->num_shader(); i++) {
+      temp += m_shader_stats->m_pipeline_duty_cycle[i];
+    }
+    temp = temp / m_shader_config->num_shader();
+    *average_pipeline_duty_cycle = ((*average_pipeline_duty_cycle) + temp);
 
-  if (m_config.gpgpu_flush_l2_cache) {
-    if (!m_config.gpgpu_flush_l1_cache) {
-      logger->debug("flushing l2 caches");
+    gpu_sim_cycle++;
+
+    issue_block2core();
+    decrement_kernel_latency();
+
+    // Depending on configuration, invalidate the caches once all threads
+    // completed.
+    int all_threads_complete = 1;
+    if (m_config.gpgpu_flush_l1_cache) {
+      logger->debug("flushing l1 caches");
       for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
-        if (m_cluster[i]->get_not_completed() != 0) {
+        if (m_cluster[i]->get_not_completed() == 0)
+          m_cluster[i]->cache_invalidate();
+        else
           all_threads_complete = 0;
-          break;
-        }
       }
     }
 
-    if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-      logger->debug("flushed L2 caches...");
-      if (m_memory_config->m_L2_config.get_num_lines()) {
-        int dlc = 0;
-        for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
-          dlc = m_memory_sub_partition[i]->flushL2();
-          assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
-          logger->debug("dirty lines flushed from L2 {} is {}", i, dlc);
+    if (m_config.gpgpu_flush_l2_cache) {
+      if (!m_config.gpgpu_flush_l1_cache) {
+        logger->debug("flushing l2 caches");
+        for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
+          if (m_cluster[i]->get_not_completed() != 0) {
+            all_threads_complete = 0;
+            break;
+          }
+        }
+      }
+
+      if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
+        logger->debug("flushed L2 caches...");
+        if (m_memory_config->m_L2_config.get_num_lines()) {
+          int dlc = 0;
+          for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+            dlc = m_memory_sub_partition[i]->flushL2();
+            assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
+            logger->debug("dirty lines flushed from L2 {} is {}", i, dlc);
+          }
         }
       }
     }
