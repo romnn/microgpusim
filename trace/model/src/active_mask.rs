@@ -1,5 +1,4 @@
-use bitvec::field::BitField;
-use bitvec::BitArr;
+use bitvec::{field::BitField, BitArr};
 use serde::{Deserialize, Serialize};
 
 pub type Inner = BitArr!(for super::WARP_SIZE, in u32);
@@ -160,4 +159,3 @@ where
             .join("")
     }
 }
-

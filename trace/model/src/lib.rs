@@ -19,6 +19,13 @@ use serde::{Deserialize, Serialize};
 /// Moreover, requests to zero addresses are treated as no request.
 pub const DEVICE_GLOBAL_HEAP_START_ADDR: u64 = 0xC000_0000;
 
+pub const KB: u64 = 1024;
+
+pub const SHARED_MEM_SIZE_MAX: u64 = 96 * KB;
+pub const MAX_SM_COUNT: u64 = 80;
+pub const TOTAL_SHARED_MEM: u64 = MAX_SM_COUNT * SHARED_MEM_SIZE_MAX;
+pub const DEVICE_SHARED_MEM_START_ADDR: u64 = DEVICE_GLOBAL_HEAP_START_ADDR - TOTAL_SHARED_MEM;
+
 /// Warp size.
 ///
 /// Number of threads per warp.
@@ -73,7 +80,7 @@ impl MemorySpace {
             Self::Local => todo!(),
             Self::Generic => todo!(),
             Self::Global => DEVICE_GLOBAL_HEAP_START_ADDR,
-            Self::Shared => todo!(),
+            Self::Shared => DEVICE_SHARED_MEM_START_ADDR,
             Self::Constant => todo!(),
             Self::GlobalToShared => todo!(),
             Self::Surface => todo!(),

@@ -516,7 +516,19 @@ impl<'c> Instrumentor<'c> {
                         src_operands[src_num] = num.try_into().unwrap();
                         src_num += 1;
                     }
-                    _ => {
+                    model::OperandKind::CBank {
+                        id,
+                        has_imm_offset,
+                        has_reg_offset,
+                        imm_offset,
+                        reg_offset,
+                    } => {
+                        dbg!(id, has_imm_offset, has_reg_offset, imm_offset, reg_offset);
+                    }
+                    model::OperandKind::ImmutableUint64 { .. }
+                    | model::OperandKind::ImmutableDouble { .. }
+                    | model::OperandKind::Generic { .. }
+                    | model::OperandKind::Predicate { .. } => {
                         // skip anything else (constant and predicates)
                     }
                 }
