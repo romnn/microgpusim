@@ -2,6 +2,7 @@ use accelsim::tracegen;
 use clap::Parser;
 use color_eyre::{eyre, Section, SectionExt};
 use console::style;
+use gpucachesim::allocation::Allocations;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -16,6 +17,12 @@ pub enum Command {
     Info {
         #[clap(long = "block", help = "get trace for specific block only")]
         block_id: Option<trace_model::Dim>,
+        #[clap(
+            long = "warp-id",
+            aliases = ["warp"],
+            help = "get trace for specific warp only"
+        )]
+        warp_id: Option<usize>,
         #[clap(
             long = "instruction-limit",
             help = "limit the number of instructions printed"
@@ -151,22 +158,40 @@ fn parse_box_kernel_trace(kernel_trace_path: &Path) -> eyre::Result<trace_model:
     Ok(trace)
 }
 
+fn get_box_allocations(commands: &[trace_model::Command]) -> eyre::Result<Allocations> {
+    let mut allocations = Allocations::default();
+    for cmd in commands.iter() {
+        if let trace_model::Command::MemAlloc(trace_model::command::MemAlloc {
+            allocation_name,
+            device_ptr,
+            num_bytes,
+        }) = cmd
+        {
+            let alloc_range = *device_ptr..(*device_ptr + num_bytes);
+            allocations.insert(alloc_range, allocation_name.clone());
+        }
+    }
+
+    Ok(allocations)
+}
+
+fn parse_box_commands(commands_path: &Path) -> eyre::Result<Vec<trace_model::Command>> {
+    let reader = utils::fs::open_readable(commands_path)?;
+    let commands = serde_json::from_reader(reader)?;
+    Ok(commands)
+}
+
 fn parse_box_traces(
     trace_dir: &Path,
     commands_or_trace: &Path,
-    mem_only: bool,
-) -> eyre::Result<tracegen::reader::CommandTraces> {
+) -> eyre::Result<(tracegen::reader::CommandTraces, Option<Allocations>)> {
     if commands_or_trace
         .extension()
         .and_then(std::ffi::OsStr::to_str)
         == Some("json")
     {
-        let commands: Vec<trace_model::Command> = {
-            let reader = utils::fs::open_readable(commands_or_trace)?;
-
-            serde_json::from_reader(reader)?
-        };
-
+        let commands = parse_box_commands(commands_or_trace)?;
+        let allocations = get_box_allocations(&commands).ok();
         let command_traces: tracegen::reader::CommandTraces = commands
             .into_iter()
             .map(|cmd| match cmd {
@@ -179,25 +204,36 @@ fn parse_box_traces(
             })
             .try_collect()?;
 
-        Ok(command_traces)
+        Ok((command_traces, allocations))
     } else {
+        let commands_path_guess = commands_or_trace
+            .with_file_name("commands.json")
+            .with_extension("json");
+        let allocations = parse_box_commands(&commands_path_guess)
+            .ok()
+            .and_then(|commands| get_box_allocations(&commands).ok());
         let trace = parse_box_kernel_trace(commands_or_trace)?;
-        Ok(vec![(None, Some(trace))])
+        Ok((vec![(None, Some(trace))], allocations))
     }
 }
 
+use std::rc::Rc;
+
 type CommandTraces = Vec<(Option<TraceCommand>, Option<WarpTraces>)>;
+// type CommandTraces<'a> = Vec<(Option<TraceCommand>, Option<WarpTraces<'a>>)>;
+// type CommandTraces = Vec<(Option<TraceCommand>, Option<WarpTraces>)>;
 
 fn parse_trace(
     trace_dir: &Path,
     commands_or_trace: &Path,
     mem_only: bool,
 ) -> eyre::Result<CommandTraces> {
-    let box_trace = parse_box_traces(trace_dir, commands_or_trace, mem_only);
-    let accelsim_trace = parse_accelsim_traces(trace_dir, commands_or_trace, mem_only);
-    let traces = match (box_trace, accelsim_trace) {
-        (Ok(box_trace), Err(_)) => Ok(box_trace),
-        (Err(_), Ok(accelsim_trace)) => Ok(accelsim_trace),
+    // ) -> eyre::Result<(CommandTraces, Allocations)> {
+    let box_result = parse_box_traces(trace_dir, commands_or_trace);
+    let accelsim_result = parse_accelsim_traces(trace_dir, commands_or_trace, mem_only);
+    let (traces, allocations) = match (box_result, accelsim_result) {
+        (Ok(box_result), Err(_)) => Ok(box_result),
+        (Err(_), Ok(accelsim_trace)) => Ok((accelsim_trace, None)),
         (Err(box_err), Err(accelsim_err)) => {
             let err = eyre::eyre!(
                 "trace {} is neither a valid accelsim or box trace",
@@ -215,19 +251,52 @@ fn parse_trace(
         }
     }?;
 
+    let allocations = Rc::new(allocations.unwrap_or_default());
+    println!(
+        "allocations {:#?}",
+        allocations
+            .iter()
+            .map(|(_, alloc)| alloc)
+            .filter(|alloc| alloc.num_bytes() > 32)
+            .collect::<Vec<_>>()
+    );
+
     let traces = traces
         .into_iter()
         .map(|(cmd, trace)| {
-            (
-                cmd.map(TraceCommand),
-                trace
-                    .map(trace_model::MemAccessTrace::to_warp_traces)
-                    .map(WarpTraces::from),
-            )
+            let warp_traces = trace
+                .map(trace_model::MemAccessTrace::to_warp_traces)
+                .map(|trace| {
+                    WarpTraces(
+                        trace
+                            .into_iter()
+                            .map(|(k, v)| {
+                                // let allocation = allocations.get(&addr);
+                                // for addr in inst.inner.addrs.iter_mut() {
+                                //     if let Some(allocation) = allocations.get(&addr) {
+                                //         *addr = addr.saturating_sub(allocation.start_addr);
+                                //     }
+                                // }
+                                let v = v
+                                    .into_iter()
+                                    .map(|inst| InstructionComparator {
+                                        inner: inst,
+                                        allocations: Rc::clone(&allocations),
+                                    })
+                                    .map(TraceInstruction::Valid)
+                                    .collect();
+                                (k, v)
+                            })
+                            .collect(),
+                    )
+                });
+
+            (cmd.map(TraceCommand), warp_traces)
         })
         .collect();
 
     Ok(traces)
+    // Ok((traces, allocations))
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -271,12 +340,17 @@ impl std::hash::Hash for TraceCommand {
 }
 
 #[derive(Clone)]
-#[repr(transparent)]
-pub struct InstructionComparator(trace_model::MemAccessTraceEntry);
+// pub struct InstructionComparator<'a> {
+pub struct InstructionComparator {
+    // allocation: Option<Allocation>,
+    allocations: Rc<Allocations>,
+    inner: trace_model::MemAccessTraceEntry,
+}
 
 impl InstructionComparator {
+    // impl<'a> InstructionComparator<'a> {
     pub fn into_inner(self) -> trace_model::MemAccessTraceEntry {
-        self.0
+        self.inner
     }
 
     pub fn id(
@@ -289,14 +363,13 @@ impl InstructionComparator {
         &String,
         &gpucachesim::warp::ActiveMask,
     ) {
-        let inst = &self.0;
         (
-            &inst.block_id,
-            inst.warp_id_in_block,
-            inst.instr_idx,
-            inst.instr_offset,
-            &inst.instr_opcode,
-            &inst.active_mask,
+            &self.inner.block_id,
+            self.inner.warp_id_in_block,
+            self.inner.instr_idx,
+            self.inner.instr_offset,
+            &self.inner.instr_opcode,
+            &self.inner.active_mask,
         )
     }
 }
@@ -311,36 +384,133 @@ impl std::cmp::PartialEq for InstructionComparator {
 
 impl std::fmt::Display for InstructionComparator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let inst = &self.0;
         write!(
             f,
             "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {}\t active={}",
-            inst.block_id,
-            inst.warp_id_in_block,
-            inst.instr_idx,
-            inst.instr_offset,
-            style(format!("{:>15}", &inst.instr_opcode)).cyan(),
-            inst.active_mask.to_bit_string_colored(None),
+            self.inner.block_id,
+            self.inner.warp_id_in_block,
+            self.inner.instr_idx,
+            self.inner.instr_offset,
+            style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
+            self.inner.active_mask.to_bit_string_colored(None),
         )
+    }
+}
+
+fn format_addr(addr: u64, allocations: &Allocations) -> String {
+    match allocations.get(&addr) {
+        Some(allocation) => {
+            let relative_addr = addr.saturating_sub(allocation.start_addr);
+            format!("{}+{}", allocation.id, relative_addr)
+        }
+        None => format!("{}", addr),
     }
 }
 
 impl std::fmt::Debug for InstructionComparator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let inst = &self.0;
+        let valid_addresses = self.inner.valid_addresses().collect::<Vec<_>>();
+
+        enum AddressFormat {
+            Original(Vec<u64>),
+            BaseStride {
+                base: u64,
+                stride: u64,
+                count: usize,
+            },
+            SingleAddress {
+                addr: u64,
+                count: usize,
+            },
+        }
+
+        let address_format = if valid_addresses.len() > 1 {
+            let strides = valid_addresses
+                .windows(2)
+                .map(|w| w[1] - w[0])
+                .collect::<Vec<_>>();
+            if strides.iter().all_equal() {
+                if strides[0] != 0 {
+                    AddressFormat::BaseStride {
+                        base: valid_addresses[0],
+                        stride: strides[0],
+                        count: valid_addresses.len(),
+                    }
+                } else {
+                    AddressFormat::SingleAddress {
+                        addr: valid_addresses[0],
+                        count: valid_addresses.len(),
+                    }
+                }
+            } else {
+                AddressFormat::Original(valid_addresses)
+            }
+        } else {
+            AddressFormat::Original(valid_addresses)
+        };
+
+        struct Addresses<'a> {
+            format: AddressFormat,
+            allocations: &'a Allocations,
+        }
+
+        impl<'a> std::fmt::Display for Addresses<'a> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match &self.format {
+                    AddressFormat::Original(addresses) => {
+                        write!(
+                            f,
+                            "{:>2}x [{}]",
+                            addresses.len(),
+                            addresses
+                                .into_iter()
+                                .map(|addr| format_addr(*addr, &self.allocations))
+                                .join(", ")
+                        )
+                    }
+                    AddressFormat::SingleAddress { addr, count } => {
+                        write!(
+                            f,
+                            "{:>2}x {:>7}",
+                            count,
+                            format_addr(*addr, &self.allocations)
+                        )
+                    }
+                    AddressFormat::BaseStride {
+                        base,
+                        stride,
+                        count,
+                    } => {
+                        let start = format_addr(*base, &self.allocations);
+                        let end = format_addr(base + stride * *count as u64, &self.allocations);
+                        write!(
+                            f,
+                            "{:>2}x {:>7} - {:<7} stride={:<3}",
+                            count, start, end, stride
+                        )
+                    }
+                }
+            }
+        }
+
+        let addresses = Addresses {
+            format: address_format,
+            allocations: &*self.allocations,
+        };
+
         write!(
             f,
-            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {} [{:<10?}] {:>25} => {:<4}\t active={} adresses={:?}",
-            inst.block_id,
-            inst.warp_id_in_block,
-            inst.instr_idx,
-            inst.instr_offset,
-            style(format!("{:>15}", &inst.instr_opcode)).cyan(),
-            inst.instr_mem_space,
-            inst.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
-            inst.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
-            inst.active_mask.to_bit_string_colored(None),
-            inst.valid_addresses().collect::<Vec<_>>(),
+            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {} [{:<10?}] {:>25} => {:<4}\t active={} adresses = {}",
+            self.inner.block_id,
+            self.inner.warp_id_in_block,
+            self.inner.instr_idx,
+            self.inner.instr_offset,
+            style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
+            self.inner.instr_mem_space,
+            self.inner.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            self.inner.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            self.inner.active_mask.to_bit_string_colored(None),
+            addresses,
         )
     }
 }
@@ -348,11 +518,13 @@ impl std::fmt::Debug for InstructionComparator {
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TraceInstruction {
+    // pub enum TraceInstruction<'a> {
     Valid(InstructionComparator),
     Filtered(InstructionComparator),
 }
 
 impl AsRef<InstructionComparator> for TraceInstruction {
+    // impl<'a> AsRef<InstructionComparator<'a>> for TraceInstruction<'a> {
     fn as_ref(&self) -> &InstructionComparator {
         match self {
             Self::Valid(inst) => &inst,
@@ -362,6 +534,7 @@ impl AsRef<InstructionComparator> for TraceInstruction {
 }
 
 impl TraceInstruction {
+    // impl<'a> TraceInstruction<'a> {
     pub fn into_inner(self) -> InstructionComparator {
         match self {
             Self::Valid(inst) => inst,
@@ -376,34 +549,37 @@ impl TraceInstruction {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct WarpTraces(pub indexmap::IndexMap<(trace_model::Dim, u32), Vec<TraceInstruction>>);
+// struct WarpTraces(pub indexmap::IndexMap<(trace_model::Dim, u32), Vec<TraceInstruction>>);
 
-impl From<trace_model::WarpTraces> for WarpTraces {
-    fn from(trace: trace_model::WarpTraces) -> Self {
-        Self(
-            trace
-                .into_iter()
-                .map(|(k, v)| {
-                    let v = v
-                        .into_iter()
-                        .map(InstructionComparator)
-                        .map(TraceInstruction::Valid)
-                        .collect();
-                    (k, v)
-                })
-                .collect(),
-        )
-    }
-}
+// impl From<trace_model::WarpTraces> for WarpTraces {
+//     fn from(trace: trace_model::WarpTraces) -> Self {
+//         Self(
+//             trace
+//                 .into_iter()
+//                 .map(|(k, v)| {
+//                     let v = v
+//                         .into_iter()
+//                         .map(InstructionComparator)
+//                         .map(TraceInstruction::Valid)
+//                         .collect();
+//                     (k, v)
+//                 })
+//                 .collect(),
+//         )
+//     }
+// }
 
 fn trace_info(
     commands_or_trace: &Path,
     mem_only: bool,
     block_id: Option<&trace_model::Dim>,
+    warp_id: Option<usize>,
     verbose: bool,
     summary: bool,
     inst_limit: Option<usize>,
 ) -> eyre::Result<()> {
     let trace_dir = commands_or_trace.parent().unwrap();
+    // let (command_traces, allocations) = parse_trace(trace_dir, commands_or_trace, mem_only)?;
     let command_traces = parse_trace(trace_dir, commands_or_trace, mem_only)?;
 
     #[derive(Debug, Default)]
@@ -431,10 +607,24 @@ fn trace_info(
         if let Some(block_id) = block_id {
             warps.retain(|(trace_block_id, _)| trace_block_id == block_id)
         }
+        if let Some(warp_id) = warp_id {
+            warps.retain(|(_, trace_warp_id_in_block)| *trace_warp_id_in_block as usize == warp_id)
+        }
+
+        // let base_addr = warp_traces
+        //     .0
+        //     .values()
+        //     .flat_map(|warp_trace| warp_trace)
+        //     .map(|inst| inst.as_ref())
+        //     .map(|inst| &inst.0)
+        //     .filter(|inst| inst.is_memory_instruction())
+        //     .flat_map(|inst| inst.valid_addresses())
+        //     .min()
+        //     .unwrap_or(0);
 
         for warp_id in warps.iter() {
             let (block_id, warp_id_in_block) = warp_id;
-            let warp_trace: Vec<_> = get_warp_instructions(warp_traces, warp_id, mem_only);
+            let warp_trace: Vec<_> = get_warp_instructions(warp_traces, warp_id, mem_only); // , &allocations);
             let (valid, filtered): (Vec<_>, Vec<_>) = partition_instructions(warp_trace);
 
             if !summary {
@@ -446,6 +636,7 @@ fn trace_info(
                     filtered.len(),
                 );
             }
+
             // let colors = [
             //     console::Style::new().red(),
             //     console::Style::new().green(),
@@ -465,19 +656,19 @@ fn trace_info(
                 //     .apply_to(inst.0.instr_opcode)
                 //     .to_string();
                 if verbose {
-                    println!("{:#?}", inst.0);
+                    println!("{:#?}", inst.inner);
                 } else if !summary {
                     println!("{:?}", inst);
                 }
                 let summary = per_instruction_summary
-                    .entry(inst.0.instr_opcode.to_string())
+                    .entry(inst.inner.instr_opcode.to_string())
                     .or_default();
                 summary.count += 1;
-                if inst.0.instr_is_mem && inst.0.instr_is_load {
-                    summary.read_addresses.extend(inst.0.valid_addresses());
+                if inst.inner.instr_is_mem && inst.inner.instr_is_load {
+                    summary.read_addresses.extend(inst.inner.valid_addresses());
                 }
-                if inst.0.instr_is_mem && inst.0.instr_is_store {
-                    summary.write_addresses.extend(inst.0.valid_addresses());
+                if inst.inner.instr_is_mem && inst.inner.instr_is_store {
+                    summary.write_addresses.extend(inst.inner.valid_addresses());
                 }
 
                 total_instructions += 1;
@@ -526,9 +717,13 @@ fn trace_info(
 pub type WarpId = (trace_model::Dim, u32);
 
 fn get_warp_instructions(
+    // fn get_warp_instructions<'a>(
+    // warp_traces: &WarpTraces<'a>,
     warp_traces: &WarpTraces,
     warp_id: &WarpId,
     mem_only: bool,
+    // allocations: &'a Allocations,
+    // ) -> Vec<TraceInstruction<'a>> {
 ) -> Vec<TraceInstruction> {
     warp_traces
         .0
@@ -537,10 +732,13 @@ fn get_warp_instructions(
         .iter()
         .cloned()
         .map(|inst| {
-            if mem_only && !inst.as_ref().0.is_memory_instruction() {
-                TraceInstruction::Filtered(inst.into_inner())
-            } else if inst.as_ref().0.active_mask.not_any() {
-                TraceInstruction::Filtered(inst.into_inner())
+            if (mem_only && !inst.as_ref().inner.is_memory_instruction())
+                || inst.as_ref().inner.active_mask.not_any()
+            {
+                let inst = inst.into_inner();
+                TraceInstruction::Filtered(inst)
+            // } else if inst.as_ref().0.active_mask.not_any() {
+            //     TraceInstruction::Filtered(inst.into_inner())
             } else {
                 inst
             }
@@ -551,8 +749,10 @@ fn get_warp_instructions(
 fn compare_trace(
     left: Option<&WarpTraces>,
     left_path: &Path,
+    // left_allocations: &Allocations,
     right: Option<&WarpTraces>,
     right_path: &Path,
+    // right_allocations: &Allocations,
     mem_only: bool,
     block_id: Option<&trace_model::Dim>,
 ) {
@@ -604,8 +804,8 @@ fn compare_trace(
 
             for warp_id in all_warps.iter() {
                 let (block_id, warp_id_in_block) = warp_id;
-                let left_warp_trace: Vec<_> = get_warp_instructions(left, warp_id, mem_only);
-                let right_warp_trace: Vec<_> = get_warp_instructions(right, warp_id, mem_only);
+                let left_warp_trace: Vec<_> = get_warp_instructions(left, warp_id, mem_only); // , left_allocations);
+                let right_warp_trace: Vec<_> = get_warp_instructions(right, warp_id, mem_only); // , right_allocations);
 
                 let (mut left_valid, left_filtered): (Vec<_>, Vec<_>) =
                     partition_instructions(left_warp_trace);
@@ -614,23 +814,23 @@ fn compare_trace(
 
                 for trace in [&mut left_valid, &mut right_valid] {
                     for inst in trace.iter_mut() {
-                        inst.0.instr_offset = 0;
-                        inst.0.instr_idx = 0;
+                        inst.inner.instr_offset = 0;
+                        inst.inner.instr_idx = 0;
 
-                        inst.0.src_regs.fill(0);
-                        inst.0.num_src_regs = 0;
+                        inst.inner.src_regs.fill(0);
+                        inst.inner.num_src_regs = 0;
 
-                        inst.0.dest_regs.fill(0);
-                        inst.0.num_dest_regs = 0;
+                        inst.inner.dest_regs.fill(0);
+                        inst.inner.num_dest_regs = 0;
 
-                        inst.0.line_num = 0;
-                        inst.0.warp_id_in_sm = 0;
-                        inst.0.instr_data_width = 0;
-                        inst.0.sm_id = 0;
-                        inst.0.cuda_ctx = 0;
+                        inst.inner.line_num = 0;
+                        inst.inner.warp_id_in_sm = 0;
+                        inst.inner.instr_data_width = 0;
+                        inst.inner.sm_id = 0;
+                        inst.inner.cuda_ctx = 0;
 
-                        let min = inst.0.addrs.iter().min().copied().unwrap_or(0);
-                        for addr in inst.0.addrs.iter_mut() {
+                        let min = inst.inner.addrs.iter().min().copied().unwrap_or(0);
+                        for addr in inst.inner.addrs.iter_mut() {
                             *addr = addr.checked_sub(min).unwrap_or(0);
                         }
                     }
@@ -714,15 +914,29 @@ fn compare_traces(
     summary: bool,
     block_id: Option<&trace_model::Dim>,
 ) -> eyre::Result<()> {
-    let left_command_traces: IndexMap<_, _> = {
+    // let (left_command_traces, left_allocations) = {
+    let left_command_traces = {
         let trace_dir = left_commands_or_trace.parent().unwrap();
         let command_traces = parse_trace(trace_dir, left_commands_or_trace, mem_only)?;
-        command_traces.into_iter().collect()
+        command_traces.into_iter().collect::<IndexMap<_, _>>()
+        // let (command_traces, allocations) =
+        //     parse_trace(trace_dir, left_commands_or_trace, mem_only)?;
+        // (
+        //     command_traces.into_iter().collect::<IndexMap<_, _>>(),
+        //     allocations,
+        // )
     };
-    let right_command_traces: IndexMap<_, _> = {
+    // let (right_command_traces, right_allocations) = {
+    let right_command_traces = {
         let trace_dir = right_commands_or_trace.parent().unwrap();
         let command_traces = parse_trace(trace_dir, right_commands_or_trace, mem_only)?;
-        command_traces.into_iter().collect()
+        command_traces.into_iter().collect::<IndexMap<_, _>>()
+        // let (command_traces, allocations) =
+        //     parse_trace(trace_dir, right_commands_or_trace, mem_only)?;
+        // (
+        //     command_traces.into_iter().collect::<IndexMap<_, _>>(),
+        //     allocations,
+        // )
     };
 
     // either we are comparing exactly two traces, or we have kernel launch commands to perform the
@@ -811,8 +1025,10 @@ fn compare_traces(
                 compare_trace(
                     left_trace.as_ref(),
                     left_commands_or_trace,
+                    // &left_allocations,
                     right_trace.as_ref(),
                     right_commands_or_trace,
+                    // &right_allocations,
                     mem_only,
                     block_id,
                 );
@@ -878,7 +1094,7 @@ fn compare_traces(
     Ok(())
 }
 
-pub fn partition_instructions<C, FC>(
+pub fn partition_instructions<'a, C, FC>(
     instructions: impl IntoIterator<Item = TraceInstruction>,
 ) -> (C, FC)
 where
@@ -903,6 +1119,7 @@ pub fn run(options: &Options) -> eyre::Result<()> {
     match options.command {
         Command::Info {
             ref block_id,
+            warp_id,
             instruction_limit,
             summary,
         } => {
@@ -911,6 +1128,7 @@ pub fn run(options: &Options) -> eyre::Result<()> {
                     trace,
                     options.memory_only,
                     block_id.as_ref(),
+                    warp_id,
                     options.verbose,
                     summary,
                     instruction_limit,
