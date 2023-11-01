@@ -38,6 +38,8 @@ pub enum MemAccessKind {
 pub struct MemInstruction {
     pub mem_space: MemorySpace,
     pub kind: MemAccessKind,
+    pub bypass_l1: bool,
+    pub bypass_l2: bool,
     pub addr: u64,
     pub size: u32,
 }

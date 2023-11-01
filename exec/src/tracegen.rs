@@ -75,10 +75,26 @@ pub trait MemoryAccess {
     );
 
     /// Load address.
-    fn load(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
+    fn load(
+        &self,
+        thread_idx: &ThreadIndex,
+        addr: u64,
+        size: u32,
+        mem_space: model::MemorySpace,
+        bypass_l1: bool,
+        bypass_l2: bool,
+    );
 
     /// Store address.
-    fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace);
+    fn store(
+        &self,
+        thread_idx: &ThreadIndex,
+        addr: u64,
+        size: u32,
+        mem_space: model::MemorySpace,
+        bypass_l1: bool,
+        bypass_l2: bool,
+    );
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -137,21 +153,41 @@ impl MemoryAccess for Tracer {
         warp_instructions[thread_id].push(instruction);
     }
 
-    fn load(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
+    fn load(
+        &self,
+        thread_idx: &ThreadIndex,
+        addr: u64,
+        size: u32,
+        mem_space: model::MemorySpace,
+        bypass_l1: bool,
+        bypass_l2: bool,
+    ) {
         let inst = model::ThreadInstruction::Access(model::MemInstruction {
             kind: model::MemAccessKind::Load,
             addr,
             mem_space,
+            bypass_l1,
+            bypass_l2,
             size,
         });
         self.push_thread_instruction(thread_idx, inst);
     }
 
-    fn store(&self, thread_idx: &ThreadIndex, addr: u64, size: u32, mem_space: model::MemorySpace) {
+    fn store(
+        &self,
+        thread_idx: &ThreadIndex,
+        addr: u64,
+        size: u32,
+        mem_space: model::MemorySpace,
+        bypass_l1: bool,
+        bypass_l2: bool,
+    ) {
         let inst = model::ThreadInstruction::Access(model::MemInstruction {
             kind: model::MemAccessKind::Store,
             addr,
             mem_space,
+            bypass_l1,
+            bypass_l2,
             size,
         });
         self.push_thread_instruction(thread_idx, inst);
@@ -330,6 +366,8 @@ impl TraceGenerator for Tracer {
             mem_space,
             memory: self.clone(),
             offset: base_addr + addr,
+            bypass_l1: false,
+            bypass_l2: false,
         }
     }
 
@@ -570,7 +608,7 @@ impl TraceGenerator for Tracer {
                     .map(|(instr_idx, access)| {
                         let is_load = access.kind == model::MemAccessKind::Load;
                         let is_store = access.kind == model::MemAccessKind::Store;
-                        let instr_opcode = match access.mem_space {
+                        let mut instr_opcode = match access.mem_space {
                             model::MemorySpace::Local if is_load => "LDL.E".to_string(),
                             model::MemorySpace::Global if is_load => "LDG.E".to_string(),
                             model::MemorySpace::Shared if is_load => "LDS.E".to_string(),
@@ -585,6 +623,10 @@ impl TraceGenerator for Tracer {
                             }
                             other => panic!("unknown memory space {other:?}"),
                         };
+
+                        if access.bypass_l1 {
+                            instr_opcode += ".CG";
+                        }
 
                         trace_model::MemAccessTraceEntry {
                             instr_opcode: instr_opcode.to_string(),
@@ -687,6 +729,8 @@ pub mod util {
                 kind: $crate::model::MemAccessKind::$kind,
                 size: $size,
                 addr: base_addr + $addr,
+                bypass_l1: false,
+                bypass_l2: false,
                 mem_space,
             }
         }};

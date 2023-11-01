@@ -45,6 +45,8 @@ pub struct DevicePtr<T> {
     pub inner: T,
     pub memory: Arc<dyn tracegen::MemoryAccess + Send + Sync>,
     pub mem_space: model::MemorySpace,
+    pub bypass_l1: bool,
+    pub bypass_l2: bool,
     pub offset: u64,
 }
 
@@ -73,7 +75,14 @@ impl<T> DevicePtr<T> {
     {
         let (elem, rel_offset, size) = self.inner.index(idx);
         let addr = self.offset + rel_offset;
-        self.memory.load(thread_idx, addr, size, self.mem_space);
+        self.memory.load(
+            thread_idx,
+            addr,
+            size,
+            self.mem_space,
+            self.bypass_l1,
+            self.bypass_l2,
+        );
         elem
     }
 
@@ -87,7 +96,14 @@ impl<T> DevicePtr<T> {
     {
         let (elem, rel_offset, size) = self.inner.index_mut(idx);
         let addr = self.offset + rel_offset;
-        self.memory.store(thread_idx, addr, size, self.mem_space);
+        self.memory.store(
+            thread_idx,
+            addr,
+            size,
+            self.mem_space,
+            self.bypass_l1,
+            self.bypass_l2,
+        );
         elem
     }
 
