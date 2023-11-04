@@ -98,9 +98,74 @@ __global__ __noinline__ void global_latency_l1_set_mapping_host_mapped(
   array[array_length + 1] = array[j];
 }
 
+// version for cc 8.6 ampere
+__global__ __noinline__ void global_latency_l1_set_mapping_cc86_host_mapped(
+    unsigned int *array, int array_length, unsigned int *latency,
+    unsigned int *index, int iter_size, size_t warmup_iterations,
+    unsigned int overflow_index) {
+  unsigned int start_time, end_time;
+  volatile uint32_t j = 0;
+
+  int first_round_k = (warmup_iterations + 1) * iter_size;
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+    if (k == first_round_k) {
+      // skip here
+      j = overflow_index;
+    }
+    // if (k >= 0 && j == 0) {
+    //   // skip here
+    //   j = overflow_index;
+    // }
+    if (k >= 0) {
+      start_time = clock();
+      j = array[j];
+      index[k] = j;
+      end_time = clock();
+
+      latency[k] = end_time - start_time;
+    } else {
+      j = array[j];
+    }
+  }
+
+  // store to avoid caching in readonly?
+  array[array_length] = j;
+  array[array_length + 1] = array[j];
+}
+
+__global__ __noinline__ void global_latency_l2_set_mapping_host_mapped(
+    unsigned int *array, int array_length, unsigned int *latency,
+    unsigned int *index, int iter_size, size_t warmup_iterations,
+    unsigned int overflow_index) {
+  unsigned int start_time, end_time;
+  volatile uint32_t j = 0;
+
+  for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+    if (k >= 0 && j == 0) {
+      // overflow the cache now
+      index[k] = array[array_length + overflow_index];
+    }
+    if (k >= 0) {
+      start_time = clock();
+      j = __ldcg(&array[j]);
+      index[k] = j;
+      end_time = clock();
+
+      latency[k] = end_time - start_time;
+    } else {
+      j = __ldcg(&array[j]);
+    }
+  }
+
+  // store to avoid caching in readonly?
+  array[array_length] = j;
+  array[array_length + 1] = array[j];
+}
+
 int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
                               size_t N, size_t stride, size_t iter_size,
                               size_t warmup_iterations, size_t repetition,
+                              size_t compute_capability,
                               unsigned int clock_overhead,
                               unsigned int overflow_index) {
   // initialize array elements on CPU with pointers into d_a
@@ -193,12 +258,23 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     //     d_a, N, duration, d_index, iter_size, warmup_iterations)));
     break;
   case L2:
+    CUDA_CHECK(
+        (global_latency_l2_set_mapping_host_mapped<<<grid_dim, block_dim>>>(
+            d_a, N, d_latency, d_index, iter_size, warmup_iterations,
+            overflow_index)));
+    break;
   case L1Data:
-    if (USE_HOST_MAPPED_MEMORY) {
+    if (USE_HOST_MAPPED_MEMORY && compute_capability == 0) {
       CUDA_CHECK(
           (global_latency_l1_set_mapping_host_mapped<<<grid_dim, block_dim>>>(
               d_a, N, d_latency, d_index, iter_size, warmup_iterations,
               overflow_index)));
+    } else if (USE_HOST_MAPPED_MEMORY && compute_capability == 86) {
+      CUDA_CHECK((global_latency_l1_set_mapping_cc86_host_mapped<<<grid_dim,
+                                                                   block_dim>>>(
+          d_a, N, d_latency, d_index, iter_size, warmup_iterations,
+          overflow_index)));
+
     } else {
       CUDA_CHECK(
           (global_latency_l1_set_mapping_shared_memory<<<grid_dim, block_dim>>>(
@@ -255,7 +331,12 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     break;
   default:
     for (size_t k = 0; k < iter_size; k++) {
-      unsigned int index = indexof(h_a, N, h_index[k]);
+      unsigned int index;
+      if (compute_capability == 86) {
+        index = indexof(h_a, N, h_index[k]);
+      } else {
+        index = indexof(h_a, N, h_index[k]);
+      }
       unsigned int latency = (int)h_latency[k] - (int)clock_overhead;
       unsigned long long virt_addr =
           (unsigned long long)d_a +
@@ -293,6 +374,13 @@ int main(int argc, char *argv[]) {
   size_t size_bytes, stride_bytes, warmup_iterations;
   size_t repetitions = 1;
   size_t iter_size = (size_t)-1;
+
+  char *compute_capability_env = getenv("COMPUTE_CAPABILITY");
+
+  size_t compute_capability = 0;
+  if (compute_capability_env != NULL) {
+    compute_capability = (size_t)atoi(compute_capability_env);
+  }
 
   // parse arguments
   if (argc >= 5) {
@@ -424,6 +512,7 @@ int main(int argc, char *argv[]) {
           num_rounds, one_round_size);
   fprintf(stderr, "\tITERATIONS         = %lu\n", iter_size);
   fprintf(stderr, "\tREPETITIONS        = %lu\n", repetitions);
+  fprintf(stderr, "\tCOMPUTE CAP        = %lu\n", compute_capability);
   fprintf(stderr, "\tWARMUP ITERATIONS  = %lu\n", warmup_iterations);
   fprintf(stderr, "\tBACKING MEM        = %s\n",
           USE_HOST_MAPPED_MEMORY ? "HOST MAPPED" : "SHARED MEM");
@@ -434,9 +523,9 @@ int main(int argc, char *argv[]) {
   for (size_t r = 0; r < repetitions; r++) {
     for (unsigned int overflow_index = 0; overflow_index < size;
          overflow_index += stride) {
-      exit_code = parametric_measure_global(h_a, d_a, mem, size, stride,
-                                            iter_size, warmup_iterations, r,
-                                            clock_overhead, overflow_index);
+      exit_code = parametric_measure_global(
+          h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
+          compute_capability, clock_overhead, overflow_index);
       if (exit_code != EXIT_SUCCESS) {
         break;
       }
