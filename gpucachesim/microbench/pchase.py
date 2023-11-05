@@ -658,6 +658,7 @@ def set_mapping(
                 cmd,
                 gpu=gpu,
                 executable=das6.remote_scratch_dir / "set_mapping",
+                compute_capability=compute_capability,
                 force=force,
             )
             stderr = stderr_reader.read().decode("utf-8")
@@ -1532,8 +1533,8 @@ def latency_colormap(combined, min_latency, max_latency):
     orange_to_red = gradient(start=orange, end=red)
 
     latency_range = max_latency - min_latency
-    mean_hit_cluster_latency = mean_cluster_latency[0]
-    mean_miss_cluster_latency = mean_cluster_latency[1]
+    mean_hit_cluster_latency = mean_cluster_latency.get(0, 0.0)
+    mean_miss_cluster_latency = mean_cluster_latency.get(1, 200.0)
     assert (
         min_latency
         <= mean_hit_cluster_latency
@@ -1543,12 +1544,12 @@ def latency_colormap(combined, min_latency, max_latency):
 
     tol = 0.2
     start = min_latency
-    hit_end = min_cluster_latency[1] - tol * abs(
-        min_cluster_latency[1] - max_cluster_latency[0]
+    hit_end = min_cluster_latency.get(1, 200.0) - tol * abs(
+        min_cluster_latency.get(1, 200.0) - max_cluster_latency.get(0, 0.0)
     )
     # hit_end = mean_hit_cluster_latency + tol * (mean_miss_cluster_latency - mean_hit_cluster_latency)
     # miss_end = mean_miss_cluster_latency + tol * (max_latency - mean_miss_cluster_latency)
-    miss_end = np.min([mean_cluster_latency[1] + 100, max_latency])
+    miss_end = np.min([mean_cluster_latency.get(1, 200.0) + 100.0, max_latency])
     end = miss_end
 
     points = [start, hit_end, miss_end, end]
@@ -1584,10 +1585,12 @@ def plot_access_process_latencies(
     size_bytes=None,
     stride_bytes=None,
 ):
+    repetitions = len(combined["r"].unique())
+    print(repetitions)
     mean_cluster_latency = combined.groupby("hit_cluster")["latency"].mean()
 
-    max_latency = mean_cluster_latency[1] + 100
-    min_latency = np.max([0, mean_cluster_latency[0] - 100])
+    max_latency = mean_cluster_latency.get(1, 200.0) + 100.0
+    min_latency = np.max([0, mean_cluster_latency.get(0, 0.0) - 100.0])
 
     ylabel = ylabel or r"repetition"
     fontsize = plot.FONT_SIZE_PT
@@ -1646,13 +1649,17 @@ def plot_access_process_latencies(
         xticklabels = ["R{}".format(r) for r in round_indices + warmup]
         ax.set_xticks(xticks, xticklabels)
 
+    if isinstance(repetitions, int):
+        num_overflow_indices = len(values) / repetitions
+        overflow_indices = np.arange(
+            num_overflow_indices,
+            step=round_up_to_multiple_of(num_overflow_indices / 10.0, 10.0))
+        yticks = overflow_indices * repetitions
+        yticklabels = overflow_indices.astype(int)
+        ax.set_yticks(yticks, yticklabels)
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-
-    # ax.set_xlim(min_x, max_x)
-    # ax.set_ylim(0, 100.0)
-    # ax.legend()
-
     return fig
 
 
@@ -1716,8 +1723,8 @@ def find_cache_set_mapping(
 
     average = average if average is not None else (gpu == None)
     if compute_capability == 86:
-        average = False
-        pass
+        if average is None:
+            average = False
 
     known_cache_size_bytes = known_cache_size_bytes or get_known_cache_size_bytes(
         mem=mem, gpu=gpu
@@ -1761,7 +1768,7 @@ def find_cache_set_mapping(
     print("repetitions = {:<3}".format(repetitions))
     print("stride = {:<3} bytes".format(stride_bytes))
 
-    assert not (warmup < 1 and average), "cannot average without warmup"
+    # assert not (warmup < 1 and average), "cannot average without warmup"
 
     match mem.lower():
         case "l1readonly":
@@ -1807,7 +1814,7 @@ def find_cache_set_mapping(
         combined.to_csv(cache_file, index=False, compression=CSV_COMPRESSION)
 
     total_sets = OrderedDict()
-    combined = combined.sort_values(["n", "overflow_index", "k"])
+    combined = combined.sort_values(["n", "overflow_index", "k", "r"])
     if average:
         repetitions = 1
         max_rounds = 1
@@ -1821,8 +1828,10 @@ def find_cache_set_mapping(
 
     # compute plot matrices
     max_cols = int(len(combined["k"].astype(int).unique()))
-    max_rows = len(combined["overflow_index"].astype(int).unique()) * repetitions
-    assert max_rows == len(
+    # max_rows = len(combined["overflow_index"].astype(int).unique()) * repetitions
+    # assert max_rows == len(
+    repetitions = len(combined["r"].unique())
+    max_rows = len(
         combined[["overflow_index", "r"]].astype(int).drop_duplicates()
     )
 
@@ -1835,7 +1844,7 @@ def find_cache_set_mapping(
         stride = stride_bytes / 4
         overflow_index = overflow_addr_index / stride
         # print(overflow_addr_index, overflow_index, r)
-        # print(overflow_df)
+        print(overflow_df)
         # print(overflow_df.shape)
         # assert max_cols == len(overflow_df)
 

@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import humanize
 from wasabi import color
+from pprint import pprint
 import socketserver as SocketServer
 
 from gpucachesim.benchmarks import REPO_ROOT_DIR
@@ -179,6 +180,7 @@ class DAS6(SSHClient):
         executable=None,
         force=False,
         timeout=4 * HOUR,
+        compute_capability=None,
         retries=10,
     ) -> typing.Tuple[typing.IO, typing.IO]:
         executable = executable if executable is not None else self.remote_pchase_executable
@@ -187,7 +189,7 @@ class DAS6(SSHClient):
         remote_stdout_path = self.remote_pchase_results_dir / "{}.stdout".format(job_name)
         remote_stderr_path = self.remote_pchase_results_dir / "{}.stderr".format(job_name)
 
-        print(job_name, cmd)
+        print(job_name, compute_capability, cmd)
 
         # check if job already running
         running_job_names = self.get_running_job_names()
@@ -203,6 +205,7 @@ class DAS6(SSHClient):
                 name=job_name,
                 executable=executable,
                 args=cmd,
+                compute_capability=compute_capability,
                 timeout=timeout,
             )
             print("submitted job <{}> [ID={}]".format(job_name, job_id))
@@ -224,36 +227,22 @@ class DAS6(SSHClient):
         stderr_file = self.read_file_contents(remote_path=remote_stderr_path)
         return stdout_file, stderr_file
 
-        # err = None
-        # for r in range(retries):
-        #     if r > 0:
-        #         print("reading stdout from {} (attempt {}/{})".format(remote_stdout_path, r + 1, retries))
-        #     try:
-        #         stdout_file = self.read_file_contents(remote_path=remote_stdout_path)
-        #         stderr_file = self.read_file_contents(remote_path=remote_stderr_path)
-        #         if stdout_file.read(1):
-        #             stdout_file.seek(0)
-        #             return stdout_file, stderr_file
-        #         # if stdout.name() != "":
-        #         #     return stdout, stderr
-        #     except Exception as e:
-        #         print("reading stdout from {} failed: {}".format(remote_stdout_path, e))
-        #         err = e
-        #     time.sleep(5 * SEC)
-        #
-        # raise err or ValueError("stdout is empty")
-
     def submit_pchase(
         self,
         gpu,
         args,
         name=None,
         executable=None,
+        compute_capability=None,
         timeout=4 * HOUR,
+        env=None,
     ) -> typing.Tuple[typing.Optional[int], str, typing.Tuple[os.PathLike, os.PathLike]]:
         # upload pchase executable
         # client.upload_file(local_path=local_pchase_executable, remote_path=remote_pchase_executable)
 
+        env = env or dict()
+        if compute_capability is not None:
+            env.update({"COMPUTE_CAPABILITY": str(compute_capability)})
         executable = executable if executable is not None else self.remote_pchase_executable
 
         # load cuda toolkit
@@ -285,6 +274,8 @@ class DAS6(SSHClient):
         slurm_script += "#SBATCH -N 1\n"
         slurm_script += "#SBATCH -C {}\n".format(gpu)
         slurm_script += "#SBATCH --gres=gpu:1\n"
+        for k, v in env.items():
+            slurm_script += "export {}={}\n".format(k, v)
         slurm_script += "{} {}\n".format(executable, " ".join(args))
 
         # upload slurm script

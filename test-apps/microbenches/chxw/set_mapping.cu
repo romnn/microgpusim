@@ -102,11 +102,12 @@ __global__ __noinline__ void global_latency_l1_set_mapping_host_mapped(
 __global__ __noinline__ void global_latency_l1_set_mapping_cc86_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
     unsigned int *index, int iter_size, size_t warmup_iterations,
-    unsigned int overflow_index) {
+    size_t round_size, unsigned int overflow_index) {
   unsigned int start_time, end_time;
   volatile uint32_t j = 0;
 
-  int first_round_k = (warmup_iterations + 1) * iter_size;
+  int first_round_k = 1 * round_size;
+  // int first_round_k = (warmup_iterations + 1) * iter_size;
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k == first_round_k) {
       // skip here
@@ -131,6 +132,8 @@ __global__ __noinline__ void global_latency_l1_set_mapping_cc86_host_mapped(
   // store to avoid caching in readonly?
   array[array_length] = j;
   array[array_length + 1] = array[j];
+
+  __threadfence_system();
 }
 
 __global__ __noinline__ void global_latency_l2_set_mapping_host_mapped(
@@ -179,9 +182,13 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   }
 
   overflow_index = overflow_index % N;
+  assert(N % stride == 0);
+  size_t round_size = N / stride;
 
   h_a[N] = 0;
   h_a[N + 1] = 0;
+
+  CUDA_CHECK(cudaMemset(d_a, 0, N * sizeof(uint32_t)));
 
   CUDA_CHECK(
       cudaMemcpy(d_a, h_a, N * sizeof(uint32_t), cudaMemcpyHostToDevice));
@@ -272,7 +279,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     } else if (USE_HOST_MAPPED_MEMORY && compute_capability == 86) {
       CUDA_CHECK((global_latency_l1_set_mapping_cc86_host_mapped<<<grid_dim,
                                                                    block_dim>>>(
-          d_a, N, d_latency, d_index, iter_size, warmup_iterations,
+          d_a, N, d_latency, d_index, iter_size, warmup_iterations, round_size,
           overflow_index)));
 
     } else {
