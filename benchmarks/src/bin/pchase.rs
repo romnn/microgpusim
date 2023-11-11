@@ -85,9 +85,9 @@ async fn simulate_pchase<W>(
 where
     W: std::io::Write,
 {
-    let start = std::time::Instant::now();
-
-    let rounds = iter_size as f32 / (size_bytes as f32 / stride_bytes as f32);
+    // let start = std::time::Instant::now();
+    //
+    // let rounds = iter_size as f32 / (size_bytes as f32 / stride_bytes as f32);
 
     let (commands, kernel_traces) = pchase::pchase(
         memory,
@@ -98,26 +98,28 @@ where
     )
     .await?;
 
-    for command in &commands {
-        eprintln!("{}", command);
-    }
-    for (_launch_config, kernel_trace) in &kernel_traces {
-        let warp_traces = kernel_trace.clone().to_warp_traces();
-        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+    if false {
+        for command in &commands {
+            eprintln!("{}", command);
+        }
+        for (_launch_config, kernel_trace) in &kernel_traces {
+            let warp_traces = kernel_trace.clone().to_warp_traces();
+            let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace =
-            gpucachesim::exec::tracegen::fmt::simplify_warp_trace(&first_warp, true)
-                .collect::<Vec<_>>();
-        for inst in &simplified_trace {
-            eprintln!("{}", inst);
+            let simplified_trace =
+                gpucachesim::exec::tracegen::fmt::simplify_warp_trace(&first_warp, true)
+                    .collect::<Vec<_>>();
+            for inst in &simplified_trace {
+                eprintln!("{}", inst);
+            }
         }
     }
-    eprintln!(
-        "trace reconstruction completed with {} command(s) and {} kernel trace(s) in {:?}",
-        commands.len(),
-        kernel_traces.len(),
-        start.elapsed()
-    );
+    // eprintln!(
+    //     "trace reconstruction completed with {} command(s) and {} kernel trace(s) in {:?}",
+    //     commands.len(),
+    //     kernel_traces.len(),
+    //     start.elapsed()
+    // );
 
     let start = std::time::Instant::now();
     let temp_dir = tempfile::tempdir()?;
@@ -181,7 +183,7 @@ where
     );
 
     let mut sim_config = config::gtx1080::build_config(&config::Input::default())?;
-    if true {
+    if false {
         sim_config.data_cache_l1 = Some(Arc::new(gpucachesim::config::L1DCache {
             // l1_latency: 1,
             l1_latency: 1,
@@ -220,12 +222,12 @@ where
         }));
     }
 
-    dbg!(&sim_config.memory_only);
-    dbg!(&sim_config.num_schedulers_per_core);
-    dbg!(&sim_config.num_simt_clusters);
-    dbg!(&sim_config.num_cores_per_simt_cluster);
-    dbg!(&sim_config.simulate_clock_domains);
-    dbg!(&sim_config.l2_rop_latency);
+    // dbg!(&sim_config.memory_only);
+    // dbg!(&sim_config.num_schedulers_per_core);
+    // dbg!(&sim_config.num_simt_clusters);
+    // dbg!(&sim_config.num_cores_per_simt_cluster);
+    // dbg!(&sim_config.simulate_clock_domains);
+    // dbg!(&sim_config.l2_rop_latency);
 
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
@@ -272,7 +274,7 @@ where
 
     let reduced = stats.clone().reduce();
     let l1d_stats = reduced.l1d_stats.reduce();
-    dbg!(&l1d_stats);
+    // dbg!(&l1d_stats);
 
     let l1d_read_hits: usize = l1d_stats
         .iter()
@@ -287,8 +289,8 @@ where
         .map(|(_, count)| count)
         .sum();
 
-    eprintln!("L1D read hits: {:<10}", l1d_read_hits);
-    eprintln!("L1D read misses: {:<10}", l1d_read_misses);
+    // eprintln!("L1D read hits: {:<10}", l1d_read_hits);
+    // eprintln!("L1D read misses: {:<10}", l1d_read_misses);
 
     // eprintln!("L1D misses:            {:<10}", l1d_stats.num_misses());
     // eprintln!(
@@ -367,7 +369,7 @@ where
         }
     }
 
-    dbg!(rounds);
+    // dbg!(rounds);
 
     let all_adresses: Vec<_> = Arc::into_inner(all_addresses)
         .unwrap()
@@ -383,10 +385,10 @@ where
         .into_iter()
         .sorted()
         .collect();
-    dbg!(all_adresses.len());
-    dbg!(all_latencies);
+    // dbg!(all_adresses.len());
+    // dbg!(all_latencies);
 
-    eprintln!("simulated completed in {:?}", start.elapsed());
+    eprintln!("simulation completed in {:?}", start.elapsed());
     Ok(())
 }
 
@@ -453,7 +455,7 @@ async fn main() -> eyre::Result<()> {
         }
     };
 
-    eprintln!("options: {:#?}", &options);
+    // eprintln!("options: {:#?}", &options);
 
     let Options {
         memory,
@@ -489,11 +491,14 @@ async fn main() -> eyre::Result<()> {
         .flexible(false)
         .from_writer(std::io::stdout());
 
-    for size_bytes in (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0) {
+    let sizes = (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0);
+    let num_sizes = sizes.clone().count();
+    for (i, size_bytes) in sizes.enumerate() {
         if size_bytes == 0 {
             continue;
         }
 
+        eprintln!("[{:>3}/{:<3}] size={}", i + 1, num_sizes, Bytes(size_bytes));
         let one_round_size = size_bytes as f32 / stride_bytes.0 as f32;
 
         let iter_size = match (iter_size, max_rounds) {

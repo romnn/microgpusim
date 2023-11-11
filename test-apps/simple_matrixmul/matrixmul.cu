@@ -133,8 +133,7 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
   cudaDeviceSynchronize();
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
-    std::cerr << "CUDA Matrix Multiplication kernel failed to execute."
-              << std::endl;
+    std::cerr << "kernel failed to execute." << std::endl;
     std::cerr << cudaGetErrorString(err) << std::endl;
     std::exit(EXIT_FAILURE);
   }

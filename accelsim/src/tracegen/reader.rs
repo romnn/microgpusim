@@ -484,13 +484,14 @@ pub fn read_trace_instructions(
     kernel: Option<&trace_model::command::KernelLaunch>,
 ) -> eyre::Result<Vec<trace_model::MemAccessTraceEntry>> {
     let mut instructions = Vec::new();
-    let mut lines = reader.lines();
-    for line in &mut lines {
-        if line?.trim().starts_with('#') {
-            // begin of instruction stream
-            break;
-        }
-    }
+    let lines = reader.lines();
+    // for line in &mut lines {
+    //     dbg!(&line);
+    //     if line?.trim().starts_with('#') {
+    //         // begin of instruction stream
+    //         break;
+    //     }
+    // }
 
     let mut block = Dim::ZERO;
     let mut start_of_tb_stream_found = false;
@@ -503,6 +504,7 @@ pub fn read_trace_instructions(
         if line.is_empty() {
             continue;
         }
+        // dbg!(&line);
         let parts: Vec<&str> = line.split(' ').map(str::trim).collect();
         match parts.as_slice() {
             ["#BEGIN_TB"] => {

@@ -1829,7 +1829,12 @@ where
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
 
-        let log_every = 5_000;
+        let log_every: u64 = std::env::var("LOG_EVERY")
+            .ok()
+            .as_deref()
+            .map(str::parse)
+            .transpose()?
+            .unwrap_or(5_000);
         let mut last_time = std::time::Instant::now();
 
         log::info!("serial for {} cores", self.config.total_cores());

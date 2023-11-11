@@ -36,8 +36,10 @@ env_logger = "0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0"
+csv = "1"
 rmp-serde = "1"
 indexmap = { version = "2", features = ["serde"] }
+strum = { version = "0", features = ["derive"] }
 
 clap = { version = "4", features = ["derive"] }
 

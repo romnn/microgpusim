@@ -934,10 +934,21 @@ mod tests {
             type Error = std::convert::Infallible;
             #[crate::inject_reconvergence_points]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
+                block
+                    .memory
+                    .push_thread_instruction(tid, mem_inst!(Load[Global]@1, 4).into());
                 if tid.thread_idx.x < 16 {
-                    let inst = mem_inst!(Load[Global]@1, 4);
-                    block.memory.push_thread_instruction(tid, inst.into());
+                    block
+                        .memory
+                        .push_thread_instruction(tid, mem_inst!(Load[Global]@2, 4).into());
+                } else {
+                    block
+                        .memory
+                        .push_thread_instruction(tid, mem_inst!(Load[Global]@3, 4).into());
                 }
+                block
+                    .memory
+                    .push_thread_instruction(tid, mem_inst!(Load[Global]@4, 4).into());
                 Ok(())
             }
         }
@@ -959,8 +970,11 @@ mod tests {
         diff::assert_eq!(
             have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
-                ("LDG.E", Some(1), "11111111111111110000000000000000", 0),
-                ("EXIT", None, "11111111111111111111111111111111", 1),
+                ("LDG.E", Some(1), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(2), "11111111111111110000000000000000", 1),
+                ("LDG.E", Some(3), "00000000000000001111111111111111", 2),
+                ("LDG.E", Some(4), "11111111111111111111111111111111", 3),
+                ("EXIT", None, "11111111111111111111111111111111", 4),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())

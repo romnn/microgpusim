@@ -11,7 +11,7 @@ use rand::{
 use tokio::sync::Mutex;
 
 // Number of threads in each thread block
-pub const BLOCK_DIM: usize = 4;
+pub const BLOCK_DIM: usize = 32;
 
 #[derive(Debug)]
 struct SimpleMatrixmul<'a, T> {
@@ -131,13 +131,15 @@ where
         .allocate(result, MemorySpace::Global, Some("result"))
         .await;
 
+    println!("({m} x {n}) x ({n} x {p}) = ({m} x {p})");
+
     // number of thread blocks in grid
     let block_dim: Dim = (BLOCK_DIM as u32, BLOCK_DIM as u32).into();
     let grid_x = p as f64 / block_dim.x as f64;
     let grid_y = m as f64 / block_dim.y as f64;
     let grid_dim: Dim = (grid_x.ceil() as u32, grid_y.ceil() as u32).into();
-    println!("grid dim:  {grid_dim}");
     println!("block dim: {block_dim}");
+    println!("grid dim:  {grid_dim}");
 
     assert!(grid_dim.x > 0);
     assert!(grid_dim.y > 0);
@@ -167,6 +169,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_correctness() -> eyre::Result<()> {
+        crate::tests::init_test();
         let mut rng = rand::thread_rng();
 
         let (m, n, p) = (4, 4, 4);

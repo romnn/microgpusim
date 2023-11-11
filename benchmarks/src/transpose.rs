@@ -234,7 +234,9 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Hash, strum::EnumString, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Variant {
     Naive,
@@ -437,6 +439,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_correctness() -> eyre::Result<()> {
+        crate::tests::init_test();
         let dim = 32;
 
         // create host vectors

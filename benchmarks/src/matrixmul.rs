@@ -231,6 +231,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_correctness() -> eyre::Result<()> {
+        crate::tests::init_test();
         let mut rng = rand::thread_rng();
 
         let size = 4;

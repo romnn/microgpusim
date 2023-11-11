@@ -67,11 +67,12 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
+  - make the basic plots look good for pascal pchase and write it down
+  - run the same for older fermi or maxwell gpu on das5 and write it down
+  - have another go at the ampere simple plots even though they do not show expected behaviour
+
   - plot: compare mem only simulation and trace reconstruction error
-  - connect to das6
-  - research: try to understand the l1 tex cache hit rate nvprof metric
   - plot: compute overall correlations for all metrics
-  - simulator: l1 latency should only affect HITS ==> l1 return queue
   - add overall secton to parallel table
 
   - p-chase: infer way mapping through tracing misses back
@@ -79,6 +80,9 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: simulator: l1 latency should only affect HITS ==> l1 return queue
+  - GIVE UP: research: try to understand the l1 tex cache hit rate nvprof metric
+  - DONE: connect to das6
   - DONE: clock domains
   - DONE: validate: add baseline cli option
   - DONE: add plots for simulation metrics per bechmark with all different configs for each simulator

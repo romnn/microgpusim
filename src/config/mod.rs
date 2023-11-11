@@ -1097,7 +1097,7 @@ impl Default for GPU {
             // l2 miss latency = 474.04434122
             data_cache_l1: Some(Arc::new(L1DCache {
                 // l1_latency: 1,
-                l1_latency: 82,
+                l1_latency: 1,
                 l1_hit_latency: 80,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),

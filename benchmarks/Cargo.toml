@@ -2,9 +2,14 @@
 name = "gpucachesim-benchmarks"
 version = "0.1.0"
 edition = "2021"
+# default-run = "benchmarks"
 
 [[bin]]
 name = "pchase"
+
+# [[bin]]
+# name = "benchmarks"
+# path = "src/main.rs"
 
 [dependencies]
 num-traits = "0"
@@ -22,11 +27,14 @@ human_bytes = "0"
 console = "0"
 csv = "1"
 serde = { version = "1", features = ["derive"] }
-clap = { version = "4", features = ["derive"] }
 strum = { version = "0", features = ["derive"] }
 
 gpucachesim = { path = "../" }
 trace-model = { path = "../trace/model" }
+
+# running the benchmarks
+# validate = { path = "../validate" }
+clap = { version = "4", features = ["derive"] }
 
 [dev-dependencies]
 approx = "0.5"

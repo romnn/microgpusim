@@ -113,6 +113,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_correctness() -> eyre::Result<()> {
+        crate::tests::init_test();
+
         // create host vectors
         let n = 100;
         let mut a: Vec<f32> = vec![0.0; n];
@@ -159,9 +161,9 @@ mod tests {
         diff::assert_eq!(
             have: simplified_trace,
             want: [
-                ("LDG", Some(0), "11111111111111111111111111111111", 0),
-                ("LDG", Some(512), "11111111111111111111111111111111", 1),
-                ("STG", Some(1024), "11111111111111111111111111111111", 2),
+                ("LDG.E", Some(0), "11111111111111111111111111111111", 0),
+                ("LDG.E", Some(512), "11111111111111111111111111111111", 1),
+                ("STG.E", Some(1024), "11111111111111111111111111111111", 2),
                 ("EXIT", None, "11111111111111111111111111111111", 3),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );

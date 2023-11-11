@@ -10,20 +10,6 @@ use tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-#[derive(Debug, Subcommand)]
-enum Command {
-    /// does testing things
-    Trace {
-        #[arg(short, long)]
-        output: PathBuf,
-    },
-    /// plots a trace
-    PlotTrace {
-        #[arg(short, long)]
-        output: PathBuf,
-    },
-}
-
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Options {

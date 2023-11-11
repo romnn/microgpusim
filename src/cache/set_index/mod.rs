@@ -168,6 +168,8 @@ pub mod ipoly {
 }
 
 pub mod linear {
+    use bitvec::{array::BitArray, field::BitField, order::Lsb0, BitArr};
+
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {
         pub num_sets: usize,
@@ -188,7 +190,14 @@ pub mod linear {
     impl super::SetIndexer for SetIndex {
         // #[inline]
         fn compute_set_index(&self, addr: super::address) -> u64 {
-            let set_idx = (addr >> self.line_size_log2) & (self.num_sets as u64 - 1);
+            // let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+            // addr_bits.store(addr);
+            // let mut set_idx: BitArr!(for 2, in u8, Lsb0) = BitArray::ZERO;
+            // set_idx.set(0, addr_bits[7]);
+            // set_idx.set(1, addr_bits[8]);
+            // let set_idx = set_idx.load();
+            let mut set_idx = addr >> self.line_size_log2;
+            set_idx &= self.num_sets as u64 - 1;
             assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }

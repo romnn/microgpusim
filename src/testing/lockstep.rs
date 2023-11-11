@@ -435,6 +435,11 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     box_config.flush_l1_cache = false;
     box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;
+    if let Some(ref mut l1_cache) = box_config.data_cache_l1 {
+        // workaround: compatible with accelsim which does not differentiate
+        // between l1 tag lookup and hit latency
+        Arc::get_mut(l1_cache).unwrap().l1_latency = l1_cache.l1_latency + l1_cache.l1_hit_latency;
+    }
     crate::init_deadlock_detector();
     let mut box_sim = crate::config::GTX1080::new(Arc::new(box_config));
 
@@ -882,6 +887,7 @@ fn lockstep_accelsim_pchase() -> eyre::Result<()> {
     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
     let target_config = TargetBenchmarkConfig::Simulate {
         parallel: Some(false),
+        l2_prefill: Some(false),
         accelsim_traces_dir: manifest_dir.join("./pchase-debug-trace"),
         traces_dir: manifest_dir.join("./pchase-debug-trace/box"),
         stats_dir: manifest_dir.join("./pchase-debug-trace/stats"),

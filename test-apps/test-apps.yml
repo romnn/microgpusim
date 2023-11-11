@@ -29,8 +29,9 @@ config:
   # for simulation, we do not set a limit on concurrency
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
-    concurrency: 4 # null
+    concurrency: 1 # null
     repetitions: 1
+    l2_prefill: true
     # this is added to all inputs
     inputs:
       mode:
@@ -99,9 +100,14 @@ benchmarks:
       m: [32, 64, 128]
       n: [32, 64, 128]
       p: [32, 64, 128]
+      include:
+        - { m: 32, n: 1024, p: 32, dtype: 32 }
+        - { m: 32, n: 2048, p: 32, dtype: 32 }
+        - { m: 32, n: 4096, p: 32, dtype: 32 }
     # (m x n) x (n x p)
     args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.dtype }}"
     simulate:
+      l2_prefill: false
       traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/trace"
       accelsim_traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/accelsim-trace"
   matrixmul:

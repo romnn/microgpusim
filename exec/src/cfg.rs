@@ -446,7 +446,14 @@ pub mod visit {
                     // Jump back to the last branch node to serialize other possible
                     // control flow paths.
                     let last_branch_node_idx = self.dominator_stack.last().unwrap();
-                    assert_eq!(self.graph[*last_branch_node_idx].branch_id(), *branch_id);
+                    if *branch_id > 0 {
+                        // When returning early from the kernel, we may not reconverge the last
+                        // branch node.
+                        // The last branch node id must either match the current reconvergence
+                        // branch id, or the branch id is 0, which represent source and sink of the
+                        // CFG.
+                        assert_eq!(self.graph[*last_branch_node_idx].branch_id(), *branch_id);
+                    }
 
                     self.stack.clear();
 
