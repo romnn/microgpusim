@@ -12,7 +12,7 @@ use utils::fs::create_dirs;
 
 #[allow(clippy::module_name_repetitions)]
 pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
-    let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::Simulate { ref traces_dir, l2_prefill, .. } = bench.target_config else {
         unreachable!();
     };
 
@@ -41,7 +41,8 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         )
     })?;
 
-    let sim_config = gpucachesim::config::gtx1080::build_config(&input)?;
+    let mut sim_config = gpucachesim::config::gtx1080::build_config(&input)?;
+    sim_config.fill_l2_on_memcopy = l2_prefill.unwrap_or(false);
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
 
@@ -161,10 +162,9 @@ pub mod exec {
         _sim_options: &options::Sim,
         _bar: &indicatif::ProgressBar,
     ) -> Result<Duration, RunError> {
-        let (TargetBenchmarkConfig::Simulate { ref stats_dir, parallel, .. } | TargetBenchmarkConfig::ExecDrivenSimulate { ref stats_dir, parallel, .. }) = bench.target_config else {
+        let (TargetBenchmarkConfig::Simulate { ref stats_dir, parallel, l2_prefill, .. } | TargetBenchmarkConfig::ExecDrivenSimulate { ref stats_dir, parallel, l2_prefill, .. }) = bench.target_config else {
             unreachable!();
         };
-        let stats_dir = stats_dir.join("exec-driven");
         if options.clean {
             utils::fs::remove_dir(&stats_dir).map_err(eyre::Report::from)?;
         }
@@ -188,7 +188,7 @@ pub mod exec {
         };
         let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(parse_err)?;
 
-        let (mut commands, kernel_traces) = match bench.name.to_lowercase().as_str() {
+        let (commands, kernel_traces) = match bench.name.to_lowercase().as_str() {
             "vectoradd" => {
                 #[derive(Debug, serde::Deserialize)]
                 struct VectoraddInput {
@@ -301,6 +301,7 @@ pub mod exec {
                     stats_dir: stats_dir.clone(),
                     accelsim_traces_dir: traces_dir.clone(),
                     parallel,
+                    l2_prefill,
                 },
                 ..bench.clone()
             };

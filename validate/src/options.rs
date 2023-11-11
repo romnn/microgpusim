@@ -1,5 +1,6 @@
 use crate::Target;
 use clap::Parser;
+// use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -58,7 +59,18 @@ pub struct Expand {
 }
 
 #[derive(Parser, Debug, Default, Clone)]
-pub struct Full {}
+pub struct All {}
+
+#[derive(Parser, Debug, Default, Clone)]
+pub struct Run {
+    #[clap(short = 't', long = "target", help = "target")]
+    pub target: Option<Target>,
+    #[clap(short = 'b', long = "benchmark", help = "benchmark")]
+    pub benchmark: String,
+
+    #[clap(trailing_var_arg = true)]
+    pub args: Vec<String>,
+}
 
 #[derive(Parser, Debug, Clone)]
 pub enum Command {
@@ -73,7 +85,8 @@ pub enum Command {
     Build(Build),
     Clean(Clean),
     Expand(Expand),
-    Full(Full),
+    All(All),
+    Run(Run),
 }
 
 impl std::fmt::Display for Command {
@@ -92,7 +105,8 @@ impl std::fmt::Display for Command {
                 Self::Build(_) => "build",
                 Self::Clean(_) => "clean",
                 Self::Expand(_) => "expand",
-                Self::Full(_) => "full",
+                Self::All(_) => "all",
+                Self::Run(_) => "run",
             }
         )
     }
@@ -103,7 +117,7 @@ impl Command {
     pub fn targets(&self) -> Box<dyn Iterator<Item = Target>> {
         use strum::IntoEnumIterator;
         match self {
-            Command::Full(_) => Box::new(Target::iter()), // all
+            Command::All(_) => Box::new(Target::iter()),
             Command::Simulate(_) => Box::new([Target::Simulate].into_iter()),
             Command::ExecSimulate(_) => Box::new([Target::ExecDrivenSimulate].into_iter()),
             Command::Trace(_) => Box::new([Target::Trace].into_iter()),
@@ -114,6 +128,9 @@ impl Command {
                 Box::new([Target::Profile].into_iter())
             }
             Command::Expand(Expand { target, .. }) => {
+                Box::new([target.unwrap_or(Target::Simulate)].into_iter())
+            }
+            Command::Run(Run { target, .. }) => {
                 Box::new([target.unwrap_or(Target::Simulate)].into_iter())
             }
         }

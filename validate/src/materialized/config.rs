@@ -91,6 +91,7 @@ pub struct SimConfig {
     #[serde(flatten)]
     pub common: GenericBenchmark,
     pub parallel: Option<bool>,
+    pub l2_prefill: Option<bool>,
     pub inputs: crate::matrix::Inputs,
 }
 
@@ -100,6 +101,7 @@ pub struct ExecDrivenSimConfig {
     #[serde(flatten)]
     pub common: GenericBenchmark,
     pub parallel: Option<bool>,
+    pub l2_prefill: Option<bool>,
     pub inputs: crate::matrix::Inputs,
 }
 
@@ -243,21 +245,20 @@ impl crate::Config {
                     Some(&common),
                 )?,
                 parallel: self.simulate.parallel,
+                l2_prefill: self.simulate.l2_prefill,
                 inputs: self.simulate.inputs.clone(),
             }
         };
 
         let exec_driven_simulate = {
             ExecDrivenSimConfig {
-                // common: self.exec_driven_simulate.common.materialize(
                 common: self.simulate.common.materialize(
                     base,
                     Some(Target::ExecDrivenSimulate),
                     Some(&common),
                 )?,
-                // parallel: self.exec_driven_simulate.parallel,
                 parallel: self.simulate.parallel,
-                // inputs: self.exec_driven_simulate.inputs,
+                l2_prefill: self.simulate.l2_prefill,
                 inputs: self.simulate.inputs,
             }
         };

@@ -170,6 +170,9 @@ pub struct SimOptions {
     pub traces_dir: Option<Template<PathBuf>>,
     #[serde(default)]
     pub accelsim_traces_dir: Option<Template<PathBuf>>,
+
+    #[serde(default)]
+    pub l2_prefill: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, SmartDefault)]
@@ -285,6 +288,7 @@ pub struct SimConfig {
     #[serde(flatten)]
     pub common: GenericBenchmarkConfig,
     pub parallel: Option<bool>,
+    pub l2_prefill: Option<bool>,
     #[serde(default)]
     pub inputs: matrix::Inputs,
 }

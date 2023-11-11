@@ -31,10 +31,12 @@ pub enum TargetBenchmarkConfig {
         traces_dir: PathBuf,
         accelsim_traces_dir: PathBuf,
         parallel: Option<bool>,
+        l2_prefill: Option<bool>,
     },
     ExecDrivenSimulate {
         stats_dir: PathBuf,
         parallel: Option<bool>,
+        l2_prefill: Option<bool>,
     },
     AccelsimSimulate {
         #[serde(flatten)]
@@ -312,13 +314,22 @@ impl crate::Benchmark {
                 traces_dir,
                 accelsim_traces_dir,
                 parallel: None,
+                l2_prefill: self
+                    .simulate
+                    .l2_prefill
+                    .or(top_level_config.simulate.l2_prefill),
             },
             Target::ExecDrivenSimulate => TargetBenchmarkConfig::ExecDrivenSimulate {
                 stats_dir: common_config
                     .results_dir
                     .join(&default_bench_dir)
-                    .join("sim"),
+                    .join("sim")
+                    .join("exec-driven"),
                 parallel: None,
+                l2_prefill: self
+                    .exec_driven_simulate
+                    .l2_prefill
+                    .or(top_level_config.exec_driven_simulate.l2_prefill),
             },
             Target::AccelsimSimulate => TargetBenchmarkConfig::AccelsimSimulate {
                 stats_dir: common_config

@@ -36,6 +36,7 @@ handlebars = "4"
 shell-words = "1"
 indexmap = { version = "2", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
+argmap = "1"
 indicatif = "0"
 futures = "0.3"
 num_cpus = "1"

@@ -12,7 +12,10 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 use chrono::offset::Local;
 use clap::Parser;
-use color_eyre::eyre::{self, WrapErr};
+use color_eyre::{
+    eyre::{self, WrapErr},
+    Help,
+};
 use console::{style, Style};
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
@@ -26,6 +29,7 @@ use validate::{
     benchmark::paths::PathExt,
     materialized::{self, BenchmarkConfig, Benchmarks},
     options::{self, Command, Options},
+    Target,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -95,7 +99,7 @@ async fn run_benchmark(
 ) -> Result<Duration, validate::RunError> {
     bar.set_message(bench.name.clone());
     match command {
-        Command::Full(ref _opts) => unreachable!(),
+        Command::All(ref _opts) => unreachable!(),
         Command::Expand(ref _opts) => {
             // println!("{:#?}", &bench);
             Ok(Duration::ZERO)
@@ -132,7 +136,27 @@ async fn run_benchmark(
             run_make(&bench, options, bar).await
             // Ok(())
         }
+        Command::Run(ref opts) => unreachable!(),
+        // run_custom_bench(&bench, options, opts, bar).await
+        // Ok(())
+        // }
     }
+}
+
+async fn run_custom_bench(
+    bench: &BenchmarkConfig,
+    options: &Options,
+    run_options: &options::Run,
+    _bar: &indicatif::ProgressBar,
+) -> Result<Duration, validate::RunError> {
+    let start = Instant::now();
+    dbg!(run_options);
+    // if let Command::Build(_) = options.command {
+    //     if !options.force && bench.executable.is_file() {
+    //         return Err(validate::RunError::Skipped);
+    //     }
+    // }
+    Ok(start.elapsed())
 }
 
 fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
@@ -244,7 +268,29 @@ fn print_benchmark_result(
         Command::Build(_) => "building".to_string(),
         Command::Clean(_) => "cleaning".to_string(),
         Command::Expand(_) => "expanding".to_string(),
-        Command::Full(_) => unreachable!(),
+        Command::All(_) => unreachable!(),
+        Command::Run(options::Run { target, .. }) => match target.unwrap_or(Target::Simulate) {
+            Target::PlaygroundSimulate => format!(
+                "simulating [playground][{}]",
+                profile(playground::is_debug())
+            ),
+            Target::Simulate | Target::ExecDrivenSimulate => format!(
+                "simulating [gpucachesim][{}]",
+                profile(gpucachesim::is_debug())
+            ),
+            Target::AccelsimSimulate => format!(
+                "simulating [accelsim][{}]",
+                profile(accelsim_sim::is_debug())
+            ),
+            Target::Trace => format!(
+                "tracing [gpucachesim][{}]",
+                profile(gpucachesim::is_debug())
+            ),
+            Target::AccelsimTrace => {
+                format!("tracing [accelsim][{}]", profile(accelsim_sim::is_debug()))
+            }
+            Target::Profile => "profile".to_string(),
+        },
     };
     let op = style(op).cyan();
     let executable = std::env::current_dir().ok().map_or_else(
@@ -316,7 +362,8 @@ fn available_concurrency(options: &Options, config: &materialized::Config) -> us
         Command::AccelsimSimulate(_) => config.accelsim_simulate.common.concurrency,
         Command::PlaygroundSimulate(_) => config.playground_simulate.common.concurrency,
         Command::Build(_) | Command::Clean(_) => None, // no limit on concurrency
-        Command::Full(_) | Command::Expand(_) => Some(1),
+        Command::All(_) | Command::Expand(_) => Some(1),
+        Command::Run(_) => Some(1),
     };
 
     let max_concurrency = num_cpus::get_physical();
@@ -342,7 +389,7 @@ impl Error {
 
 fn compute_per_command_bench_configs<'a>(
     materialized: &'a Benchmarks,
-    commands: Vec<Command>,
+    commands: &[Command],
     options: &'a Options,
 ) -> eyre::Result<Vec<(Command, Vec<&'a BenchmarkConfig>)>> {
     let queries: Vec<validate::benchmark::Input> = options
@@ -352,9 +399,12 @@ fn compute_per_command_bench_configs<'a>(
         .try_collect()?;
 
     let per_command_bench_configs: Vec<(_, _)> = commands
-        .into_iter()
-        .map(|command| {
+        .iter()
+        .filter_map(|command| {
             use std::collections::HashSet;
+            if let Command::Run(..) = command {
+                return None;
+            }
             let targets: HashSet<_> = command.targets().collect();
             let mut bench_configs: Vec<_> = materialized
                 .benchmark_configs()
@@ -417,10 +467,68 @@ fn compute_per_command_bench_configs<'a>(
                 )
             });
 
-            (command, bench_configs)
+            Some((command.clone(), bench_configs))
         })
         .collect();
     Ok(per_command_bench_configs)
+}
+
+fn compute_custom_bench_config<'a>(
+    materialized: &'a Benchmarks,
+    commands: &[Command],
+) -> eyre::Result<Vec<(Command, Vec<BenchmarkConfig>)>> {
+    commands
+        .iter()
+        .map(|cmd| match cmd {
+            Command::Run(ref run_opts) => {
+                let (_args, argv) = argmap::parse(run_opts.args.iter());
+                let values: serde_json::Value = serde_json::to_value(&argv).map_err(|err| {
+                    eyre::Report::from(err).wrap_err(
+                        eyre::eyre!("failed to parse arguments")
+                            .with_section(|| format!("{:#?}", argv)),
+                    )
+                })?;
+                dbg!(&values);
+
+                let target = run_opts.target.unwrap_or(Target::ExecDrivenSimulate);
+                assert_eq!(target, Target::ExecDrivenSimulate);
+                let input_config = materialized
+                    .get_input_configs(target, run_opts.benchmark.clone())
+                    .next()
+                    .unwrap();
+                dbg!(input_config);
+
+                // let bench_config = BenchmarkConfig {
+                //     name: "test",
+                //     /// Relative index of the benchmark for this target.
+                //     benchmark_idx: usize,
+                //     uid: String,
+                //
+                //     path: PathBuf,
+                //     executable: input.executable,
+                //
+                //     /// Input values for this benchmark config.
+                //     values,
+                //     /// Command line arguments for invoking the benchmark for this target.
+                //     args: vec![],
+                //     /// Relative index of the input configuration for this target.
+                //     input_idx: 0,
+                //
+                //     common: validate::config::GenericBenchmark::default(),
+                //
+                //     target: run_opts.target,
+                //     target_config: validate::TargetBenchmarkConfig::default(),
+                // };
+
+                // eprintln!["args={:?}", &args];
+                // eprintln!["argv={:?}", &argv];
+                Ok(Some((cmd.clone(), vec![])))
+            }
+            _ => Ok(None),
+        })
+        .map(Result::transpose)
+        .filter_map(|x| x)
+        .try_collect()
 }
 
 #[allow(clippy::too_many_lines)]
@@ -452,7 +560,6 @@ async fn main() -> eyre::Result<()> {
     }
 
     color_eyre::install()?;
-    dotenv::dotenv().ok();
 
     let start = Instant::now();
     let options = Arc::new(Options::parse());
@@ -471,12 +578,12 @@ async fn main() -> eyre::Result<()> {
     println!("concurrency: {concurrency}");
 
     let commands = match &options.command {
-        Command::Full(_) => vec![
-            Command::Build(options::Build::default()),
+        Command::All(_) => vec![
+            // Command::Build(options::Build::default()),
             // profiling requires sudo so we skip for now
             // Command::Profile(options::Profile::default()),
-            Command::Trace(options::Trace::default()),
-            Command::AccelsimTrace(options::AccelsimTrace::default()),
+            // Command::Trace(options::Trace::default()),
+            // Command::AccelsimTrace(options::AccelsimTrace::default()),
             Command::ExecSimulate(options::Sim::default()),
             Command::Simulate(options::Sim::default()),
             Command::AccelsimSimulate(options::AccelsimSim::default()),
@@ -485,8 +592,15 @@ async fn main() -> eyre::Result<()> {
         other => vec![other.clone()],
     };
 
-    let per_command_bench_configs =
-        compute_per_command_bench_configs(&materialized, commands, &options)?;
+    let mut per_command_bench_configs =
+        compute_per_command_bench_configs(&materialized, &commands, &options)?;
+
+    // add custom bench commands
+    let custom_bench_configs = compute_custom_bench_config(&materialized, &commands)?;
+    for (command, bench_configs) in custom_bench_configs.iter() {
+        per_command_bench_configs.push((command.clone(), bench_configs.iter().collect()));
+    }
+
     let num_bench_configs = per_command_bench_configs
         .iter()
         .flat_map(|(_command, bench_configs)| bench_configs)
