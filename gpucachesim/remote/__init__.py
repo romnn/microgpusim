@@ -3,6 +3,7 @@ import paramiko
 import paramiko.channel
 import scp
 import re
+import enum
 import datetime
 from io import BytesIO, StringIO
 import tempfile
@@ -29,6 +30,113 @@ DAS5_FORWARD_PORT = 2202
 SEC = 1
 MIN = 60 * SEC
 HOUR = 60 * MIN
+
+
+class MyEnum(enum.Enum):
+    # @classmethod
+    # def __contains__(cls, value):
+    #     print("hi")
+    #     if isinstance(value, cls):
+    #         return True
+    #     return value in cls._value2member_map_ or value in cls._unhashable_values_
+
+    @classmethod
+    def has(cls, v) -> bool:
+        if isinstance(v, cls):
+            return True
+        # values = [v.upper() for v in cls._value2member_map_.keys()]
+        # members = [str(m).upper() for m in cls._value2member_map_.values()]
+        # if value.upper() in values or value.upper() in members:
+        #     return True
+        for value, member in cls._value2member_map_.items():
+            if v.upper() == value.upper() or v.upper() == str(member).upper():
+                return True
+
+        return v in cls._unhashable_values_
+        # return value in cls._value2member_map_ or value in cls._unhashable_values_
+
+    @classmethod
+    def get(cls, v) -> enum.Enum:
+        for value, member in cls._value2member_map_.items():
+            if v.upper() == value.upper() or v.upper() == str(member).upper():
+                return member
+        raise KeyError(v)
+
+
+#     def __eq__(self, other):
+#         if isinstance(other, self.__class__):
+#             return self.__dict__ == other.__dict__
+#         elif value in cls._value2member_map_ or value in cls._unhashable_values_isinstance:
+#             return True
+#             return False
+
+# class Enum(enum.Enum):
+#     def __contains__(cls, value):
+#         if isinstance(value, cls):
+#             return True
+#         return value in cls._value2member_map_ or value in cls._unhashable_values_
+#
+#     def __getitem__(cls, name):
+#         cls._member_map_[name]
+
+
+class DAS6_GPU(MyEnum):
+    A4000 = "A4000"
+    A100 = "A100"
+
+
+class DAS5_GPU(MyEnum):
+    GTX980 = "GTX980"
+    TITAN = "Titan"
+    K20 = "K20"
+    RTX2080TI = "RTX2080Ti"
+    TITANX = "TitanX"
+    TITANXPASCAL = "TitanX-Pascal"
+
+
+def find_gpu(
+    gpu: typing.Optional[str],
+) -> typing.Optional[typing.Union[enum.Enum, enum.Enum]]:
+    if gpu is None:
+        return None
+    if DAS5_GPU.has(gpu):
+        return DAS5_GPU.get(gpu)
+    elif DAS6_GPU.has(gpu):
+        return DAS6_GPU.get(gpu)
+    raise ValueError(
+        "GPU {} not found, have {} (DAS5) and {} (DAS6)".format(
+            gpu, [g.value for g in DAS5_GPU], [g.value for g in DAS6_GPU]
+        )
+    )
+
+
+def get_compute_capability(gpu: typing.Optional[enum.Enum]) -> typing.Optional[int]:
+    # source: https://developer.nvidia.com/cuda-gpus#compute
+    match gpu:
+        case None:
+            return None
+        case DAS6_GPU.A4000:
+            return 86
+        case DAS6_GPU.A100:
+            return 80
+        case DAS5_GPU.TITANXPASCAL:
+            return 61
+        case DAS5_GPU.TITANX:
+            return 52
+        case DAS5_GPU.TITAN:
+            return 35
+        case DAS5_GPU.GTX980:
+            return 52
+        case DAS5_GPU.K20:
+            return 35
+        case DAS5_GPU.RTX2080TI:
+            return 75
+    raise ValueError("unknown compute capability for GPU {}".format(gpu))
+
+
+# VALID_GPUS_DAS6 = [gpu.value.upper() for gpu in DAS6_GPU]
+# VALID_GPUS_DAS5 = [gpu.value.upper() for gpu in DAS5_GPU]
+# VALID_GPUS = [None] + VALID_GPUS_DAS6 + VALID_GPUS_DAS5
 
 
 @click.group()
@@ -138,14 +246,14 @@ def duration_to_slurm(duration: datetime.timedelta):
     return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
 
 
-class DAS6(SSHClient):
-    def __init__(self, port=DAS6_FORWARD_PORT, timeout=60, compress=True):
-        load_dotenv(DAS_ENV)
+class DAS(SSHClient):
+    CUDA_MODULE: str
 
+    def __init__(self, host, username, password, port, timeout=60, compress=True):
         super().__init__(
-            host="localhost",
-            username=os.environ["DAS6_USERNAME"],
-            password=os.environ["DAS6_PASSWORD"],
+            host=host,
+            username=username,
+            password=password,
             port=port,
             timeout=timeout,
             compress=compress,
@@ -176,7 +284,7 @@ class DAS6(SSHClient):
     def run_pchase_sync(
         self,
         cmd,
-        gpu,
+        gpu: enum.Enum,
         executable=None,
         force=False,
         timeout=4 * HOUR,
@@ -186,7 +294,7 @@ class DAS6(SSHClient):
     ) -> typing.Tuple[typing.IO, typing.IO]:
         executable = executable if executable is not None else self.remote_pchase_executable
 
-        job_name = "-".join([Path(executable).name, str(gpu)] + cmd)
+        job_name = "-".join([Path(executable).name, str(gpu.value).replace(" ", "-")] + cmd)
         remote_stdout_path = self.remote_pchase_results_dir / "{}.stdout".format(job_name)
         remote_stderr_path = self.remote_pchase_results_dir / "{}.stderr".format(job_name)
 
@@ -231,7 +339,7 @@ class DAS6(SSHClient):
 
     def submit_pchase(
         self,
-        gpu,
+        gpu: enum.Enum,
         args,
         name=None,
         executable=None,
@@ -253,9 +361,11 @@ class DAS6(SSHClient):
             env.update({"LOG_EVERY": str(log_every)})
 
         executable = executable if executable is not None else self.remote_pchase_executable
+        executable = executable.with_name(executable.name + "_" + str(get_compute_capability(gpu=gpu)))
 
         # load cuda toolkit
-        exit_status, stdout, stderr = self.run_command("module load cuda11.7/toolkit")
+        module = "module load {}".format(self.__class__.CUDA_MODULE)
+        exit_status, stdout, stderr = self.run_command(module)
         print(stderr.read().decode("utf-8"), end="")
         print(stdout.read().decode("utf-8"), end="")
         assert exit_status == 0
@@ -267,7 +377,7 @@ class DAS6(SSHClient):
         assert exit_status == 0
 
         # build slurm script
-        job_name = name or "-".join([Path(executable).name, str(gpu)] + args)
+        job_name = name or "-".join([Path(executable).name, str(gpu.value).replace(" ", "-")] + args)
         remote_slurm_job_path = self.remote_pchase_results_dir / f"{job_name}.job"
         remote_slurm_stdout_path = self.remote_pchase_results_dir / f"{job_name}.stdout"
         remote_slurm_stderr_path = self.remote_pchase_results_dir / f"{job_name}.stderr"
@@ -281,7 +391,7 @@ class DAS6(SSHClient):
         if isinstance(timeout, datetime.timedelta):
             slurm_script += "#SBATCH --time={}\n".format(duration_to_slurm(timeout))
         slurm_script += "#SBATCH -N 1\n"
-        slurm_script += "#SBATCH -C {}\n".format(gpu)
+        slurm_script += "#SBATCH -C {}\n".format(gpu.value)
         slurm_script += "#SBATCH --gres=gpu:1\n"
         for k, v in env.items():
             slurm_script += "export {}={}\n".format(k, v)
@@ -346,6 +456,44 @@ class DAS6(SSHClient):
         for line in stdout.readlines():
             print(line.strip())
         assert exit_status == 0
+
+
+class DAS5(DAS):
+    CUDA_MODULE = "cuda11.1/toolkit"
+
+    def __init__(self, port=DAS5_FORWARD_PORT, timeout=60, compress=True):
+        load_dotenv(DAS_ENV)
+
+        super().__init__(
+            host="localhost",
+            username=os.environ["DAS5_USERNAME"],
+            password=os.environ["DAS5_PASSWORD"],
+            port=port,
+            timeout=timeout,
+            compress=compress,
+        )
+
+    def __repr__(self):
+        return "DAS5"
+
+
+class DAS6(DAS):
+    CUDA_MODULE = "cuda11.7/toolkit"
+
+    def __init__(self, port=DAS6_FORWARD_PORT, timeout=60, compress=True):
+        load_dotenv(DAS_ENV)
+
+        super().__init__(
+            host="localhost",
+            username=os.environ["DAS6_USERNAME"],
+            password=os.environ["DAS6_PASSWORD"],
+            port=port,
+            timeout=timeout,
+            compress=compress,
+        )
+
+    def __repr__(self):
+        return "DAS6"
 
 
 def extract_slurm_job_id(stdout: str) -> typing.Optional[int]:
@@ -516,16 +664,23 @@ def squeue(local_port):
 @click.pass_context
 def submit_pchase(ctx, local_port, gpu):
     args = list(ctx.args)
-    das6 = None
+    gpu = find_gpu(gpu)
+    das = None
     try:
-        das6 = DAS6(port=local_port)
-        print("connected to DAS6")
-        job_id, job_name, _ = das6.submit_pchase(gpu=gpu, args=args)
+        if DAS5_GPU.has(gpu):
+            das = DAS6(port=local_port)
+        elif DAS6_GPU.has(gpu):
+            das = DAS6(port=local_port)
+        else:
+            raise ValueError("cannot run on GPU {}".format(str(gpu)))
+        assert gpu is not None
+        print("connected to {}".format(das))
+        job_id, job_name, _ = das.submit_pchase(gpu=gpu, args=args)
         print("submitted job <{}> [ID={}]".format(job_name, job_id))
-        das6.close()
+        das.close()
     except Exception as e:
-        if das6 is not None:
-            das6.close()
+        if das is not None:
+            das.close()
         raise e
 
 

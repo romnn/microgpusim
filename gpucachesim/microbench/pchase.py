@@ -14,6 +14,7 @@ import sympy as sym
 import logicmin
 import re
 import os
+import enum
 import bitarray
 import bitarray.util
 import tempfile
@@ -55,10 +56,9 @@ CACHE_DIR = PLOT_DIR / "cache"
 SEC = 1
 MIN = 60 * SEC
 
-# valid GPU device names in DAS6 cluster
-VALID_GPUS = [None, "A4000", "A100"]
 
-CSV_COMPRESSION = {"method": "bz2", "compresslevel": 9}  # , 'mtime': 1}
+
+CSV_COMPRESSION = {"method": "bz2", "compresslevel": 9}
 
 # suppress scientific notation by setting float_format
 # pd.options.display.float_format = "{:.3f}".format
@@ -469,7 +469,7 @@ def compute_hits(df, sim, gpu=None, force_misses=True):
 
 
 def pchase(
-    gpu,
+    gpu: typing.Optional[enum.Enum],
     mem,
     stride_bytes,
     warmup,
@@ -543,12 +543,17 @@ def pchase(
             print(e.stderr)
             raise e
     else:
-        das6 = remote.DAS6()
+        if remote.DAS5_GPU.has(gpu):
+            das = remote.DAS5()
+        elif remote.DAS6_GPU.has(gpu):
+            das = remote.DAS6()
+        else:
+            raise ValueError("cannot run on GPU {}".format(str(gpu)))
         try:
-            stdout_reader, stderr_reader = das6.run_pchase_sync(
+            stdout_reader, stderr_reader = das.run_pchase_sync(
                 cmd,
                 gpu=gpu,
-                executable=das6.remote_scratch_dir / "pchase",
+                executable=das.remote_scratch_dir / "pchase",
                 force=force,
             )
             stderr = stderr_reader.read().decode("utf-8")
@@ -572,7 +577,7 @@ def pchase(
         #     stdout = das6.read_file_contents(remote_path=remote_stdout_path).decode("utf-8")
         #     stderr = das6.read_file_contents(remote_path=remote_stderr_path).decode("utf-8")
         except Exception as e:
-            das6.close()
+            das.close()
             raise e
 
     df = pd.read_csv(
@@ -708,55 +713,69 @@ def get_compute_capability(gpu) -> typing.Optional[int]:
 def get_label(sim, gpu):
     return "gpucachesim" if sim else (gpu or "GTX 1080")
 
-def get_known_l2_prefetch_percent(mem: str, gpu=None) -> float:
+def get_known_l2_prefetch_percent(mem: str, gpu: typing.Optional[enum.Enum]=None) -> float:
     match (gpu, mem.lower()):
-        case (None, "l1data"):
-            return 0.0
         case (None, "l2"):
             return 0.25
-        case ("A4000", "l1data"):
-            return 0.0
         case ("A4000", "l2"):
             return 0.25
-    raise ValueError("unknown num sets for {}".format(mem))
+        case _:
+            return 0.0
 
-def get_known_cache_size_bytes(mem: str, gpu=None) -> int:
+def get_known_cache_size_bytes(mem: str, gpu: typing.Optional[enum.Enum] = None) -> int:
     match (gpu, mem.lower()):
+        # local gpu gtx 1080 (pascal)
         case (None, "l1data"):
             return 24 * KB
         case (None, "l2"):
             return 2 * MB
-        case ("A4000", "l1data"):
+        # a 4000 (ampere)
+        case (remote.DAS6_GPU.A4000, "l1data"):
             return 19 * KB
-        case ("A4000", "l2"):
+        case (remote.DAS6_GPU.A4000, "l2"):
             return 4 * MB
-    raise ValueError("unknown num sets for {}".format(mem))
+        # gtx 980 (maxwell)
+        case (remote.DAS5_GPU.GTX980, "l1data"):
+            return 48 * KB
+        case (remote.DAS5_GPU.GTX980, "l2"):
+            return 2 * MB
+        # titan (kepler)
+        case (remote.DAS5_GPU.TITAN, "l1data"):
+            return 16 * KB
+        case (remote.DAS5_GPU.TITAN, "l2"):
+            return 1536 * KB
+        # titan x (pascal / maxwell)
+        case (remote.DAS5_GPU.TITANXPASCAL | remote.DAS5_GPU.TITANX, "l1data"):
+            return 48 * KB
+        case (remote.DAS5_GPU.TITANXPASCAL | remote.DAS5_GPU.TITANX, "l2"):
+            return 3 * MB
+    raise ValueError("unknown cache size for ({}, {})".format(gpu, mem))
 
 
-def get_known_cache_line_bytes(mem: str, gpu=None) -> int:
+def get_known_cache_line_bytes(mem: str, gpu: typing.Optional[enum.Enum]=None) -> int:
     match (gpu, mem.lower()):
         case (None, "l1data"):
             return 128
         case (None, "l2"):
             return 32
-        case ("A4000", "l1data"):
+        case (remote.DAS6_GPU.A4000, "l1data"):
             return 128
-        case ("A4000", "l2"):
+        case (remote.DAS6_GPU.A4000, "l2"):
             return 32
-    raise ValueError("unknown num sets for {}".format(mem))
+    raise ValueError("unknown cache line size for ({}, {})".format(gpu, mem))
 
 
-def get_known_cache_num_sets(mem: str, gpu=None) -> int:
+def get_known_cache_num_sets(mem: str, gpu: typing.Optional[enum.Enum]=None) -> int:
     match (gpu, mem.lower()):
         case (None, "l1data"):
             return 4
         case (None, "l2"):
             return 4
-        case ("A4000", "l1data"):
+        case (remote.DAS6_GPU.A4000.value, "l1data"):
             return 4
-        case ("A4000", "l2"):
+        case (remote.DAS6_GPU.A4000.value, "l2"):
             return 4
-    raise ValueError("unknown num sets for {}".format(mem))
+    raise ValueError("unknown num sets for ({}, {})".format(gpu, mem))
 
 
 @main.command()
@@ -775,8 +794,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup or 0
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     predicted_l2_prefetch_percent = get_known_l2_prefetch_percent(mem=mem, gpu=gpu)
     known_l2_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
@@ -1325,8 +1343,7 @@ def find_cache_set_mapping_pchase(
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup if warmup is not None else (1 if sim else 2)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     known_cache_size_bytes = known_cache_size_bytes or get_known_cache_size_bytes(
         mem=mem, gpu=gpu
@@ -1737,8 +1754,8 @@ def find_cache_set_mapping(
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup if warmup is not None else (1 if sim else 2)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
+
     compute_capability = compute_capability if compute_capability is not None else get_compute_capability(gpu=gpu)
 
     sort = False
@@ -3457,8 +3474,7 @@ def find_cache_replacement_policy(
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 4))
     warmup = warmup if warmup is not None else (1 if sim else 5)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     known_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
     known_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
@@ -4298,8 +4314,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     repetitions = max(1, repetitions or (1 if sim else 10))
     warmup = warmup or (1 if sim else 2)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     known_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
     known_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
@@ -4550,8 +4565,7 @@ def find_cache_line_size(
     known_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
     predicted_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
     
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     stride_bytes = 8
     predicted_num_lines = get_known_cache_num_sets(mem=mem, gpu=gpu)
@@ -4882,8 +4896,7 @@ def latency_n_graph(
     known_cache_size_bytes = 100 * KB
     known_cache_sets = 64
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     stride_bytes = 16
     step_size_bytes = 32
@@ -5166,8 +5179,7 @@ def latency_n_graph(
 def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1):
     repetitions = max(1, repetitions or 1)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     # plot latency distribution
     cache_file = get_cache_file(
@@ -5300,12 +5312,12 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             fig.write_image(filename, **plot.PLOTLY_PDF_OPTS)
 
 
-def get_cache_file(prefix, mem, sim, gpu, compute_capability=None) -> Path:
+def get_cache_file(prefix, mem, sim, gpu: typing.Optional[enum.Enum], compute_capability=None) -> Path:
     kind = "sim" if sim else "native"
     if gpu is None:
         cache_file_name = "{}-{}-{}".format(prefix, mem, kind)
     else:
-        cache_file_name = "{}/{}-{}-{}".format(gpu, prefix, mem, kind)
+        cache_file_name = "{}/{}-{}-{}".format(str(gpu), prefix, mem, kind)
     if isinstance(compute_capability, int):
         cache_file_name += "-cc{}".format(compute_capability)
     return (CACHE_DIR / cache_file_name).with_suffix(".csv")
@@ -5350,8 +5362,7 @@ def find_cache_size(
     max_rounds = max(1, max_rounds if max_rounds is not None else 1)
     predicted_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
 
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
 
     print(
         "predicted cache size: {} bytes ({})".format(
@@ -5543,8 +5554,7 @@ def test():
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
 def run(mem, gpu, warmup, repetitions, rounds, size, stride, verbose, sim, force):
-    gpu = gpu.upper() if gpu is not None else None
-    assert gpu in VALID_GPUS
+    gpu = remote.find_gpu(gpu)
     repetitions = repetitions or 1
     warmup = warmup or 1
     stride = stride or 32

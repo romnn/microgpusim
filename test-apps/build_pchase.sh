@@ -13,8 +13,6 @@ if [ ! -d "$SCRATCH" ]; then
     exit 1
 fi
 
-exit 0
-
 # das6
 CUDA_11_7=$(module avail cuda11.7/toolkit 2>&1)
 # das 5
@@ -48,6 +46,11 @@ fi
 cd $REPO
 git pull
 # make -B -C ./test-apps/microbenches/chxw/ pchase_86 set_mapping_86
-make $@ -C $REPO/test-apps/microbenches/chxw/
-cp $REPO/test-apps/microbenches/chxw/pchase_86 $SCRATCH/pchase
-cp $REPO/test-apps/microbenches/chxw/set_mapping_86 $SCRATCH/set_mapping
+
+for arch in (35 52 61 75 80 86)
+do
+    echo "building $arch"
+    make $@ -C $REPO/test-apps/microbenches/chxw/ $arch
+    cp $REPO/test-apps/microbenches/chxw/pchase_$arch $SCRATCH/pchase_$arch
+    cp $REPO/test-apps/microbenches/chxw/set_mapping_$arch $SCRATCH/set_mapping_$arch
+done

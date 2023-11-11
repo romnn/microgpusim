@@ -13,11 +13,18 @@ CUFILES := $(wildcard *.cu)
 EXECUTABLES := $(CUFILES:%.cu=%)
 EXECUTABLES := $(filter-out common, $(EXECUTABLES))
 DEBUG_EXECUTABLES := $(EXECUTABLES:%=%_debug)
-AMPERE_EXECUTABLES := $(EXECUTABLES:%=%_86)
+# 86_EXECUTABLES := $(EXECUTABLES:%=%_86)
 CUBINS := $(EXECUTABLES:%=%.cubin)
 
 # Default target: build all executables
-all: $(EXECUTABLES) $(AMPERE_EXECUTABLES) $(DEBUG_EXECUTABLES) $(CUBINS)
+all: $(EXECUTABLES) $(DEBUG_EXECUTABLES) $(CUBINS)
+
+86: $(EXECUTABLES:%=%_86)
+80: $(EXECUTABLES:%=%_80)
+61: $(EXECUTABLES:%=%_61)
+35: $(EXECUTABLES:%=%_35)
+52: $(EXECUTABLES:%=%_52)
+75: $(EXECUTABLES:%=%_75)
 
 # Rule to build each executable
 %: %.cu common.cu
@@ -27,9 +34,23 @@ all: $(EXECUTABLES) $(AMPERE_EXECUTABLES) $(DEBUG_EXECUTABLES) $(CUBINS)
 %_debug: %.cu common.cu
 	$(NVCC) $(NV_FLAGS) -arch sm_61 $(NV_DEBUG_FLAGS) $^ -o $@
 
-# Rule to build each debug executable
 %_86: %.cu common.cu
 	$(NVCC) $(NV_FLAGS) -arch sm_86 $(NV_DEBUG_FLAGS) $^ -o $@
+
+%_80: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_80 $(NV_DEBUG_FLAGS) $^ -o $@
+
+%_35: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_35 $(NV_DEBUG_FLAGS) $^ -o $@
+
+%_52: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_52 $(NV_DEBUG_FLAGS) $^ -o $@
+
+%_75: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_75 $(NV_DEBUG_FLAGS) $^ -o $@
+
+%_61: %.cu common.cu
+	$(NVCC) $(NV_FLAGS) -arch sm_61 $(NV_DEBUG_FLAGS) $^ -o $@
 
 # Rule to build each cubin
 %.cubin: %.cu common.cu
@@ -42,7 +63,12 @@ clean:
 	rm -rf *.cubin
 	rm -rf *.cuasm
 	rm -rf $(EXECUTABLES)
-	rm -rf $(AMPERE_EXECUTABLES)
+	rm -rf $(EXECUTABLES:%=%_86)
+	rm -rf $(EXECUTABLES:%=%_80)
+	rm -rf $(EXECUTABLES:%=%_61)
+	rm -rf $(EXECUTABLES:%=%_35)
+	rm -rf $(EXECUTABLES:%=%_52)
+	rm -rf $(EXECUTABLES:%=%_75)
 	rm -rf $(DEBUG_EXECUTABLES)
 
 .PHONY: all clean
