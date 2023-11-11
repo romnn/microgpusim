@@ -47,7 +47,8 @@ cd $REPO
 git pull
 # make -B -C ./test-apps/microbenches/chxw/ pchase_86 set_mapping_86
 
-for arch in (35 52 61 75 80 86)
+arches=(35 52 61 75 80 86)
+for arch in "${arches[@]}"
 do
     echo "building $arch"
     make $@ -C $REPO/test-apps/microbenches/chxw/ $arch
