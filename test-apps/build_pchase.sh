@@ -2,8 +2,32 @@
 
 set -e
 
-# try das6 first, then das 5
-module load cuda11.7/toolkit || module load cuda11.1/toolkit/11.1.1
+SCRATCH="/var/scratch/rdm420/"
+REPO="$SCRATCH/gpucachesim/"
+
+if [ ! -d "$SCRATCH" ]; then
+    echo "ERROR: $SCRATCH is not a directory."
+    echo "Are you running on DAS5 or DAS6?"
+    echo ""
+    echo "exiting"
+    exit 1
+fi
+
+exit 0
+
+# das6
+CUDA_11_7=$(module avail cuda11.7/toolkit 2>&1)
+# das 5
+CUDA_11_1=$(module avail cuda11.1/toolkit 2>&1)
+
+if [ ! -z "$CUDA_11_7" ]; then
+    echo "loading CUDA 11.7"
+    module load cuda11.7/toolkit
+fi
+if [ ! -z "$CUDA_11_1" ]; then
+    echo "loading CUDA 11.1"
+    module load cuda11.1/toolkit
+fi
 
 # DAS 5
 # -C GTX980
@@ -20,9 +44,6 @@ module load cuda11.7/toolkit || module load cuda11.1/toolkit/11.1.1
 # nodes with an Nvidia GTX TitanX, Pascal, 48 KB L1, 3 MB L2
 
 # we could test TitanX-Pascal, TitanX, GTX980, Titan
-
-SCRATCH="/var/scratch/rdm420/"
-REPO="$SCRATCH/gpucachesim/"
 
 cd $REPO
 git pull
