@@ -18,6 +18,7 @@ import gpucachesim.stats.playground as playground
 import gpucachesim.benchmarks as benchmarks
 from gpucachesim.stats.human import human_readable
 import gpucachesim.plot as plot
+import gpucachesim.utils as utils
 
 from gpucachesim.benchmarks import Target, Benchmarks, GPUConfig, REPO_ROOT_DIR
 
@@ -172,7 +173,15 @@ def aggregate_benchmark_results(
         # p: [32, 64, 128]
 
         subset = pd.DataFrame.from_records(
-            [(32, 32, 32), (128, 128, 128), (32, 64, 128), (128, 32, 32)],
+            [
+                (32, 32, 32),
+                (128, 128, 128),
+                (32, 64, 128),
+                (128, 32, 32),
+                (32, 1024, 32),
+                (32, 2048, 32),
+                (32, 4096, 32),
+            ],
             columns=["input_m", "input_n", "input_p"]
         )
         # print(subset.index)
@@ -1345,24 +1354,26 @@ class StatConfig(typing.NamedTuple):
     label: str
     log_y_axis: bool
     grid: bool
+    percent: bool
 
 DEFAULT_STAT_CONFIG = StatConfig(
     label="",
     log_y_axis=False,
     grid=True,
+    percent=False,
 )
 
 STAT_CONFIGS = {
     "instructions": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="instruction count", log_y_axis=True),
+            **dict(label="Instructions", log_y_axis=True),
         }
     ),
     "cycles": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="cycles", log_y_axis=True),
+            **dict(label="Cycles", log_y_axis=True),
         }
     ),
     "dram_reads": StatConfig(
@@ -1377,7 +1388,104 @@ STAT_CONFIGS = {
             **dict(label="DRAM writes", log_y_axis=True),
         }
     ),
+    "exec_time_sec": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="Execution time (s)", log_y_axis=True),
+        }
+    ),
+    "l1_global_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L1 global hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l1_local_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L1 local hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l1_accesses": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="L1 accesses", log_y_axis=True),
+        }
+    ),
+    "l2_accesses": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label="L2 accesses", log_y_axis=True),
+        }
+    ),
+    "l1_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"Unified L1 hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l2_read_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 read hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l1_read_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L1 read hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l2_write_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 write hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l1_write_hit_rate": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L1 write hit rate (%)", log_y_axis=False, percent=True),
+        }
+    ),
+    "l2_writes": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 writes", log_y_axis=True, percent=False),
+        }
+    ),
+    "l2_reads": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 reads", log_y_axis=True, percent=False),
+        }
+    ),
 }
+
+# @main.command()
+# # @click.pass_context
+# # @click.option("--path", help="Path to materialized benchmark config")
+# # @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
+# @click.option("--bench", "bench_name", help="Benchmark name")
+# # @click.option("--plot", "should_plot", type=bool, default=True, help="generate plots")
+# @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
+# # @click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
+# # @click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
+# # @click.option("--input", "input_idx", type=int, help="Input index")
+# def test(bench_name, nsight):
+#     # 0.95 0.95 0.78 0.59 0.45 0.95 0.95
+#     profiler = "nsight" if nsight else "nvprof"
+#     if bench_name is None:
+#         stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
+#     else:
+#         stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+#             profiler, bench_name
+#         )
+#
+#     per_kernel, per_target_pivoted = aggregate_benchmark_results(
+#         sim_df, bench_name, memory_only=mem_only
+#     )
+
 
 
 @main.command()
@@ -1388,8 +1496,9 @@ STAT_CONFIGS = {
 @click.option("--plot", "should_plot", type=bool, default=True, help="generate plots")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
+@click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
 # @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name, should_plot, nsight, mem_only):
+def view(path, bench_name, should_plot, nsight, mem_only, verbose):
     # load the materialized benchmark config
     profiler = "nsight" if nsight else "nvprof"
     if bench_name is None:
@@ -1413,13 +1522,40 @@ def view(path, bench_name, should_plot, nsight, mem_only):
         bench_input_cols = BENCHMARK_INPUT_COLS[benchmark]
         assert all([c in df for c in bench_input_cols])
 
-        label = str(benchmark)
         match benchmark.lower():
             case "vectoradd":
-                label += "\n"
-                label += "f{:<2} {:<5}".format(
-                    int(df["input_dtype"]), int(df["input_length"])
+                label = "VectorAdd\n"
+                label += "f{:<2} {}".format(
+                    int(df["input_dtype"]),
+                    int(df["input_length"]),
                 )
+            case "matrixmul":
+                label = "MatrixMul\n"
+                label += "f{:<2} {}x{}x{}".format(
+                    int(df["input_dtype"]),
+                    int(df["input_rows"]),
+                    int(df["input_rows"]),
+                    int(df["input_rows"]),
+                )
+            case "simple_matrixmul":
+                label = "Naive MatrixMul\n"
+                label += "f{:<2} {}x{}x{}".format(
+                    int(df["input_dtype"]),
+                    int(df["input_m"]),
+                    int(df["input_n"]),
+                    int(df["input_p"]),
+                )
+            case "transpose":
+                label = "Transpose\n"
+                label += "{}\n".format(df["input_variant"])
+                label += "{}x{}".format(
+                    int(df["input_dim"]), int(df["input_dim"]),
+                )
+            case "babelstream":
+                label = "BabelStream\n"
+                label += "{}".format(int(df["input_size"]))
+            case other:
+                label = str(other)
 
         return label
 
@@ -1474,7 +1610,7 @@ def view(path, bench_name, should_plot, nsight, mem_only):
             **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
         )
         ylabel = stat_config.label
-        fontsize = plot.FONT_SIZE_PT
+        fontsize = plot.FONT_SIZE_PT - 4
         font_family = "Helvetica"
 
         bar_width = 10
@@ -1485,7 +1621,7 @@ def view(path, bench_name, should_plot, nsight, mem_only):
 
         plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
         fig = plt.figure(
-            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.25 * plot.DINA4_HEIGHT_INCHES),
+            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.21 * plot.DINA4_HEIGHT_INCHES),
             layout="constrained",
         )
         ax = plt.axes()
@@ -1500,9 +1636,11 @@ def view(path, bench_name, should_plot, nsight, mem_only):
             zorder=1,
         )
 
-        for target, (inputs_idx, inputs) in itertools.product(
+        target_configs = itertools.product(
             targets, benchmark_inputs[benchmark].iterrows()
-        ):
+        )
+
+        for target, (inputs_idx, inputs) in target_configs:
             key = [target, benchmark] + [
                 inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]
             ]
@@ -1514,22 +1652,25 @@ def view(path, bench_name, should_plot, nsight, mem_only):
 
             target_name = target_df["target_name"].first().values[0]
 
-            print(
-                "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
-                    benchmark,
-                    stat_col,
-                    target_name,
-                    target_idx,
-                    str(inputs[BENCHMARK_INPUT_COLS[benchmark]].tolist()),
-                    inputs_idx,
-                    idx,
-                    target_df[stat_col].fillna(0.0).mean(),
-                    target_df[stat_col].fillna(0.0).std(),
+            if verbose:
+                print(
+                    "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
+                        benchmark,
+                        stat_col,
+                        target_name,
+                        target_idx,
+                        str(inputs[BENCHMARK_INPUT_COLS[benchmark]].tolist()),
+                        inputs_idx,
+                        idx,
+                        target_df[stat_col].fillna(0.0).mean(),
+                        target_df[stat_col].fillna(0.0).std(),
+                    )
                 )
-            )
 
             x = [idx]
             y = target_df[stat_col].fillna(0.0).mean()
+            if stat_config.percent:
+                y *= 100.0
             ystd = target_df[stat_col].fillna(0.0).std()
 
             color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target_name.lower()], 1.0)
@@ -1563,31 +1704,54 @@ def view(path, bench_name, should_plot, nsight, mem_only):
         ax.set_ylabel(ylabel)
         ax.axes.set_zorder(10)
 
-        xtick_labels = benchmark_inputs[benchmark]["label"].values
-        xtick_values = np.arange(0, len(xtick_labels), dtype=np.float64)
+        inputs = benchmark_inputs[benchmark]
+        labels = inputs["label"].values
+        key = [Target.Simulate.value, benchmark] + [
+            inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]
+        ]
+        simulate_df = per_target.loc[tuple(key), :]
+        num_blocks = simulate_df["num_blocks"].values
+        assert len(labels) == len(num_blocks)
+        xtick_labels = [
+            "{}\n{} blocks".format(label, int(blocks))
+            for label, blocks in zip(labels, num_blocks)
+        ]
+        xtick_values = np.arange(0, len(labels), dtype=np.float64)
         xtick_values *= group_width
         xtick_values += 0.5 * float((group_width - group_spacing))
-        ax.set_xticks(xtick_values, xtick_labels, rotation=45)
+        ax.set_xticks(xtick_values, xtick_labels, rotation=0)
         ax.set_xlim(0, len(xtick_labels) * group_width)
 
-        # all_values = per_target[per_target["benchmark"] == benchmark]
         all_values = per_target[per_target.index.get_level_values(1) == benchmark]
         ymax = all_values[stat_col].max()
-        ytick_values = np.linspace(0, ymax, 6)
-        if stat_config.log_y_axis:
-            ymax_log = np.ceil(np.log10(ymax))
-            ytick_values = np.arange(0, ymax_log, step=int(np.ceil(ymax_log / 6)))
-            ytick_values = np.power(10, ytick_values)
-            print(ytick_values)
-            ax.set_yscale("log", base=10)
-            ax.set_ylim(1, 10 * ymax)
-        else:
-            ax.set_ylim(0, ymax)
 
-        ytick_labels = [plot.human_format_thousands(v) for v in ytick_values]
+        if stat_config.log_y_axis:
+            assert not stat_config.percent
+            ymax_log = np.ceil(np.log10(ymax))
+            ytick_values = np.arange(0, ymax_log+1, step=int(np.ceil(ymax_log / 6)))
+            ytick_values = np.power(10, ytick_values)
+            print(stat_col, ymax_log, ytick_values)
+            ax.set_yscale("log", base=10)
+            ax.set_ylim(0.01, max(10 * ymax, 10))
+        else:
+            if stat_config.percent:
+                ymax *= 100.0
+                ymax = utils.round_to_multiple_of(1.5 * ymax, multiple_of=25.0)
+                ymax = np.clip(ymax, 25.0, 100.0)
+                ax.set_ylim(0, ymax + 10.0)
+            else:
+                ymax = max(2 * ymax, 1)
+                ax.set_ylim(0, ymax)
+            ytick_values = np.linspace(0, ymax, 6)
+
+        ytick_labels = [plot.human_format_thousands(v, round_to=0) for v in ytick_values]
         ax.set_yticks(ytick_values, ytick_labels)
 
-        ax.legend()
+        ax.legend(
+            loc='upper left',
+            bbox_to_anchor=(1, 1),
+            edgecolor="none", fancybox=False, shadow=False,
+        )
         filename = plot.PLOT_DIR / "validation/{}.{}.{}.pdf".format(
             profiler, bench_name, stat_col
         )
@@ -1607,11 +1771,18 @@ def view(path, bench_name, should_plot, nsight, mem_only):
     "--limit", "limit", type=int, help="Limit number of benchmark configs generated"
 )
 @click.option(
+    "--baseline",
     "--quick",
     "quick",
     type=bool,
     is_flag=True,
     help="Fast mode: only collect baseline benchmark configurations",
+)
+@click.option(
+    "--target",
+    "target",
+    type=str,
+    help="target",
 )
 @click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
 @click.option("--strict", "strict", type=bool, default=True, help="fail on missing results")
@@ -1619,20 +1790,26 @@ def view(path, bench_name, should_plot, nsight, mem_only):
 @click.option("--nsight", "nsight", type=bool, default=False, help="use nsight")
 @click.option("--out", "output_path", help="Output path for combined stats")
 def generate(
-    path, config_path, bench_name, input_idx, limit, quick, verbose, strict, nvprof, nsight, output_path
+    path, config_path, bench_name, input_idx, limit, quick,
+    target, verbose, strict, nvprof, nsight, output_path
 ):
     benches = []
 
     b = Benchmarks(path)
     results_dir = Path(b.config["results_dir"])
 
-    for target in [
-        Target.Profile,
-        Target.Simulate,
-        Target.ExecDrivenSimulate,
-        Target.AccelsimSimulate,
-        Target.PlaygroundSimulate,
-    ]:
+    if target is not None:
+        targets = [t for t in Target if t.value.lower() == target.lower()]
+    else:
+        targets = [
+            Target.Profile,
+            Target.Simulate,
+            Target.ExecDrivenSimulate,
+            Target.AccelsimSimulate,
+            Target.PlaygroundSimulate,
+        ]
+    print("targets: {}".format(targets))
+    for target in targets:
         if bench_name is None:
             for bench_configs in b.benchmarks[target.value].values():
                 benches.extend(bench_configs)
@@ -1642,7 +1819,7 @@ def generate(
     if limit is not None:
         benches = benches[:limit]
 
-    print(f"processing {len(benches)} benchmark configurations")
+    print(f"processing {len(benches)} benchmark configurations ({len(targets)} targets)")
 
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
@@ -1688,8 +1865,10 @@ def generate(
                     case ("profile", "nsight"):
                         target_name += "[nsight]"
                         bench_stats = native.NsightStats(config, bench_config)
-                    case ("simulate", _) | ("execdrivensimulate", _):
+                    case ("simulate", _):
                         bench_stats = stats.Stats(config, bench_config)
+                    case ("execdrivensimulate", _):
+                        bench_stats = stats.ExecDrivenStats(config, bench_config)
                     case ("accelsimsimulate", _):
                         bench_stats = accelsim.Stats(config, bench_config)
                     case ("playgroundsimulate", _):

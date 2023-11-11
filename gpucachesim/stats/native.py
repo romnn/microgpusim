@@ -1070,14 +1070,14 @@ class NvprofStats(common.Stats):
 
     def _compute_l1_global_hit_rate(self):
         # global_hit_rate: (GLOBAL_ACC_R[HIT]+GLOBAL_ACC_W[HIT]) / (GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
-        # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        # tex_cache_hit_rate: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l1_global_hit_rate"] = grouped["global_hit_rate"].mean()
         self.result_df["l1_global_hit_rate"] /= 100.0
 
     def _compute_l1_local_hit_rate(self):
         # global_hit_rate: (GLOBAL_ACC_R[HIT]+GLOBAL_ACC_W[HIT]) / (GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
-        # tex_cache_hit_ratek: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
+        # tex_cache_hit_rate: GLOBAL_ACC_R[HIT]/(GLOBAL_ACC_R[TOTAL]+GLOBAL_ACC_W[TOTAL])
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l1_local_hit_rate"] = grouped["local_hit_rate"].mean()
         self.result_df["l1_local_hit_rate"] /= 100.0

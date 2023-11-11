@@ -180,6 +180,7 @@ class DAS6(SSHClient):
         executable=None,
         force=False,
         timeout=4 * HOUR,
+        random=False,
         compute_capability=None,
         retries=10,
     ) -> typing.Tuple[typing.IO, typing.IO]:
@@ -206,6 +207,7 @@ class DAS6(SSHClient):
                 executable=executable,
                 args=cmd,
                 compute_capability=compute_capability,
+                random=random,
                 timeout=timeout,
             )
             print("submitted job <{}> [ID={}]".format(job_name, job_id))
@@ -234,7 +236,9 @@ class DAS6(SSHClient):
         name=None,
         executable=None,
         compute_capability=None,
+        random=False,
         timeout=4 * HOUR,
+        log_every=100_000,
         env=None,
     ) -> typing.Tuple[typing.Optional[int], str, typing.Tuple[os.PathLike, os.PathLike]]:
         # upload pchase executable
@@ -243,6 +247,11 @@ class DAS6(SSHClient):
         env = env or dict()
         if compute_capability is not None:
             env.update({"COMPUTE_CAPABILITY": str(compute_capability)})
+        if random:
+            env.update({"RANDOM": "1"})
+        if isinstance(log_every, int):
+            env.update({"LOG_EVERY": str(log_every)})
+
         executable = executable if executable is not None else self.remote_pchase_executable
 
         # load cuda toolkit

@@ -18,7 +18,7 @@ import bitarray
 import bitarray.util
 import tempfile
 import gpucachesim.remote as remote
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from pathlib import Path
 from pprint import pprint
 from io import StringIO, BytesIO
@@ -42,6 +42,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from gpucachesim.plot import PLOT_DIR
 import gpucachesim.cmd as cmd_utils
 import gpucachesim.plot as plot
+import gpucachesim.utils as utils
 
 NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/pchase"
 NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
@@ -110,28 +111,8 @@ def main():
     pass
 
 
-def round_up_to_next_power_of_two(x):
-    return np.power(2, np.ceil(np.log2(x)))
-
-
-def round_down_to_next_power_of_two(x):
-    return np.power(2, np.floor(np.log2(x)))
-
-
-def round_to_multiple_of(x, multiple_of):
-    return multiple_of * np.round(x / multiple_of)
-
-
-def round_up_to_multiple_of(x, multiple_of):
-    return multiple_of * np.ceil(x / multiple_of)
-
-
-def round_down_to_multiple_of(x, multiple_of):
-    return multiple_of * np.floor(x / multiple_of)
-
-
 def quantize_latency(latency, bin_size=50):
-    return round_to_multiple_of(latency, multiple_of=bin_size)
+    return utils.round_to_multiple_of(latency, multiple_of=bin_size)
 
 
 def compute_dbscan_clustering(values, eps=2, min_samples=3):
@@ -399,17 +380,20 @@ def compute_hits(df, sim, gpu=None, force_misses=True):
 
     if force_misses:
         pred_hist_df = get_latency_distribution(latencies)
-        print("=== LATENCY HISTOGRAM (prediction)")
+        print("=== LATENCY HISTOGRAM (prediction)".format(
+            np.count_nonzero(np.isnan(latencies))))
         print(pred_hist_df[["bin", "count"]])
         print("")
 
         fit_hist_df = get_latency_distribution(fit_latencies)
-        print("=== LATENCY HISTOGRAM (fitting)")
+        print("=== LATENCY HISTOGRAM (fitting)".format(
+            np.count_nonzero(np.isnan(fit_latencies))))
         print(fit_hist_df[["bin", "count"]])
         print("")
 
     combined_hist_df = get_latency_distribution(combined_latencies)
-    print("=== LATENCY HISTOGRAM (combined)")
+    print("=== LATENCY HISTOGRAM (combined) #nans={}".format(
+        np.count_nonzero(np.isnan(combined_latencies))))
     print(combined_hist_df[["bin", "count"]])
     print("")
 
@@ -421,22 +405,22 @@ def compute_hits(df, sim, gpu=None, force_misses=True):
     # valid_latency_bins = hist[hist_percent > 0.5]
     # latency_cutoff = np.min(valid_latency_bins)
 
-    print(
-        "BEFORE: mean={:4.2f} min={:4.2f} max={:4.2f} #nans={}".format(
-            fit_latencies.mean(),
-            fit_latencies.min(),
-            fit_latencies.max(),
-            np.count_nonzero(np.isnan(fit_latencies)),
+    for (name, values) in [("FIT", fit_latencies), ("", latencies)]:
+        print(
+            "BEFORE: {}: mean={:4.2f} min={:4.2f} max={:4.2f} #nans={}".format(
+                name,
+                values.mean(),
+                values.min(),
+                values.max(),
+                np.count_nonzero(np.isnan(values)),
+            )
         )
-    )
 
     # latency_abs_z_score = np.abs(latencies - np.median(fit_latencies))
     # outliers = latency_abs_z_score > 1000
     outliers = fit_latencies > 1000
 
     num_outliers = outliers.sum()
-    print(num_outliers)
-    print(len(df))
     print(
         "found {} outliers ({:1.4}%)".format(
             num_outliers,
@@ -497,6 +481,8 @@ def pchase(
     iter_size=None,
     sim=False,
     force=False,
+    stream_output=False,
+    log_every=100_000,
 ) -> typing.Tuple[pd.DataFrame, str]:
     warmup = max(0, int(warmup))
     repetitions = max(1, int(repetitions if repetitions is not None else 1))
@@ -526,6 +512,10 @@ def pchase(
     else:
         derived_iter_size = round_size * 4
 
+    env = dict(os.environ)
+    if isinstance(log_every, int):
+        env.update({"LOG_EVERY": str(log_every)})
+
     if gpu is None:
         # run locally
         executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
@@ -539,12 +529,14 @@ def pchase(
         timeout_sec = repetitions * sum(per_size_timeout)
         timeout_sec = max(5, 2 * timeout_sec)
 
-        print("[timeout {: >5.1f} sec]\t{}".format(timeout_sec, cmd))
+        print("[stream={}, timeout {: >5.1f} sec]\t{}".format(stream_output, timeout_sec, cmd))
 
         try:
             _, stdout, stderr, _ = cmd_utils.run_cmd(
                 cmd,
+                env=env,
                 timeout_sec=int(timeout_sec),
+                stream_output=stream_output,
             )
             stdout_reader = StringIO(stdout)
         except cmd_utils.ExecStatusError as e:
@@ -602,8 +594,10 @@ def set_mapping(
     max_rounds=None,
     iter_size=None,
     compute_capability=None,
+    random=False,
     sim=False,
     force=False,
+    log_every=100_000,
 ) -> typing.Tuple[pd.DataFrame, str]:
     cmd = [
         str(mem.lower()),
@@ -641,6 +635,11 @@ def set_mapping(
             env = dict(os.environ)
             if compute_capability is not None:
                 env.update({"COMPUTE_CAPABILITY": str(int(compute_capability))})
+            if random:
+                env.update({"RANDOM": "1"})
+            if isinstance(log_every, int):
+                env.update({"LOG_EVERY": str(log_every)})
+
             _, stdout, stderr, _ = cmd_utils.run_cmd(
                 cmd,
                 timeout_sec=int(timeout_sec),
@@ -659,6 +658,7 @@ def set_mapping(
                 gpu=gpu,
                 executable=das6.remote_scratch_dir / "set_mapping",
                 compute_capability=compute_capability,
+                random=random,
                 force=force,
             )
             stderr = stderr_reader.read().decode("utf-8")
@@ -705,6 +705,20 @@ def get_compute_capability(gpu) -> typing.Optional[int]:
             return 86
     raise ValueError("unknown compute capability for GPU {}".format(gpu))
 
+def get_label(sim, gpu):
+    return "gpucachesim" if sim else (gpu or "GTX 1080")
+
+def get_known_l2_prefetch_percent(mem: str, gpu=None) -> float:
+    match (gpu, mem.lower()):
+        case (None, "l1data"):
+            return 0.0
+        case (None, "l2"):
+            return 0.25
+        case ("A4000", "l1data"):
+            return 0.0
+        case ("A4000", "l2"):
+            return 0.25
+    raise ValueError("unknown num sets for {}".format(mem))
 
 def get_known_cache_size_bytes(mem: str, gpu=None) -> int:
     match (gpu, mem.lower()):
@@ -748,7 +762,7 @@ def get_known_cache_num_sets(mem: str, gpu=None) -> int:
 @main.command()
 @click.option("--warmup", "warmup", type=int, help="cache warmup")
 @click.option("--repetitions", "repetitions", type=int, help="repetitions")
-@click.option("--mem", "mem", default="l1data", help="memory to microbenchmark")
+@click.option("--mem", "mem", default="l2", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 @click.option(
@@ -764,11 +778,21 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     gpu = gpu.upper() if gpu is not None else None
     assert gpu in VALID_GPUS
 
-    known_l2_cache_size_bytes = 2 * MB
-    step_size_bytes = 64 * KB
+    predicted_l2_prefetch_percent = get_known_l2_prefetch_percent(mem=mem, gpu=gpu)
+    known_l2_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
+
+    match (gpu, mem.lower()):
+        case (_, "l2"):
+            stride_bytes = 128
+            step_size_bytes = 64 * KB
+        case (_, "l1data"):
+            stride_bytes = 128
+            step_size_bytes = 4 * KB
+        case other:
+            raise ValueError("unsupported config {}".format(other))
+
     start_cache_size_bytes = step_size_bytes
-    end_cache_size_bytes = 2 * MB
-    stride_bytes = 128
+    end_cache_size_bytes = known_l2_cache_size_bytes
 
     cache_file = get_cache_file(prefix="l2_prefetch_size", mem=mem, sim=sim, gpu=gpu)
     if cached and cache_file.is_file():
@@ -789,10 +813,12 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
             warmup=warmup,
             sim=sim,
             force=force,
+            stream_output=sim == True,
         )
         print(stderr)
 
         combined = combined.drop(columns=["r"])
+        # average
         combined = (
             combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
         )
@@ -816,32 +842,21 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     # combined = combined[combined["round"].isin(full_rounds)]
 
     for n, df in combined.groupby("n"):
-        # print(n)
-        # print(df)
-
         # reindex the numeric index
         df = df.reset_index()
         assert df.index.start == 0
 
         # count hits and misses
-        hits = df["hit_cluster"] <= 1  # l1 hits or l1 miss & l2 hit
         misses = df["hit_cluster"] > 1  # l1 miss & l2 miss
 
-        num_hits = hits.sum()
         num_misses = misses.sum()
 
         human_size = humanize.naturalsize(n, binary=True)
         miss_rate = float(num_misses) / float(len(df))
-        hit_rate = float(num_hits) / float(len(df))
         print(
-            # \t\thits={:<4} ({}) misses={:<4} ({})".format(
             "size {:>15} ({:>5.1f}%)".format(
                 human_size,
                 float(n) / float(known_l2_cache_size_bytes) * 100.0,
-                # color(num_hits, fg="green", bold=True),
-                # color("{:>3.1f}%".format(hit_rate * 100.0), fg="green"),
-                # color(num_misses, fg="red", bold=True),
-                # color("{:>3.1f}%".format(miss_rate * 100.0), fg="red"),
             )
         )
 
@@ -883,8 +898,6 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     plot_df.columns = [
         "_".join([col for col in cols if col != ""]) for cols in plot_df.columns
     ]
-    print(plot_df)
-    print(plot_df.columns)
 
     ylabel = r"hit rate ($\%$)"
     xlabel = r"$N$ (bytes)"
@@ -899,17 +912,17 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     )
     ax = plt.axes()
 
-    min_x = round_down_to_multiple_of(plot_df["n"].min(), 128)
-    max_x = round_up_to_multiple_of(plot_df["n"].max(), 128)
+    min_x = utils.round_down_to_multiple_of(plot_df["n"].min(), 128)
+    max_x = utils.round_up_to_multiple_of(plot_df["n"].max(), 128)
 
     ax.axvline(
-        x=0.25 * known_l2_cache_size_bytes,
+        x=predicted_l2_prefetch_percent * known_l2_cache_size_bytes,
         color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
         linestyle="--",
-        label=r"25% L2 size",
+        label=r"{:2.0f}% L2 size".format(predicted_l2_prefetch_percent * 100.0),
     )
 
-    marker_size = 10
+    marker_size = 12
     ax.scatter(
         plot_df["n"],
         plot_df["hit_cluster_agg_l1_hit_rate"] * 100.0,
@@ -921,8 +934,8 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
         # markersize=marker_size,
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
         # color=plt_rgba(*SIM_RGB_COLOR["gpucachesim" if sim else "native"], 1.0),
-        # label="gpucachesim" if sim else "GTX 1080",
-        label="L1",
+        # label=get_label(sim=sim, gpu=gpu),
+        label="L1 ({})".format(get_label(sim=sim, gpu=gpu)),
     )
 
     ax.scatter(
@@ -936,8 +949,8 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
         # markersize=marker_size,
         color=plot.plt_rgba(*plot.RGB_COLOR["blue1"], 1.0),
         # color=plt_rgba(*SIM_RGB_COLOR["gpucachesim" if sim else "native"], 1.0),
-        # label="gpucachesim" if sim else "GTX 1080",
-        label="L2",
+        # label=get_label(sim=sim, gpu=gpu),
+        label="L2 ({})".format(get_label(sim=sim, gpu=gpu)),
     )
 
     ax.set_ylabel(ylabel)
@@ -947,7 +960,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     ax.set_xticks(xticks, xticklabels, rotation=45)
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 100.0)
-    ax.legend()
+    ax.legend(loc="upper right")
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
@@ -1508,7 +1521,11 @@ def find_cache_set_mapping_pchase(
     print("largest set={}".format(largest_set))
 
 
-def latency_colormap(combined, min_latency, max_latency):
+def latency_colormap(combined, min_latency, max_latency, tol=0.3):
+    HIT = 0
+    MISS = 1
+
+    combined["latency"] = combined["latency"].clip(lower=0.0)
     mean_cluster_latency = combined.groupby("hit_cluster")["latency"].mean()
     min_cluster_latency = combined.groupby("hit_cluster")["latency"].min()
     max_cluster_latency = combined.groupby("hit_cluster")["latency"].max()
@@ -1533,8 +1550,8 @@ def latency_colormap(combined, min_latency, max_latency):
     orange_to_red = gradient(start=orange, end=red)
 
     latency_range = max_latency - min_latency
-    mean_hit_cluster_latency = mean_cluster_latency.get(0, 0.0)
-    mean_miss_cluster_latency = mean_cluster_latency.get(1, 200.0)
+    mean_hit_cluster_latency = mean_cluster_latency.get(HIT, 0.0)
+    mean_miss_cluster_latency = mean_cluster_latency.get(MISS, 200.0)
     assert (
         min_latency
         <= mean_hit_cluster_latency
@@ -1542,14 +1559,13 @@ def latency_colormap(combined, min_latency, max_latency):
         <= max_latency
     )
 
-    tol = 0.2
     start = min_latency
-    hit_end = min_cluster_latency.get(1, 200.0) - tol * abs(
-        min_cluster_latency.get(1, 200.0) - max_cluster_latency.get(0, 0.0)
+    hit_end = min_cluster_latency.get(MISS, 200.0) - tol * abs(
+        min_cluster_latency.get(MISS, 200.0) - max_cluster_latency.get(HIT, 0.0)
     )
     # hit_end = mean_hit_cluster_latency + tol * (mean_miss_cluster_latency - mean_hit_cluster_latency)
     # miss_end = mean_miss_cluster_latency + tol * (max_latency - mean_miss_cluster_latency)
-    miss_end = np.min([mean_cluster_latency.get(1, 200.0) + 100.0, max_latency])
+    miss_end = np.min([mean_cluster_latency.get(MISS, 200.0) + 100.0, max_latency])
     end = miss_end
 
     points = [start, hit_end, miss_end, end]
@@ -1599,7 +1615,7 @@ def plot_access_process_latencies(
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.5 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
@@ -1613,7 +1629,8 @@ def plot_access_process_latencies(
         cmap=latency_cmap,
         vmin=min_latency,
         vmax=max_latency,
-        interpolation="nearest",
+        # interpolation="nearest",
+        interpolation="none",
         origin="upper",
         aspect="auto",
         # aspect="equal",
@@ -1639,24 +1656,26 @@ def plot_access_process_latencies(
     if size_bytes is not None:
         xlabel += "=" + humanize.naturalsize(size_bytes, binary=True)
 
-    if None not in [warmup, rounds, size_bytes, stride_bytes]:
-        xlabel = r"rounds through array $A$ of size $N=$" + humanize.naturalsize(
-            size_bytes, binary=True
-        )
-        round_size = size_bytes / stride_bytes
-        round_indices = np.arange(0, rounds + 1, step=1)
-        xticks = round_indices * round_size
-        xticklabels = ["R{}".format(r) for r in round_indices + warmup]
-        ax.set_xticks(xticks, xticklabels)
+    if True:
+        if None not in [warmup, rounds, size_bytes, stride_bytes]:
+            xlabel = r"rounds through array $A$ of size $N=$" + humanize.naturalsize(
+                size_bytes, binary=True
+            )
+            round_size = size_bytes / stride_bytes
+            round_indices = np.arange(0, rounds + 1, step=1)
+            xticks = round_indices * round_size
+            xticklabels = ["R{}".format(r) for r in round_indices + warmup]
+            ax.set_xticks(xticks, xticklabels)
 
-    if isinstance(repetitions, int):
-        num_overflow_indices = len(values) / repetitions
-        overflow_indices = np.arange(
-            num_overflow_indices,
-            step=round_up_to_multiple_of(num_overflow_indices / 10.0, 10.0))
-        yticks = overflow_indices * repetitions
-        yticklabels = overflow_indices.astype(int)
-        ax.set_yticks(yticks, yticklabels)
+        if isinstance(repetitions, int):
+            num_overflow_indices = len(values) / repetitions
+            step_size = num_overflow_indices / 10.0
+            if step_size > 10.0:
+                step_size = utils.round_up_to_multiple_of(step_size, 10.0)
+            overflow_indices = np.arange(num_overflow_indices, step=step_size)
+            yticks = overflow_indices * repetitions
+            yticklabels = overflow_indices.astype(int)
+            ax.set_yticks(yticks, yticklabels)
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -1691,6 +1710,9 @@ def plot_access_process_latencies(
 @click.option(
     "--cc", "--compute-capability", "compute_capability", type=int, help="compute capability"
 )
+@click.option(
+    "--random", "random", type=bool, help="use random access pattern"
+)
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 @click.option(
@@ -1708,6 +1730,7 @@ def find_cache_set_mapping(
     average,
     cached,
     compute_capability,
+    random,
     sim,
     force,
 ):
@@ -1722,9 +1745,9 @@ def find_cache_set_mapping(
     unique = False
 
     average = average if average is not None else (gpu == None)
-    if compute_capability == 86:
-        if average is None:
-            average = False
+    # if compute_capability == 86:
+    #     if average is None:
+    #         average = False
 
     known_cache_size_bytes = known_cache_size_bytes or get_known_cache_size_bytes(
         mem=mem, gpu=gpu
@@ -1775,7 +1798,7 @@ def find_cache_set_mapping(
             stride_bytes = known_cache_line_bytes
             pass
 
-    cache_file = get_cache_file(prefix="cache_set_mapping", mem=mem, sim=sim, gpu=gpu)
+    cache_file = get_cache_file(prefix="cache_set_mapping", mem=mem, sim=sim, gpu=gpu, compute_capability=compute_capability)
     if cached and cache_file.is_file():
         # open cached files
         combined = pd.read_csv(
@@ -1790,6 +1813,7 @@ def find_cache_set_mapping(
             warmup=warmup,
             repetitions=repetitions,
             compute_capability=compute_capability,
+            random=random,
             max_rounds=max_rounds,
             sim=sim,
             force=force,
@@ -1801,7 +1825,7 @@ def find_cache_set_mapping(
             # combined = combined.drop(columns=["r"])
             # we are averaging over k and r to get mean latency
             combined = (
-                combined.groupby(["n", "overflow_index", "index", "virt_addr"])
+                combined.groupby(["n", "overflow_index", "k", "index", "virt_addr"])
                 .median()
                 .reset_index()
             )
@@ -1813,11 +1837,100 @@ def find_cache_set_mapping(
         print("wrote cache file to ", cache_file)
         combined.to_csv(cache_file, index=False, compression=CSV_COMPRESSION)
 
+    combined["latency"] = combined["latency"].clip(lower=0.0)
+
+    # # manual averaging based on the pattern
+    # def most_common_pattern(_df):
+    #     print(_df)
+    #     print(_df.shape)
+    #     return _df
+    #
+    # def get_misses(_df):
+    #     # print(_df)
+    #     return _df.loc[_df["hit_cluster"] != 0, "index"]
+
+    round_size = int(known_cache_size_bytes / stride_bytes)
+    unique_indices = sorted(combined["index"].unique().tolist())
+    unique_ks = sorted(combined["k"].unique().tolist())
+    print(unique_indices[:10], unique_indices[-10:])
+    print(unique_ks[:10], unique_ks[-10:])
+    print(len(unique_indices))
+    print(len(unique_ks))
+    # assert len(unique_indices) == known_cache_size_bytes / stride_bytes
+    assert len(unique_ks) == (known_cache_size_bytes * max_rounds) / stride_bytes
+
+    assert len(combined["n"].unique().tolist()) == 1
+
+    if compute_capability == 86:
+        if not random:
+            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+                # assert len(_df["index"].unique().tolist()) == len(unique_indices)
+                mask = combined["n"] == n
+                mask &= combined["overflow_index"] == overflow_index
+                mask &= combined["r"] == r
+                stride = stride_bytes / 4
+                wrapped = combined["index"] <= overflow_index - stride_bytes
+                combined.loc[mask & wrapped, "latency"] = 300.0
+
+        if random:
+            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+                rounds_1_and_2 = _df["k"] >= 1 * round_size
+                rounds_1_and_2 &= _df["k"] < 3 * round_size
+                # print(_df[rounds_1_and_2].head(n=150))
+                # print(_df.loc[rounds_1_and_2, "hit_cluster"] > 0)
+                num_misses = (_df.loc[rounds_1_and_2, "hit_cluster"] > 0).sum()
+                if num_misses == 0:
+                    print(color("n={} overflow index={} num misses={}".format(
+                        n, overflow_index, num_misses), fg="yellow"))
+                elif num_misses != 1:
+                    raise ValueError("more than one miss in round 1 and 2")
+            
+
+        if False:
+            patterns = dict()
+            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+                if (n, overflow_index) not in patterns:
+                    patterns[(n, overflow_index)] = defaultdict(int)
+
+                misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
+                # print(misses)
+                patterns[(n, overflow_index)][misses] += 1
+
+            # pprint(patterns)
+            # get most common patterns
+            most_common_patterns = {
+                k: sorted(v.items(), key=lambda x: x[1])[-1] for k, v in patterns.items()}
+            # pprint(most_common_patterns)
+
+            new_combined = []
+            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+                misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
+                if most_common_patterns[(n, overflow_index)][0] == misses:
+                    # print("adding", (n, overflow_index, r))
+                    mask = combined["n"] == n
+                    mask &= combined["overflow_index"] == overflow_index
+                    mask &= combined["r"] == r
+                    assert len(combined[mask]) == len(unique_ks)
+                    new_combined.append(combined[mask])
+                    most_common_patterns[(n, overflow_index)] = (None, None)
+
+            combined = pd.concat(new_combined, ignore_index=True)
+            assert (
+                len(combined[["n", "overflow_index"]].drop_duplicates())
+                == len(combined[["n", "overflow_index", "r"]].drop_duplicates()))
+
+            combined["r"] = 0
+            repetitions = 1
+
+
     total_sets = OrderedDict()
     combined = combined.sort_values(["n", "overflow_index", "k", "r"])
+    print("combined")
+    print(combined)
+    print("combined", combined.shape)
     if average:
         repetitions = 1
-        max_rounds = 1
+        # max_rounds = 1
 
     print(
         "overflowed {} unique indices".format(len(combined["overflow_index"].unique()))
@@ -1827,30 +1940,48 @@ def find_cache_set_mapping(
     combined["rel_virt_addr"] = combined["virt_addr"].astype(int) - base_addr
 
     # compute plot matrices
-    max_cols = int(len(combined["k"].astype(int).unique()))
+    max_cols = int(len(combined["k"].astype(int).unique())) + 1
+    max_indices = int(len(combined["index"].astype(int).unique()))
+    # assert max_indices <= max_cols
+    print("round size", round_size)
     # max_rows = len(combined["overflow_index"].astype(int).unique()) * repetitions
-    # assert max_rows == len(
     repetitions = len(combined["r"].unique())
+    print("repetitions", repetitions)
     max_rows = len(
         combined[["overflow_index", "r"]].astype(int).drop_duplicates()
     )
 
     latencies = np.zeros((max_rows, max_cols))
     hit_clusters = np.zeros((max_rows, max_cols))
+    print("latencies", latencies.shape)
+    
+
     for (overflow_addr_index, r), overflow_df in combined.groupby(
         ["overflow_index", "r"]
     ):
-        overflow_df = overflow_df.sort_values(["k"])
+        overflow_df = overflow_df.sort_values(["n", "k", "index"])
         stride = stride_bytes / 4
         overflow_index = overflow_addr_index / stride
         # print(overflow_addr_index, overflow_index, r)
-        print(overflow_df)
+        # print(overflow_df)
         # print(overflow_df.shape)
         # assert max_cols == len(overflow_df)
 
         row_idx = int(overflow_index * repetitions + r)
-        latencies[row_idx, :] = overflow_df["latency"].to_numpy()
-        hit_clusters[row_idx, :] = overflow_df["hit_cluster"].to_numpy()
+        # latencies[row_idx, :len(overflow_df)] = overflow_df["latency"].to_numpy()
+        # hit_clusters[row_idx, :len(overflow_df)] = overflow_df["hit_cluster"].to_numpy()
+
+        # continue
+        for _, (n, k, index, latency) in overflow_df[["n", "k", "index", "latency"]].iterrows():
+            # print(index, k)
+            index = int(np.floor(index / stride_bytes))
+            round = int(np.floor(k / round_size))
+            col_idx = round * round_size + index
+            # print("=>", round, index)
+            if col_idx < max_cols:
+                latencies[row_idx, col_idx] = latency
+
+    print(latencies)
 
     all_misses = np.all(hit_clusters == 1, axis=0)
     (all_misses_max_idx,) = np.where(all_misses == True)
@@ -1866,11 +1997,55 @@ def find_cache_set_mapping(
 
     col_miss_count = hit_clusters.sum(axis=0)
     assert col_miss_count.shape[0] == max_cols
-    print(col_miss_count)
+    # print(col_miss_count)
 
-    all_hits = np.all(hit_clusters == 0, axis=0)
-    (all_hits_indices,) = np.where(all_hits == True)
-    print(all_hits_indices)
+    # all_hits = np.all(hit_clusters == 0, axis=0)
+    # (all_hits_indices,) = np.where(all_hits == True)
+    # print(all_hits_indices)
+
+    # shifted plot
+    if False:
+        num_overflow_indices = len(combined["overflow_index"].unique())
+        # num_overflow_indices = int(known_cache_size_bytes / stride_bytes)
+        # print(num_overflow_indices)
+        # assert(num_overflow_indices == len(combined["overflow_index"].unique()))
+        # assert(num_overflow_indices == int(max_rows / repetitions))
+        all_latencies = latencies.copy()
+        all_latencies[:,round_size:] = 0.0
+        shift = "left"
+        for overflow_index in range(num_overflow_indices):
+            row_start = overflow_index * repetitions
+            row_end = (overflow_index+1)*repetitions
+            if shift == "right":
+                new_col_start = round_size + overflow_index
+                new_col_end = max_cols
+                col_start = round_size
+                col_end = min(max_cols, col_start + (new_col_end - new_col_start))
+            elif shift == "left":
+                pass
+                col_start = round_size + round_size
+                col_end = max_cols
+                new_col_start = round_size
+                new_col_end = min(max_cols, new_col_start + (col_end - col_start))
+            else:
+                raise ValueError
+            all_latencies[row_start:row_end,new_col_start:new_col_end] = latencies[row_start:row_end,col_start:col_end]
+
+        fig = plot_access_process_latencies(
+            combined,
+            all_latencies,
+            warmup=warmup,
+            rounds=max_rounds,
+            ylabel="overflow index",
+            size_bytes=known_cache_size_bytes,
+            stride_bytes=stride_bytes,
+        )
+
+        filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+        filename = filename.with_stem(filename.name + "_shifted")
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        print("saved plot to {}".format(filename))
+        fig.savefig(filename)
 
     fig = plot_access_process_latencies(
         combined,
@@ -1886,6 +2061,73 @@ def find_cache_set_mapping(
     filename.parent.mkdir(parents=True, exist_ok=True)
     print("saved plot to {}".format(filename))
     fig.savefig(filename)
+
+    # per overflow plot
+    if False:
+        for (overflow_addr_index,), _ in combined.groupby(["overflow_index"]):
+            stride = float(stride_bytes) / 4.0
+            overflow_index = float(overflow_addr_index) / stride
+            overflow_latencies = latencies[
+                int(overflow_index * repetitions):int((overflow_index + 1) * repetitions), :]
+            fig = plot_access_process_latencies(
+                combined,
+                overflow_latencies ,
+                warmup=warmup,
+                rounds=max_rounds,
+                ylabel="repetition",
+                size_bytes=known_cache_size_bytes,
+                stride_bytes=stride_bytes,
+            )
+
+            filename = PLOT_DIR / "pchase_overflow" / cache_file.relative_to(CACHE_DIR)
+            filename = filename.with_name("overflow_{}".format(int(overflow_index))).with_suffix(".pdf")
+            filename.parent.mkdir(parents=True, exist_ok=True)
+            print("saved plot to {}".format(filename))
+            fig.savefig(filename)
+
+    # group by first miss in round 1 and 2
+    print(combined.loc[
+        (combined["k"] >= 1 * round_size) & (combined["k"] < 3 * round_size),:].head(n=100))
+
+    # print(stride_bytes / 4)
+    # total_sets = {k * 4: list() for k in range(1 * round_size, 3 * round_size, int(stride_bytes / 4))}
+    total_sets = {int(k): list() for k in range(0, known_cache_size_bytes, stride_bytes)}
+    # print(total_sets)
+    # before = len(total_sets)
+    if random:
+        for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+            rounds_3 = _df["k"] >= 3 * round_size
+
+            rounds_1_and_2 = _df["k"] >= 1 * round_size
+            rounds_1_and_2 &= _df["k"] < 3 * round_size
+            first_miss = _df.loc[rounds_1_and_2 & (_df["hit_cluster"] > 0), "index"]
+            assert len(first_miss) <= 1
+            if len(first_miss) > 0:
+                first_miss = int(first_miss.iloc[0])
+                misses = tuple(_df.loc[rounds_3 & (_df["hit_cluster"] > 0), "index"].tolist())
+                total_sets[first_miss].append(misses)
+
+    # pprint(total_sets)
+    # assert before == len(total_sets)
+
+    total_sets_df = pd.DataFrame.from_records(
+        [(k, len(v)) for k, v in total_sets.items()], columns=["index", "count"])
+    print(total_sets_df)
+
+    fig = plt.figure(
+        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        layout="constrained",
+    )
+    ax = plt.axes()
+    ax.scatter(total_sets_df["index"], total_sets_df["count"], 10, marker="o")
+    filename = PLOT_DIR / "set_freqs.pdf"
+    filename.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(filename)
+
+    total_sets_df["prob"] = total_sets_df["count"] / len(total_sets_df)
+    print(total_sets_df)
+
+    return
 
     if not average:
         # remove first round of loading
@@ -4063,29 +4305,25 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     known_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
 
     stride_bytes = 8
-    step_bytes = 8
+    step_bytes = 32
+
+    predicted_num_sets = 4
 
     if gpu == "A4000":
         stride_bytes = known_cache_line_bytes
         step_bytes = known_cache_line_bytes
+        predicted_num_sets = 32
 
     assert step_bytes % stride_bytes == 0
-
-    predicted_num_sets = 4
-
-    # known_cache_size_bytes = 56 * KB
-    # way too much
-    # predicted_num_sets = (128 * KB - known_cache_size_bytes) / known_cache_line_bytes
-    predicted_num_sets = 32
 
     match mem.lower():
         case "l1readonly":
             # stride_bytes = 16
             pass
 
-    start_cache_size_bytes = known_cache_size_bytes - 1 * known_cache_line_bytes
+    start_cache_size_bytes = known_cache_size_bytes - 2 * known_cache_line_bytes
     end_cache_size_bytes = (
-        known_cache_size_bytes + (1 + predicted_num_sets) * known_cache_line_bytes
+        known_cache_size_bytes + (2 + predicted_num_sets) * known_cache_line_bytes
     )
 
     assert start_cache_size_bytes % stride_bytes == 0
@@ -4109,6 +4347,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
             repetitions=repetitions,
             sim=sim,
             force=force,
+            stream_output=sim == True,
         )
         print(stderr)
 
@@ -4190,17 +4429,17 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     )
     ax = plt.axes()
 
-    # min_x = round_down_to_multiple_of(plot_df["n"].min(), known_cache_line_bytes)
-    # max_x = round_up_to_multiple_of(plot_df["n"].max(), known_cache_line_bytes)
+    # min_x = utils.round_down_to_multiple_of(plot_df["n"].min(), known_cache_line_bytes)
+    # max_x = utils.round_up_to_multiple_of(plot_df["n"].max(), known_cache_line_bytes)
     # print(min_x, max_x)
 
     num_ticks = 4
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
-    tick_step_size_bytes = round_down_to_next_power_of_two((max_x - min_x) / num_ticks)
+    tick_step_size_bytes = utils.round_up_to_next_power_of_two((max_x - min_x) / num_ticks)
 
     xticks = np.arange(
-        round_down_to_multiple_of(min_x, tick_step_size_bytes),
+        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
         max_x,
         step=tick_step_size_bytes,
     )
@@ -4217,7 +4456,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
             label="cache line boundary" if i == 0 else None,
         )
 
-    marker_size = 5
+    marker_size = 12
     ax.scatter(
         plot_df["n"],
         plot_df["hit_cluster_agg_miss_rate"] * 100.0,
@@ -4226,7 +4465,17 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
         # linestyle='--',
         marker="x",
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        label="gpucachesim" if sim else (gpu or "GTX 1080"),
+        label=get_label(sim=sim, gpu=gpu),
+    )
+
+    ax.grid(
+        True,
+        axis="y",
+        linestyle="-",
+        linewidth=1,
+        color="black",
+        alpha=0.1,
+        zorder=1,
     )
 
     for set_idx in range(derived_num_sets):
@@ -4249,7 +4498,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     ax.set_ylim(
         0, np.clip(plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0, 10.0, 100.0)
     )
-    ax.legend()
+    ax.legend(loc="upper right")
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
@@ -4300,26 +4549,12 @@ def find_cache_line_size(
 
     known_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
     predicted_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
-    print(
-        "known cache size: {} bytes ({})".format(
-            known_cache_size_bytes,
-            humanize.naturalsize(known_cache_size_bytes, binary=True),
-        )
-    )
-    print(
-        "predicted cache line size: {} bytes ({})".format(
-            predicted_cache_line_bytes,
-            humanize.naturalsize(predicted_cache_line_bytes, binary=True),
-        )
-    )
-
+    
     gpu = gpu.upper() if gpu is not None else None
     assert gpu in VALID_GPUS
 
     stride_bytes = 8
     predicted_num_lines = get_known_cache_num_sets(mem=mem, gpu=gpu)
-    predicted_num_lines = 12
-    print("predicted num lines: {}".format(predicted_num_lines))
 
     match mem.lower():
         case "l1readonly":
@@ -4333,15 +4568,39 @@ def find_cache_line_size(
         #     known_cache_size_bytes + (1 + predicted_num_lines) * predicted_cache_line_bytes
         # )
     elif mem == "l1data":
-        step_size_bytes = 8
+        # step_size_bytes = 8
+        step_size_bytes = 32
     else:
         raise NotImplementedError("mem {} not yet supported".format(mem))
 
-    step_size_bytes = 8
-    start_size_bytes = known_cache_size_bytes - 3 * predicted_cache_line_bytes
-    end_size_bytes = (
-        known_cache_size_bytes + (1 + predicted_num_lines) * predicted_cache_line_bytes
+    if gpu == "A4000":
+        predicted_num_lines = 12
+
+    print(
+        "known cache size: {} bytes ({})".format(
+            known_cache_size_bytes,
+            humanize.naturalsize(known_cache_size_bytes, binary=True),
+        )
     )
+    print(
+        "predicted cache line size: {} bytes ({})".format(
+            predicted_cache_line_bytes,
+            humanize.naturalsize(predicted_cache_line_bytes, binary=True),
+        )
+    )
+    print("predicted num lines: {}".format(predicted_num_lines))
+
+    start_size_bytes = known_cache_size_bytes - 2 * predicted_cache_line_bytes
+    end_size_bytes = (
+        known_cache_size_bytes + (2 + predicted_num_lines) * predicted_cache_line_bytes
+    )
+    # temp
+    # start_size_bytes = known_cache_size_bytes - 1 * predicted_cache_line_bytes
+    # end_size_bytes = start_size_bytes
+    # end_size_bytes = (
+    #     known_cache_size_bytes + 1 * predicted_cache_line_bytes
+    # )
+
 
     assert start_size_bytes % stride_bytes == 0
     assert step_size_bytes % stride_bytes == 0
@@ -4373,6 +4632,7 @@ def find_cache_line_size(
             repetitions=repetitions,
             sim=sim,
             force=force,
+            stream_output=sim == True,
         )
         print(stderr)
 
@@ -4381,6 +4641,8 @@ def find_cache_line_size(
             combined.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
         )
 
+        print("NAN values")
+        print(combined.loc[combined.isna().any(axis=1),:])
         combined = compute_hits(combined, sim=sim, gpu=gpu)
         combined = compute_rounds(combined)
 
@@ -4503,13 +4765,13 @@ def find_cache_line_size(
     num_ticks = 4
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
-    tick_step_size_bytes = round_down_to_next_power_of_two((max_x - min_x) / num_ticks)
-    # min_kb = round_down_to_multiple_of(plot_df["n"].min(), tick_step_size_bytes)
-    # max_kb = round_up_to_multiple_of(plot_df["n"].max(), tick_step_size_bytes)
+    tick_step_size_bytes = utils.round_up_to_next_power_of_two((max_x - min_x) / num_ticks)
+    # min_kb = utils.round_down_to_multiple_of(plot_df["n"].min(), tick_step_size_bytes)
+    # max_kb = utils.round_up_to_multiple_of(plot_df["n"].max(), tick_step_size_bytes)
 
     xticks = np.arange(
-        round_down_to_multiple_of(min_x, tick_step_size_bytes),
-        # np.max([round_up_to_multiple_of(min_kb, tick_step_size_bytes), tick_step_size_bytes]),
+        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
+        # np.max([utils.round_up_to_multiple_of(min_kb, tick_step_size_bytes), tick_step_size_bytes]),
         max_x,
         # round_down_to_multiple_of(max_kb, tick_step_size_bytes),
         step=tick_step_size_bytes,
@@ -4517,13 +4779,13 @@ def find_cache_line_size(
     xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
     print(xticklabels)
 
-    # min_kb = round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes)
-    # max_kb = round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes)
+    # min_kb = utils.round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes)
+    # max_kb = utils.round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes)
     # print(min_kb, max_kb)
 
     cache_line_boundaries = np.arange(
-        round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes),
-        round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes),
+        utils.round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes),
+        utils.round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes),
         step=predicted_cache_line_bytes,
     )
 
@@ -4535,8 +4797,18 @@ def find_cache_line_size(
             label="cache line boundary" if i == 0 else None,
         )
 
+    ax.grid(
+        True,
+        axis="y",
+        linestyle="-",
+        linewidth=1,
+        color="black",
+        alpha=0.1,
+        zorder=1,
+    )
+
     # ax.plot(plot_df["n"], plot_df["miss_rate"] * 100.0,
-    marker_size = 3
+    marker_size = 12
     ax.scatter(
         plot_df["n"],
         plot_df["miss_rate"] * 100.0,
@@ -4547,7 +4819,7 @@ def find_cache_line_size(
         marker="x",
         # markersize=3,
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        label="GTX 1080",
+        label=get_label(sim=sim, gpu=gpu),
     )
 
     ax.set_ylabel(ylabel)
@@ -4561,7 +4833,8 @@ def find_cache_line_size(
     ax.set_xticks(xticks, xticklabels)
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, np.clip(plot_df["miss_rate"].max() * 2 * 100.0, 10.0, 100.0))
-    ax.legend()
+
+    ax.legend(loc="upper right")
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
@@ -4728,10 +5001,10 @@ def latency_n_graph(
     num_ticks = 4
     min_x = mean_latency["n"].min()
     max_x = mean_latency["n"].max()
-    tick_step_size_bytes = round_down_to_next_power_of_two((max_x - min_x) / num_ticks)
+    tick_step_size_bytes = utils.round_down_to_next_power_of_two((max_x - min_x) / num_ticks)
 
     xticks = np.arange(
-        round_up_to_multiple_of(min_x, tick_step_size_bytes),
+        utils.round_up_to_multiple_of(min_x, tick_step_size_bytes),
         max_x,
         step=tick_step_size_bytes,
     )
@@ -4770,7 +5043,7 @@ def latency_n_graph(
         linestyle="--",
         marker="o",
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        label="gupcachesim" if sim else (gpu or "GTX 1080"),
+        label=get_label(sim=sim, gpu=gpu),
     )
     min_y = mean_latency["latency"].min()
     max_y = mean_latency["latency"].max()
@@ -4945,7 +5218,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         hatch="/",
         width=bin_size,
         edgecolor="black",
-        label="gpucachesim" if sim else (gpu or "GTX 1080"),
+        label=get_label(sim=sim, gpu=gpu),
     )
     for centroid, label in zip(latency_centroids, ["L1 Hit", "L2 Hit", "L2 Miss"]):
         centroid_bins = latency_hist_df["bin_start"] <= centroid + 2 * bin_size
@@ -5027,13 +5300,15 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             fig.write_image(filename, **plot.PLOTLY_PDF_OPTS)
 
 
-def get_cache_file(prefix, mem, sim, gpu) -> Path:
+def get_cache_file(prefix, mem, sim, gpu, compute_capability=None) -> Path:
     kind = "sim" if sim else "native"
     if gpu is None:
-        cache_file_name = "{}.{}.{}.csv".format(prefix, mem, kind)
+        cache_file_name = "{}-{}-{}".format(prefix, mem, kind)
     else:
-        cache_file_name = "{}/{}.{}.{}.csv".format(gpu, prefix, mem, kind)
-    return CACHE_DIR / cache_file_name
+        cache_file_name = "{}/{}-{}-{}".format(gpu, prefix, mem, kind)
+    if isinstance(compute_capability, int):
+        cache_file_name += "-cc{}".format(compute_capability)
+    return (CACHE_DIR / cache_file_name).with_suffix(".csv")
 
 
 @main.command()
@@ -5099,11 +5374,11 @@ def find_cache_size(
         case other:
             raise ValueError("unsupported config {}".format(other))
 
-    start_size_bytes = start_size_bytes or step_size_bytes  # or (1 * MB)
-    end_size_bytes = end_size_bytes or (
-        round_up_to_multiple_of(
+    start_size_bytes = int(start_size_bytes or step_size_bytes)  # or (1 * MB)
+    end_size_bytes = int(end_size_bytes or (
+        utils.round_up_to_multiple_of(
             2 * predicted_cache_size_bytes, multiple_of=step_size_bytes
-        )
+        ))
     )
     if gpu == "A4000":
         stride_bytes = 128
@@ -5111,6 +5386,17 @@ def find_cache_size(
 
     start_size_bytes = max(0, start_size_bytes)
     end_size_bytes = max(0, end_size_bytes)
+
+    assert start_size_bytes % stride_bytes == 0
+    assert step_size_bytes % stride_bytes == 0
+
+    print(
+        "range: {:>10} to {:<10} step size={}".format(
+            humanize.naturalsize(start_size_bytes, binary=True),
+            humanize.naturalsize(end_size_bytes, binary=True),
+            step_size_bytes,
+        )
+    )
 
     cache_file = get_cache_file(prefix="cache_size", mem=mem, sim=sim, gpu=gpu)
     if cached and cache_file.is_file():
@@ -5131,6 +5417,7 @@ def find_cache_size(
             max_rounds=max_rounds,
             sim=sim,
             force=force,
+            stream_output=sim == True,
         )
         print(stderr)
 
@@ -5207,15 +5494,15 @@ def find_cache_size(
         linestyle="--",
         marker="x",
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        label="gpucachesim" if sim else (gpu or "GTX 1080"),
+        label=get_label(sim=sim, gpu=gpu),
     )
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
 
     num_ticks = 8
-    tick_step_size_bytes = round_up_to_next_power_of_two(plot_df["n"].max() / num_ticks)
-    min_kb = round_down_to_multiple_of(plot_df["n"].min(), tick_step_size_bytes)
-    max_kb = round_up_to_multiple_of(plot_df["n"].max(), tick_step_size_bytes)
+    tick_step_size_bytes = utils.round_up_to_next_power_of_two(plot_df["n"].max() / num_ticks)
+    min_kb = utils.round_down_to_multiple_of(plot_df["n"].min(), tick_step_size_bytes)
+    max_kb = utils.round_up_to_multiple_of(plot_df["n"].max(), tick_step_size_bytes)
 
     xticks = np.arange(
         np.max([min_kb, tick_step_size_bytes]), max_kb, step=tick_step_size_bytes
@@ -5225,7 +5512,8 @@ def find_cache_size(
     ax.set_xticks(xticks, xticklabels, rotation=45)
     ax.set_xlim(min_kb, max_kb)
     ax.set_ylim(0, 100.0)
-    ax.legend()
+    ax.legend(loc="upper right")
+
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)

@@ -31,7 +31,7 @@ class Stats(stats.Stats):
         self.load_raw_stats()
 
         self.compute_result_df()
-        print(self.result_df[["kernel_name", "kernel_name_mangled", "kernel_function_signature"]].drop_duplicates())
+        # print(self.result_df[["kernel_name", "kernel_name_mangled", "kernel_function_signature"]].drop_duplicates())
 
         # add the input configs
 

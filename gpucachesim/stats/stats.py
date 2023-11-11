@@ -14,8 +14,6 @@ from gpucachesim.benchmarks import (
 )
 import gpucachesim.stats.common as common
 
-# from gpucachesim.stats.common import stat_cols, STAT_SUFFIXES
-
 WARP_SIZE = 32
 
 READ_ACCESS_KINDS = [
@@ -380,9 +378,19 @@ class Stats(common.Stats):
         # self.result_df["l1_hit_rate"] = (read_hits + write_hits) / (total_writes + total_reads)
 
         # print(self.result_df[["l1_accesses", "l1_hits"]].T)
-        hits = self.result_df["l1_hits"].fillna(0.0)
-        accesses = self.result_df["l1_accesses"].fillna(0.0)
-        # print((hits/ accesses).T)
+        # hits = self.result_df["l1_hits"].fillna(0.0)
+        # accesses = self.result_df["l1_accesses"].fillna(0.0)
+        # self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
+
+        df = self.l1_data_stats_df
+        global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        hit_mask = df["access_status"].isin(["HIT"])
+        miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+        hits = df[global_read & hit_mask]
+        accesses = df[global_read & (hit_mask ^ miss_mask)]
+        hits = hits.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+        accesses = accesses.groupby(INDEX_COLS, dropna=False)["num_accesses"].sum()
+
         self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
 
     def _compute_l1_global_hit_rate(self):
@@ -546,12 +554,12 @@ class Stats(common.Stats):
         mask = df["access_status"].isin(["MISS", "SECTOR_MISS", "HIT"])
         accesses = df[mask]
         grouped = accesses.groupby(INDEX_COLS, dropna=False)
-        print(
-            accesses.groupby(
-                INDEX_COLS + ["allocation_id", "access_kind", "access_status"],
-                dropna=False,
-            )["num_accesses"].mean()
-        )
+        # print(
+        #     accesses.groupby(
+        #         INDEX_COLS + ["allocation_id", "access_kind", "access_status"],
+        #         dropna=False,
+        #     )["num_accesses"].sum()
+        # )
         self.result_df["l2_accesses"] = grouped["num_accesses"].sum()
 
         # df = self.l2_data_stats_df.reset_index()
@@ -720,3 +728,18 @@ class Stats(common.Stats):
     #     write_mask = df["is_write"] == True
     #     write_misses = df[miss_mask & write_mask]
     #     return write_misses["count_mean"].sum()
+
+
+class ExecDrivenStats(Stats):
+    bench_config: BenchConfig[SimulateTargetConfig]
+    target_config: SimulateConfig
+
+    # def __init__(self, config: GPUConfig, bench_config: BenchConfig[SimulateTargetConfig]) -> None:
+    #     self.bench_config = bench_config
+    #     self.target_config = self.bench_config["target_config"].value
+    #     self.path = Path(self.target_config["stats_dir"])
+    #     self.use_duration = False
+    #     self.config = config
+    #     self.repetitions = int(self.bench_config["common"]["repetitions"])
+    #     self.load_converted_stats()
+    #     self.compute_result_df()

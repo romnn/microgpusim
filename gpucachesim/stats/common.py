@@ -6,7 +6,7 @@ import re
 
 
 def function_name_from_signature(sig: str) -> str:
-    pat = re.compile(r"^\s*(?:\w+\s+)?(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)$")
+    pat = re.compile(r"^\s*(?:\w+\s+)?(\w+)(?:<([^>]+)>)?\s*(?:\(([^)]*)\))?\s*$")
     matches = re.findall(pat, sig)
     try:
         return matches[0][0]
