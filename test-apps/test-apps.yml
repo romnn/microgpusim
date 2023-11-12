@@ -134,7 +134,9 @@ benchmarks:
       variant:
         - "naive"
         - "coalesced"
-        - "optimized"
+        # optimized is almost identical to coalesced.
+        # it is supposed to reduce bank conflicts but we see no effect on cycles when profiling
+        # - "optimized"
       include:
         - repeat: 1
     args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"

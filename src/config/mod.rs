@@ -1272,8 +1272,8 @@ impl Default for GPU {
             // this is the l2 latency 216 L2 latency
             // l2_rop_latency: 1,
             // dram_latency: 1,
-            l2_rop_latency: 220, // was 120
-            dram_latency: 180,   // was 100
+            l2_rop_latency: 210, // was 120
+            dram_latency: 190,   // was 100
             dram_dual_bus_interface: false,
             dram_bank_indexing_policy: DRAMBankIndexPolicy::Normal,
             dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy::HigherBits,

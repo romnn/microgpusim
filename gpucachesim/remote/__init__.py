@@ -42,14 +42,22 @@ class MyEnum(enum.Enum):
 
     @classmethod
     def has(cls, v) -> bool:
-        if isinstance(v, cls):
-            return True
+        # if isinstance(v, cls):
+        #     return True
+
         # values = [v.upper() for v in cls._value2member_map_.keys()]
         # members = [str(m).upper() for m in cls._value2member_map_.values()]
         # if value.upper() in values or value.upper() in members:
         #     return True
-        for value, member in cls._value2member_map_.items():
-            if v.upper() == value.upper() or v.upper() == str(member).upper():
+        for member in cls._value2member_map_.values():
+            if isinstance(v, cls):
+                vs = set([str(v.value.upper()), str(v.name.upper())])
+            else:
+                vs = set([str(v).upper()])
+
+            # if v.upper() == value.upper() or v.upper() == str(member).upper():
+                # return True
+            if member.value.upper() in vs or member.name.upper() in vs:
                 return True
 
         return v in cls._unhashable_values_
@@ -57,18 +65,31 @@ class MyEnum(enum.Enum):
 
     @classmethod
     def get(cls, v) -> enum.Enum:
-        for value, member in cls._value2member_map_.items():
-            if v.upper() == value.upper() or v.upper() == str(member).upper():
+        for member in cls._value2member_map_.values():
+            if isinstance(v, cls):
+                vs = set([str(v.value.upper()), str(v.name.upper())])
+            else:
+                vs = set([str(v).upper()])
+
+            if member.name.upper() in vs or member.value.upper() in vs:
+            # if v.upper() == value.upper() or v.upper() == str(member).upper():
                 return member
         raise KeyError(v)
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.name.lower() == other.name.lower() or self.value.lower() == other.value.lower()
+        elif isinstance(other, str):
+            return self.name.lower() == other.lower() or self.value.lower() == other.lower()
+        else:
+            return False
 
-#     def __eq__(self, other):
-#         if isinstance(other, self.__class__):
-#             return self.__dict__ == other.__dict__
-#         elif value in cls._value2member_map_ or value in cls._unhashable_values_isinstance:
-#             return True
-#             return False
+        # for value, member in self._value2member_map_.items():
+        #     if v.upper() == value.upper() or v.upper() == str(member).upper():
+        #         return member
+        #
+        # return self.value.lower() ==
+
 
 # class Enum(enum.Enum):
 #     def __contains__(cls, value):
@@ -301,9 +322,11 @@ class DAS(SSHClient):
         print(job_name, compute_capability, cmd)
 
         # check if job already running
-        running_job_names = self.get_running_job_names()
-        if not force and job_name in running_job_names:
-            raise ValueError("slurm job <{}> is already running".format(job_name))
+        running_job_names = self.get_job_names(status="RUNNING")
+        pending_job_names = self.get_job_names(status="PENDING")
+        if not force and job_name in set(running_job_names + pending_job_names):
+            job_id = self.get_job_id_by_name(job_name)
+            raise ValueError("slurm job <{}> is already running (ID {})".format(job_name, job_id))
         elif force:
             print(color("force re-running job {}".format(job_name), fg="red"))
 
@@ -412,9 +435,21 @@ class DAS(SSHClient):
 
         return job_id, job_name, (remote_slurm_stdout_path, remote_slurm_stderr_path)
 
-    def get_running_job_names(self):
+    def get_job_id_by_name(self, name: str) -> typing.Optional[int]:
         exit_status, stdout, stderr = self.run_command(
-            'squeue --user {} --format="%j" -t RUNNING'.format(self.username)
+            'squeue --user {} --format="%i" --name "{}"'.format(self.username, name)
+        )
+        stderr = stderr.read().decode("utf-8")
+        print(stderr, end="")
+        assert exit_status == 0
+        job_ids = [line.strip() for line in stdout.readlines()]
+        print(job_ids)
+        return int(job_ids[1]) if len(job_ids) > 1 else None
+
+    def get_job_names(self, status="RUNNING"):
+        assert status.upper() in ["RUNNING", "PENDING"]
+        exit_status, stdout, stderr = self.run_command(
+            'squeue --user {} --format="%j" -t {}'.format(self.username, status.upper())
         )
         stderr = stderr.read().decode("utf-8")
         print(stderr, end="")
@@ -422,9 +457,10 @@ class DAS(SSHClient):
         job_names = sorted([line.strip() for line in stdout.readlines()])
         return job_names[1:]
 
-    def get_running_job_ids(self):
+    def get_job_ids(self, status: str):
+        assert status.upper() in ["RUNNING", "PENDING"]
         exit_status, stdout, stderr = self.run_command(
-            'squeue --user {} --format="%i" -t RUNNING'.format(self.username)
+            'squeue --user {} --format="%i" -t {}'.format(self.username, status.upper())
         )
         stderr = stderr.read().decode("utf-8")
         print(stderr, end="")
@@ -436,13 +472,18 @@ class DAS(SSHClient):
     def wait_for_job(self, job_id, interval_sec=5.0, confidence=2):
         print("waiting for job {} to complete".format(job_id))
         while True:
-            job_ids = self.get_running_job_ids()
-            if job_id not in job_ids:
-                confidence -= 1
-                if confidence <= 0:
-                    print("job {} completed".format(job_id))
-                    break
-            print("running jobs: {}".format(job_ids))
+            running_job_ids = self.get_job_ids(status="RUNNING")
+            if job_id in running_job_ids:
+                print("running jobs: {}".format(running_job_ids))
+            else:
+                pending_job_ids = self.get_job_ids(status="PENDING")
+                if job_id in pending_job_ids:
+                    print("pending jobs: {}".format(pending_job_ids))
+                else:
+                    confidence -= 1
+                    if confidence <= 0:
+                        print("job {} completed".format(job_id))
+                        break
             time.sleep(interval_sec)
 
     def print_squeue(self, user=None):
