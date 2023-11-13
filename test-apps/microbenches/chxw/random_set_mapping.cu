@@ -10,12 +10,57 @@
 #include "common.hpp"
 #include "cuda_runtime.h"
 
+// __global__ __noinline__ void
+// global_latency_l1_random_set_mapping_host_mapped(
+//     unsigned int *array, int array_length, unsigned int *latency,
+//     unsigned int *index, int iter_size, size_t warmup_iterations,
+//     unsigned int overflow_index) {
+//   unsigned int start_time, end_time;
+//   volatile uint32_t j = 0;
+//
+//   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
+//     if (k >= 0 && j == 0) {
+//       // overflow the cache now
+//       index[k] = array[array_length + overflow_index];
+//     }
+//     if (k >= 0) {
+//       start_time = clock();
+//       j = array[j];
+//       index[k] = j;
+//       end_time = clock();
+//
+//       latency[k] = end_time - start_time;
+//     } else {
+//       j = array[j];
+//     }
+//   }
+//
+//   // store to avoid caching in readonly?
+//   array[array_length] = j;
+//   array[array_length + 1] = array[j];
+// }
+
 __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
     unsigned int *index, int iter_size, size_t warmup_iterations,
     unsigned int overflow_index) {
   unsigned int start_time, end_time;
   volatile uint32_t j = 0;
+
+  // first pass: linear loading
+  // for (int k = (int)warmup_iterations * -(int)round_size; k < 1 *
+  // (int)round_size; k++) {
+  //   if (k >= 0) {
+  //     start_time = clock();
+  //     j = array[j];
+  //     index[k] = j;
+  //     end_time = clock();
+  //
+  //     latency[k] = end_time - start_time;
+  //   } else {
+  //     j = array[j];
+  //   }
+  // }
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
     if (k >= 0 && j == 0) {
@@ -88,7 +133,8 @@ private:
 // template <typename T> T *compute_random_pointer_chain(T *memory, size_t size)
 // {
 template <typename T>
-void compute_random_pointer_chain(T *memory, size_t size, size_t stride) {
+void compute_random_pointer_chain(T *memory, size_t size, size_t stride,
+                                  size_t seed) {
   // size_t len = size;
   size_t len = size / stride;
   // T *memory = new T[len];
@@ -108,7 +154,6 @@ void compute_random_pointer_chain(T *memory, size_t size, size_t stride) {
       }
     }
   } else {
-    const unsigned long seed = 0;
     shuffle(indices, indices + len, std::default_random_engine(seed));
   }
 
@@ -146,9 +191,10 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     h_a[i] = (unsigned int)-1;
   }
 
-  compute_random_pointer_chain<unsigned int>(h_a, N, stride);
+  size_t seed = repetition;
+  compute_random_pointer_chain<unsigned int>(h_a, N, stride, seed);
   for (size_t i = 0; i < N; i++) {
-    fprintf(stderr, "HAVE: h_a[%lu] = %u\n", i, h_a[i]);
+    // fprintf(stderr, "HAVE: h_a[%lu] = %u\n", i, h_a[i]);
     // h_a[i] = (h_a_offsets[i] + stride) % N;
     // h_a[i] = (i + stride) % N;
   }
@@ -166,12 +212,12 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
   unsigned int j = 0;
   for (size_t i = 0; i < N; i++) {
-    fprintf(stderr, "h_a[%u] => %u\n", j, h_a[j]);
+    // fprintf(stderr, "h_a[%u] => %u\n", j, h_a[j]);
     assert((long int)j - (long int)h_a[j] >= stride);
     j = h_a[j];
     unique_indices.insert(j);
   }
-  fprintf(stderr, "unique indices: %lu\n", unique_indices.size());
+  // fprintf(stderr, "unique indices: %lu\n", unique_indices.size());
   assert(unique_indices.size() == round_size);
 
   j = 0;
@@ -193,9 +239,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   // fprintf(stderr, "unique indices: %lu\n", unique_indices.size());
   // assert(unique_indices.size() == round_size);
 
-  return 0;
-
-  // todo: seed is repetition, use same shuffle per round
+  // return 0;
 
   overflow_index = overflow_index % N;
   assert(N % stride == 0);

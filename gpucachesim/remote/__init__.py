@@ -306,10 +306,10 @@ class DAS(SSHClient):
         self,
         cmd,
         gpu: enum.Enum,
-        executable=None,
+        executable: typing.Optional[os.PathLike]=None,
         force=False,
         timeout=4 * HOUR,
-        random=False,
+        # random=False,
         compute_capability=None,
         retries=10,
     ) -> typing.Tuple[typing.IO, typing.IO]:
@@ -338,7 +338,7 @@ class DAS(SSHClient):
                 executable=executable,
                 args=cmd,
                 compute_capability=compute_capability,
-                random=random,
+                # random=random,
                 timeout=timeout,
             )
             print("submitted job <{}> [ID={}]".format(job_name, job_id))
@@ -365,9 +365,9 @@ class DAS(SSHClient):
         gpu: enum.Enum,
         args,
         name=None,
-        executable=None,
+        executable: typing.Optional[os.PathLike]=None,
         compute_capability=None,
-        random=False,
+        # random=False,
         timeout=4 * HOUR,
         log_every=100_000,
         env=None,
@@ -378,12 +378,12 @@ class DAS(SSHClient):
         env = env or dict()
         if compute_capability is not None:
             env.update({"COMPUTE_CAPABILITY": str(compute_capability)})
-        if random:
-            env.update({"RANDOM": "1"})
+        # if random:
+        #     env.update({"RANDOM": "1"})
         if isinstance(log_every, int):
             env.update({"LOG_EVERY": str(log_every)})
 
-        executable = executable if executable is not None else self.remote_pchase_executable
+        executable = Path(executable) if executable is not None else self.remote_pchase_executable
         executable = executable.with_name(executable.name + "_" + str(get_compute_capability(gpu=gpu)))
 
         # load cuda toolkit

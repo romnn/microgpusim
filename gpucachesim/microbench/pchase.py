@@ -45,6 +45,7 @@ import gpucachesim.utils as utils
 
 NATIVE_P_CHASE = REPO_ROOT_DIR / "test-apps/microbenches/chxw/pchase"
 NATIVE_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
+NATIVE_RANDOM_SET_MAPPING = REPO_ROOT_DIR / "test-apps/microbenches/chxw/set_mapping"
 
 SIM_P_CHASE = REPO_ROOT_DIR / "target/release/pchase"
 SIM_SET_MAPPING = REPO_ROOT_DIR / "target/release/pchase"
@@ -478,6 +479,7 @@ def pchase(
     repetitions=None,
     iter_size=None,
     sim=False,
+    executable: typing.Optional[os.PathLike]=None,
     force=False,
     stream_output=False,
     log_every=100_000,
@@ -515,8 +517,14 @@ def pchase(
         env.update({"LOG_EVERY": str(log_every)})
 
     if gpu is None:
+        if executable is None:
+            executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
+        elif not os.path.isabs(executable):
+            executable = NATIVE_P_CHASE.parent / executable
+        else:
+            executable = Path(executable)
+
         # run locally
-        executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
         cmd = " ".join([str(executable.absolute())] + cmd)
 
         unit = 1 * MIN if sim else 1 * SEC
@@ -547,11 +555,19 @@ def pchase(
             das = remote.DAS6()
         else:
             raise ValueError("cannot run on GPU {}".format(str(gpu)))
+
+        if executable is None:
+            executable = das.remote_scratch_dir / "pchase"
+        elif not os.path.isabs(executable):
+            executable = das.remote_scratch_dir / executable
+        else:
+            executable = Path(executable)
+
         try:
             stdout_reader, stderr_reader = das.run_pchase_sync(
                 cmd,
                 gpu=gpu,
-                executable=das.remote_scratch_dir / "pchase",
+                executable=executable,
                 force=force,
             )
             stderr = stderr_reader.read().decode("utf-8")
@@ -588,7 +604,7 @@ def pchase(
 
 
 def set_mapping(
-    gpu,
+    gpu: typing.Optional[enum.Enum],
     mem,
     stride_bytes,
     warmup,
@@ -597,7 +613,8 @@ def set_mapping(
     max_rounds=None,
     iter_size=None,
     compute_capability=None,
-    random=False,
+    executable: typing.Optional[typing.Union[os.PathLike, str]] = None,
+    # random=False,
     sim=False,
     force=False,
     log_every=100_000,
@@ -628,7 +645,18 @@ def set_mapping(
 
     if gpu is None:
         # run locally
-        executable = SIM_SET_MAPPING if sim else NATIVE_SET_MAPPING
+        if executable is None:
+            executable = SIM_SET_MAPPING if sim else NATIVE_SET_MAPPING
+        elif not os.path.isabs(executable):
+            executable = NATIVE_SET_MAPPING.parent / executable
+            # if sim:
+            #     executable = SIM_SET_MAPPING if random else SIM_SET_MAPPING 
+            # else:
+            #     executable = NATIVE_RANDOM_SET_MAPPING if random else NATIVE_SET_MAPPING
+        else:
+            executable = Path(executable)
+
+        # executable = SIM_SET_MAPPING if sim else NATIVE_SET_MAPPING
         cmd = " ".join([str(executable.absolute())] + cmd)
 
         timeout_sec = repetitions * (20 * MIN if sim else 10 * SEC)
@@ -638,8 +666,8 @@ def set_mapping(
             env = dict(os.environ)
             if compute_capability is not None:
                 env.update({"COMPUTE_CAPABILITY": str(int(compute_capability))})
-            if random:
-                env.update({"RANDOM": "1"})
+            # if random:
+            #     env.update({"RANDOM": "1"})
             if isinstance(log_every, int):
                 env.update({"LOG_EVERY": str(log_every)})
 
@@ -654,41 +682,33 @@ def set_mapping(
             raise e
     else:
         # connect to remote gpu
-        das6 = remote.DAS6()
+        if remote.DAS5_GPU.has(gpu):
+            das = remote.DAS5()
+        elif remote.DAS6_GPU.has(gpu):
+            das = remote.DAS6()
+        else:
+            raise ValueError("cannot run on GPU {}".format(str(gpu)))
+
+
+        if executable is None:
+            executable = das.remote_scratch_dir / "set_mapping"
+        elif not os.path.isabs(executable):
+            executable = das.remote_scratch_dir / executable
+        else:
+            executable = Path(executable)
+
         try:
-            stdout_reader, stderr_reader = das6.run_pchase_sync(
+            stdout_reader, stderr_reader = das.run_pchase_sync(
                 cmd,
                 gpu=gpu,
-                executable=das6.remote_scratch_dir / "set_mapping",
+                executable=executable,
                 compute_capability=compute_capability,
-                random=random,
+                # random=random,
                 force=force,
             )
             stderr = stderr_reader.read().decode("utf-8")
-            # job_name = "-".join(["set_mapping", str(gpu)] + cmd)
-            # remote_stdout_path = das6.remote_pchase_results_dir / "{}.stdout".format(job_name)
-            # remote_stderr_path = das6.remote_pchase_results_dir / "{}.stderr".format(job_name)
-            #
-            # # check if job already running
-            # running_job_names = das6.get_running_job_names()
-            # if not force and job_name in running_job_names:
-            #     raise ValueError("slurm job <{}> is already running".format(job_name))
-            #
-            # # check if results already exists
-            # if force or not das6.file_exists(remote_stdout_path):
-            #     job_id, _, _ = das6.submit_pchase(
-            #         gpu=gpu, name=job_name,
-            #         executable=das6.remote_scratch_dir / "set_mapping",
-            #         args=cmd)
-            #     print("submitted job <{}> [ID={}]".format(job_name, job_id))
-            #
-            #     das6.wait_for_job(job_id)
-            #
-            # # copy stdout and stderr
-            # stdout = das6.read_file_contents(remote_path=remote_stdout_path).decode("utf-8")
-            # stderr = das6.read_file_contents(remote_path=remote_stderr_path).decode("utf-8")
         except Exception as e:
-            das6.close()
+            das.close()
             raise e
 
     df = pd.read_csv(
@@ -1424,7 +1444,7 @@ def find_cache_set_mapping_pchase(
             pass
 
     cache_file = get_cache_file(
-        prefix="cache_set_mapping_pchase", mem=mem, sim=sim, gpu=gpu
+        prefix="cache_set_mapping_pchase", mem=mem, sim=sim, gpu=gpu, random=random
     )
     if cached and cache_file.is_file():
         # open cached files
@@ -1435,6 +1455,7 @@ def find_cache_set_mapping_pchase(
         combined, stderr = pchase(
             mem=mem,
             gpu=gpu,
+            executable="pchase",
             start_size_bytes=known_cache_size_bytes,
             end_size_bytes=known_cache_size_bytes,
             step_size_bytes=1,
@@ -1571,8 +1592,9 @@ def find_cache_set_mapping_pchase(
 
 
 def latency_colormap(combined, min_latency, max_latency, tol=0.3):
-    HIT = 0
-    MISS = 1
+    L1_HIT = 0
+    L1_MISS = 1
+    L2_MISS = 2
 
     combined["latency"] = combined["latency"].clip(lower=0.0)
     mean_cluster_latency = combined.groupby("hit_cluster")["latency"].mean()
@@ -1599,8 +1621,8 @@ def latency_colormap(combined, min_latency, max_latency, tol=0.3):
     orange_to_red = gradient(start=orange, end=red)
 
     latency_range = max_latency - min_latency
-    mean_hit_cluster_latency = mean_cluster_latency.get(HIT, 0.0)
-    mean_miss_cluster_latency = mean_cluster_latency.get(MISS, 200.0)
+    mean_hit_cluster_latency = mean_cluster_latency.get(L1_HIT, 0.0)
+    mean_miss_cluster_latency = mean_cluster_latency.get(L1_MISS, 200.0)
     assert (
         min_latency
         <= mean_hit_cluster_latency
@@ -1609,15 +1631,31 @@ def latency_colormap(combined, min_latency, max_latency, tol=0.3):
     )
 
     start = min_latency
-    hit_end = min_cluster_latency.get(MISS, 200.0) - tol * abs(
-        min_cluster_latency.get(MISS, 200.0) - max_cluster_latency.get(HIT, 0.0)
+    hit_end = min_cluster_latency.get(L1_MISS, 200.0) - tol * abs(
+        min_cluster_latency.get(L1_MISS, 200.0) - max_cluster_latency.get(L1_HIT, 0.0)
     )
     # hit_end = mean_hit_cluster_latency + tol * (mean_miss_cluster_latency - mean_hit_cluster_latency)
     # miss_end = mean_miss_cluster_latency + tol * (max_latency - mean_miss_cluster_latency)
-    miss_end = np.min([mean_cluster_latency.get(MISS, 200.0) + 100.0, max_latency])
-    end = miss_end
+    # miss_end = np.min([mean_cluster_latency.get(MISS, 200.0) + 100.0, max_latency])
+    # print(mean_cluster_latency.get(L1_MISS))
+    # print(max_latency)
+    # miss_end = mean_cluster_latency.get(L1_MISS, 200.0) + 100.0
+
+    # print(min_cluster_latency.get(L1_MISS))
+    # print(mean_cluster_latency.get(L1_MISS))
+    # print(max_cluster_latency.get(L1_MISS))
+    # print(min_cluster_latency.get(L2_MISS))
+
+    miss_end = (
+        mean_cluster_latency.get(L1_MISS, 200.0) + max_cluster_latency.get(L1_MISS, 200.0)
+    ) / 2.0
+    if min_cluster_latency.get(L2_MISS) is not None:
+        miss_end = np.min([miss_end, min_cluster_latency[L2_MISS]])
+    miss_end = np.min([miss_end, max_latency])
+    end = max_latency
 
     points = [start, hit_end, miss_end, end]
+    print("latency cmap:", points)
     widths = [points[i + 1] - points[i] for i in range(len(points) - 1)]
 
     assert np.sum(widths) == latency_range
@@ -1760,7 +1798,7 @@ def plot_access_process_latencies(
     "--cc", "--compute-capability", "compute_capability", type=int, help="compute capability"
 )
 @click.option(
-    "--random", "random", type=bool, help="use random access pattern"
+    "--random", "random", type=bool, default=False, help="use random access pattern"
 )
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
@@ -1805,13 +1843,12 @@ def find_cache_set_mapping(
         print("WARNING: averaging results for GPU {}, which might not have LRU access process".format(
             gpu.value))
 
-    known_cache_size_bytes = known_cache_size_bytes or get_known_cache_size_bytes(
-        mem=mem, gpu=gpu
-    )
-    known_cache_line_bytes = known_cache_line_bytes or get_known_cache_line_bytes(
-        mem=mem, gpu=gpu
-    )
-    known_num_sets = known_num_sets or get_known_cache_num_sets(mem=mem, gpu=gpu)
+    if known_cache_size_bytes is None:
+        known_cache_size_bytes = get_known_cache_size_bytes( mem=mem, gpu=gpu)
+    if known_cache_line_bytes is None:
+        known_cache_line_bytes = get_known_cache_line_bytes( mem=mem, gpu=gpu)
+    if known_num_sets is None:
+        known_num_sets = get_known_cache_num_sets(mem=mem, gpu=gpu)
 
     derived_num_ways = known_cache_size_bytes // (
         known_cache_line_bytes * known_num_sets
@@ -1831,6 +1868,7 @@ def find_cache_set_mapping(
         )
     )
     print("num ways = {:<3}".format(derived_num_ways))
+
 
     # assert (
     #     known_cache_size_bytes
@@ -1854,9 +1892,17 @@ def find_cache_set_mapping(
             stride_bytes = known_cache_line_bytes
             pass
 
-    cache_file = get_cache_file(prefix="cache_set_mapping", mem=mem, sim=sim, gpu=gpu, compute_capability=compute_capability)
+    cache_file = get_cache_file(
+        prefix="cache_set_mapping",
+        mem=mem,
+        sim=sim,
+        gpu=gpu,
+        compute_capability=compute_capability,
+        random=random,
+    )
+
+    print(cache_file)
     if cached and cache_file.is_file():
-        # open cached files
         combined = pd.read_csv(
             cache_file, header=0, index_col=None, compression=CSV_COMPRESSION
         )
@@ -1864,12 +1910,13 @@ def find_cache_set_mapping(
         combined, stderr = set_mapping(
             mem=mem,
             gpu=gpu,
+            executable="random_set_mapping" if random else "set_mapping",
             size_bytes=known_cache_size_bytes,
             stride_bytes=stride_bytes,
             warmup=warmup,
             repetitions=repetitions,
             compute_capability=compute_capability,
-            random=random,
+            # random=random,
             max_rounds=max_rounds,
             sim=sim,
             force=force,
@@ -1917,67 +1964,66 @@ def find_cache_set_mapping(
 
     assert len(combined["n"].unique().tolist()) == 1
 
-    if compute_capability == 86:
-        if not random:
-            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
-                # assert len(_df["index"].unique().tolist()) == len(unique_indices)
-                mask = combined["n"] == n
-                mask &= combined["overflow_index"] == overflow_index
-                mask &= combined["r"] == r
-                stride = stride_bytes / 4
-                wrapped = combined["index"] <= overflow_index - stride_bytes
-                combined.loc[mask & wrapped, "latency"] = 300.0
-
-        if random:
-            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
-                rounds_1_and_2 = _df["k"] >= 1 * round_size
-                rounds_1_and_2 &= _df["k"] < 3 * round_size
-                # print(_df[rounds_1_and_2].head(n=150))
-                # print(_df.loc[rounds_1_and_2, "hit_cluster"] > 0)
-                num_misses = (_df.loc[rounds_1_and_2, "hit_cluster"] > 0).sum()
-                if num_misses == 0:
-                    print(color("n={} overflow index={} num misses={}".format(
-                        n, overflow_index, num_misses), fg="yellow"))
-                elif num_misses != 1:
-                    raise ValueError("more than one miss in round 1 and 2")
-            
-
-        if False:
-            patterns = dict()
-            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
-                if (n, overflow_index) not in patterns:
-                    patterns[(n, overflow_index)] = defaultdict(int)
-
-                misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
-                # print(misses)
-                patterns[(n, overflow_index)][misses] += 1
-
-            # pprint(patterns)
-            # get most common patterns
-            most_common_patterns = {
-                k: sorted(v.items(), key=lambda x: x[1])[-1] for k, v in patterns.items()}
-            # pprint(most_common_patterns)
-
-            new_combined = []
-            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
-                misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
-                if most_common_patterns[(n, overflow_index)][0] == misses:
-                    # print("adding", (n, overflow_index, r))
-                    mask = combined["n"] == n
-                    mask &= combined["overflow_index"] == overflow_index
-                    mask &= combined["r"] == r
-                    assert len(combined[mask]) == len(unique_ks)
-                    new_combined.append(combined[mask])
-                    most_common_patterns[(n, overflow_index)] = (None, None)
-
-            combined = pd.concat(new_combined, ignore_index=True)
-            assert (
-                len(combined[["n", "overflow_index"]].drop_duplicates())
-                == len(combined[["n", "overflow_index", "r"]].drop_duplicates()))
-
-            combined["r"] = 0
-            repetitions = 1
-
+    # if compute_capability == 86:
+    #     if not random:
+    #         for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+    #             # assert len(_df["index"].unique().tolist()) == len(unique_indices)
+    #             mask = combined["n"] == n
+    #             mask &= combined["overflow_index"] == overflow_index
+    #             mask &= combined["r"] == r
+    #             stride = stride_bytes / 4
+    #             wrapped = combined["index"] <= overflow_index - stride_bytes
+    #             combined.loc[mask & wrapped, "latency"] = 300.0
+    #
+    #     if random:
+    #         for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+    #             rounds_1_and_2 = _df["k"] >= 1 * round_size
+    #             rounds_1_and_2 &= _df["k"] < 3 * round_size
+    #             # print(_df[rounds_1_and_2].head(n=150))
+    #             # print(_df.loc[rounds_1_and_2, "hit_cluster"] > 0)
+    #             num_misses = (_df.loc[rounds_1_and_2, "hit_cluster"] > 0).sum()
+    #             if num_misses == 0:
+    #                 print(color("n={} overflow index={} num misses={}".format(
+    #                     n, overflow_index, num_misses), fg="yellow"))
+    #             elif num_misses != 1:
+    #                 raise ValueError("more than one miss in round 1 and 2")
+    #         
+    #
+    #     if False:
+    #         patterns = dict()
+    #         for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+    #             if (n, overflow_index) not in patterns:
+    #                 patterns[(n, overflow_index)] = defaultdict(int)
+    #
+    #             misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
+    #             # print(misses)
+    #             patterns[(n, overflow_index)][misses] += 1
+    #
+    #         # pprint(patterns)
+    #         # get most common patterns
+    #         most_common_patterns = {
+    #             k: sorted(v.items(), key=lambda x: x[1])[-1] for k, v in patterns.items()}
+    #         # pprint(most_common_patterns)
+    #
+    #         new_combined = []
+    #         for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+    #             misses = tuple(_df.loc[_df["hit_cluster"] != 0, "index"].tolist())
+    #             if most_common_patterns[(n, overflow_index)][0] == misses:
+    #                 # print("adding", (n, overflow_index, r))
+    #                 mask = combined["n"] == n
+    #                 mask &= combined["overflow_index"] == overflow_index
+    #                 mask &= combined["r"] == r
+    #                 assert len(combined[mask]) == len(unique_ks)
+    #                 new_combined.append(combined[mask])
+    #                 most_common_patterns[(n, overflow_index)] = (None, None)
+    #
+    #         combined = pd.concat(new_combined, ignore_index=True)
+    #         assert (
+    #             len(combined[["n", "overflow_index"]].drop_duplicates())
+    #             == len(combined[["n", "overflow_index", "r"]].drop_duplicates()))
+    #
+    #         combined["r"] = 0
+    #         repetitions = 1
 
     total_sets = OrderedDict()
     combined = combined.sort_values(["n", "overflow_index", "k", "r"])
@@ -2060,48 +2106,48 @@ def find_cache_set_mapping(
     # print(all_hits_indices)
 
     # shifted plot
-    if False:
-        num_overflow_indices = len(combined["overflow_index"].unique())
-        # num_overflow_indices = int(known_cache_size_bytes / stride_bytes)
-        # print(num_overflow_indices)
-        # assert(num_overflow_indices == len(combined["overflow_index"].unique()))
-        # assert(num_overflow_indices == int(max_rows / repetitions))
-        all_latencies = latencies.copy()
-        all_latencies[:,round_size:] = 0.0
-        shift = "left"
-        for overflow_index in range(num_overflow_indices):
-            row_start = overflow_index * repetitions
-            row_end = (overflow_index+1)*repetitions
-            if shift == "right":
-                new_col_start = round_size + overflow_index
-                new_col_end = max_cols
-                col_start = round_size
-                col_end = min(max_cols, col_start + (new_col_end - new_col_start))
-            elif shift == "left":
-                pass
-                col_start = round_size + round_size
-                col_end = max_cols
-                new_col_start = round_size
-                new_col_end = min(max_cols, new_col_start + (col_end - col_start))
-            else:
-                raise ValueError
-            all_latencies[row_start:row_end,new_col_start:new_col_end] = latencies[row_start:row_end,col_start:col_end]
-
-        fig = plot_access_process_latencies(
-            combined,
-            all_latencies,
-            warmup=warmup,
-            rounds=max_rounds,
-            ylabel="overflow index",
-            size_bytes=known_cache_size_bytes,
-            stride_bytes=stride_bytes,
-        )
-
-        filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-        filename = filename.with_stem(filename.name + "_shifted")
-        filename.parent.mkdir(parents=True, exist_ok=True)
-        print("saved plot to {}".format(filename))
-        fig.savefig(filename)
+    # if False:
+    #     num_overflow_indices = len(combined["overflow_index"].unique())
+    #     # num_overflow_indices = int(known_cache_size_bytes / stride_bytes)
+    #     # print(num_overflow_indices)
+    #     # assert(num_overflow_indices == len(combined["overflow_index"].unique()))
+    #     # assert(num_overflow_indices == int(max_rows / repetitions))
+    #     all_latencies = latencies.copy()
+    #     all_latencies[:,round_size:] = 0.0
+    #     shift = "left"
+    #     for overflow_index in range(num_overflow_indices):
+    #         row_start = overflow_index * repetitions
+    #         row_end = (overflow_index+1)*repetitions
+    #         if shift == "right":
+    #             new_col_start = round_size + overflow_index
+    #             new_col_end = max_cols
+    #             col_start = round_size
+    #             col_end = min(max_cols, col_start + (new_col_end - new_col_start))
+    #         elif shift == "left":
+    #             pass
+    #             col_start = round_size + round_size
+    #             col_end = max_cols
+    #             new_col_start = round_size
+    #             new_col_end = min(max_cols, new_col_start + (col_end - col_start))
+    #         else:
+    #             raise ValueError
+    #         all_latencies[row_start:row_end,new_col_start:new_col_end] = latencies[row_start:row_end,col_start:col_end]
+    #
+    #     fig = plot_access_process_latencies(
+    #         combined,
+    #         all_latencies,
+    #         warmup=warmup,
+    #         rounds=max_rounds,
+    #         ylabel="overflow index",
+    #         size_bytes=known_cache_size_bytes,
+    #         stride_bytes=stride_bytes,
+    #     )
+    #
+    #     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    #     filename = filename.with_stem(filename.name + "_shifted")
+    #     filename.parent.mkdir(parents=True, exist_ok=True)
+    #     print("saved plot to {}".format(filename))
+    #     fig.savefig(filename)
 
     fig = plot_access_process_latencies(
         combined,
@@ -2117,6 +2163,8 @@ def find_cache_set_mapping(
     filename.parent.mkdir(parents=True, exist_ok=True)
     print("saved plot to {}".format(filename))
     fig.savefig(filename)
+
+    return
 
     # per overflow plot
     if False:
@@ -2141,49 +2189,56 @@ def find_cache_set_mapping(
             print("saved plot to {}".format(filename))
             fig.savefig(filename)
 
-    # group by first miss in round 1 and 2
-    print(combined.loc[
-        (combined["k"] >= 1 * round_size) & (combined["k"] < 3 * round_size),:].head(n=100))
+    if False:
+        # group by first miss in round 1 and 2
+        print(combined.loc[
+            (combined["k"] >= 1 * round_size) & (combined["k"] < 3 * round_size),:].head(n=100))
 
-    # print(stride_bytes / 4)
-    # total_sets = {k * 4: list() for k in range(1 * round_size, 3 * round_size, int(stride_bytes / 4))}
-    total_sets = {int(k): list() for k in range(0, known_cache_size_bytes, stride_bytes)}
-    # print(total_sets)
-    # before = len(total_sets)
-    if random:
-        for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
-            rounds_3 = _df["k"] >= 3 * round_size
+        # print(stride_bytes / 4)
+        # total_sets = {k * 4: list() for k in range(1 * round_size, 3 * round_size, int(stride_bytes / 4))}
+        total_sets = {int(k): list() for k in range(0, known_cache_size_bytes, stride_bytes)}
+        # print(total_sets)
+        # before = len(total_sets)
+        if random:
+            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+                rounds_3 = _df["k"] >= 3 * round_size
 
-            rounds_1_and_2 = _df["k"] >= 1 * round_size
-            rounds_1_and_2 &= _df["k"] < 3 * round_size
-            first_miss = _df.loc[rounds_1_and_2 & (_df["hit_cluster"] > 0), "index"]
-            assert len(first_miss) <= 1
-            if len(first_miss) > 0:
-                first_miss = int(first_miss.iloc[0])
-                misses = tuple(_df.loc[rounds_3 & (_df["hit_cluster"] > 0), "index"].tolist())
-                total_sets[first_miss].append(misses)
+                rounds_1_and_2 = _df["k"] >= 1 * round_size
+                rounds_1_and_2 &= _df["k"] < 3 * round_size
+                first_miss = _df.loc[rounds_1_and_2 & (_df["hit_cluster"] > 0), "index"]
+                assert len(first_miss) <= 1
+                if len(first_miss) > 0:
+                    first_miss = int(first_miss.iloc[0])
+                    misses = tuple(_df.loc[rounds_3 & (_df["hit_cluster"] > 0), "index"].tolist())
+                    total_sets[first_miss].append(misses)
 
-    # pprint(total_sets)
-    # assert before == len(total_sets)
+        # pprint(total_sets)
+        # assert before == len(total_sets)
 
-    total_sets_df = pd.DataFrame.from_records(
-        [(k, len(v)) for k, v in total_sets.items()], columns=["index", "count"])
-    print(total_sets_df)
+        total_sets_df = pd.DataFrame.from_records(
+            [(k, len(v)) for k, v in total_sets.items()], columns=["index", "count"])
+        print(total_sets_df)
 
-    fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
-        layout="constrained",
-    )
-    ax = plt.axes()
-    ax.scatter(total_sets_df["index"], total_sets_df["count"], 10, marker="o")
-    filename = PLOT_DIR / "set_freqs.pdf"
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
+        fig = plt.figure(
+            figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+            layout="constrained",
+        )
+        ax = plt.axes()
+        ax.scatter(total_sets_df["index"], total_sets_df["count"], 10, marker="o")
+        filename = PLOT_DIR / "set_freqs.pdf"
+        filename.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(filename)
 
-    total_sets_df["prob"] = total_sets_df["count"] / len(total_sets_df)
-    print(total_sets_df)
+        total_sets_df["prob"] = total_sets_df["count"] / len(total_sets_df)
+        print(total_sets_df)
 
     return
+
+    #
+    #
+    #
+    #
+    #
 
     if not average:
         # remove first round of loading
@@ -4577,9 +4632,10 @@ def find_cache_sets(mem, gpu, start_cache_size_bytes, end_cache_size_bytes, cach
     # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
     ax.set_xticks(xticks, xticklabels)
     ax.set_xlim(min_x, max_x)
-    ax.set_ylim(
-        0, np.clip(plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0, 10.0, 100.0)
-    )
+
+    ylim = plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0 + 10.0
+    ax.set_ylim(0, np.clip(ylim, 10.0, 110.0))
+
     ax.legend(loc="upper left")
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
@@ -5206,7 +5262,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     fig.savefig(filename)
 
 
-def get_cache_file(prefix, mem, sim, gpu: typing.Optional[enum.Enum], compute_capability=None) -> Path:
+def get_cache_file(prefix, mem, sim, gpu: typing.Optional[enum.Enum], compute_capability=None, **kwargs) -> Path:
     kind = "sim" if sim else "native"
     if gpu is None:
         cache_file_name = "{}-{}-{}".format(prefix, mem, kind)
@@ -5214,6 +5270,12 @@ def get_cache_file(prefix, mem, sim, gpu: typing.Optional[enum.Enum], compute_ca
         cache_file_name = "{}/{}-{}-{}".format(str(gpu.value).replace(" ", "-"), prefix, mem, kind)
     if isinstance(compute_capability, int):
         cache_file_name += "-cc{}".format(compute_capability)
+
+    for k,v in kwargs.items():
+        if isinstance(v, bool) and v == True:
+            cache_file_name += f"-{k}"
+        else:
+            cache_file_name += f"-{k}{v}"
     return (CACHE_DIR / cache_file_name).with_suffix(".csv")
 
 
