@@ -54,4 +54,5 @@ do
     make $@ -C $REPO/test-apps/microbenches/chxw/ $arch
     cp $REPO/test-apps/microbenches/chxw/pchase_$arch $SCRATCH/pchase_$arch
     cp $REPO/test-apps/microbenches/chxw/set_mapping_$arch $SCRATCH/set_mapping_$arch
+    cp $REPO/test-apps/microbenches/chxw/random_set_mapping_$arch $SCRATCH/random_set_mapping_$arch
 done
