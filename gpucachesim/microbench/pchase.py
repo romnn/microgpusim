@@ -5,6 +5,7 @@ import typing
 import numpy as np
 import pandas as pd
 import itertools
+from functools import partial
 import pyeda
 import pyeda.boolalg
 import pyeda.boolalg.expr
@@ -110,7 +111,7 @@ def quantize_latency(latency, bin_size=50):
     return utils.round_to_multiple_of(latency, multiple_of=bin_size)
 
 
-def compute_dbscan_clustering(values, eps=2, min_samples=3):
+def compute_dbscan_clustering(values, eps=3, min_samples=3):
     values = np.array(values)
     labels = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(values.reshape(-1, 1))
     # clustering_df = pd.DataFrame(
@@ -732,7 +733,7 @@ def get_known_cache_size_bytes(mem: str, gpu: typing.Optional[enum.Enum] = None)
             return 4 * MB
         # gtx 980 (maxwell)
         case (remote.DAS5_GPU.GTX980, "l1data"):
-            return 48 * KB
+            return 24 * KB
         case (remote.DAS5_GPU.GTX980, "l2"):
             return 2 * MB
         # titan (kepler)
@@ -1179,13 +1180,19 @@ def compute_rounds(df):
     return df
 
 
-def compute_number_of_sets(combined):
+def compute_number_of_sets(combined, hit_cluster):
     # use DBscan clustering to find the number of sets
-    combined["is_miss"] = combined["hit_cluster"] != 0
+    combined["is_miss"] = combined["hit_cluster"] > hit_cluster
     num_misses_per_n = combined.groupby("n")["is_miss"].sum().reset_index()
     num_misses_per_n = num_misses_per_n.rename(columns={"is_miss": "num_misses"})
+
+    # print(num_misses_per_n["num_misses"])
+    sorted = num_misses_per_n["num_misses"].drop_duplicates().sort_values().to_numpy()
+    deltas = np.array([sorted[i+1] - sorted[i] for i in range(len(sorted)-1)])
+    eps = int(2 * np.amin(deltas))
+
     num_misses_per_n["set_cluster"] = compute_dbscan_clustering(
-        num_misses_per_n["num_misses"]
+        num_misses_per_n["num_misses"], eps=eps,
     )
 
     misses_per_set = (
@@ -4301,9 +4308,9 @@ So the relationship stands like this:
 """
 
 
-def agg_miss_rate(hit_clusters):
+def agg_miss_rate(hit_clusters, hit_cluster):
     cluster_counts = hit_clusters.value_counts().reset_index()
-    num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] != 0, "count"].sum()
+    num_misses = cluster_counts.loc[cluster_counts["hit_cluster"] > hit_cluster, "count"].sum()
     total = cluster_counts["count"].sum()
     return num_misses / total
 
@@ -4323,14 +4330,14 @@ def agg_l2_hit_rate(hit_clusters):
 
 
 @main.command()
-# @click.option("--start", "start_size", type=int, help="start cache size in bytes")
-# @click.option("--end", "end_size", type=int, help="end cache size in bytes")
 @click.option(
     "--mem", "mem", type=str, default="l1data", help="memory to microbenchmark"
 )
 @click.option(
     "--gpu", "gpu", type=str, help="the remote gpu device to run the microbenchmark"
 )
+@click.option("--start", "start_cache_size_bytes", type=int, help="start cache size in bytes")
+@click.option("--end", "end_cache_size_bytes", type=int, help="end cache size in bytes")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
 @click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
@@ -4338,7 +4345,7 @@ def agg_l2_hit_rate(hit_clusters):
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
-def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
+def find_cache_sets(mem, gpu, start_cache_size_bytes, end_cache_size_bytes, cached, sim, repetitions, warmup, force):
     """
     Determine number of cache sets T.
 
@@ -4357,33 +4364,50 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     known_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
     predicted_num_sets = get_known_cache_num_sets(mem=mem, gpu=gpu)
 
-    stride_bytes = 8
-    step_bytes = 32
+    stride_bytes = 32
+    step_size_bytes = 32
 
-    start_cache_size_bytes = known_cache_size_bytes - 2 * known_cache_line_bytes
-    end_cache_size_bytes = (
-        known_cache_size_bytes + (2 + predicted_num_sets) * known_cache_line_bytes
-    )
+    if start_cache_size_bytes is None:
+        start_cache_size_bytes = known_cache_size_bytes - 2 * known_cache_line_bytes
+    if end_cache_size_bytes is None:
+        end_cache_size_bytes = (
+            known_cache_size_bytes + (2 + predicted_num_sets) * known_cache_line_bytes
+        )
 
-    if gpu == "A4000":
+    if gpu == remote.DAS6_GPU.A4000:
         stride_bytes = known_cache_line_bytes
-        step_bytes = known_cache_line_bytes
+        step_size_bytes = known_cache_line_bytes
         predicted_num_sets = 32
-
 
     match mem.lower():
         case "l1readonly":
             # stride_bytes = 16
             pass
 
+    print(
+        "known: cache size = {} bytes ({})\t line size = {} bytes ({})".format(
+            known_cache_size_bytes,
+            humanize.naturalsize(known_cache_size_bytes, binary=True),
+            known_cache_line_bytes,
+            humanize.naturalsize(known_cache_line_bytes, binary=True),
+        )
+    )
+    print("predicted num sets: {}".format(predicted_num_sets))
+    print(
+        "range: {:>10} to {:<10} step size={} steps={}".format(
+            humanize.naturalsize(start_cache_size_bytes, binary=True),
+            humanize.naturalsize(end_cache_size_bytes, binary=True),
+            step_size_bytes,
+            (end_cache_size_bytes - start_cache_size_bytes) / step_size_bytes
+        )
+    )
     
-    assert step_bytes % stride_bytes == 0
+    assert step_size_bytes % stride_bytes == 0
     assert start_cache_size_bytes % stride_bytes == 0
     assert end_cache_size_bytes % stride_bytes == 0
 
     cache_file = get_cache_file(prefix="cache_sets", mem=mem, sim=sim, gpu=gpu)
     if cached and cache_file.is_file():
-        # open cached files
         combined = pd.read_csv(
             cache_file, header=0, index_col=None, compression=CSV_COMPRESSION
         )
@@ -4393,7 +4417,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
             gpu=gpu,
             start_size_bytes=start_cache_size_bytes,
             end_size_bytes=end_cache_size_bytes,
-            step_size_bytes=step_bytes,
+            step_size_bytes=step_size_bytes,
             stride_bytes=stride_bytes,
             max_rounds=1,
             warmup=warmup,
@@ -4417,14 +4441,16 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
         print("wrote cache file to ", cache_file)
         combined.to_csv(cache_file, index=False, compression=CSV_COMPRESSION)
 
+    hit_cluster = 1 if mem == "l2" else 0
+
     for n, df in combined.groupby("n"):
         # reindex the numeric index
         df = df.reset_index()
         assert df.index.start == 0
 
         # count hits and misses
-        num_hits = (df["hit_cluster"] == 0).sum()
-        num_misses = (df["hit_cluster"] != 0).sum()
+        num_hits = (df["hit_cluster"] <= hit_cluster).sum()
+        num_misses = (df["hit_cluster"] > hit_cluster).sum()
         num_l1_misses = (df["hit_cluster"] == 1).sum()
         num_l2_misses = (df["hit_cluster"] == 2).sum()
 
@@ -4432,7 +4458,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
         miss_rate = float(num_misses) / float(len(df)) * 100.0
 
         # extract miss pattern
-        miss_pattern = df.index[df["hit_cluster"] != 0].tolist()
+        miss_pattern = df.index[df["hit_cluster"] > hit_cluster].tolist()
         assert len(miss_pattern) == num_misses
 
         l1_misses = df.index[df["hit_cluster"] == 1].tolist()
@@ -4463,9 +4489,11 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
                 "==> start of predicted cache line ({})".format(human_cache_line_bytes)
             )
 
-    derived_num_sets, _misses_per_set = compute_number_of_sets(combined)
+    derived_num_sets, _misses_per_set = compute_number_of_sets(combined, hit_cluster=hit_cluster)
 
-    plot_df = combined.groupby("n").agg({"hit_cluster": [agg_miss_rate]}).reset_index()
+    plot_df = combined.groupby("n").agg(
+        {"hit_cluster": [partial(agg_miss_rate, hit_cluster=hit_cluster)]}
+    ).reset_index()
     plot_df.columns = [
         "_".join([col for col in cols if col != ""]) for cols in plot_df.columns
     ]
@@ -4552,7 +4580,7 @@ def find_cache_sets(mem, gpu, cached, sim, repetitions, warmup, force):
     ax.set_ylim(
         0, np.clip(plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0, 10.0, 100.0)
     )
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper left")
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
@@ -4643,7 +4671,21 @@ def find_cache_line_size(
     )
 
     match (gpu, mem.lower()):
+        case (remote.DAS6_GPU.A4000, "l2"):
+            step_size_bytes = 8
+            stride_bytes = 8
+
+            start_size_bytes = 3 * MB
+            predicted_num_lines = 1
+            end_size_bytes = (
+                start_size_bytes + (predicted_num_lines) * predicted_cache_line_bytes
+            )
+            # predicted_num_lines = 12
+            repetitions = 10
+
         case (remote.DAS6_GPU.A4000, "l1data"):
+            
+
             # start_size_bytes = known_cache_size_bytes - 2 * predicted_cache_line_bytes
             start_size_bytes = 16 * KB
             predicted_num_lines = 20
@@ -4653,7 +4695,7 @@ def find_cache_line_size(
                 start_size_bytes + (2 + predicted_num_lines) * predicted_cache_line_bytes
             )
             # predicted_num_lines = 12
-            repetitions = 100
+            # repetitions = 100
         case (remote.DAS5_GPU.TITANXPASCAL, "l2"):
             step_size_bytes = 8
             stride_bytes = 8
@@ -4669,7 +4711,7 @@ def find_cache_line_size(
             # start_size_bytes = 1 * MB
             # end_size_bytes = 3 * MB
             # step_size_bytes = 256 * KB
-            repetitions = 10
+            # repetitions = 10
 
     # temp
     # start_size_bytes = known_cache_size_bytes - 1 * predicted_cache_line_bytes
@@ -4694,7 +4736,7 @@ def find_cache_line_size(
     if cached and cache_file.is_file():
         # open cached files
         combined = pd.read_csv(
-            cache_file, header=0, index_col=None, compression=CSV_COMPRESSION
+            cache_file, header=0, index_col=None, compression=CSV_COMPRESSION, on_bad_lines="warn",
         )
     else:
         combined, stderr = pchase(
@@ -4779,15 +4821,8 @@ def find_cache_line_size(
             )
         )
 
-    def agg_miss_rate(hit_clusters):
-        cluster_counts = hit_clusters.value_counts().reset_index()
-        num_misses = cluster_counts.loc[
-            cluster_counts["hit_cluster"] > hit_cluster, "count"
-        ].sum()
-        total = cluster_counts["count"].sum()
-        return num_misses / total
-
-    plot_df = combined.groupby("n").agg({"hit_cluster": agg_miss_rate}).reset_index()
+    plot_df = combined.groupby("n").agg({
+        "hit_cluster": partial(agg_miss_rate, hit_cluster=hit_cluster)}).reset_index()
     plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
     # print(plot_df)
 
@@ -5333,15 +5368,7 @@ def find_cache_size(
             )
         )
 
-    def agg_miss_rate(hit_clusters):
-        cluster_counts = hit_clusters.value_counts().reset_index()
-        num_misses = cluster_counts.loc[
-            cluster_counts["hit_cluster"] > hit_cluster, "count"
-        ].sum()
-        total = cluster_counts["count"].sum()
-        return num_misses / total
-
-    plot_df = combined.groupby("n").agg({"hit_cluster": agg_miss_rate}).reset_index()
+    plot_df = combined.groupby("n").agg({"hit_cluster": partial(agg_miss_rate, hit_cluster=hit_cluster)}).reset_index()
     plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
     # print(plot_df)
 

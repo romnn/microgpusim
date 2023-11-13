@@ -41,67 +41,6 @@ def main():
     # ctx.ensure_object(dict)
     pass
 
-
-SIMULATE_FUNCTIONAL_CONFIG_COLS = [
-    "input_memory_only",
-    "input_num_clusters",
-    "input_cores_per_cluster",
-]
-SIMULATE_EXECUTION_CONFIG_COLS = [
-    "input_mode",
-    "input_threads",
-    "input_run_ahead",
-]
-SIMULATE_INPUT_COLS = SIMULATE_EXECUTION_CONFIG_COLS + SIMULATE_FUNCTIONAL_CONFIG_COLS
-
-BENCHMARK_INPUT_COLS = {
-    "vectorAdd": ["input_dtype", "input_length"],
-    "matrixmul": ["input_dtype", "input_rows"],
-    "simple_matrixmul": ["input_dtype", "input_m", "input_n", "input_p"],
-    "transpose": ["input_dim", "input_variant"],
-    "babelstream": ["input_size"],
-}
-
-STAT_COLS = [
-    "exec_time_sec",
-    "cycles",
-    "num_blocks",
-    "instructions",
-    "warp_inst",
-    # dram stats
-    "dram_reads",
-    "dram_writes",
-    # l2 stats
-    "l2_accesses",
-    "l2_reads",
-    "l2_writes",
-    "l2_read_hit_rate",
-    "l2_write_hit_rate",
-    "l2_read_miss_rate",
-    "l2_write_miss_rate",
-    "l2_hit_rate",
-    "l2_miss_rate",
-    "l2_read_hits",
-    "l2_write_hits",
-    "l2_read_misses",
-    "l2_write_misses",
-    "l2_hits",
-    "l2_misses",
-    # l1 rates
-    "l1_hit_rate",
-    "l1_miss_rate",
-    # l1 accesses
-    "l1_reads",
-    "l1_writes",
-    "l1_hits",
-    "l1_misses",
-    "l1_accesses",
-]
-
-# BENCH_TARGET_INDEX_COLS = ["target", "benchmark", "input_id"]
-BENCH_TARGET_INDEX_COLS = ["target", "benchmark"]
-
-
 def aggregate_benchmark_results(
     sim_df: pd.DataFrame,
     bench_name: str,
@@ -119,7 +58,7 @@ def aggregate_benchmark_results(
     # only compare serial gpucachesim
     # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
 
-    for col in SIMULATE_INPUT_COLS:
+    for col in benchmarks.SIMULATE_INPUT_COLS:
         if col not in selected_df:
             selected_df[col] = np.nan
 
@@ -194,7 +133,7 @@ def aggregate_benchmark_results(
         # print(selected_df[["input_m", "input_n", "input_p"]])
         # selected_df = selected_df[selected_df[["input_m", "input_n", "input_p"]].isin(subset)]
 
-    input_cols = BENCHMARK_INPUT_COLS[bench_name]
+    input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
     # print(selected_df[input_cols].drop_duplicates())
 
     # INDEX_COLS = [
@@ -211,14 +150,14 @@ def aggregate_benchmark_results(
     if False:
         print(
             profile_df[
-                BENCH_TARGET_INDEX_COLS
+                benchmarks.BENCH_TARGET_INDEX_COLS
                 + input_cols
                 + ["l2_hits", "l2_misses", "l2_hit_rate"]
                 + ["l1_hits", "l1_misses", "l1_hit_rate"]
             ]
         )
 
-    group_cols = BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols
+    group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols
 
     # print(selected_df.index)
     # non_numeric_cols = sorted(selected_df.select_dtypes(include=["object"]).columns.tolist())
@@ -227,7 +166,7 @@ def aggregate_benchmark_results(
     pprint(group_cols)
     aggregations = {
         **{c: "mean" for c in set(selected_df.columns)},
-        **NON_NUMERIC_COLS,
+        **benchmarks.NON_NUMERIC_COLS,
     }
     aggregations = {
         col: agg for col, agg in aggregations.items()
@@ -244,11 +183,11 @@ def aggregate_benchmark_results(
     # per_kernel["target_name"] = per_kernel["target"].apply(compute_target_name)
     # print(per_kernel)
 
-    group_cols = BENCH_TARGET_INDEX_COLS + input_cols
+    group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + input_cols
     grouped = per_kernel.groupby(group_cols, dropna=False)
     aggregations = {
         **{c: "mean" for c in set(per_kernel.columns)},
-        **NON_NUMERIC_COLS,
+        **benchmarks.NON_NUMERIC_COLS,
     }
     aggregations = {
         col: agg for col, agg in aggregations.items()
@@ -272,21 +211,6 @@ def aggregate_benchmark_results(
     )
     # per_target = averaged.set_index(["target", "benchmark"] + input_cols)
     return per_kernel, per_target_pivoted
-
-NON_NUMERIC_COLS = {
-    "target": "first",
-    "benchmark": "first",
-    "Host Name": "first",
-    "Process Name": "first",
-    "device": "first",
-    "is_release_build": "first",
-    "kernel_function_signature": "first",
-    "kernel_name": "first",
-    "kernel_name_mangled": "first",
-    "input_id": "first",
-    "input_memory_only": "first",
-    "input_mode": "first",
-}
 
 
 @main.command()
@@ -319,8 +243,8 @@ def parallel_plot(path, bench_name, nvprof):
     bench_cols = ["target", "benchmark"]
     # 'input_mode', 'input_threads', 'input_run_ahead', 'input_memory_only', 'input_num_clusters', 'input_cores_per_cluster'
     # input_cols = ["input_dtype", "input_length", "input_memory_only", "input_cores_per_cluster"]
-    bench_input_cols = BENCHMARK_INPUT_COLS[bench_name]
-    input_cols = SIMULATE_INPUT_COLS
+    bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+    input_cols = benchmarks.SIMULATE_INPUT_COLS
     print(bench_input_cols)
     print(input_cols)
 
@@ -340,7 +264,7 @@ def parallel_plot(path, bench_name, nvprof):
 
     aggregations = {
         **{c: "mean" for c in set(serial.columns) - set(group_cols)},
-        **NON_NUMERIC_COLS,
+        **benchmarks.NON_NUMERIC_COLS,
     }
     aggregations = {col: agg for col, agg in aggregations.items() if col in serial}
     mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
@@ -422,14 +346,14 @@ def parallel_plot(path, bench_name, nvprof):
             print(
                 serial.loc[
                     serial["input_id"] == input_id,
-                    bench_cols + bench_input_cols + SIMULATE_INPUT_COLS,
+                    bench_cols + bench_input_cols + benchmarks.SIMULATE_INPUT_COLS,
                 ]
             )
             print("parallel input", input_id)
             print(
                 parallel.loc[
                     parallel["input_id"] == input_id,
-                    bench_cols + bench_input_cols + SIMULATE_INPUT_COLS,
+                    bench_cols + bench_input_cols + benchmarks.SIMULATE_INPUT_COLS,
                 ]
             )
             break
@@ -438,7 +362,7 @@ def parallel_plot(path, bench_name, nvprof):
     # join based on input_cols, NOT based on mode
     joined = parallel.merge(
         serial,
-        on=bench_cols + bench_input_cols + SIMULATE_FUNCTIONAL_CONFIG_COLS,
+        on=bench_cols + bench_input_cols + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS,
         how="left",
         suffixes=("_parallel", "_serial"),
     )
@@ -449,8 +373,8 @@ def parallel_plot(path, bench_name, nvprof):
     PREVIEW_COLS = sorted(
         bench_cols
         + bench_input_cols
-        + SIMULATE_FUNCTIONAL_CONFIG_COLS
-        + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
+        + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+        + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
         + [c + "_parallel" for c in metric_cols]
         + [c + "_serial" for c in metric_cols]
         + ["input_id_serial", "input_id_parallel"]
@@ -513,9 +437,9 @@ def parallel_plot(path, bench_name, nvprof):
     group_cols = sorted(
         bench_cols
         + bench_input_cols
-        + SIMULATE_FUNCTIONAL_CONFIG_COLS
-        + [col + "_parallel" for col in SIMULATE_EXECUTION_CONFIG_COLS]
-        + [col + "_serial" for col in SIMULATE_EXECUTION_CONFIG_COLS]
+        + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+        + [col + "_parallel" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+        + [col + "_serial" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
     )
     # table_df = joined.groupby(group_cols).apply(test_func)
     # .set_index(group_cols)
@@ -734,17 +658,17 @@ def parallel_plot(path, bench_name, nvprof):
 
         table = ""
 
-        assert set(functional_config.keys()) == set(SIMULATE_FUNCTIONAL_CONFIG_COLS)
+        assert set(functional_config.keys()) == set(benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS)
 
         assert all(
             [
-                bench_name in BENCHMARK_INPUT_COLS.keys()
+                bench_name in benchmarks.BENCHMARK_INPUT_COLS.keys()
                 for bench_name in selected_benchmarks.keys()
             ]
         )
         assert all(
             [
-                set(BENCHMARK_INPUT_COLS[bench_name])
+                set(benchmarks.BENCHMARK_INPUT_COLS[bench_name])
                 == set(bench_config["inputs"].keys())
                 for bench_name, bench_config in selected_benchmarks.items()
             ]
@@ -1174,8 +1098,8 @@ def correlation_plots(path, bench_name_arg, nsight):
         for bench_name, bench_df in stats.groupby("benchmark"):
             print(bench_name)
 
-            bench_input_cols = BENCHMARK_INPUT_COLS[bench_name]
-            bench_df = bench_df.set_index(["target"] + SIMULATE_INPUT_COLS).sort_index()
+            bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+            bench_df = bench_df.set_index(["target"] + benchmarks.SIMULATE_INPUT_COLS).sort_index()
 
             def gpucachesim_baseline(target, memory_only=False):
                 # "input_mode", "input_threads", "input_run_ahead",
@@ -1186,7 +1110,7 @@ def correlation_plots(path, bench_name_arg, nsight):
 
             aggregations = {
                 **{c: "mean" for c in set(bench_df.columns) - set(group_cols)},
-                **NON_NUMERIC_COLS,
+                **benchmarks.NON_NUMERIC_COLS,
             }
             aggregations = {col: agg for col, agg in aggregations.items() if col in bench_df}
 
@@ -1305,7 +1229,7 @@ def correlation_plots(path, bench_name_arg, nsight):
             
         # create one plot for all benchmarks
         if bench_name_arg is not None:
-            bench_df = stats.set_index(["target"] + SIMULATE_INPUT_COLS).sort_index()
+            bench_df = stats.set_index(["target"] + benchmarks.SIMULATE_INPUT_COLS).sort_index()
 
 def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
     stat_cols = [
@@ -1519,7 +1443,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         assert isinstance(df, pd.Series)
 
         benchmark = df["benchmark"]
-        bench_input_cols = BENCHMARK_INPUT_COLS[benchmark]
+        bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
         assert all([c in df for c in bench_input_cols])
 
         match benchmark.lower():
@@ -1579,7 +1503,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
     pprint(benchmarks)
     benchmark_inputs = {
         benchmark: per_kernel[
-            ["label"] + BENCHMARK_INPUT_COLS[benchmark]
+            ["label"] + benchmarks.BENCHMARK_INPUT_COLS[benchmark]
         ].drop_duplicates()
         for benchmark in benchmarks
     }
@@ -1591,8 +1515,8 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         if target in ["Profile", "Simulate", "AccelsimSimulate"]
     ]
 
-    input_cols = BENCHMARK_INPUT_COLS[bench_name]
-    group_cols = BENCH_TARGET_INDEX_COLS + input_cols
+    input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+    group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + input_cols
     per_target = per_kernel.set_index(group_cols).sort_index()
 
     print(" === {} === ".format(profiler))
@@ -1642,7 +1566,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
 
         for target, (inputs_idx, inputs) in target_configs:
             key = [target, benchmark] + [
-                inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]
+                inputs[col] for col in benchmarks.BENCHMARK_INPUT_COLS[benchmark]
             ]
             target_df = per_target.loc[tuple(key), :]
             target_df = target_df.groupby(group_cols, dropna=False)
@@ -1659,7 +1583,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
                         stat_col,
                         target_name,
                         target_idx,
-                        str(inputs[BENCHMARK_INPUT_COLS[benchmark]].tolist()),
+                        str(inputs[benchmarks.BENCHMARK_INPUT_COLS[benchmark]].tolist()),
                         inputs_idx,
                         idx,
                         target_df[stat_col].fillna(0.0).mean(),
@@ -1707,7 +1631,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         inputs = benchmark_inputs[benchmark]
         labels = inputs["label"].values
         key = [Target.Simulate.value, benchmark] + [
-            inputs[col] for col in BENCHMARK_INPUT_COLS[benchmark]
+            inputs[col] for col in benchmarks.BENCHMARK_INPUT_COLS[benchmark]
         ]
         simulate_df = per_target.loc[tuple(key), :]
         num_blocks = simulate_df["num_blocks"].values

@@ -423,6 +423,10 @@ impl crate::Benchmark {
         //     dbg!(&target_matrix.expand().into_iter().collect::<Vec<_>>());
         // }
 
+        // if name == "simple_matrixmul" && target == Target::Simulate {
+        //     dbg!(&name);
+        //     dbg!(&target_matrix);
+        // }
         let inputs: Result<Vec<_>, _> = target_matrix
             .expand()
             .into_iter()
@@ -430,6 +434,11 @@ impl crate::Benchmark {
             .map(|(input_idx, target_input)| {
                 let target_input_keys: HashSet<_> = target_input.keys().collect();
                 assert!(!target_input_keys.contains(&"id".to_string()));
+
+                // if name == "simple_matrixmul" && target == Target::Simulate {
+                //     dbg!(&target_input);
+                //     assert!(target_input_keys.contains(&"num_clusters".to_string()));
+                // }
 
                 let mut bench_configs =
                     self.materialize_input(name.to_string(), target_input, config, base, target);

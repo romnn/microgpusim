@@ -455,8 +455,7 @@ int main(int argc, char *argv[]) {
   CUDA_CHECK(cudaFuncSetCacheConfig(global_latency_l1_set_mapping_host_mapped,
                                     prefer_shared_mem_config));
 
-  // use maximum L1 data cache on volta+
-  // int shared_mem_carveout_percent = cudaSharedmemCarveoutMaxL1;
+  // use smallest L1 data cache on volta+
   int shared_mem_carveout_percent = 75;
   CUDA_CHECK(
       cudaFuncSetAttribute(global_latency_l1_set_mapping_shared_memory,
