@@ -1695,7 +1695,11 @@ def plot_access_process_latencies(
     max_latency = mean_cluster_latency.get(1, 200.0) + 100.0
     min_latency = np.max([0, mean_cluster_latency.get(0, 0.0) - 100.0])
 
-    ylabel = ylabel or r"repetition"
+    num_overflow_indices = len(combined["overflow_index"].unique().tolist())
+    y_axis_kind = "repetition" if num_overflow_indices == 1 else "overflow index"
+    if ylabel is None:
+        ylabel = y_axis_kind
+
     fontsize = plot.FONT_SIZE_PT
     font_family = "Helvetica"
 
@@ -1711,6 +1715,7 @@ def plot_access_process_latencies(
         combined, min_latency=min_latency, max_latency=max_latency
     )
 
+    print(values.shape)
     c = plt.imshow(
         values,
         cmap=latency_cmap,
@@ -1754,14 +1759,27 @@ def plot_access_process_latencies(
             xticklabels = ["R{}".format(r) for r in round_indices + warmup]
             ax.set_xticks(xticks, xticklabels)
 
+    if True:
         if isinstance(repetitions, int):
-            num_overflow_indices = len(values) / repetitions
-            step_size = num_overflow_indices / 10.0
-            if step_size > 10.0:
+            if y_axis_kind == "repetition":
+                num_y_values = repetitions
+                bin_size = 1
+            elif y_axis_kind == "overflow index":
+                num_y_values = len(values) / repetitions
+                bin_size = repetitions
+            else:
+                raise ValueError("bad y axis type")
+
+            print("num y values", num_y_values)
+            step_size = int(np.amax([1, num_y_values / 10.0]))
+            if step_size > 10:
                 step_size = utils.round_up_to_multiple_of(step_size, 10.0)
-            overflow_indices = np.arange(num_overflow_indices, step=step_size)
-            yticks = overflow_indices * repetitions
-            yticklabels = overflow_indices.astype(int)
+            y_values = np.arange(num_y_values, step=step_size)
+            yticks = y_values * bin_size
+            yticklabels = y_values.astype(int)
+            # print(y_values)
+            # print(yticks)
+            # print(yticklabels)
             ax.set_yticks(yticks, yticklabels)
 
     ax.set_xlabel(xlabel)
@@ -2154,7 +2172,7 @@ def find_cache_set_mapping(
         latencies,
         warmup=warmup,
         rounds=max_rounds,
-        ylabel="overflow index",
+        # ylabel="overflow index",
         size_bytes=known_cache_size_bytes,
         stride_bytes=stride_bytes,
     )

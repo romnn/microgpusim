@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unordered_set>
+// #include <random>
 
 #include "common.hpp"
 #include "cuda_runtime.h"
@@ -42,8 +43,8 @@
 
 __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
-    unsigned int *index, int iter_size, size_t warmup_iterations,
-    unsigned int overflow_index) {
+    unsigned int *index, int iter_size, size_t warmup_iterations) {
+  // unsigned int overflow_index) {
   unsigned int start_time, end_time;
   volatile uint32_t j = 0;
 
@@ -63,10 +64,10 @@ __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
   // }
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-    if (k >= 0 && j == 0) {
-      // overflow the cache now
-      index[k] = array[array_length + overflow_index];
-    }
+    // if (k >= 0 && j == 0) {
+    //   // overflow the cache now
+    //   index[k] = array[array_length + overflow_index];
+    // }
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -86,16 +87,16 @@ __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
 
 __global__ __noinline__ void global_latency_l2_random_set_mapping_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
-    unsigned int *index, int iter_size, size_t warmup_iterations,
-    unsigned int overflow_index) {
+    unsigned int *index, int iter_size, size_t warmup_iterations) {
+  // unsigned int overflow_index) {
   unsigned int start_time, end_time;
   volatile uint32_t j = 0;
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-    if (k >= 0 && j == 0) {
-      // overflow the cache now
-      index[k] = array[array_length + overflow_index];
-    }
+    // if (k >= 0 && j == 0) {
+    //   // overflow the cache now
+    //   index[k] = array[array_length + overflow_index];
+    // }
     if (k >= 0) {
       start_time = clock();
       j = __ldcg(&array[j]);
@@ -113,22 +114,21 @@ __global__ __noinline__ void global_latency_l2_random_set_mapping_host_mapped(
   array[array_length + 1] = array[j];
 }
 
-#include <random>
-
-/* simple class for a pseudo-random generator producing
-   uniformely distributed integers */
-class UniformIntDistribution {
-public:
-  UniformIntDistribution() : engine(std::random_device()()) {}
-  /* return number in the range of [0..upper_limit) */
-  unsigned int draw(unsigned int upper_limit) {
-    return std::uniform_int_distribution<unsigned int>(0,
-                                                       upper_limit - 1)(engine);
-  }
-
-private:
-  std::mt19937 engine;
-};
+// /* simple class for a pseudo-random generator producing
+//    uniformely distributed integers */
+// class UniformIntDistribution {
+// public:
+//   UniformIntDistribution() : engine(std::random_device()()) {}
+//   /* return number in the range of [0..upper_limit) */
+//   unsigned int draw(unsigned int upper_limit) {
+//     return std::uniform_int_distribution<unsigned int>(0,
+//                                                        upper_limit -
+//                                                        1)(engine);
+//   }
+//
+// private:
+//   std::mt19937 engine;
+// };
 
 // template <typename T> T *compute_random_pointer_chain(T *memory, size_t size)
 // {
@@ -145,17 +145,17 @@ void compute_random_pointer_chain(T *memory, size_t size, size_t stride,
     indices[i] = i;
   }
 
-  if (false) {
-    UniformIntDistribution uniform;
-    for (std::size_t i = 0; i < len - 1; ++i) {
-      std::size_t j = i + uniform.draw(len - i);
-      if (i != j) {
-        std::swap(indices[i], indices[j]);
-      }
-    }
-  } else {
-    shuffle(indices, indices + len, std::default_random_engine(seed));
-  }
+  // if (false) {
+  //   UniformIntDistribution uniform;
+  //   for (std::size_t i = 0; i < len - 1; ++i) {
+  //     std::size_t j = i + uniform.draw(len - i);
+  //     if (i != j) {
+  //       std::swap(indices[i], indices[j]);
+  //     }
+  //   }
+  // } else {
+  shuffle(indices, indices + len, std::default_random_engine(seed));
+  // }
 
   // fill memory with pointer references
   for (std::size_t i = 1; i < len; ++i) {
@@ -174,8 +174,8 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
                               size_t N, size_t stride, size_t iter_size,
                               size_t warmup_iterations, size_t repetition,
                               size_t compute_capability,
-                              unsigned int clock_overhead,
-                              unsigned int overflow_index) {
+                              unsigned int clock_overhead) {
+  // unsigned int overflow_index) {
 
   // unsigned int *h_a_offsets = (unsigned int *)malloc(N * sizeof(uint32_t));
   // for (size_t i = 0; i < N; i++) {
@@ -241,7 +241,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
 
   // return 0;
 
-  overflow_index = overflow_index % N;
+  // overflow_index = overflow_index % N;
   assert(N % stride == 0);
 
   CUDA_CHECK(cudaMemset(d_a, 0, N * sizeof(uint32_t)));
@@ -279,14 +279,12 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   case L2:
     CUDA_CHECK((global_latency_l2_random_set_mapping_host_mapped<<<grid_dim,
                                                                    block_dim>>>(
-        d_a, N, d_latency, d_index, iter_size, warmup_iterations,
-        overflow_index)));
+        d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
     break;
   case L1Data:
     CUDA_CHECK((global_latency_l1_random_set_mapping_host_mapped<<<grid_dim,
                                                                    block_dim>>>(
-        d_a, N, d_latency, d_index, iter_size, warmup_iterations,
-        overflow_index)));
+        d_a, N, d_latency, d_index, iter_size, warmup_iterations)));
     break;
   default:
     assert(false && "error dispatching to memory");
@@ -320,6 +318,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
           (unsigned long long)d_a +
           (unsigned long long)index * (unsigned long long)sizeof(uint32_t);
 
+      unsigned int overflow_index = 0;
       // r,n,overflow_index,k,index,virt_addr,latency
       fprintf(stdout, "%3lu,%8lu,%4u,%4lu,%4lu,%10llu,%4d\n", repetition,
               N * sizeof(uint32_t), overflow_index, k, index * sizeof(uint32_t),
@@ -483,15 +482,15 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "r,n,overflow_index,k,index,virt_addr,latency\n");
 
   for (size_t r = 0; r < repetitions; r++) {
-    for (unsigned int overflow_index = 0; overflow_index < size;
-         overflow_index += stride) {
-      exit_code = parametric_measure_global(
-          h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
-          compute_capability, clock_overhead, overflow_index);
-      if (exit_code != EXIT_SUCCESS) {
-        break;
-      }
+    // for (unsigned int overflow_index = 0; overflow_index < size;
+    //      overflow_index += stride) {
+    exit_code = parametric_measure_global(
+        h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
+        compute_capability, clock_overhead); // , overflow_index);
+    if (exit_code != EXIT_SUCCESS) {
+      break;
     }
+    // }
   }
 
   cudaFree(d_a);
