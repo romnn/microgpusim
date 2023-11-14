@@ -617,6 +617,7 @@ def set_mapping(
     # random=False,
     sim=False,
     force=False,
+    debug=False,
     log_every=100_000,
 ) -> typing.Tuple[pd.DataFrame, str]:
     cmd = [
@@ -666,6 +667,8 @@ def set_mapping(
             env = dict(os.environ)
             if compute_capability is not None:
                 env.update({"COMPUTE_CAPABILITY": str(int(compute_capability))})
+            if debug:
+                env.update({"DEBUG": "1"})
             # if random:
             #     env.update({"RANDOM": "1"})
             if isinstance(log_every, int):
@@ -1804,6 +1807,7 @@ def plot_access_process_latencies(
     "--line-size", "known_cache_line_bytes", type=int, help="cache size in bytes"
 )
 @click.option("--sets", "known_num_sets", type=int, help="number of cache sets")
+@click.option("--stride", "stride_bytes", type=int, help="stride in bytes")
 @click.option("--warmup", "warmup", type=int, help="number of warmup iterations")
 @click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option(
@@ -1823,12 +1827,16 @@ def plot_access_process_latencies(
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option(
+    "--debug", "debug", type=bool, is_flag=True, help="enable debug output"
+)
 def find_cache_set_mapping(
     mem,
     gpu,
     known_cache_size_bytes,
     known_cache_line_bytes,
     known_num_sets,
+    stride_bytes,
     warmup,
     repetitions,
     max_rounds,
@@ -1838,6 +1846,7 @@ def find_cache_set_mapping(
     random,
     sim,
     force,
+    debug,
 ):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup if warmup is not None else (1 if sim else 2)
@@ -1893,7 +1902,8 @@ def find_cache_set_mapping(
     #     == known_num_sets * derived_num_ways * known_cache_line_bytes
     # )
 
-    stride_bytes = known_cache_line_bytes
+    if stride_bytes is None:
+        stride_bytes = known_cache_line_bytes
 
     if gpu == "A4000":
         # stride_bytes = 32
@@ -1904,6 +1914,7 @@ def find_cache_set_mapping(
     print("stride = {:<3} bytes".format(stride_bytes))
 
     # assert not (warmup < 1 and average), "cannot average without warmup"
+    assert not (random and average), "cannot average random"
 
     match mem.lower():
         case "l1readonly":
@@ -1938,10 +1949,10 @@ def find_cache_set_mapping(
             max_rounds=max_rounds,
             sim=sim,
             force=force,
+            debug=debug,
         )
         print(stderr)
 
-        print(combined)
         if average:
             # combined = combined.drop(columns=["r"])
             # we are averaging over k and r to get mean latency
@@ -1958,7 +1969,15 @@ def find_cache_set_mapping(
         print("wrote cache file to ", cache_file)
         combined.to_csv(cache_file, index=False, compression=CSV_COMPRESSION)
 
+
+    combined["rel_index"] = combined["index"] / 4
     combined["latency"] = combined["latency"].clip(lower=0.0)
+    if repetitions < 10:
+        for r, df in combined.groupby("r"):
+            print("==== r={} ====".format(r))
+            print(df.head(n=20))
+
+    hit_cluster = 1 if mem == "l2" else 0
 
     # # manual averaging based on the pattern
     # def most_common_pattern(_df):
@@ -2044,9 +2063,10 @@ def find_cache_set_mapping(
     #         repetitions = 1
 
     total_sets = OrderedDict()
-    combined = combined.sort_values(["n", "overflow_index", "k", "r"])
-    print("combined")
-    print(combined)
+    # combined = combined.sort_values(["n", "overflow_index", "k", "r"])
+    combined = combined.sort_values(["n", "overflow_index", "r", "k"])
+    # print("combined")
+    # print(combined)
     print("combined", combined.shape)
     if average:
         repetitions = 1
@@ -2060,7 +2080,7 @@ def find_cache_set_mapping(
     combined["rel_virt_addr"] = combined["virt_addr"].astype(int) - base_addr
 
     # compute plot matrices
-    max_cols = int(len(combined["k"].astype(int).unique())) + 1
+    max_cols = int(len(combined["k"].astype(int).unique())) # + 1
     max_indices = int(len(combined["index"].astype(int).unique()))
     # assert max_indices <= max_cols
     print("round size", round_size)
@@ -2079,31 +2099,53 @@ def find_cache_set_mapping(
     for (overflow_addr_index, r), overflow_df in combined.groupby(
         ["overflow_index", "r"]
     ):
+        assert (
+            overflow_df.sort_values(["n", "k"])["index"]
+            == overflow_df.sort_values(["n", "k", "index"])["index"]
+        ).all()
         overflow_df = overflow_df.sort_values(["n", "k", "index"])
+        # overflow_df = overflow_df.sort_values(["n", "index", "k"])
         stride = stride_bytes / 4
         overflow_index = overflow_addr_index / stride
         # print(overflow_addr_index, overflow_index, r)
-        # print(overflow_df)
-        # print(overflow_df.shape)
-        # assert max_cols == len(overflow_df)
+        # print(max_cols)
+        print(overflow_df.shape)
+        assert max_cols == len(overflow_df)
+
+        second_round_df = overflow_df.iloc[round_size:,:].copy()
+        second_round_df = second_round_df[second_round_df["hit_cluster"] > hit_cluster]
+        print(second_round_df.iloc[:5,:])
 
         row_idx = int(overflow_index * repetitions + r)
-        # latencies[row_idx, :len(overflow_df)] = overflow_df["latency"].to_numpy()
-        # hit_clusters[row_idx, :len(overflow_df)] = overflow_df["hit_cluster"].to_numpy()
+        if False:
+            latencies[row_idx, :len(overflow_df)] = overflow_df["latency"].to_numpy()
+            hit_clusters[row_idx, :len(overflow_df)] = overflow_df["hit_cluster"].to_numpy()
+            continue
 
+        # for _, (n, k, index, latency, hit_cluster) in second_round_df.iloc[:5,:][["n", "k", "index", "latency", "hit_cluster"]].iterrows():
+        #     print(index, k)
+        #     index = int(np.floor(index / stride_bytes))
+        #     round = int(np.floor(k / round_size))
+        #     col_idx = round * round_size + index
+        #     print("=>", round, index)
+        #
         # continue
-        for _, (n, k, index, latency) in overflow_df[["n", "k", "index", "latency"]].iterrows():
+        for _, (n, k, index, latency, hit_cluster) in overflow_df[
+                ["n", "k", "index", "latency", "hit_cluster"]].iterrows():
             # print(index, k)
             index = int(np.floor(index / stride_bytes))
             round = int(np.floor(k / round_size))
             col_idx = round * round_size + index
             # print("=>", round, index)
-            if col_idx < max_cols:
+            assert(col_idx < max_cols)
+            # if col_idx < max_cols:
+            if True:
                 latencies[row_idx, col_idx] = latency
+                hit_clusters[row_idx, col_idx] = hit_cluster
 
     print(latencies)
 
-    all_misses = np.all(hit_clusters == 1, axis=0)
+    all_misses = np.all(hit_clusters > hit_cluster, axis=0)
     (all_misses_max_idx,) = np.where(all_misses == True)
     all_misses_max_idx = (
         np.amax(all_misses_max_idx) if len(all_misses_max_idx) > 0 else -1
@@ -2114,6 +2156,8 @@ def find_cache_set_mapping(
             all_misses_max_idx, all_misses_max_addr
         )
     )
+
+    # return
 
     col_miss_count = hit_clusters.sum(axis=0)
     assert col_miss_count.shape[0] == max_cols
