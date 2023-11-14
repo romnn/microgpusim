@@ -6,40 +6,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unordered_set>
-// #include <random>
 
 #include "common.hpp"
 #include "cuda_runtime.h"
-
-// __global__ __noinline__ void
-// global_latency_l1_random_set_mapping_host_mapped(
-//     unsigned int *array, int array_length, unsigned int *latency,
-//     unsigned int *index, int iter_size, size_t warmup_iterations,
-//     unsigned int overflow_index) {
-//   unsigned int start_time, end_time;
-//   volatile uint32_t j = 0;
-//
-//   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-//     if (k >= 0 && j == 0) {
-//       // overflow the cache now
-//       index[k] = array[array_length + overflow_index];
-//     }
-//     if (k >= 0) {
-//       start_time = clock();
-//       j = array[j];
-//       index[k] = j;
-//       end_time = clock();
-//
-//       latency[k] = end_time - start_time;
-//     } else {
-//       j = array[j];
-//     }
-//   }
-//
-//   // store to avoid caching in readonly?
-//   array[array_length] = j;
-//   array[array_length + 1] = array[j];
-// }
 
 __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
@@ -51,10 +20,8 @@ __global__ __noinline__ void global_latency_l1_random_set_mapping_host_mapped(
   volatile uint32_t j = start_j;
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-    // if (k >= 0 && j == 0) {
     if (k == round_size) {
       // overflow the cache now
-      // index[k] = array[array_length + overflow_index];
       index[k] = array[(array_length + overflow_index) % (2 * array_length)];
     }
     if (k >= 0) {
@@ -84,7 +51,6 @@ __global__ __noinline__ void global_latency_l2_random_set_mapping_host_mapped(
   volatile uint32_t j = start_j;
 
   for (int k = (int)warmup_iterations * -iter_size; k < iter_size; k++) {
-    // if (k >= 0 && j == 0) {
     if (k == round_size) {
       // overflow the cache now
       index[k] = array[(array_length + overflow_index) % (2 * array_length)];

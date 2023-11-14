@@ -420,6 +420,8 @@ class DAS(SSHClient):
             slurm_script += "export {}={}\n".format(k, v)
         slurm_script += "{} {}\n".format(executable, " ".join(args))
 
+        print([str(executable)] + args)
+
         # upload slurm script
         self.upload_data(data=StringIO(slurm_script), remote_path=remote_slurm_job_path)
 

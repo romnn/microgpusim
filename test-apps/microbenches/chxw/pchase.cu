@@ -504,7 +504,7 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     for (size_t k = 0; k < iter_size; k++) {
       unsigned int index = indexof(h_a, N, h_index[k]);
       assert(index == (N + h_index[k] - stride) % N);
-      if (k == 0) {
+      if (k == 0 && warmup_iterations < 1) {
         assert(index == 0);
       }
       unsigned int latency = (int)h_latency[k] - (int)clock_overhead;
