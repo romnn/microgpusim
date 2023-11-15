@@ -1,3 +1,5 @@
+import platform
+import pyperclip
 import numpy as np
 
 
@@ -21,3 +23,18 @@ def round_up_to_multiple_of(x, multiple_of):
 
 def round_down_to_multiple_of(x, multiple_of):
     return multiple_of * np.floor(x / multiple_of)
+
+
+def copy_to_clipboard(value):
+    pyperclip.copy(value)
+    # tk.clipboard_clear()
+    # tk.clipboard_append(value)
+    # p = platform.system()
+    # match p:
+    #     case "Linux":
+    #         command = 'echo "{}" | clip'.format(value.strip())
+    #     case "Darwin":
+    #         command = 'echo "{}" | pbcopy'.format(value.strip())
+    #     case other:
+    #         raise ValueError("cannot copy to clipboard on platform {}".format(other))
+    # os.system(command)

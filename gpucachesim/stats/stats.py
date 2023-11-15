@@ -5,6 +5,7 @@ import json
 from os import PathLike
 from pathlib import Path
 from typing import Sequence
+from pprint import pprint
 
 from gpucachesim.benchmarks import (
     GPUConfig,
@@ -194,6 +195,7 @@ class Stats(common.Stats):
         self._compute_cycles()
         self._compute_instructions()
         self._compute_num_blocks()
+        self._compute_mean_blocks_per_sm()
         self._compute_warp_instructions()
         self._compute_exec_time_sec()
         self._compute_is_release_build()
@@ -430,6 +432,12 @@ class Stats(common.Stats):
         grouped = self.sim_df.groupby(INDEX_COLS, dropna=False)
         self.result_df["num_blocks"] = grouped["num_blocks"].mean()
         # self.result_df[stat_cols("num_blocks")] = self.sim_df[stat_cols("num_blocks")]
+
+    def _compute_mean_blocks_per_sm(self):
+        # print(self.result_df["num_blocks"])
+        # print(self.total_cores())
+        self.result_df["mean_blocks_per_sm"] = self.result_df["num_blocks"] / float(self.total_cores())
+        # print("mean_blocks_per_sm", self.result_df["mean_blocks_per_sm"])
 
     def _compute_dram_reads(self):
         # dram_reads = self.dram_df[stat_cols("reads")].sum(axis=0).values

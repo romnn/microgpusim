@@ -100,10 +100,10 @@ benchmarks:
       m: [32, 64, 128]
       n: [32, 64, 128]
       p: [32, 64, 128]
-      include:
-        - { m: 32, n: 1024, p: 32, dtype: 32 }
-        - { m: 32, n: 2048, p: 32, dtype: 32 }
-        - { m: 32, n: 4096, p: 32, dtype: 32 }
+      # include:
+      #   - { m: 32, n: 1024, p: 32, dtype: 32 }
+      #   - { m: 32, n: 2048, p: 32, dtype: 32 }
+      #   - { m: 32, n: 4096, p: 32, dtype: 32 }
     # (m x n) x (n x p)
     args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.dtype }}"
     simulate:

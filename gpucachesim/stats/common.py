@@ -3,6 +3,8 @@ import typing
 import pandas as pd
 import numpy as np
 import re
+import typing
+import os
 
 
 def function_name_from_signature(sig: str) -> str:
@@ -15,11 +17,32 @@ def function_name_from_signature(sig: str) -> str:
         raise e
 
 
+class BenchConfig(typing.TypedDict):
+    name: str
+    benchmark_idx: int
+    uid: str
+
+    path: os.PathLike
+    executable: os.PathLike
+
+    values: typing.Dict[str, typing.Any]
+
+
 class Stats:
+    bench_config: BenchConfig
     result_df: pd.DataFrame
 
     def __init__(self, result_df: pd.DataFrame) -> None:
         self.result_df = result_df
+
+    def cores_per_cluster(self):
+        return int(self.bench_config["values"].get("cores_per_cluster", 1))
+
+    def num_clusters(self):
+        return int(self.bench_config["values"].get("num_clusters", 20))
+
+    def total_cores(self):
+        return self.cores_per_cluster() * self.num_clusters()
 
     # def exec_time_sec(self) -> float:
     #     return float(self.result_df["exec_time_sec"].mean())

@@ -4767,8 +4767,8 @@ def find_cache_line_size(
             step_size_bytes = 32
             stride_bytes = 32
 
-            start_size_bytes = 3 * MB
-            # start_size_bytes = 4 * MB
+            # start_size_bytes = 3 * MB
+            start_size_bytes = 4 * MB
             predicted_num_lines = 2
             end_size_bytes = (
                 start_size_bytes + (predicted_num_lines) * predicted_cache_line_bytes
@@ -5418,9 +5418,8 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     plt.close(fig)
 
     # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
-    size_bytes = 256
+    size_bytes = 10 * MB
     stride_bytes = 4
-    assert size_bytes / stride_bytes <= 64
     assert size_bytes % stride_bytes == 0
             
     l2_latency_process, stderr = pchase(
@@ -5430,14 +5429,18 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         step_size_bytes=1,
         stride_bytes=stride_bytes,
         warmup=0,
-        repetitions=1,
+        repetitions=10,
         max_rounds=None,
-        iter_size=32,
+        iter_size=64 * 4,
         sim=sim,
         gpu=gpu,
-        force=force,
+        force=True,
     )
     print(stderr)
+    l2_latency_process= l2_latency_process.drop(columns=["r"])
+    l2_latency_process= (
+        l2_latency_process.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
+    )
     print(l2_latency_process)
 
     ylabel = "latency"
@@ -5448,19 +5451,31 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         layout="constrained",
     )
     ax = plt.axes()
-    ax.bar(
+
+    marker_size = 12
+    ax.scatter(
         l2_latency_process["k"],
         l2_latency_process["latency"],
+        marker_size,
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        hatch="/",
-        width=bin_size,
-        edgecolor="black",
+        marker="x",
         label=get_label(sim=sim, gpu=gpu),
     )
 
+    ax.grid(
+        True,
+        axis="both",
+        linestyle="-",
+        linewidth=1,
+        color="black",
+        alpha=0.1,
+        zorder=1,
+    )
+    ax.set_yscale("log", base=2)
+
     filename = filename.with_stem(filename.stem + "-l2-process")
-    print(filename)
-    # fig.savefig(filename)
+    fig.savefig(filename)
+    plt.close(fig)
 
 
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Sequence
 import itertools
 
+import gpucachesim.benchmarks as benchmarks
 from gpucachesim.benchmarks import (
     GPUConfig,
     BenchConfig,
@@ -119,17 +120,17 @@ class Stats(stats.Stats):
         # self.raw_stats_df = common.compute_df_statistics(raw_stats_df, group_by=None)
 
     def _get_raw_l2_read_stats(self, status: Sequence[str]):
-        return self._get_raw_l2_stats(stats.READ_ACCESS_KINDS, status)
+        return self._get_raw_l2_stats(benchmarks.READ_ACCESS_KINDS, status)
 
     def _get_raw_l2_write_stats(self, status: Sequence[str]):
-        return self._get_raw_l2_stats(stats.WRITE_ACCESS_KINDS, status)
+        return self._get_raw_l2_stats(benchmarks.WRITE_ACCESS_KINDS, status)
 
     def _get_raw_l2_stats(self, kind: Sequence[str], status: Sequence[str]):
         cols = [f"l2_cache_{k.upper()}_{s.upper()}" for (k, s) in itertools.product(kind, status)]
         return self.raw_stats_df[cols]
 
     def _compute_warp_instructions(self):
-        num_warps = self.result_df["num_blocks"] * stats.WARP_SIZE
+        num_warps = self.result_df["num_blocks"] * benchmarks.WARP_SIZE
         # print("this", self.raw_stats_df["warp_instruction_count"].values)
         # print(num_warps)
         self.result_df["warp_inst"] = self.raw_stats_df["warp_instruction_count"].values / num_warps

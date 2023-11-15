@@ -1711,9 +1711,9 @@ where
                     //     .map(Option::as_ref)
                     //     .filter(Option::is_some)
                     //     .count();
+                    println!("kernel launch {}: {:#?}", launch.id, &launch);
                     let num_launched_kernels = self.executed_kernels.lock().len();
 
-                    // self.kernels.len()
                     match std::env::var("KERNEL_LIMIT")
                         .ok()
                         .map(|limit| limit.parse::<usize>())

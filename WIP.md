@@ -67,10 +67,14 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - compute blocks per sm metric for parallel, maybe we just need to scale up the workloads
+  - remove parallel execution from exec driven simulate (only baseline)
+  - fix parallel plot table (multiple kernel launch ids)
+
+  - DONE: compute blocks per sm metric for parallel, maybe we just need to scale up the workloads
+
   - make the basic plots look good for pascal pchase and write it down
   - run the same for older fermi or maxwell gpu on das5 and write it down
-  - have another go
+  - GIVE UP: have another go at ampere
 
   - plot: compare mem only simulation and trace reconstruction error
   - plot: compute overall correlations for all metrics

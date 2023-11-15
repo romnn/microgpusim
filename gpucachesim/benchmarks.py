@@ -1,17 +1,10 @@
 import click
 from pathlib import Path
-from os import PathLike
 import os
 from enum import Enum
 import typing
-from typing import Dict, Any, Sequence, Optional, Generic, TypeVar
 import yaml
-import pyperclip
-import platform
 from pprint import pprint
-
-# import Tkinter
-# tk = Tkinter.Tk()
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -19,21 +12,7 @@ except ImportError:
     from yaml import SafeLoader
 
 from gpucachesim import ROOT_DIR
-
-
-def copy_to_clipboard(value):
-    pyperclip.copy(value)
-    # tk.clipboard_clear()
-    # tk.clipboard_append(value)
-    # p = platform.system()
-    # match p:
-    #     case "Linux":
-    #         command = 'echo "{}" | clip'.format(value.strip())
-    #     case "Darwin":
-    #         command = 'echo "{}" | pbcopy'.format(value.strip())
-    #     case other:
-    #         raise ValueError("cannot copy to clipboard on platform {}".format(other))
-    # os.system(command)
+import gpucachesim.utils as utils
 
 
 REPO_ROOT_DIR = ROOT_DIR.parent
@@ -150,7 +129,7 @@ class GPUConfig:
         self.config = config
 
     @property
-    def _clock_domains(self) -> Dict[str, float]:
+    def _clock_domains(self) -> typing.Dict[str, float]:
         """<Core Clock>:<Interconnect Clock>:<L2 Clock>:<DRAM Clock>"""
         clock_domains = list(self.config["sim"]["gpgpu_clock_domains"].split(":"))
         return dict(
@@ -188,19 +167,19 @@ class Target(Enum):
 
 
 class Config(typing.TypedDict):
-    results_dir: PathLike
+    results_dir: os.PathLike
 
 
 class GenericBenchmarkConfig(typing.TypedDict):
     repetitions: int
-    timeout: Optional[str]
-    concurrency: Optional[int]
+    timeout: typing.Optional[str]
+    concurrency: typing.Optional[int]
     enabled: bool
-    results_dir: PathLike
+    results_dir: os.PathLike
 
 
 class ProfileConfig(typing.TypedDict):
-    profile_dir: PathLike
+    profile_dir: os.PathLike
 
 
 class ProfileTargetConfig(typing.NamedTuple):
@@ -208,10 +187,10 @@ class ProfileTargetConfig(typing.NamedTuple):
 
 
 class SimulateConfig(typing.TypedDict):
-    stats_dir: PathLike
-    traces_dir: PathLike
-    accelsim_traces_dir: PathLike
-    parallel: Optional[bool]
+    stats_dir: os.PathLike
+    traces_dir: os.PathLike
+    accelsim_traces_dir: os.PathLike
+    parallel: typing.Optional[bool]
 
 
 class SimulateTargetConfig(typing.NamedTuple):
@@ -219,7 +198,7 @@ class SimulateTargetConfig(typing.NamedTuple):
 
 
 class TraceConfig(typing.TypedDict):
-    traces_dir: PathLike
+    traces_dir: os.PathLike
     save_json: bool
     full_trace: bool
 
@@ -229,12 +208,12 @@ class TraceTargetConfig(typing.NamedTuple):
 
 
 class AccelsimSimulateConfig(typing.TypedDict):
-    trace_config: PathLike
-    inter_config: PathLike
-    config_dir: PathLike
-    config: PathLike
-    traces_dir: PathLike
-    stats_dir: PathLike
+    trace_config: os.PathLike
+    inter_config: os.PathLike
+    config_dir: os.PathLike
+    config: os.PathLike
+    traces_dir: os.PathLike
+    stats_dir: os.PathLike
 
 
 class AccelsimSimulateTargetConfig(typing.NamedTuple):
@@ -242,7 +221,7 @@ class AccelsimSimulateTargetConfig(typing.NamedTuple):
 
 
 class AccelsimTraceConfig(typing.TypedDict):
-    traces_dir: PathLike
+    traces_dir: os.PathLike
 
 
 class AccelsimTraceTargetConfig(typing.NamedTuple):
@@ -257,19 +236,19 @@ class PlaygroundSimulateTargetConfig(typing.NamedTuple):
     value: PlaygroundSimulateConfig
 
 
-T = TypeVar("T")
+T = typing.TypeVar("T")
 
 
-class BenchConfig(typing.TypedDict, Generic[T]):
+class BenchConfig(typing.TypedDict, typing.Generic[T]):
     name: str
     benchmark_idx: int
     uid: str
 
-    path: PathLike
-    executable: PathLike
+    path: os.PathLike
+    executable: os.PathLike
 
-    values: Dict[str, Any]
-    args: Sequence[str]
+    values: typing.Dict[str, typing.Any]
+    args: typing.Sequence[str]
     input_idx: int
 
     common: GenericBenchmarkConfig
@@ -322,7 +301,7 @@ BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simu
 class Benchmarks:
     config: Config
 
-    def __init__(self, path: PathLike) -> None:
+    def __init__(self, path: os.PathLike) -> None:
         """load the materialized benchmark config"""
 
         with open(path or DEFAULT_BENCH_FILE, "rb") as f:
@@ -428,7 +407,7 @@ def table(path, baseline):
             row_idx += 1
 
     print(table)
-    copy_to_clipboard(table)
+    utils.copy_to_clipboard(table)
     print("copied table to clipboard")
 
 
