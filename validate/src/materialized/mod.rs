@@ -413,12 +413,18 @@ impl crate::Benchmark {
             }
         };
 
+        // if target == Target::ExecDrivenSimulate && name == "vectorAdd" {
+        //     dbg!(&target);
+        //     dbg!(&matrix_overrides);
+        // }
+
         for matrix_override in matrix_overrides {
             target_matrix.union_recursive::<Dfs>(&serde_json::to_value(matrix_override)?);
         }
 
         let target_matrix: crate::matrix::Matrix = serde_json::from_value(target_matrix)?;
-        // if target == Target::Simulate && name == "vectorAdd" {
+
+        // if target == Target::ExecDrivenSimulate && name == "vectorAdd" {
         //     dbg!(&target_matrix);
         //     dbg!(&target_matrix.expand().into_iter().collect::<Vec<_>>());
         // }
@@ -518,7 +524,6 @@ impl Benchmarks {
         &'a self,
         target: Target,
         benchmark_name: impl Into<String>,
-        // query: impl AsRef<super::matrix::Input> + 'a,
         query: &'a super::matrix::Input,
         _strict: bool,
     ) -> impl Iterator<Item = Result<&'a BenchmarkConfig, QueryError>> + 'a {

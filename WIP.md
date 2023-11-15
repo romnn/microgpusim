@@ -67,8 +67,11 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - remove parallel execution from exec driven simulate (only baseline)
-  - fix parallel plot table (multiple kernel launch ids)
+  - overall results in parallel table
+  - parallel remove .0 where possible
+  - DONE: bold font for best results in parallel table
+  - DONE: remove parallel execution from exec driven simulate (only baseline)
+  - DONE: fix parallel plot table (multiple kernel launch ids)
 
   - DONE: compute blocks per sm metric for parallel, maybe we just need to scale up the workloads
 

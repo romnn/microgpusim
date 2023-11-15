@@ -252,14 +252,14 @@ impl crate::Config {
 
         let exec_driven_simulate = {
             ExecDrivenSimConfig {
-                common: self.simulate.common.materialize(
+                common: self.exec_driven_simulate.common.materialize(
                     base,
                     Some(Target::ExecDrivenSimulate),
                     Some(&common),
                 )?,
-                parallel: self.simulate.parallel,
-                l2_prefill: self.simulate.l2_prefill,
-                inputs: self.simulate.inputs,
+                parallel: self.exec_driven_simulate.parallel,
+                l2_prefill: self.exec_driven_simulate.l2_prefill,
+                inputs: self.exec_driven_simulate.inputs,
             }
         };
 

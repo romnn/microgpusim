@@ -1,5 +1,6 @@
 import matplotlib.colors as mc
 import colorsys
+import math
 
 from gpucachesim.benchmarks import REPO_ROOT_DIR
 
@@ -96,9 +97,23 @@ def plt_darken_color(color, amount=0.5):
     return plt_lighten_color(color, 1.0 + amount)
 
 
-def human_format_thousands(num, round_to=2):
+def round_to_precision(num, round_to=2, variable_precision=False):
+    num = round(num, round_to)
+    if variable_precision:
+        for pos in range(round_to + 1):
+            frac, _ = math.modf(num * float(math.pow(10, pos)))
+            if frac == 0.0:
+                round_to = pos
+                break
+    return "{:.{}f}".format(num, round_to)
+
+
+def human_format_thousands(num, round_to=2, variable_precision=False):
     magnitude = 0
     while abs(num) >= 1000:
         magnitude += 1
-        num = round(num / 1000.0, round_to)
-    return "{:.{}f}{}".format(num, round_to, ["", "K", "M", "G", "T", "P"][magnitude])
+        num = num / 1000.0
+    return "{}{}".format(
+        round_to_precision(num, round_to=round_to, variable_precision=variable_precision),
+        ["", "K", "M", "G", "T", "P"][magnitude],
+    )

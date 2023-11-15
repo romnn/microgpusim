@@ -121,6 +121,10 @@ NON_NUMERIC_COLS = {
     "input_id": "first",
     "input_memory_only": "first",
     "input_mode": "first",
+    # makes no sense to aggregate
+    "cores_per_cluster": "first",
+    "num_clusters": "first",
+    "total_cores": "first",
 }
 
 

@@ -27,6 +27,11 @@ config:
     repetitions: 10
     keep_log_file: true
   # for simulation, we do not set a limit on concurrency
+  exec_simulate:
+    # No concurrency limit for now (until we implement multi-threading)
+    concurrency: 1 # null
+    repetitions: 1
+    l2_prefill: true
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null

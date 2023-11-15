@@ -188,6 +188,7 @@ pub mod exec {
             )
         };
         let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(parse_err)?;
+        // dbg!(&values);
 
         let (commands, kernel_traces) = match bench.name.to_lowercase().as_str() {
             "vectoradd" => {
