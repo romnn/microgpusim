@@ -48,7 +48,7 @@ pub async fn trace(
         validate,
         full_trace,
     };
-    let dur = invoke_trace::trace(&bench.executable, &bench.args, &options)
+    let dur = invoke_trace::trace(&bench.executable_path, &bench.args, &options)
         .await
         .map_err(|err| match err {
             invoke_trace::Error::Command(utils::CommandError { ref output, .. }) => {

@@ -69,7 +69,7 @@ pub async fn trace(
         nvbit_tracer_tool: None, // auto detect
         ..accelsim_trace::Options::default()
     };
-    let dur = accelsim_trace::trace(&bench.executable, &bench.args, &options).await?;
+    let dur = accelsim_trace::trace(&bench.executable_path, &bench.args, &options).await?;
 
     let trace_dur_file = traces_dir.join("trace_time.json");
     serde_json::to_writer_pretty(open_writable(trace_dur_file)?, &dur.as_millis())

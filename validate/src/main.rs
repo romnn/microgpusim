@@ -58,7 +58,7 @@ async fn run_make(
     _bar: &indicatif::ProgressBar,
 ) -> Result<Duration, validate::RunError> {
     if let Command::Build(_) = options.command {
-        if !options.force && bench.executable.is_file() {
+        if !options.force && bench.executable_path.is_file() {
             return Err(validate::RunError::Skipped);
         }
     }
@@ -158,13 +158,7 @@ async fn run_custom_bench(
 
 fn parse_benchmarks(options: &Options) -> eyre::Result<Benchmarks> {
     let cwd = std::env::current_dir()?;
-    let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-    let default_benches_file_path = manifest_dir.join("../test-apps/test-apps.yml");
-
-    let benches_file_path = options
-        .benches_file_path
-        .as_ref()
-        .unwrap_or(&default_benches_file_path);
+    let benches_file_path = options.benchmark_file_path();
     let benches_file_path = benches_file_path
         .canonicalize()
         .wrap_err_with(|| format!("{} does not exist", benches_file_path.display()))?;
@@ -291,8 +285,8 @@ fn print_benchmark_result(
     };
     let op = style(op).cyan();
     let executable = std::env::current_dir().ok().map_or_else(
-        || bench_config.executable.clone(),
-        |cwd| bench_config.executable.relative_to(cwd),
+        || bench_config.executable_path.clone(),
+        |cwd| bench_config.executable_path.relative_to(cwd),
     );
     let (color, status) = match result {
         Ok(precise_elapsed) => (
@@ -467,7 +461,7 @@ fn compute_per_command_bench_configs<'a>(
             if let Command::Build(_) | Command::Clean(_) = command {
                 // do not build the same executables multiple times
                 // dbg!(bench_configs.len());
-                bench_configs.dedup_by_key(|bench_config| bench_config.executable.clone());
+                bench_configs.dedup_by_key(|bench_config| bench_config.executable_path.clone());
             }
 
             // sort benchmarks
@@ -572,6 +566,9 @@ async fn main() -> eyre::Result<()> {
     }
 
     color_eyre::install()?;
+
+    let dotenv_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../das6.env");
+    dotenv::from_path(&dotenv_file).ok();
 
     let start = Instant::now();
     let options = Arc::new(Options::parse());

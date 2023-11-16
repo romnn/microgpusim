@@ -112,17 +112,18 @@ where
     Ok(entries)
 }
 
-pub async fn profile_all_metrics<A>(
-    nvprof: impl AsRef<Path>,
-    executable: impl AsRef<Path>,
-    args: A,
-    log_file_path: impl AsRef<Path>,
-) -> Result<(String, Vec<Metrics>), Error>
-where
-    A: IntoIterator,
-    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+// pub fn build_metrics_args<'a, A>(
+pub fn build_metrics_args<'a>(
+    executable: &'a Path,
+    // args: A,
+    args: &[String],
+    log_file_path: &'a Path,
+) -> Result<Vec<String>, Error>
+// where
+//     A: IntoIterator,
+//     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd_args = vec![
+    let mut cmd_args: Vec<String> = [
         "--unified-memory-profiling",
         "off",
         "--concurrent-kernels",
@@ -138,14 +139,72 @@ where
         "off",
         "--csv",
         "--log-file",
-        log_file_path.as_ref().to_str().unwrap(),
-        executable.as_ref().to_str().unwrap(),
-    ];
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+
+    cmd_args.extend([
+        log_file_path.to_string_lossy().to_string(),
+        executable.to_string_lossy().to_string(),
+    ]);
+    cmd_args.extend(args.into_iter().cloned());
+    Ok(cmd_args)
+}
+
+// pub fn build_command_args<'a, A>(
+pub fn build_command_args(
+    executable: &Path,
+    // args: A,
+    args: &[String],
+    log_file_path: &Path,
+) -> Result<Vec<String>, Error>
+// where
+//     A: IntoIterator,
+//     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
+    let mut cmd_args: Vec<_> = [
+        "--unified-memory-profiling",
+        "off",
+        "--concurrent-kernels",
+        "off",
+        "--print-gpu-trace",
+        "-u",
+        "us",
+        "--demangling",
+        "off",
+        "--csv",
+        "--log-file",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+
+    cmd_args.extend([
+        log_file_path.to_string_lossy().to_string(),
+        executable.to_string_lossy().to_string(),
+    ]);
+
+    cmd_args.extend(args.into_iter().cloned());
+    Ok(cmd_args)
+}
+
+pub async fn profile_all_metrics<A>(
+    nvprof: impl AsRef<Path>,
+    executable: impl AsRef<Path>,
+    args: A,
+    log_file_path: impl AsRef<Path>,
+) -> Result<(String, Vec<Metrics>), Error>
+where
+    A: IntoIterator,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
     let args: Vec<String> = args
         .into_iter()
         .map(|arg| arg.as_ref().to_string_lossy().to_string())
         .collect();
-    cmd_args.extend(args.iter().map(String::as_str));
+
+    let cmd_args = build_metrics_args(executable.as_ref(), &*args, log_file_path.as_ref())?;
     let mut cmd = async_process::Command::new(nvprof.as_ref());
     cmd.args(&cmd_args);
 
@@ -194,27 +253,33 @@ where
     A: IntoIterator,
     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
 {
-    let mut cmd_args = vec![
-        "--unified-memory-profiling",
-        "off",
-        "--concurrent-kernels",
-        "off",
-        "--print-gpu-trace",
-        "-u",
-        "us",
-        "--demangling",
-        "off",
-        "--csv",
-        "--log-file",
-        log_file_path.as_ref().to_str().unwrap(),
-        executable.as_ref().to_str().unwrap(),
-    ];
-    let args: Vec<_> = args
+    let args: Vec<String> = args
         .into_iter()
         .map(|arg| arg.as_ref().to_string_lossy().to_string())
         .collect();
-    cmd_args.extend(args.iter().map(String::as_str));
 
+    // let mut cmd_args = vec![
+    //     "--unified-memory-profiling",
+    //     "off",
+    //     "--concurrent-kernels",
+    //     "off",
+    //     "--print-gpu-trace",
+    //     "-u",
+    //     "us",
+    //     "--demangling",
+    //     "off",
+    //     "--csv",
+    //     "--log-file",
+    //     log_file_path.as_ref().to_str().unwrap(),
+    //     executable.as_ref().to_str().unwrap(),
+    // ];
+    // let args: Vec<_> = args
+    //     .into_iter()
+    //     .map(|arg| arg.as_ref().to_string_lossy().to_string())
+    //     .collect();
+    // cmd_args.extend(args.iter().map(String::as_str));
+
+    let cmd_args = build_command_args(executable.as_ref(), &*args, log_file_path.as_ref())?;
     let mut cmd = async_process::Command::new(nvprof.as_ref());
     cmd.args(&cmd_args);
 

@@ -20,6 +20,7 @@ need_accelsim_build_dependencies = true
 [dependencies]
 thiserror = "1"
 color-eyre = "0"
+async-trait = "0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_path_to_error = "0"
@@ -31,6 +32,7 @@ serde_json_merge = "0"
 try-partialord = "0"
 duration-string = { version = "0", features = ["serde"] }
 log = "0"
+dotenv = "0"
 env_logger = "0"
 handlebars = "4"
 shell-words = "1"

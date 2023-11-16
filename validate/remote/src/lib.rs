@@ -56,12 +56,12 @@ use std::path::PathBuf;
 type AsyncSession = async_ssh2_lite::AsyncSession<async_ssh2_lite::TokioTcpStream>;
 
 #[derive()]
-pub struct SSHServer {
+pub struct SSHClient {
     username: String,
     session: AsyncSession,
 }
 
-impl SSHServer {
+impl SSHClient {
     pub async fn connect<A>(
         address: A,
         username: impl AsRef<str>,
@@ -78,17 +78,6 @@ impl SSHServer {
             .userauth_password(username.as_ref(), password.as_ref())
             .await?;
         assert!(session.authenticated());
-
-        // let mut session = ssh::Session::new().unwrap();
-        // session.set_host(host.as_ref())?;
-        // session.set_port(port)?;
-        // session.set_username(username.as_ref())?;
-        // // session.set_password(password.as_ref())?;
-        // // session.parse_config(None).unwrap();
-        // session.connect()?;
-        // // println!("{:?}", session.is_server_known());
-        // // session.userauth_publickey_auto(None).unwrap();
-        // session.userauth_password(password.as_ref())?;
         Ok(Self {
             session,
             username: username.as_ref().to_string(),
@@ -115,7 +104,7 @@ pub trait Remote {
 // }
 
 #[async_trait::async_trait]
-impl Remote for SSHServer {
+impl Remote for SSHClient {
     fn username(&self) -> &str {
         &self.username
     }
@@ -136,36 +125,46 @@ impl Remote for SSHServer {
         );
         let exit_status = channel.exit_status()?;
         Ok((exit_status, stdout_buffer, stderr_buffer))
-        // let mut s = self.session.channel_new()?;
-        // s.open_session()?;
-        // s.request_exec(command.as_ref())?;
-        // s.send_eof()?;
-        // let mut buf = Vec::new();
-        // s.stdout().read_to_end(&mut buf).unwrap();
-        // String::from_utf8_(&buf)?;
-        // match exit_status {
-        //     0 => Ok(()),
-        // }
     }
 }
 
-#[derive()]
-pub struct DAS<R>
-where
-    R: Remote + slurm::SlurmClient,
-{
-    pub remote: R,
-    pub cuda_module: String,
-    // pub username: String,
-    pub remote_scratch_dir: PathBuf,
-    // = Path("/var/scratch") / self.username
-    // session: AsyncSession,
-    // session: ssh::Session,
-}
+// #[derive()]
+// pub struct DAS<R>
+// where
+//     R: Remote + slurm::Client,
+// {
+//     pub remote: R,
+//     pub cuda_module: String,
+//     pub remote_scratch_dir: PathBuf,
+// }
+//
+// impl<R> DAS<R>
+// where
+//     R: Remote + slurm::Client,
+// {
+//     pub fn new(remote: R) -> Self {
+//         Self {
+//             remote,
+//             cuda_module: "".to_string(),
+//             remote_scratch_dir: PathBuf::from("/var/scratch"),
+//         }
+//     }
+//     // pub async fn connect<A>(
+//     //     address: A,
+//     //     username: impl AsRef<str>,
+//     //     password: impl AsRef<str>,
+//     // ) -> eyre::Result<Self>
+//     // where
+//     //     A: Into<std::net::SocketAddr>,
+//     // {
+//     // }
+// }
 
 pub mod slurm {
     use color_eyre::eyre;
     use itertools::Itertools;
+    use once_cell::sync::Lazy;
+    use regex::Regex;
     use std::path::Path;
 
     #[derive(Debug, Clone, Copy, strum::Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -177,7 +176,7 @@ pub mod slurm {
     }
 
     #[async_trait::async_trait]
-    pub trait SlurmClient {
+    pub trait Client {
         /// Get job ids
         async fn get_job_ids(
             &self,
@@ -214,12 +213,16 @@ pub mod slurm {
             &self,
             remote_path: &Path,
             interval: std::time::Duration,
+            allow_empty: bool,
             attempts: Option<usize>,
         ) -> eyre::Result<()>;
+
+        /// Submit job
+        async fn submit_job(&self, job_path: &Path) -> eyre::Result<usize>;
     }
 
     #[async_trait::async_trait]
-    impl<T> SlurmClient for T
+    impl<T> Client for T
     where
         T: crate::Remote + Sync,
     {
@@ -237,7 +240,7 @@ pub mod slurm {
             }
             let cmd = cmd.join(" ");
             let (exit_status, stdout, stderr) = self.run_command(&cmd).await?;
-            print!("{}", stderr);
+            log::error!("{}", stderr);
             if exit_status != 0 {
                 eyre::bail!("{} failed with exit code {}", cmd, exit_status);
             }
@@ -265,7 +268,7 @@ pub mod slurm {
             }
             let cmd = cmd.join(" ");
             let (exit_status, stdout, stderr) = self.run_command(&cmd).await?;
-            print!("{}", stderr);
+            log::error!("{}", stderr);
             if exit_status != 0 {
                 eyre::bail!("{} failed with exit code {}", cmd, exit_status);
             }
@@ -286,7 +289,7 @@ pub mod slurm {
             let cmd = vec!["squeue", r#"--format="%i""#, "--name", name.as_ref()];
             let cmd = cmd.join(" ");
             let (exit_status, stdout, stderr) = self.run_command(&cmd).await?;
-            print!("{}", stderr);
+            log::error!("{}", stderr);
             if exit_status != 0 {
                 eyre::bail!("{} failed with exit code {}", cmd, exit_status);
             }
@@ -307,8 +310,8 @@ pub mod slurm {
             }
             let cmd = cmd.join(" ");
             let (exit_status, stdout, stderr) = self.run_command(&cmd).await?;
-            print!("{}", stderr);
-            print!("{}", stdout);
+            log::debug!("{}", stdout);
+            log::error!("{}", stderr);
             if exit_status != 0 {
                 eyre::bail!("{} failed with exit code {}", cmd, exit_status);
             }
@@ -329,17 +332,17 @@ pub mod slurm {
                     .get_job_ids(Some(self.username()), Some(JobStatus::Running))
                     .await?;
                 if running_job_ids.contains(&job_id) {
-                    println!("running jobs: {:?}", running_job_ids)
+                    log::info!("running jobs: {:?}", running_job_ids)
                 } else {
                     let pending_job_ids = self
                         .get_job_ids(Some(self.username()), Some(JobStatus::Pending))
                         .await?;
                     if pending_job_ids.contains(&job_id) {
-                        println!("pending jobs: {:?}", pending_job_ids);
+                        log::info!("pending jobs: {:?}", pending_job_ids);
                     } else {
                         confidence -= 1;
                         if confidence <= 0 {
-                            println!("job {} completed", job_id);
+                            log::info!("job {} completed", job_id);
                             break;
                         }
                     }
@@ -353,14 +356,15 @@ pub mod slurm {
             &self,
             remote_path: &Path,
             interval: std::time::Duration,
+            allow_empty: bool,
             attempts: Option<usize>,
         ) -> eyre::Result<()> {
             let attempts = attempts.unwrap_or(1);
             let mut interval = tokio::time::interval(interval);
 
             for attempt in 1..=attempts {
-                if attempt > 2 {
-                    println!(
+                if attempt > 3 {
+                    log::warn!(
                         "reading from {} (attempt {}/{})",
                         remote_path.display(),
                         attempt,
@@ -370,16 +374,18 @@ pub mod slurm {
                 let cmd = format!(r#"stat -c "%s" {}"#, remote_path.display());
                 match self.run_command(&cmd).await {
                     Err(err) => {
-                        eprintln!("failed to execute command {:?}: {}", &cmd, err);
+                        log::warn!("failed to execute command {:?}: {}", &cmd, err);
                     }
                     Ok((exit_status, _, stderr)) if exit_status != 0 => {
-                        eprintln!(
+                        log::warn!(
                             "command {:?} failed with exit code {}: {}",
-                            cmd, exit_status, stderr,
+                            cmd,
+                            exit_status,
+                            stderr,
                         );
                     }
                     Ok((_, stdout, _)) => {
-                        if stdout.parse::<usize>().unwrap_or(0) > 0 {
+                        if allow_empty || stdout.parse::<usize>().unwrap_or(0) > 0 {
                             return Ok(());
                         }
                     }
@@ -391,6 +397,49 @@ pub mod slurm {
                 remote_path.display()
             ))
         }
+
+        /// Submit job
+        async fn submit_job(&self, remote_job_path: &Path) -> eyre::Result<usize> {
+            let cmd = format!("sbatch {}", remote_job_path.display());
+            let (exit_status, stdout, stderr) = self.run_command(&cmd).await?;
+            log::debug!("{}", stderr);
+            log::error!("{}", stderr);
+            if exit_status != 0 {
+                eyre::bail!("{} failed with exit code {}", cmd, exit_status);
+            }
+            let job_id = extract_slurm_job_id(&stdout)?;
+            Ok(job_id)
+        }
+    }
+
+    static SLURM_SUBMIT_JOB_ID_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"Submitted batch job (\d+)").unwrap());
+
+    pub fn extract_slurm_job_id(stdout: &str) -> eyre::Result<usize> {
+        SLURM_SUBMIT_JOB_ID_REGEX
+            .captures(stdout)
+            .and_then(|captures| captures.get(1))
+            .map(|job_id| job_id.as_str().parse())
+            .transpose()?
+            .ok_or(eyre::eyre!(
+                "failed to extract slurm job id from {:?}",
+                stdout
+            ))
+    }
+
+    const MINUTE: f64 = 60.0;
+    const HOUR: f64 = 60.0 * MINUTE;
+
+    pub fn duration_to_slurm(duration: &std::time::Duration) -> String {
+        if duration.as_secs_f64() > 24.0 * HOUR {
+            todo!("durations of more than one day are not supported yet");
+        }
+        let (hours, remainder) = (duration.as_secs_f64() / HOUR, duration.as_secs_f64() % HOUR);
+        let (minutes, seconds) = (remainder / MINUTE, remainder % MINUTE);
+        format!(
+            "{:02}:{:02}:{:02}",
+            hours as u64, minutes as u64, seconds as u64
+        )
     }
 }
 
@@ -399,9 +448,9 @@ pub mod scp {
     use std::path::Path;
 
     #[async_trait::async_trait]
-    pub trait AsyncSCPClient<C>
-    where
-        C: tokio::io::AsyncRead,
+    pub trait Client // pub trait Client<C>
+    // where
+    //     C: tokio::io::AsyncRead,
     {
         async fn upload_streamed<R>(
             &self,
@@ -423,13 +472,15 @@ pub mod scp {
         async fn download_file(
             &self,
             remote_path: impl AsRef<Path> + Send,
-        ) -> eyre::Result<(C, ssh2::ScpFileStat)>;
+        ) -> eyre::Result<(
+            Box<dyn tokio::io::AsyncRead + Unpin + Send>,
+            ssh2::ScpFileStat,
+        )>;
     }
 
     #[async_trait::async_trait]
-    impl AsyncSCPClient<async_ssh2_lite::AsyncChannel<async_ssh2_lite::TokioTcpStream>>
-        for crate::SSHServer
-    {
+    // impl Client<async_ssh2_lite::AsyncChannel<async_ssh2_lite::TokioTcpStream>> for crate::SSHClient {
+    impl Client for crate::SSHClient {
         async fn upload_streamed<R>(
             &self,
             remote_path: impl AsRef<Path> + Send + Sync,
@@ -470,17 +521,18 @@ pub mod scp {
             &self,
             remote_path: impl AsRef<Path> + Send,
         ) -> eyre::Result<(
-            async_ssh2_lite::AsyncChannel<async_ssh2_lite::TokioTcpStream>,
+            Box<dyn tokio::io::AsyncRead + Unpin + Send>,
+            // async_ssh2_lite::AsyncChannel<async_ssh2_lite::TokioTcpStream>,
             ssh2::ScpFileStat,
         )> {
             let remote_path = remote_path.as_ref();
             let (channel, stat) = self.session.scp_recv(remote_path.as_ref()).await?;
             log::debug!(
-                "scp: receive stat_size={} stat_mode={}",
-                stat.size(),
+                "scp: download {} (mode {})",
+                human_bytes::human_bytes(stat.size() as f64),
                 stat.mode()
             );
-            Ok((channel, stat))
+            Ok((Box::new(channel), stat))
         }
     }
 }

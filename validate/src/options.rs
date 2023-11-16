@@ -26,6 +26,15 @@ pub struct Profile {
         default_value = "/usr/local/NVIDIA-Nsight-Compute-2019.4/"
     )]
     pub nsight_path: Option<PathBuf>,
+
+    #[clap(long = "gpu", help = "gpu device to profile")]
+    pub gpu: Option<String>,
+
+    #[clap(long = "das", help = "das cluster to connect to")]
+    pub das: Option<usize>,
+
+    #[clap(long = "repo", help = "path to remote repository")]
+    pub remote_repo: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -189,4 +198,14 @@ pub struct Options {
 
     #[clap(subcommand)]
     pub command: Command,
+}
+
+impl Options {
+    pub fn benchmark_file_path(&self) -> PathBuf {
+        let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        let default_benches_file_path = manifest_dir.join("../test-apps/test-apps.yml");
+        self.benches_file_path
+            .clone()
+            .unwrap_or(default_benches_file_path)
+    }
 }

@@ -3,7 +3,7 @@ use color_eyre::eyre;
 use std::net::ToSocketAddrs;
 use std::path::PathBuf;
 
-use remote::{slurm::SlurmClient, Remote};
+use remote::{slurm::Client, Remote};
 
 pub const DAS6_FORWARD_PORT: u16 = 2201;
 pub const DAS5_FORWARD_PORT: u16 = 2202;
@@ -28,8 +28,6 @@ async fn main() -> eyre::Result<()> {
     let dotenv_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../das6.env");
     dotenv::from_path(&dotenv_file).ok();
 
-    dbg!(std::env::var("DAS6_USERNAME").ok());
-
     color_eyre::install()?;
     env_logger::init();
 
@@ -53,7 +51,7 @@ async fn main() -> eyre::Result<()> {
         .to_socket_addrs()?
         .next()
         .ok_or(eyre::eyre!("failed to resolve {}:{}", host, port))?;
-    let client = remote::SSHServer::connect(addr, username, password).await?;
+    let client = remote::SSHClient::connect(addr, username, password).await?;
     log::info!("connected to {}", addr);
 
     let job_names = client

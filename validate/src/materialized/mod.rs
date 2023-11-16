@@ -85,7 +85,9 @@ pub struct BenchmarkConfig {
     pub uid: String,
 
     pub path: PathBuf,
+    pub rel_path: PathBuf,
     pub executable: PathBuf,
+    pub executable_path: PathBuf,
 
     /// Input values for this benchmark config.
     pub values: super::matrix::Input,
@@ -103,8 +105,8 @@ pub struct BenchmarkConfig {
 impl std::fmt::Display for BenchmarkConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let executable = std::env::current_dir().ok().map_or_else(
-            || self.executable.clone(),
-            |cwd| self.executable.relative_to(cwd),
+            || self.executable_path.clone(),
+            |cwd| self.executable_path.relative_to(cwd),
         );
         write!(
             f,
@@ -124,7 +126,9 @@ impl BenchmarkConfig {
             benchmark_idx: 0,
             uid: "".into(),
             path: "".into(),
+            rel_path: "".into(),
             executable: "".into(),
+            executable_path: "".into(),
             values: crate::matrix::Input::default(),
             args: vec![],
             input_idx: 0,
@@ -363,7 +367,9 @@ impl crate::Benchmark {
             input_idx: 0,
             uid: bench_uid,
             path: self.path.resolve(base),
-            executable: self.executable().resolve(base),
+            rel_path: self.path.clone(),
+            executable: self.executable.clone(),
+            executable_path: self.executable().resolve(base),
             values: input,
             args: cmd_args,
             common: common_config,
@@ -884,7 +890,7 @@ other: "hello"
             "templated and split shell args correctly"
         );
         diff::assert_eq!(
-            materialized[0].executable,
+            materialized[0].executable_path,
             PathBuf::from("/base/vectoradd/vectoradd"),
             "resolved path to executable"
         );
