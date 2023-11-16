@@ -1,15 +1,5 @@
 mod progress;
 
-// #[cfg(feature = "remote")]
-// mod remote;
-
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
-
-#[cfg(not(target_env = "msvc"))]
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
-
 use chrono::offset::Local;
 use clap::Parser;
 use color_eyre::{
@@ -31,6 +21,13 @@ use validate::{
     options::{self, Command, Options},
     Target,
 };
+
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -392,20 +389,26 @@ fn compute_per_command_bench_configs<'a>(
     commands: &[Command],
     options: &'a Options,
 ) -> eyre::Result<Vec<(Command, Vec<&'a BenchmarkConfig>)>> {
+    dbg!(&options.query);
     let queries: Vec<validate::benchmark::Input> = options
         .query
         .iter()
-        .map(|q| serde_json::from_str(q).wrap_err_with(|| format!("failed to parse query {q:?}")))
+        .map(|q| {
+            serde_json::from_str(&q.replace("'", "\""))
+                .wrap_err_with(|| format!("failed to parse query {q:?}"))
+        })
         .try_collect()?;
 
     let per_command_bench_configs: Vec<(_, _)> = commands
         .iter()
         .filter_map(|command| {
-            use std::collections::HashSet;
+            use std::collections::{HashMap, HashSet};
             if let Command::Run(..) = command {
                 return None;
             }
             let targets: HashSet<_> = command.targets().collect();
+            let benchmark_names: HashMap<_, _> = materialized.benchmark_names();
+
             let mut bench_configs: Vec<_> = materialized
                 .benchmark_configs()
                 .filter(|bench_config| {
@@ -419,12 +422,21 @@ fn compute_per_command_bench_configs<'a>(
 
                     if !options.selected_benchmarks.is_empty() {
                         let name = bench_config.name.to_lowercase();
+
                         let is_match = options.selected_benchmarks.iter().any(|b| {
                             if b.contains("@") {
                                 // must be an exact match
                                 b.to_lowercase() == format!("{}@{}", name, bench_config.input_idx)
                             } else {
-                                name.contains(&b.to_lowercase())
+                                let name_exists = benchmark_names
+                                    .get(&bench_config.target)
+                                    .map(|names| names.contains(&b.to_lowercase()))
+                                    .unwrap_or(false);
+                                if !name_exists {
+                                    name.contains(&b.to_lowercase())
+                                } else {
+                                    name == b.to_lowercase()
+                                }
                             }
                         });
                         if !is_match {

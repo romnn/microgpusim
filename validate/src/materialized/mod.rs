@@ -7,7 +7,7 @@ use super::{benchmark::paths::PathExt, template::Render, Error, Target};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -424,6 +424,20 @@ impl crate::Benchmark {
 
         let target_matrix: crate::matrix::Matrix = serde_json::from_value(target_matrix)?;
 
+        // HOTFIX: we want parallel matrix expansion also for addititive include configurations
+        let parallel_matrix: crate::matrix::Matrix =
+            serde_json::from_value(serde_json::to_value(&config.simulate.inputs)?)?;
+        let parallel_matrix: Vec<crate::matrix::Input> = parallel_matrix.expand();
+        let parallel_matrix_keys = parallel_matrix
+            .iter()
+            .flat_map(|input| input.keys())
+            .collect::<HashSet<_>>();
+
+        // assert!(parallel_matrix
+        //     .iter()
+        //     .map(|input| input.keys().collect::<HashSet<_>>())
+        //     .all_equal());
+
         // if target == Target::ExecDrivenSimulate && name == "vectorAdd" {
         //     dbg!(&target_matrix);
         //     dbg!(&target_matrix.expand().into_iter().collect::<Vec<_>>());
@@ -436,6 +450,28 @@ impl crate::Benchmark {
         let inputs: Result<Vec<_>, _> = target_matrix
             .expand()
             .into_iter()
+            .flat_map(|input| {
+                if target == Target::Simulate
+                    && !parallel_matrix_keys.iter().all(|&k| input.contains_key(k))
+                {
+                    // hotfix
+                    log::debug!(
+                        "hotfix: adding {} configs to {:?}",
+                        parallel_matrix.len(),
+                        input
+                    );
+                    parallel_matrix
+                        .iter()
+                        .cloned()
+                        .map(move |mut parallel_input| {
+                            parallel_input.extend(input.clone());
+                            parallel_input
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    vec![input]
+                }
+            })
             .enumerate()
             .map(|(input_idx, target_input)| {
                 let target_input_keys: HashSet<_> = target_input.keys().collect();
@@ -511,6 +547,22 @@ impl Benchmarks {
     ) -> Option<&BenchmarkConfig> {
         self.get_input_configs(target, benchmark_name.into())
             .find(|config| config.input_idx == input_idx)
+    }
+
+    pub fn benchmark_names(&self) -> HashMap<&Target, HashSet<String>> {
+        self.benchmarks
+            .iter()
+            .map(|(target, benchmarks)| {
+                (
+                    target,
+                    benchmarks
+                        .keys()
+                        .map(String::as_str)
+                        .map(str::to_lowercase)
+                        .collect(),
+                )
+            })
+            .collect()
     }
 
     pub fn benchmark_configs(&self) -> impl Iterator<Item = &BenchmarkConfig> + '_ {
