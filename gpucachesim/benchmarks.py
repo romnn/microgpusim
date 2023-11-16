@@ -303,12 +303,16 @@ BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simu
 
 
 class Benchmarks:
+    path: Path
     config: Config
 
-    def __init__(self, path: os.PathLike) -> None:
+    def __init__(self, path: typing.Optional[os.PathLike]) -> None:
         """load the materialized benchmark config"""
-
-        with open(path or DEFAULT_BENCH_FILE, "rb") as f:
+        if path is None:
+            self.path = DEFAULT_BENCH_FILE
+        else:
+            self.path = Path(path)
+        with open(self.path, "rb") as f:
             benchmarks = yaml.load(f, Loader=BenchmarkLoader)
 
         self.config = benchmarks["config"]

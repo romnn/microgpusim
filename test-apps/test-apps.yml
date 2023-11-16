@@ -105,8 +105,9 @@ benchmarks:
       m: [32, 64, 128]
       n: [32, 64, 128]
       p: [32, 64, 128]
-      # include:
-      #   - { m: 32, n: 1024, p: 32, dtype: 32 }
+      include:
+        - {m: 512, n: 32, p: 512, dtype: 32,}
+        # - { m: 32, n: 1024, p: 32, dtype: 32 }
       #   - { m: 32, n: 2048, p: 32, dtype: 32 }
       #   - { m: 32, n: 4096, p: 32, dtype: 32 }
     # (m x n) x (n x p)
@@ -121,8 +122,8 @@ benchmarks:
     inputs:
       dtype: [32]
       rows: [32, 64, 128, 256, 512]
-      exclude:
-        - rows: 512
+      # exclude:
+      #   - rows: 512
     # (rows x rows) x (rows x rows)
     args: "{{ input.rows }} {{ input.dtype }}"
     simulate:
