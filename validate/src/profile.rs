@@ -66,8 +66,6 @@ where
             Some(10),
         )
         .await?;
-
-        // read file
         let (mut stream, _) = self.download_file(remote_path).await?;
         let mut content = String::new();
         stream.read_to_string(&mut content).await?;
@@ -80,7 +78,7 @@ where
         executable: impl AsRef<Path> + Send,
         args: A,
         timeout: Option<std::time::Duration>,
-    ) -> eyre::Result<()>
+    ) -> eyre::Result<profile::nvprof::Output>
     where
         A: Clone + IntoIterator + Send,
         <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>;
@@ -97,11 +95,12 @@ where
         executable: impl AsRef<Path> + Send,
         args: A,
         timeout: Option<std::time::Duration>,
-    ) -> eyre::Result<()>
+    ) -> eyre::Result<profile::nvprof::Output>
     where
         A: Clone + IntoIterator + Send,
         <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
     {
+        use std::fmt::Write;
         let args: Vec<String> = args
             .into_iter()
             .map(|arg| arg.as_ref().to_string_lossy().to_string())
@@ -142,19 +141,26 @@ where
         // load cuda toolkit
         let load_module_cmd = "module load cuda11.1/toolkit";
         let (exit_status, stdout, stderr) = self.run_command(load_module_cmd).await?;
-        log::debug!("{}", stdout);
-        log::error!("{}", stderr);
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::error!("{}", stderr);
+        }
         assert_eq!(exit_status, 0);
 
         // create results dir
         let create_dir_cmd = format!("mkdir -p {}", remote_profile_dir.display());
         let (exit_status, stdout, stderr) = self.run_command(create_dir_cmd).await?;
-        log::debug!("{}", stdout);
-        log::error!("{}", stderr);
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::error!("{}", stderr);
+        }
         assert_eq!(exit_status, 0);
 
         // build slurm script
-        use std::fmt::Write;
         let mut slurm_script = String::new();
         writeln!(slurm_script, "#!/bin/sh")?;
         writeln!(slurm_script, "#SBATCH --job-name={}", job_name)?;
@@ -181,7 +187,9 @@ where
         writeln!(slurm_script, "#SBATCH --gres=gpu:1")?;
         // for k, v in env.items():
         //     slurm_script += "export {}={}\n".format(k, v)
+        writeln!(slurm_script, "{}", load_module_cmd)?;
         writeln!(slurm_script, "nvprof {}", commands_args.join(" "))?;
+        writeln!(slurm_script, "nvprof {}", metrics_args.join(" "))?;
 
         log::debug!("slurm script:\n{}", &slurm_script);
 
@@ -199,39 +207,48 @@ where
             self.read_remote_file(&remote_stdout_path, true),
             self.read_remote_file(&remote_stderr_path, true),
         );
-        log::debug!("{}", stdout.as_deref().unwrap_or(""));
-        log::error!("{}", stderr.as_deref().unwrap_or(""));
+        let stdout = stdout.as_deref().unwrap_or("").trim();
+        let stderr = stderr.as_deref().unwrap_or("").trim();
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::error!("{}", stderr);
+        }
 
-        let (commands_log, metrics_log) = futures::join!(
+        let (raw_commands_log, raw_metrics_log) = futures::join!(
             self.read_remote_file(&remote_commands_log_path, false),
             self.read_remote_file(&remote_metrics_log_path, false),
         );
 
-        let metrics_log = metrics_log?;
-        let metrics: Vec<profile::nvprof::Metrics> = profile::nvprof::parse_nvprof_csv(
-            &mut std::io::Cursor::new(&metrics_log),
-        )
-        .map_err(|source| {
-            profile::Error::Parse {
-                raw_log: metrics_log,
-                source,
-            }
-            .into_eyre()
-        })?;
+        let raw_metrics_log = raw_metrics_log?;
+        let metrics: Vec<profile::nvprof::Metrics> =
+            profile::nvprof::parse_nvprof_csv(&mut std::io::Cursor::new(&raw_metrics_log))
+                .map_err(|source| {
+                    profile::Error::Parse {
+                        raw_log: raw_metrics_log.clone(),
+                        source,
+                    }
+                    .into_eyre()
+                })?;
 
-        let commands_log = commands_log?;
-        let commands: Vec<profile::nvprof::Command> = profile::nvprof::parse_nvprof_csv(
-            &mut std::io::Cursor::new(&commands_log),
-        )
-        .map_err(|source| {
-            profile::Error::Parse {
-                raw_log: commands_log,
-                source,
-            }
-            .into_eyre()
-        })?;
+        let raw_commands_log = raw_commands_log?;
+        let commands: Vec<profile::nvprof::Command> =
+            profile::nvprof::parse_nvprof_csv(&mut std::io::Cursor::new(&raw_commands_log))
+                .map_err(|source| {
+                    profile::Error::Parse {
+                        raw_log: raw_commands_log.clone(),
+                        source,
+                    }
+                    .into_eyre()
+                })?;
 
-        Ok(())
+        Ok(profile::nvprof::Output {
+            raw_metrics_log,
+            raw_commands_log,
+            metrics,
+            commands,
+        })
     }
 }
 
@@ -322,21 +339,16 @@ pub async fn profile(
                     .join(&bench.rel_path)
                     .join(&bench.executable);
 
-                das.profile_nvprof(
-                    gpu,
-                    &executable_path,
-                    &bench.args,
-                    Some(std::time::Duration::from_secs(60 * 60)),
-                )
-                .await?;
-
-                return Err(RunError::Skipped);
-                // profile::nvprof::Output {
-                //     raw_metrics_log,
-                //     raw_commands_log,
-                //     metrics,
-                //     commands,
-                // }
+                let output = das
+                    .profile_nvprof(
+                        gpu,
+                        &executable_path,
+                        &bench.args,
+                        Some(std::time::Duration::from_secs(60 * 60)),
+                    )
+                    .await?;
+                // return Err(RunError::Skipped);
+                output
             } else {
                 let options = profile::nvprof::Options {
                     nvprof_path: profile_options.nvprof_path.clone(),
