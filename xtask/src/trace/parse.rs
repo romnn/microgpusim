@@ -3,7 +3,7 @@ use gpucachesim::allocation::Allocations;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 static ACCELSIM_KERNEL_TRACE_FILE_REGEX: Lazy<Regex> =

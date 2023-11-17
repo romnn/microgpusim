@@ -112,17 +112,11 @@ where
     Ok(entries)
 }
 
-// pub fn build_metrics_args<'a, A>(
-pub fn build_metrics_args<'a>(
-    executable: &'a Path,
-    // args: A,
+pub fn build_metrics_args(
+    executable: &Path,
     args: &[String],
-    log_file_path: &'a Path,
-) -> Result<Vec<String>, Error>
-// where
-//     A: IntoIterator,
-//     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
-{
+    log_file_path: &Path,
+) -> Result<Vec<String>, Error> {
     let mut cmd_args: Vec<String> = [
         "--unified-memory-profiling",
         "off",
@@ -152,17 +146,11 @@ pub fn build_metrics_args<'a>(
     Ok(cmd_args)
 }
 
-// pub fn build_command_args<'a, A>(
 pub fn build_command_args(
     executable: &Path,
-    // args: A,
     args: &[String],
     log_file_path: &Path,
-) -> Result<Vec<String>, Error>
-// where
-//     A: IntoIterator,
-//     <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
-{
+) -> Result<Vec<String>, Error> {
     let mut cmd_args: Vec<_> = [
         "--unified-memory-profiling",
         "off",
@@ -257,27 +245,6 @@ where
         .into_iter()
         .map(|arg| arg.as_ref().to_string_lossy().to_string())
         .collect();
-
-    // let mut cmd_args = vec![
-    //     "--unified-memory-profiling",
-    //     "off",
-    //     "--concurrent-kernels",
-    //     "off",
-    //     "--print-gpu-trace",
-    //     "-u",
-    //     "us",
-    //     "--demangling",
-    //     "off",
-    //     "--csv",
-    //     "--log-file",
-    //     log_file_path.as_ref().to_str().unwrap(),
-    //     executable.as_ref().to_str().unwrap(),
-    // ];
-    // let args: Vec<_> = args
-    //     .into_iter()
-    //     .map(|arg| arg.as_ref().to_string_lossy().to_string())
-    //     .collect();
-    // cmd_args.extend(args.iter().map(String::as_str));
 
     let cmd_args = build_command_args(executable.as_ref(), &*args, log_file_path.as_ref())?;
     let mut cmd = async_process::Command::new(nvprof.as_ref());

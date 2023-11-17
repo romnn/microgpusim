@@ -42,7 +42,7 @@ impl std::fmt::Display for JsonError {
         use serde_path_to_error::Segment;
         write!(
             f,
-            "failed to parse [{}] (value={:?})",
+            "failed to parse [{}] (value={:?}): {}",
             self.path
                 .as_ref()
                 .map(|path| path
@@ -64,7 +64,8 @@ impl std::fmt::Display for JsonError {
                     }
                 }
                 _ => None,
-            }
+            },
+            self.source
         )
     }
 }

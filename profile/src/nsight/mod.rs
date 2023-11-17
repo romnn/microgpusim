@@ -250,17 +250,9 @@ pub const NSIGHT_METRICS: [&str; 113] = [
     "sm__sass_inst_executed_op_memory_8b.sum",
 ];
 
-pub async fn profile_all_metrics<A>(
-    nsight: impl AsRef<Path>,
-    executable: impl AsRef<Path>,
-    args: A,
-) -> Result<(String, Vec<Metrics>), Error>
-where
-    A: IntoIterator,
-    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
-{
+pub fn build_nsight_args(executable: &Path, args: &[String]) -> Result<Vec<String>, Error> {
     let metrics = NSIGHT_METRICS.join(",");
-    let mut cmd_args = vec![
+    let mut cmd_args: Vec<String> = [
         "--metrics",
         &metrics,
         "--csv",
@@ -273,14 +265,32 @@ where
         "--units",
         "base",
         "--fp",
-        executable.as_ref().to_str().unwrap(),
-    ];
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+
+    cmd_args.extend([executable.to_string_lossy().to_string()]);
+    cmd_args.extend(args.into_iter().cloned());
+    Ok(cmd_args)
+}
+
+pub async fn profile_all_metrics<A>(
+    nsight: impl AsRef<Path>,
+    executable: impl AsRef<Path>,
+    args: A,
+) -> Result<(String, Vec<Metrics>), Error>
+where
+    A: IntoIterator,
+    <A as IntoIterator>::Item: AsRef<std::ffi::OsStr>,
+{
+    let mut cmd = async_process::Command::new(nsight.as_ref());
     let args: Vec<String> = args
         .into_iter()
         .map(|arg| arg.as_ref().to_string_lossy().to_string())
         .collect();
-    cmd_args.extend(args.iter().map(String::as_str));
-    let mut cmd = async_process::Command::new(nsight.as_ref());
+
+    let cmd_args = build_nsight_args(executable.as_ref(), &*args)?;
     cmd.args(&cmd_args);
 
     log::debug!(
