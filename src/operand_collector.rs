@@ -65,9 +65,10 @@ pub struct CollectorUnit {
 }
 
 impl CollectorUnit {
-    fn new(kind: Kind) -> Self {
+    fn new(kind: Kind, id: usize) -> Self {
         let src_operands = [(); MAX_REG_OPERANDS * 2].map(|_| None);
         Self {
+            // id: 0,
             id: 0,
             free: true,
             kind,
@@ -113,8 +114,7 @@ impl CollectorUnit {
         };
         let output_register = output_register.try_lock();
         let has_free_register = if self.sub_core_model {
-            // output_register.has_free_sub_core(self.reg_id)
-            unimplemented!("sub core model")
+            output_register.has_free_sub_core(self.reg_id)
         } else {
             output_register.has_free()
         };
@@ -129,16 +129,34 @@ impl CollectorUnit {
         !self.free && self.not_ready.not_any() && has_free_register
     }
 
+    pub fn warp_id(&self) -> Option<usize> {
+        if self.free {
+            None
+        } else {
+            self.warp_id
+        }
+    }
+
+    // pub fn reg_id(&self) -> Option<usize> {
+    //     if self.free {
+    //         None
+    //     } else {
+    //         Some(self.reg_id)
+    //     }
+    // }
+
     pub fn dispatch(&mut self) {
         debug_assert!(self.not_ready.not_any());
+
         let output_register = self.output_register.take().unwrap();
         let mut output_register = output_register.try_lock();
-
         let warp_instr = self.warp_instr.take();
 
         // TODO HOTFIX: workaround
-        self.warp_id = None;
-        self.reg_id = 0;
+        // if self.free {
+        //     self.warp_id = None;
+        //     self.reg_id = 0;
+        // }
 
         if self.sub_core_model {
             // let msg = format!(
@@ -146,17 +164,29 @@ impl CollectorUnit {
             //     warp_instr.as_ref().map(ToString::to_string),
             //     self.reg_id,
             // );
+            // assert(reg_id < regs.size());
+            //   free = get_free(sub_core_model, reg_id);
+            // }
+            // move_warp(*free, src);  // , msg, logger);
             // output_register.move_in_from_sub_core(self.reg_id, warp_instr);
-            unimplemented!("sub core model")
+            let free_reg = output_register.get_mut(self.reg_id).unwrap();
+            assert!(free_reg.is_none());
+            log::trace!("found free register at index {}", &self.reg_id);
+            register_set::move_warp(warp_instr, free_reg);
+            // unimplemented!("sub core model")
         } else {
             // let msg = format!(
             //     "operand collector: move warp instr {:?} to output register",
             //     warp_instr.as_ref().map(ToString::to_string),
             // );
-            output_register.move_in_from(warp_instr);
+            let (_, free_reg) = output_register.get_free_mut().unwrap();
+            register_set::move_warp(warp_instr, free_reg);
+            // output_register.move_in_from(warp_instr);
         }
 
         self.free = true;
+        self.warp_id = None;
+        // self.reg_id = 0;
         self.output_register = None;
         self.src_operands.fill(None);
     }
@@ -587,13 +617,15 @@ pub struct DispatchUnit {
     sub_core_model: bool,
     num_warp_schedulers: usize,
     kind: Kind,
+    id: usize,
 }
 
 impl DispatchUnit {
     #[must_use]
-    pub fn new(kind: Kind) -> Self {
+    pub fn new(kind: Kind, id: usize) -> Self {
         Self {
             kind,
+            id,
             last_cu: 0,
             next_cu: 0,
             sub_core_model: false,
@@ -620,7 +652,7 @@ impl DispatchUnit {
             1
         };
 
-        log::debug!("dispatch unit {:?}: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
+        log::debug!("dispatch unit {:?}[{}]: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, self.id, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
 
         debug_assert_eq!(num_collector_units, collector_units.len());
         for i in 0..num_collector_units {
@@ -634,15 +666,20 @@ impl DispatchUnit {
             if collector_units[i].try_lock().ready() {
                 self.last_cu = i;
                 log::debug!(
-                    "dispatch unit {:?}: FOUND ready: chose collector unit {} ({:?})",
+                    "dispatch unit {:?}[{}]: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
+                    self.id,
                     i,
                     collector_units[i].try_lock().kind
                 );
                 return collector_units.get(i);
             }
         }
-        log::debug!("dispatch unit {:?}: did NOT find ready", self.kind);
+        log::debug!(
+            "dispatch unit {:?}[{}]: did NOT find ready",
+            self.kind,
+            self.id
+        );
         None
     }
 }
@@ -667,7 +704,7 @@ impl InputPort {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Kind {
     SP_CUS,
@@ -841,23 +878,22 @@ impl RegisterFileUnit {
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
                     let mut allocated = false;
-                    let cu_lower_bound = 0;
-                    let cu_upper_bound = cu_set.len();
+                    let mut cu_lower_bound = 0;
+                    let mut cu_upper_bound = cu_set.len();
 
                     if self.sub_core_model {
                         // sub core model only allocates on the subset of CUs assigned
                         // to the scheduler that issued
-                        // let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
-                        // debug_assert!(
-                        //     cu_set.len() % self.num_warp_schedulers == 0
-                        //         && cu_set.len() >= self.num_warp_schedulers
-                        // );
-                        // let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        // let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
-                        // cu_lower_bound = schd_id * cus_per_sched;
-                        // cu_upper_bound = cu_lower_bound + cus_per_sched;
-                        // debug_assert!(cu_upper_bound <= cu_set.len());
-                        unimplemented!("sub core model")
+                        let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
+                        debug_assert!(
+                            cu_set.len() % self.num_warp_schedulers == 0
+                                && cu_set.len() >= self.num_warp_schedulers
+                        );
+                        let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
+                        let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
+                        cu_lower_bound = schd_id * cus_per_sched;
+                        cu_upper_bound = cu_lower_bound + cus_per_sched;
+                        debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
                     for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {
@@ -948,14 +984,14 @@ impl RegisterFileUnit {
     ) {
         let set = self.collector_unit_sets.entry(kind).or_default();
 
-        for _ in 0..num_collector_units {
-            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind)));
+        for id in 0..num_collector_units {
+            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind, id)));
             set.push(Arc::clone(&unit));
             self.collector_units.push(unit);
         }
         // each collector set gets dedicated dispatch units.
-        for _ in 0..num_dispatch_units {
-            let dispatch_unit = DispatchUnit::new(kind);
+        for id in 0..num_dispatch_units {
+            let dispatch_unit = DispatchUnit::new(kind, id);
             self.dispatch_units.push(dispatch_unit);
         }
     }
@@ -1014,7 +1050,7 @@ mod test {
     impl From<&super::CollectorUnit> for testing::state::CollectorUnit {
         fn from(cu: &super::CollectorUnit) -> Self {
             Self {
-                warp_id: cu.warp_id,
+                warp_id: cu.warp_id(),
                 warp_instr: cu.warp_instr.clone().map(Into::into),
                 /// pipeline register to issue to when ready
                 output_register: cu
@@ -1023,11 +1059,12 @@ mod test {
                     .map(|r| r.try_lock().deref().clone().into()),
                 // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
                 not_ready: cu.not_ready.to_bit_string(),
-                reg_id: if cu.warp_id.is_some() {
-                    Some(cu.reg_id)
-                } else {
-                    None
-                },
+                reg_id: cu.reg_id,
+                // reg_id: if cu.warp_id.is_some() {
+                //     Some(cu.reg_id)
+                // } else {
+                //     None
+                // },
                 kind: cu.kind.into(),
             }
         }

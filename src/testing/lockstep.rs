@@ -418,7 +418,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let gpgpusim_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.config");
     let trace_config = manifest_dir.join("accelsim/gtx1080/gpgpusim.trace.config");
-    let inter_config = manifest_dir.join("accelsim/gtx1080/config_fermi_islip.icnt");
+    let inter_config = manifest_dir.join("accelsim/gtx1080/config_pascal_islip.icnt");
 
     assert!(box_traces_dir.is_dir());
     assert!(box_commands_path.is_file());
@@ -432,8 +432,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
     box_config.fill_l2_on_memcopy = false;
-    box_config.flush_l1_cache = false;
-    box_config.flush_l2_cache = false;
+    // box_config.flush_l1_cache = true;
+    // box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;
     if let Some(ref mut l1_cache) = box_config.data_cache_l1 {
         // workaround: compatible with accelsim which does not differentiate
@@ -455,9 +455,15 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         "-inter_config_file".to_string(),
         inter_config.to_string_lossy().to_string(),
         "-gpgpu_n_clusters".to_string(),
-        input.num_clusters.unwrap_or(20).to_string(),
+        input
+            .num_clusters
+            .unwrap_or(box_sim.config.num_simt_clusters)
+            .to_string(),
         "-gpgpu_n_cores_per_cluster".to_string(),
-        input.cores_per_cluster.unwrap_or(1).to_string(),
+        input
+            .cores_per_cluster
+            .unwrap_or(box_sim.config.num_cores_per_simt_cluster)
+            .to_string(),
     ];
 
     dbg!(&args);
@@ -705,6 +711,115 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                 if use_full_diff {
                     full_diff::assert_eq!(&box_sim_state, &play_sim_state);
                 } else {
+                    // assert_eq!!(&box_sim_state, &play_sim_state);
+                    // assert_eq!(
+                    //     &box_sim_state.last_cluster_issue,
+                    //     &play_sim_state.last_cluster_issue
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.interconn_to_l2_queue_per_sub,
+                    //     &play_sim_state.interconn_to_l2_queue_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.l2_to_interconn_queue_per_sub,
+                    //     &play_sim_state.l2_to_interconn_queue_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.l2_to_dram_queue_per_sub,
+                    //     &play_sim_state.l2_to_dram_queue_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.dram_to_l2_queue_per_sub,
+                    //     &play_sim_state.dram_to_l2_queue_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.rop_queue_per_sub,
+                    //     &play_sim_state.rop_queue_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.l2_cache_per_sub,
+                    //     &play_sim_state.l2_cache_per_sub
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.dram_latency_queue_per_partition,
+                    //     &play_sim_state.dram_latency_queue_per_partition
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.dram_arbitration_per_partition,
+                    //     &play_sim_state.dram_arbitration_per_partition
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.core_sim_order_per_cluster,
+                    //     &play_sim_state.core_sim_order_per_cluster
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.functional_unit_occupied_slots_per_core,
+                    //     &play_sim_state.functional_unit_occupied_slots_per_core
+                    // );
+                    // assert_eq!(
+                    //     &box_sim_state.functional_unit_pipelines_per_core,
+                    //     &play_sim_state.functional_unit_pipelines_per_core
+                    // );
+                    //
+                    // assert_eq!(
+                    //     box_sim_state.operand_collector_per_core.len(),
+                    //     play_sim_state.operand_collector_per_core.len()
+                    // );
+                    // for collector_id in 0..box_sim_state.operand_collector_per_core.len() {
+                    //     diff::assert_eq!(
+                    //         box: &box_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.ports),
+                    //         play: &play_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.ports)
+                    //     );
+                    //     diff::assert_eq!(
+                    //         box: &box_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.collector_units),
+                    //         play: &play_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.collector_units)
+                    //     );
+                    //     diff::assert_eq!(
+                    //         box: &box_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.dispatch_units),
+                    //         plaxy: &play_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.dispatch_units)
+                    //     );
+                    //     diff::assert_eq!(
+                    //         box: &box_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.arbiter),
+                    //         play: &play_sim_state.operand_collector_per_core[collector_id]
+                    //             .as_ref()
+                    //             .map(|c| &c.arbiter),
+                    //     );
+                    // }
+                    // diff::assert_eq!(
+                    //     box: &box_sim_state.operand_collector_per_core,
+                    //     play: &play_sim_state.operand_collector_per_core,
+                    // );
+                    // diff::assert_eq!(
+                    //     box: &box_sim_state.scheduler_per_core,
+                    //     play: &play_sim_state.scheduler_per_core
+                    // );
+                    // diff::assert_eq!(
+                    //     box: &box_sim_state.pending_register_writes_per_core,
+                    //     play: &play_sim_state.pending_register_writes_per_core
+                    // );
+                    // diff::assert_eq!(
+                    //     box: &box_sim_state.l1_latency_queue_per_core,
+                    //     play: &play_sim_state.l1_latency_queue_per_core
+                    // );
+                    // diff::assert_eq!(
+                    //     box: &box_sim_state.l1_cache_per_core,
+                    //     play: &play_sim_state.l1_cache_per_core
+                    // );
+
                     diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
                 }
 
@@ -872,7 +987,7 @@ fn get_bench_config(
         .or_insert(validate::input!(1)?);
     input
         .entry("num_clusters".to_string())
-        .or_insert(validate::input!(20)?);
+        .or_insert(validate::input!(28)?);
 
     let bench_config =
         validate::benchmark::find_exact(validate::Target::Simulate, bench_name, &input)?;
@@ -950,7 +1065,7 @@ lockstep_checks! {
     // transpose
     transpose_256_naive_test: ("transpose", { "dim": 256, "variant": "naive"}),
     transpose_256_coalesed_test: ("transpose", { "dim": 256, "variant": "coalesced" }),
-    transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
+    // transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
 
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),

@@ -86,7 +86,7 @@ fn new_serial_cycle<I>(
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
     last_issued_kernel: &Arc<Mutex<usize>>,
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
-    running_kernels: &Arc<RwLock<Vec<Option<Arc<crate::Kernel>>>>>,
+    running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<crate::Kernel>)>>>>,
     // executed_kernels: &Arc<Mutex<HashMap<u64, String>>>,
     executed_kernels: &Arc<Mutex<HashMap<u64, Arc<crate::Kernel>>>>,
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
@@ -225,8 +225,9 @@ fn new_serial_cycle<I>(
 
                         // issue same kernel again
                         match running_kernels[*last_issued_kernel] {
-                            // && !kernel.kernel_TB_latency)
-                            Some(ref last_kernel) if !last_kernel.no_more_blocks_to_run() => {
+                            Some((launch_latency, ref last_kernel))
+                                if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+                            {
                                 let launch_id = last_kernel.id();
                                 executed_kernels
                                     .entry(launch_id)
@@ -243,8 +244,9 @@ fn new_serial_cycle<I>(
                         for n in 0..num_kernels {
                             let idx = (n + *last_issued_kernel + 1) % max_concurrent;
                             match running_kernels[idx] {
-                                // &&!kernel.kernel_TB_latency)
-                                Some(ref kernel) if !kernel.no_more_blocks_to_run() => {
+                                Some((launch_latency, ref kernel))
+                                    if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+                                {
                                     *last_issued_kernel = idx;
                                     let launch_id = kernel.id();
                                     assert!(!executed_kernels.contains_key(&launch_id));
@@ -355,7 +357,9 @@ fn new_serial_cycle<I>(
                         // issue same kernel again
                         match running_kernels[*last_issued_kernel] {
                             // && !kernel.kernel_TB_latency)
-                            Some(ref last_kernel) if !last_kernel.no_more_blocks_to_run() => {
+                            Some((launch_latency, ref last_kernel))
+                                if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+                            {
                                 let launch_id = last_kernel.id();
                                 executed_kernels
                                     .entry(launch_id)
@@ -372,8 +376,9 @@ fn new_serial_cycle<I>(
                         for n in 0..num_kernels {
                             let idx = (n + *last_issued_kernel + 1) % max_concurrent;
                             match running_kernels[idx] {
-                                // &&!kernel.kernel_TB_latency)
-                                Some(ref kernel) if !kernel.no_more_blocks_to_run() => {
+                                Some((launch_latency, ref kernel))
+                                    if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+                                {
                                     *last_issued_kernel = idx;
                                     let launch_id = kernel.id();
                                     assert!(!executed_kernels.contains_key(&launch_id));
@@ -850,8 +855,8 @@ where
                                             let kernels_completed = running_kernels
                                                 .try_read()
                                                 .iter()
-                                                .filter_map(std::option::Option::as_ref)
-                                                .all(|k| k.no_more_blocks_to_run());
+                                                .filter_map(Option::as_ref)
+                                                .all(|(_, k)| k.no_more_blocks_to_run());
 
                                             let core_active =
                                                 !(kernels_completed && core.not_completed() == 0);
@@ -1232,7 +1237,7 @@ where
                                         .try_read()
                                         .iter()
                                         .filter_map(std::option::Option::as_ref)
-                                        .all(|k| k.no_more_blocks_to_run());
+                                        .all(|(_, k)| k.no_more_blocks_to_run());
 
                                     let cores_completed = cluster.not_completed() == 0;
                                     active_clusters[cluster.cluster_id] =

@@ -65,13 +65,16 @@ impl<I> WarpIssuer for Core<I>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
-    fn has_free_register(&self, stage: PipelineStage, _register_id: usize) -> bool {
+    fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
         let pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
 
         if self.config.sub_core_model {
-            // pipeline_stage.has_free_sub_core(register_id)
-            unimplemented!("sub core model")
+            pipeline_stage
+                .get(register_id)
+                .map(Option::as_ref)
+                .flatten()
+                .is_none()
         } else {
             pipeline_stage.has_free()
         }
@@ -87,8 +90,7 @@ where
     ) -> eyre::Result<()> {
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
         let free = if self.config.sub_core_model {
-            // pipeline_stage.get_free_sub_core_mut(scheduler_id);
-            todo!("sub core model");
+            pipeline_stage.get_free_sub_core_mut(scheduler_id)
         } else {
             pipeline_stage.get_free_mut()
         };
@@ -632,52 +634,52 @@ where
         let mut dispatch_ports = Vec::new();
 
         // single precision units
-        for unit_id in 0..config.num_sp_units {
+        for issue_reg_id in 0..config.num_sp_units {
             functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
-                unit_id,
+                issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                // u, // issue reg id
+                issue_reg_id,
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SP);
             issue_ports.push(PipelineStage::OC_EX_SP);
         }
 
         // double precision units
-        for unit_id in 0..config.num_dp_units {
+        for issue_reg_id in 0..config.num_dp_units {
             functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
-                unit_id,
+                issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                // u, // issue reg id
+                issue_reg_id,
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_DP);
             issue_ports.push(PipelineStage::OC_EX_DP);
         }
 
         // integer units
-        for unit_id in 0..config.num_int_units {
+        for issue_reg_id in 0..config.num_int_units {
             functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
-                unit_id,
+                issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                // u, // issue reg id
+                issue_reg_id,
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_INT);
             issue_ports.push(PipelineStage::OC_EX_INT);
         }
 
         // special function units
-        for unit_id in 0..config.num_sfu_units {
+        for issue_reg_id in 0..config.num_sfu_units {
             functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
-                unit_id, // id
+                issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
-                // u, // issue reg id
+                issue_reg_id,
             ))));
             dispatch_ports.push(PipelineStage::ID_OC_SFU);
             issue_ports.push(PipelineStage::OC_EX_SFU);
@@ -1663,9 +1665,9 @@ where
 
             let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
             let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
-                // let reg_id = fu.issue_reg_id();
-                // issue_inst.get_ready_sub_core_mut(reg_id)
-                unimplemented!("sub core model")
+                issue_inst
+                    .get_ready_sub_core_mut(fu.issue_reg_id())
+                    .map(|(_, r)| r)
             } else {
                 issue_inst.get_ready_mut().map(|(_, r)| r)
             };

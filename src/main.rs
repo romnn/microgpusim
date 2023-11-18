@@ -116,15 +116,15 @@ fn main() -> eyre::Result<()> {
     };
 
     let config = gpucachesim::config::GPU {
-        num_simt_clusters: options.num_clusters.unwrap_or(20),
+        num_simt_clusters: options.num_clusters.unwrap_or(28), // 20
         num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1),
         num_schedulers_per_core: 4,                  // 4
-        num_memory_controllers: 8,                   // 8
+        num_memory_controllers: 12,                  // 8
         num_dram_chips_per_memory_controller: 1,     // 1
         num_sub_partitions_per_memory_controller: 2, // 2
         simulate_clock_domains: options.simulate_clock_domains.unwrap_or(false),
         fill_l2_on_memcopy: options.fill_l2.unwrap_or(false),
-        flush_l1_cache: options.flush_l1.unwrap_or(false),
+        flush_l1_cache: options.flush_l1.unwrap_or(true),
         flush_l2_cache: options.flush_l2.unwrap_or(false),
         accelsim_compat: options.accelsim_compat_mode.unwrap_or(false),
         memory_only: options.memory_only.unwrap_or(false),

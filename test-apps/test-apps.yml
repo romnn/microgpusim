@@ -46,7 +46,7 @@ config:
         - nondeterministic_interleave
       threads: [4, 8]
       run_ahead: [5, 10]
-      num_clusters: [20, 40]
+      num_clusters: [28, 40]
       cores_per_cluster: [1, 4, 8]
       memory_only: [false, true]
       exclude:
@@ -71,7 +71,7 @@ config:
     config_dir: ../accelsim/gtx1080/
     config: ../accelsim/gtx1080/gpgpusim.config
     trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
-    inter_config: ../accelsim/gtx1080/config_fermi_islip.icnt
+    inter_config: ../accelsim/gtx1080/config_pascal_islip.icnt
   playground_simulate:
     # BUG: due to static global state in intersim2, can only run one benchmark at a time for now
     concurrency: 1
@@ -80,7 +80,7 @@ config:
     config_dir: ../accelsim/gtx1080/
     config: ../accelsim/gtx1080/gpgpusim.config
     trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
-    inter_config: ../accelsim/gtx1080/config_fermi_islip.icnt
+    inter_config: ../accelsim/gtx1080/config_pascal_islip.icnt
 #
 # Benchmarks
 #
@@ -106,7 +106,8 @@ benchmarks:
       n: [32, 64, 128]
       p: [32, 64, 128]
       include:
-        - {m: 512, n: 32, p: 512, dtype: 32,}
+        - {m: 512, n: 32, p: 512, dtype: 32} # included because of size (parallel speedup)
+        - {m: 128, n: 512, p: 128, dtype: 32,} # included because large n leading to lower L1 hit rate
         # - { m: 32, n: 1024, p: 32, dtype: 32 }
       #   - { m: 32, n: 2048, p: 32, dtype: 32 }
       #   - { m: 32, n: 4096, p: 32, dtype: 32 }

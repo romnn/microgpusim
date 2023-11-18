@@ -204,7 +204,17 @@ pub struct WarpInstruction {
 impl std::fmt::Debug for WarpInstruction {
     // #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+        // write!(f, "{}[pc={},warp={}]", self.opcode, self.pc, self.warp_id)
+        write!(
+            f,
+            "{}[pc={},warp={},latency={},init={},dispatch_delay={}]",
+            self.opcode,
+            self.pc,
+            self.warp_id,
+            self.latency,
+            self.initiation_interval,
+            self.dispatch_delay_cycles
+        )
     }
 }
 
@@ -320,7 +330,8 @@ pub struct CollectorUnit {
     pub warp_instr: Option<WarpInstruction>,
     pub output_register: Option<RegisterSet>,
     pub not_ready: String,
-    pub reg_id: Option<usize>,
+    // pub reg_id: Option<usize>,
+    pub reg_id: usize,
     pub kind: OperandCollectorUnitKind,
 }
 

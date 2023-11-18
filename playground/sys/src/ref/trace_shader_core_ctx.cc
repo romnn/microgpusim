@@ -864,7 +864,8 @@ void trace_shader_core_ctx::execute() {
     unsigned issue_port = m_issue_port[n];
 
     register_set &issue_inst = m_pipeline_reg[issue_port];
-    if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
+    // if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
+    if (true) {
       // print the state of the issue unit BEFORE
       logger->debug("fu[{}] {}\tcycle {} before \t{}", n, m_fu[n]->get_name(),
                     m_gpu->gpu_sim_cycle, issue_inst);
@@ -875,7 +876,8 @@ void trace_shader_core_ctx::execute() {
     for (unsigned c = 0; c < multiplier; c++) m_fu[n]->cycle();
     m_fu[n]->active_lanes_in_pipeline();
 
-    if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
+    // if (issue_port == OC_EX_SP || issue_port == OC_EX_MEM) {
+    if (true) {
       // print the state of the issue unit AFTER
       logger->debug("fu[{}] {}\tcycle {} after \t{}", n, m_fu[n]->get_name(),
                     m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle,

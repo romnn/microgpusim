@@ -102,13 +102,12 @@ class register_set {
   }
 
   void move_out_to(bool sub_core_model, unsigned reg_id, warp_inst_t *&dest) {
-    // std::string msg) {
     if (!sub_core_model) {
       return move_out_to(dest);
     }
     warp_inst_t **ready = get_ready(sub_core_model, reg_id);
     assert(ready != NULL);
-    move_warp(dest, *ready);  // , msg, logger);
+    move_warp(dest, *ready);
   }
 
   warp_inst_t **get_ready() {
@@ -133,7 +132,7 @@ class register_set {
   warp_inst_t **get_ready(bool sub_core_model, unsigned reg_id) {
     if (!sub_core_model) return get_ready();
 
-    assert(0 && "sub core model");
+    // assert(0 && "sub core model"); // have sub core model for titan config
     warp_inst_t **ready;
     ready = NULL;
     assert(reg_id < regs.size());
@@ -156,7 +155,7 @@ class register_set {
     // sched id)
     if (!sub_core_model) return get_free();
 
-    assert(0 && "sub core model");
+    // assert(0 && "sub core model"); // have sub core model for titan config
     assert(reg_id < regs.size());
     if (regs[reg_id]->empty()) {
       logger->trace("found free register at index {}", reg_id);

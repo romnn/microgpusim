@@ -132,7 +132,7 @@ impl LoadStoreUnit {
             None,
             pipeline_depth,
             config.clone(),
-            // 0,
+            0,
         );
         debug_assert!(config.shared_memory_latency > 1);
 
@@ -1121,9 +1121,9 @@ impl fu::SimdFunctionUnit for LoadStoreUnit
         false
     }
 
-    // fn issue_reg_id(&self) -> usize {
-    //     todo!("load store unit: issue reg id");
-    // }
+    fn issue_reg_id(&self) -> usize {
+        self.inner.issue_reg_id
+    }
 
     fn stallable(&self) -> bool {
         // load store unit is stallable

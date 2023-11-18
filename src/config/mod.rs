@@ -330,25 +330,6 @@ pub enum Parallelization {
     },
 }
 
-// sscanf(gpgpu_clock_domains, "%lf:%lf:%lf:%lf", &core_freq, &icnt_freq,
-//          &l2_freq, &dram_freq);
-//   core_freq = core_freq MhZ;
-//   icnt_freq = icnt_freq MhZ;
-//   l2_freq = l2_freq MhZ;
-//   dram_freq = dram_freq MhZ;
-//   core_period = 1 / core_freq;
-//   icnt_period = 1 / icnt_freq;
-//   dram_period = 1 / dram_freq;
-//   l2_period = 1 / l2_freq;
-//
-//   if (gpgpu_ctx->accelsim_compat_mode) {
-//     fprintf(gpgpu_ctx->stats_out,
-//             "GPGPU-Sim uArch: clock freqs: %lf:%lf:%lf:%lf\n", core_freq,
-//             icnt_freq, l2_freq, dram_freq);
-//     fprintf(gpgpu_ctx->stats_out,
-//             "GPGPU-Sim uArch: clock periods: %.20lf:%.20lf:%.20lf:%.20lf\n",
-//             core_period, icnt_period, l2_period, dram_period);
-//   }
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct ClockFrequencies {
@@ -663,6 +644,10 @@ pub struct GPU {
     /// Set this value according to max resident grids for your
     /// compute capability.
     pub max_concurrent_kernels: usize, // 32
+    /// Kernel launch latency in cycles
+    pub kernel_launch_latency: usize,
+    /// Block launch latency in cycles
+    pub block_launch_latency: usize,
     /// Opcode latencies and initiation for integers in trace driven mode (latency,initiation)
     pub trace_opcode_latency_initiation_int: (usize, usize), // 4, 1
     /// Opcode latencies and initiation for sp in trace driven mode (latency,initiation)
@@ -1012,16 +997,21 @@ impl Default for GPU {
             simulate_clock_domains: false,
             simulation_threads: None,
             deadlock_check: false,
-            l2_prefetch_percent: 25.0,
+            l2_prefetch_percent: 90.0, // for TitanX
+            // l2_prefetch_percent: 25.0, // for GTX 1080
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
             max_threads_per_core: 2048,
             warp_size: 32,
             clock_frequencies: ClockFrequenciesBuilder {
-                core_freq_hz: 1607 * MHz,
-                interconn_freq_hz: 1607 * MHz,
-                l2_freq_hz: 1607 * MHz,
-                dram_freq_hz: 1251 * MHz,
+                core_freq_hz: 1417 * MHz,
+                interconn_freq_hz: 1417 * MHz,
+                l2_freq_hz: 1417 * MHz,
+                dram_freq_hz: 2500 * MHz,
+                // core_freq_hz: 1607 * MHz, // GTX1080
+                // interconn_freq_hz: 1607 * MHz, // GTX1080
+                // l2_freq_hz: 1607 * MHz, // GTX1080
+                // dram_freq_hz: 1251 * MHz, // GTX1080
             }
             .build(),
             // N:16:128:24,L:R:m:N:L,F:128:4,128:2
@@ -1096,9 +1086,8 @@ impl Default for GPU {
             // l2 hit latency = 274.3884858
             // l2 miss latency = 474.04434122
             data_cache_l1: Some(Arc::new(L1DCache {
-                // l1_latency: 1,
                 l1_latency: 1,
-                l1_hit_latency: 80,
+                l1_hit_latency: 81,
                 // l1_banks_hashing_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                 // l1_banks_hashing_function: Box::<cache::set_index::linear::SetIndex>::default(),
                 l1_banks_byte_interleaving: 32,
@@ -1154,12 +1143,7 @@ impl Default for GPU {
                     data_port_width: Some(32),
                 }),
             })),
-            // l1_cache_write_ratio: 0,
-            // l1_banks: 1,
-            // l1_banks_byte_interleaving: 32,
-            // l1_banks_hashing_function: 0,
-            // l1_latency: 1,
-            shared_memory_latency: 3,
+            shared_memory_latency: 24, // 3 for GTX1080
             // TODO: make this better, or just parse accelsim configs
             max_sp_latency: 13,
             max_int_latency: 4,
@@ -1171,10 +1155,12 @@ impl Default for GPU {
             registers_per_block: 8192,
             ignore_resources_limitation: false,
             max_concurrent_blocks_per_core: 32,
+            kernel_launch_latency: 5000,
+            block_launch_latency: 0,
             max_barriers_per_block: 16,
-            num_simt_clusters: 20,
+            num_simt_clusters: 28, // 20 for GTX1080
             num_cores_per_simt_cluster: 1,
-            num_cluster_ejection_buffer_size: 8,
+            num_cluster_ejection_buffer_size: 32, // 8 for GTX1080
             num_ldst_response_buffer_size: 2,
             shared_memory_per_block: 48 * KB as usize,
             shared_memory_size: 96 * KB as u32,
@@ -1191,33 +1177,35 @@ impl Default for GPU {
             warp_distro_shader_core: -1,
             warp_issue_shader_core: 0,
             local_mem_map: true,
-            num_reg_banks: 32,
+            num_reg_banks: 16, // 32 for GTX1080
             reg_bank_use_warp_id: false,
-            sub_core_model: false,
-            enable_specialized_operand_collector: true,
+            sub_core_model: true,                        // false for GTX 1080 ?
+            enable_specialized_operand_collector: false, // true for GTX 1080 ?
+            // specialized collectors (deprecated GTX 1080 config)
             operand_collector_num_units_sp: 20, // 4,
             operand_collector_num_units_dp: 0,
             operand_collector_num_units_sfu: 4,
             operand_collector_num_units_int: 0,
             operand_collector_num_units_tensor_core: 4,
-            operand_collector_num_units_mem: 8, // 2,
-            operand_collector_num_units_gen: 0,
+            operand_collector_num_units_mem: 8,   // 2,
             operand_collector_num_in_ports_sp: 4, // 1,
             operand_collector_num_in_ports_dp: 0,
             operand_collector_num_in_ports_sfu: 1,
             operand_collector_num_in_ports_int: 0,
             operand_collector_num_in_ports_tensor_core: 1,
             operand_collector_num_in_ports_mem: 1,
-            operand_collector_num_in_ports_gen: 0,
             operand_collector_num_out_ports_sp: 4, // 1,
             operand_collector_num_out_ports_dp: 0,
             operand_collector_num_out_ports_sfu: 1,
             operand_collector_num_out_ports_int: 0,
             operand_collector_num_out_ports_tensor_core: 1,
             operand_collector_num_out_ports_mem: 1,
-            operand_collector_num_out_ports_gen: 0,
+            // generic collectors
+            operand_collector_num_units_gen: 8,
+            operand_collector_num_in_ports_gen: 8,
+            operand_collector_num_out_ports_gen: 8,
             coalescing_arch: Architecture::Pascal,
-            num_schedulers_per_core: 2,
+            num_schedulers_per_core: 4,
             max_instruction_issue_per_warp: 2,
             dual_issue_only_to_different_exec_units: true,
             simt_core_sim_order: SchedulingOrder::RoundRobin,
@@ -1225,14 +1213,14 @@ impl Default for GPU {
                 (PipelineStage::ID_OC_SP, 4),
                 (PipelineStage::ID_OC_DP, 0),
                 (PipelineStage::ID_OC_INT, 0),
-                (PipelineStage::ID_OC_SFU, 1),
-                (PipelineStage::ID_OC_MEM, 1),
+                (PipelineStage::ID_OC_SFU, 4), // 1 GTX1080
+                (PipelineStage::ID_OC_MEM, 4), // 1 GTX1080
                 (PipelineStage::OC_EX_SP, 4),
                 (PipelineStage::OC_EX_DP, 0),
                 (PipelineStage::OC_EX_INT, 0),
-                (PipelineStage::OC_EX_SFU, 1),
-                (PipelineStage::OC_EX_MEM, 1),
-                (PipelineStage::EX_WB, 6),
+                (PipelineStage::OC_EX_SFU, 4), // 1 GTX1080
+                (PipelineStage::OC_EX_MEM, 4), // 1 GTX1080
+                (PipelineStage::EX_WB, 8),     // 6 GTX1080
                 // don't have tensor cores
                 (PipelineStage::ID_OC_TENSOR_CORE, 0),
                 (PipelineStage::OC_EX_TENSOR_CORE, 0),
@@ -1240,15 +1228,14 @@ impl Default for GPU {
             num_sp_units: 4,
             num_dp_units: 0,
             num_int_units: 0,
-            num_sfu_units: 1,
+            num_sfu_units: 4, // 1 GTX1080 ?
             num_tensor_core_avail: 0,
             num_tensor_core_units: 0,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
             perfect_inst_const_cache: true,
-            // perfect_inst_const_cache: false,
             inst_fetch_throughput: 1,
-            reg_file_port_throughput: 1,
+            reg_file_port_throughput: 2, // 1 for GTX1080
             fill_l2_on_memcopy: true,
             simple_dram_model: false,
             dram_scheduler: DRAMSchedulerKind::FrFcfs,
@@ -1258,11 +1245,11 @@ impl Default for GPU {
             dram_partition_queue_l2_to_interconn: 8,
             ideal_l2: false,
             data_cache_l2_texture_only: false,
-            num_memory_controllers: 8,
+            num_memory_controllers: 12, // 8 for GTX1080
             num_sub_partitions_per_memory_controller: 2,
             num_dram_chips_per_memory_controller: 1,
             dram_frfcfs_sched_queue_size: 64,
-            dram_return_queue_size: 116,
+            dram_return_queue_size: 64, // 116 for GTX 1080?
             dram_buswidth: 4,
             dram_burst_length: 8,
             dram_data_command_freq_ratio: 4,
@@ -1276,7 +1263,7 @@ impl Default for GPU {
             dram_latency: 190,   // was 100
             dram_dual_bus_interface: false,
             dram_bank_indexing_policy: DRAMBankIndexPolicy::Normal,
-            dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy::HigherBits,
+            dram_bank_group_indexing_policy: DRAMBankGroupIndexPolicy::LowerBits,
             dram_seperate_write_queue_enable: false,
             dram_frfcfs_write_queue_size: 32, // 32:28:16
             dram_elimnate_rw_turnaround: false,
@@ -1288,7 +1275,7 @@ impl Default for GPU {
             memory_partition_indexing: MemoryPartitionIndexingScheme::Consecutive,
             compute_capability_major: 7,
             compute_capability_minor: 0,
-            flush_l1_cache: false,
+            flush_l1_cache: true,
             flush_l2_cache: false,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config
@@ -1300,8 +1287,8 @@ impl Default for GPU {
             //
             trace_opcode_latency_initiation_int: (4, 1),
             trace_opcode_latency_initiation_sp: (4, 1),
-            trace_opcode_latency_initiation_dp: (4, 1),
-            trace_opcode_latency_initiation_sfu: (4, 1),
+            trace_opcode_latency_initiation_dp: (20, 8), // (4, 1)
+            trace_opcode_latency_initiation_sfu: (20, 4), // (4, 1)
             trace_opcode_latency_initiation_tensor: (4, 1),
         }
     }

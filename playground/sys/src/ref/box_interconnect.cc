@@ -26,7 +26,10 @@ bool BoxInterconnect::Busy() const { return false; }
 
 void *BoxInterconnect::Pop(unsigned deviceID) {
   unsigned icntID = _node_map[deviceID];
-  assert(icntID == deviceID);
+  // TITANX config uses an actual network file so we either do not use the node
+  // map or leave it
+
+  // assert(icntID == deviceID);
 
   // bool is_memory_node = ((_subnets > 1) && deviceID >= _n_shader);
   // unsigned subnet = is_memory_node ? 1 : 0;
@@ -80,12 +83,15 @@ void BoxInterconnect::Push(unsigned input_deviceID, unsigned output_deviceID,
 
   unsigned input_icntID = _node_map[input_deviceID];
   unsigned output_icntID = _node_map[output_deviceID];
-  for (auto const &x : _node_map) {
-    assert(x.first == x.second);
-  }
 
-  assert(input_icntID == input_deviceID);
-  assert(output_icntID == output_deviceID);
+  // this no longer holds because TITANX config uses an actual interconnect
+  // config
+
+  // for (auto const &x : _node_map) {
+  //   assert(x.first == x.second);
+  // }
+  // assert(input_icntID == input_deviceID);
+  // assert(output_icntID == output_deviceID);
 
   // this is a hotfix, in tests we dont always push mem_fetches in here
   mem_fetch *mf = static_cast<mem_fetch *>(data);

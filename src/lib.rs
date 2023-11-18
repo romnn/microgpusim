@@ -311,7 +311,7 @@ pub struct MockSimulator<I> {
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     // we could remove the arcs on running and executed if we change to self: Arc<Self>
-    pub running_kernels: Arc<RwLock<Vec<Option<Arc<kernel::Kernel>>>>>,
+    pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<kernel::Kernel>)>>>>,
     // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
     executed_kernels: Arc<Mutex<HashMap<u64, Arc<kernel::Kernel>>>>,
     pub current_kernel: Mutex<Option<Arc<kernel::Kernel>>>,
@@ -498,10 +498,25 @@ where
         let mut executed_kernels = self.executed_kernels.try_lock();
         let running_kernels = self.running_kernels.try_read();
 
+        log::trace!(
+            "select kernel: {} running kernels, last issued kernel={}",
+            running_kernels.iter().filter_map(Option::as_ref).count(),
+            last_issued_kernel
+        );
+
+        if let Some((launch_latency, ref last_kernel)) = running_kernels[*last_issued_kernel] {
+            log::trace!(
+            "select kernel: => running_kernels[{}] no more blocks to run={} {:?}/{} kernel block latency={} launch uid={}",
+            last_issued_kernel, last_kernel.no_more_blocks_to_run(), last_kernel.current_block(),
+            last_kernel.config.grid,
+            launch_latency, last_kernel.id());
+        }
+
         // issue same kernel again
         match running_kernels[*last_issued_kernel] {
-            // && !kernel.kernel_TB_latency)
-            Some(ref last_kernel) if !last_kernel.no_more_blocks_to_run() => {
+            Some((launch_latency, ref last_kernel))
+                if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+            {
                 let launch_id = last_kernel.id();
                 executed_kernels
                     .entry(launch_id)
@@ -516,9 +531,17 @@ where
         let max_concurrent = self.config.max_concurrent_kernels;
         for n in 0..num_kernels {
             let idx = (n + *last_issued_kernel + 1) % max_concurrent;
+            if let Some((launch_latency, ref kernel)) = running_kernels[idx] {
+                log::trace!(
+                  "select kernel: runing_kernels[{}] more blocks left={}, kernel block latency={}",
+                  idx, kernel.no_more_blocks_to_run(),
+                  launch_latency);
+            }
+
             match running_kernels[idx] {
-                // &&!kernel.kernel_TB_latency)
-                Some(ref kernel) if !kernel.no_more_blocks_to_run() => {
+                Some((launch_latency, ref kernel))
+                    if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
+                {
                     *last_issued_kernel = idx;
                     let launch_id = kernel.id();
                     assert!(!executed_kernels.contains_key(&launch_id));
@@ -534,7 +557,7 @@ where
     pub fn more_blocks_to_run(&self) -> bool {
         let running_kernels = self.running_kernels.try_read();
         running_kernels.iter().any(|kernel| match kernel {
-            Some(kernel) => !kernel.no_more_blocks_to_run(),
+            Some((_, kernel)) => !kernel.no_more_blocks_to_run(),
             None => false,
         })
     }
@@ -576,7 +599,7 @@ where
     pub fn can_start_kernel(&self) -> bool {
         let running_kernels = self.running_kernels.try_read();
         running_kernels.iter().any(|kernel| match kernel {
-            Some(kernel) => kernel.done(),
+            Some((_, kernel)) => kernel.done(),
             None => true,
         })
     }
@@ -596,14 +619,16 @@ where
         let mut running_kernels = self.running_kernels.try_write();
         let free_slot = running_kernels
             .iter_mut()
-            .find(|slot| slot.is_none() || slot.as_ref().map_or(false, |k| k.done()))
+            .find(|slot| slot.is_none() || slot.as_ref().map_or(false, |(_, k)| k.done()))
             .ok_or(eyre::eyre!("no free slot for kernel"))?;
 
         *kernel.start_time.lock() = Some(std::time::Instant::now());
         *kernel.start_cycle.lock() = Some(cycle);
 
         *self.current_kernel.lock() = Some(Arc::clone(&kernel));
-        *free_slot = Some(kernel);
+        let launch_latency = self.config.kernel_launch_latency
+            + kernel.num_blocks() * self.config.block_launch_latency;
+        *free_slot = Some((launch_latency, kernel));
         Ok(())
     }
 
@@ -629,6 +654,16 @@ where
                 *last_cluster_issue = cluster_id;
                 // self.total_blocks_launched += num_blocks_issued;
             }
+        }
+
+        // decrement kernel latency
+        for (launch_latency, _) in self
+            .running_kernels
+            .try_write()
+            .iter_mut()
+            .filter_map(Option::as_mut)
+        {
+            *launch_latency = launch_latency.saturating_sub(1);
         }
     }
 
@@ -871,8 +906,8 @@ where
                     .running_kernels
                     .read()
                     .iter()
-                    .filter_map(std::option::Option::as_ref)
-                    .all(|k| k.no_more_blocks_to_run());
+                    .filter_map(Option::as_ref)
+                    .all(|(_, k)| k.no_more_blocks_to_run());
 
                 let cluster_active = !(cores_completed && kernels_completed);
                 active_clusters[cluster_id] = cluster_active;
@@ -1950,20 +1985,25 @@ where
     fn finished_kernel(&mut self) -> Option<Arc<Kernel>> {
         // check running kernels
         let mut running_kernels = self.running_kernels.try_write().clone();
-        let finished_kernel: Option<&mut Option<Arc<Kernel>>> =
-            running_kernels.iter_mut().find(|k| {
-                if let Some(k) = k {
-                    // TODO: could also check here if !self.active()
-                    k.no_more_blocks_to_run() && !k.running() && k.launched()
-                } else {
-                    false
-                }
+        let finished_kernel: Option<&mut Option<(_, Arc<Kernel>)>> =
+            running_kernels.iter_mut().find(|kernel| match kernel {
+                // TODO: could also check here if !self.active()
+                Some((_, k)) if k.no_more_blocks_to_run() && !k.running() && k.launched() => true,
+                _ => false,
             });
-        if let Some(kernel) = finished_kernel {
-            kernel.take()
-        } else {
-            None
-        }
+        // running_kernels.iter_mut().find_map(|kernel| match kernel {
+        //     // TODO: could also check here if !self.active()
+        //     Some((_, k)) if k.no_more_blocks_to_run() && !k.running() && k.launched() => {
+        //         Some(kernel)
+        //     }
+        //     _ => None,
+        // });
+        finished_kernel.and_then(Option::take).map(|(_, k)| k)
+        // if let Some(kernel) = finished_kernel {
+        //     kernel.take().1
+        // } else {
+        //     None
+        // }
     }
 
     fn cleanup_finished_kernel(&mut self, kernel: &Kernel, cycle: u64) {

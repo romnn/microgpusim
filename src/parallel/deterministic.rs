@@ -60,8 +60,8 @@ where
                             .running_kernels
                             .try_read()
                             .iter()
-                            .filter_map(std::option::Option::as_ref)
-                            .all(|k| k.no_more_blocks_to_run());
+                            .filter_map(Option::as_ref)
+                            .all(|(_, k)| k.no_more_blocks_to_run());
 
                         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
                             let cores_completed = cluster.try_read().not_completed() == 0;

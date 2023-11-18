@@ -34,7 +34,7 @@ fn main() -> eyre::Result<()> {
             .sim_config
             .inter_config
             .clone()
-            .unwrap_or(base.join("accelsim/gtx1080/config_fermi_islip.icnt")),
+            .unwrap_or(base.join("accelsim/gtx1080/config_pascal_islip.icnt")),
     );
 
     // overrides
@@ -80,12 +80,6 @@ fn main() -> eyre::Result<()> {
     dbg!(&args);
 
     let accelsim_compat_mode = options.accelsim_compat_mode.unwrap_or(false);
-    // let accelsim_compat_mode = false;
-    // let accelsim_compat_mode = std::env::var("ACCELSIM_COMPAT_MODE")
-    //     .unwrap_or_default()
-    //     .to_lowercase()
-    //     == "yes";
-
     let config = playground::Config {
         accelsim_compat_mode,
         ..playground::Config::default()

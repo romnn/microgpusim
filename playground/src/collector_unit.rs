@@ -22,12 +22,14 @@ impl<'a> CollectorUnit<'a> {
     }
 
     #[must_use]
-    pub fn reg_id(&self) -> Option<usize> {
-        if self.unit.is_free() {
-            None
-        } else {
-            Some(self.unit.get_reg_id() as usize)
-        }
+    // pub fn reg_id(&self) -> Option<usize> {
+    pub fn reg_id(&self) -> usize {
+        self.unit.get_reg_id() as usize
+        // if self.unit.is_free() {
+        //     None
+        // } else {
+        //     Some(self.unit.get_reg_id() as usize)
+        // }
     }
 
     #[must_use]

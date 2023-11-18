@@ -77,15 +77,15 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
 
     // 8 mem controllers * 2 sub partitions = 16 (l2s_count from nsight)
     let config = crate::config::GPU {
-        num_simt_clusters: input.num_clusters.unwrap_or(20),
+        num_simt_clusters: input.num_clusters.unwrap_or(28), // 20
         num_cores_per_simt_cluster: input.cores_per_cluster.unwrap_or(1),
         num_schedulers_per_core: 4,                  // 4
-        num_memory_controllers: 8,                   // 8
+        num_memory_controllers: 12,                  // 8
         num_dram_chips_per_memory_controller: 1,     // 1
         num_sub_partitions_per_memory_controller: 2, // 2
         simulate_clock_domains: false,
         fill_l2_on_memcopy: true,
-        flush_l1_cache: false,
+        flush_l1_cache: true,
         flush_l2_cache: false,
         accelsim_compat: false,
         memory_only: input.memory_only.unwrap_or(false),

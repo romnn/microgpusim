@@ -51,7 +51,18 @@ fn oldest_instruction_reducer_mut<'a>(
 /// Trait for accessing the register set.
 pub trait Access<I> {
     #[must_use]
+    fn get(&self, reg_id: usize) -> Option<&Option<I>>;
+
+    #[must_use]
+    fn get_mut(&mut self, reg_id: usize) -> Option<&mut Option<I>>;
+
+    #[must_use]
     fn has_free(&self) -> bool;
+
+    #[must_use]
+    fn has_free_sub_core(&self, reg_id: usize) -> bool {
+        self.get(reg_id).map(Option::as_ref).flatten().is_none()
+    }
 
     #[must_use]
     fn has_ready(&self) -> bool;
@@ -77,6 +88,12 @@ pub trait Access<I> {
     fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<I>)>;
 
     #[must_use]
+    fn get_ready_sub_core_mut(
+        &mut self,
+        reg_id: usize,
+    ) -> Option<(usize, &mut Option<WarpInstruction>)>;
+
+    #[must_use]
     fn free(&self) -> Box<dyn Iterator<Item = &Option<I>> + '_>;
 
     #[must_use]
@@ -86,6 +103,11 @@ pub trait Access<I> {
     fn get_free_mut(&mut self) -> Option<(usize, &mut Option<I>)> {
         self.free_mut().next()
     }
+
+    // #[inline]
+    fn get_free_sub_core_mut(&mut self, scheduler_id: usize) -> Option<(usize, &mut Option<I>)>;
+
+    fn scheduler_id(&self, reg_id: usize) -> Option<usize>;
 
     // #[inline]
     fn move_in_from(&mut self, src: Option<I>) {
@@ -101,6 +123,16 @@ pub trait Access<I> {
 }
 
 impl Access<WarpInstruction> for RegisterSet {
+    // #[inline]
+    fn get(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
+        self.regs.get(reg_id)
+    }
+
+    // #[inline]
+    fn get_mut(&mut self, reg_id: usize) -> Option<&mut Option<WarpInstruction>> {
+        self.regs.get_mut(reg_id)
+    }
+
     // #[inline]
     fn has_free(&self) -> bool {
         self.regs.iter().any(Option::is_none)
@@ -134,6 +166,18 @@ impl Access<WarpInstruction> for RegisterSet {
         // )
     }
 
+    fn get_free_sub_core_mut(
+        &mut self,
+        scheduler_id: usize,
+    ) -> Option<(usize, &mut Option<WarpInstruction>)> {
+        if self.regs[scheduler_id].is_none() {
+            log::trace!("found free register at index {}", &scheduler_id);
+            Some((scheduler_id, &mut self.regs[scheduler_id]))
+        } else {
+            None
+        }
+    }
+
     // #[inline]
     fn free(&self) -> Box<dyn Iterator<Item = &Option<WarpInstruction>> + '_> {
         Box::new(self.regs.iter().filter(|r| r.is_none()))
@@ -159,6 +203,25 @@ impl Access<WarpInstruction> for RegisterSet {
         self.iter_occupied_mut()
             .reduce(oldest_instruction_reducer_mut)
         // self.occupied_mut().reduce(oldest_instruction_reducer_mut)
+    }
+
+    // #[inline]
+    fn get_ready_sub_core_mut(
+        &mut self,
+        reg_id: usize,
+    ) -> Option<(usize, &mut Option<WarpInstruction>)> {
+        if self.regs[reg_id].is_some() {
+            Some((reg_id, &mut self.regs[reg_id]))
+        } else {
+            None
+        }
+    }
+
+    fn scheduler_id(&self, reg_id: usize) -> Option<usize> {
+        match self.regs.get(reg_id).and_then(Option::as_ref) {
+            Some(r) => r.scheduler_id,
+            None => None,
+        }
     }
 }
 
