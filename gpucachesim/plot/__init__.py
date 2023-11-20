@@ -58,22 +58,22 @@ HEX_COLOR = {
 RGB_COLOR = {k: hex_to_rgb(v) for k, v in HEX_COLOR.items()}
 
 SIM_RGB_COLOR = {
-    "gpucachesim": RGB_COLOR["green1"],
-    "accelsim": RGB_COLOR["purple1"],
-    "native": RGB_COLOR["blue1"],
+    "simulate": RGB_COLOR["green1"],
+    "accelsimsimulate": RGB_COLOR["purple1"],
+    "profile": RGB_COLOR["blue1"],
 }
 
 SIM_MARKER = {
-    "gpucachesim": "x",
-    "accelsim": "D",
-    "native": "o",
+    "simulate": "x",
+    "accelsimsimulate": "D",
+    "profile": "o",
 }
 
 # valid hatches: *+-./OX\ox|
 SIM_HATCH = {
-    "gpucachesim": "/",
-    "accelsim": "+",
-    "native": "x",
+    "simulate": "/",
+    "accelsimsimulate": "+",
+    "profile": "x",
 }
 
 

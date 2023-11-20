@@ -3,6 +3,10 @@ import pyperclip
 import numpy as np
 
 
+def flatten(l):
+    return [item for ll in l for item in ll]
+
+
 def round_up_to_next_power_of_two(x):
     exp = np.ceil(np.log2(x)) if x > 0 else 1
     return np.power(2, exp)

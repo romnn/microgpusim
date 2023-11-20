@@ -59,7 +59,11 @@ def run_cmd(
         if verbose:
             print("running {} (attempt {}/{})".format(cmd, attempt + 1, retries))
             if isinstance(cmd, list):
-                print("running {} (attempt {}/{})".format(" ".join(cmd), attempt + 1, retries))
+                print(
+                    "running {} (attempt {}/{})".format(
+                        " ".join(cmd), attempt + 1, retries
+                    )
+                )
 
         if dry_run:
             return 0, "", "", 0
@@ -103,7 +107,9 @@ def run_cmd(
                     terminated = proc.poll() is not None
 
                     if proc.stderr.readable():
-                        stderr_buffer = proc.stderr.read(-1 if terminated else buffer_size)
+                        stderr_buffer = proc.stderr.read(
+                            -1 if terminated else buffer_size
+                        )
                         if stderr_buffer is not None:
                             sys.stderr.buffer.write(stderr_buffer)
                             stderr.write(stderr_buffer)
@@ -112,7 +118,9 @@ def run_cmd(
                             # stderr.write(bytes(stderr_buffer, encoding="utf-8"))
 
                     if proc.stdout.readable():
-                        stdout_buffer = proc.stdout.read(-1 if terminated else buffer_size)
+                        stdout_buffer = proc.stdout.read(
+                            -1 if terminated else buffer_size
+                        )
                         if stdout_buffer is not None:
                             # sys.stdout.buffer.write(stdout_buffer)
                             stdout.write(stdout_buffer)
@@ -176,9 +184,13 @@ def run_cmd(
         # print(stderr)
 
         if save_to is not None:
-            with open(str((save_to.parent / (save_to.name + ".stdout")).absolute()), "w") as f:
+            with open(
+                str((save_to.parent / (save_to.name + ".stdout")).absolute()), "w"
+            ) as f:
                 f.write(stdout)
-            with open(str((save_to.parent / (save_to.name + ".stderr")).absolute()), "w") as f:
+            with open(
+                str((save_to.parent / (save_to.name + ".stderr")).absolute()), "w"
+            ) as f:
                 f.write(stderr)
 
         if proc.returncode != 0:
@@ -187,7 +199,9 @@ def run_cmd(
             print("\nstderr (last 15 lines):\n")
             print("\n".join(stderr.splitlines()[-15:]))
             sys.stdout.flush()
-            err = ExecStatusError(cmd=cmd, status=proc.returncode, stdout=stdout, stderr=stderr)
+            err = ExecStatusError(
+                cmd=cmd, status=proc.returncode, stdout=stdout, stderr=stderr
+            )
             # try again
             continue
 

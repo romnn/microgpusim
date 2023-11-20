@@ -11,8 +11,12 @@ class TestHumanFormatThousands(unittest.TestCase):
         )
 
     def test_variable_precision(self):
-        self.assertEqual(human_format_thousands(320.0, round_to=2, variable_precision=True), "320")
-        self.assertEqual(human_format_thousands(320.2, round_to=2, variable_precision=True), "320.2")
+        self.assertEqual(
+            human_format_thousands(320.0, round_to=2, variable_precision=True), "320"
+        )
+        self.assertEqual(
+            human_format_thousands(320.2, round_to=2, variable_precision=True), "320.2"
+        )
         self.assertEqual(
             human_format_thousands(320.02, round_to=2, variable_precision=True),
             "320.02",
