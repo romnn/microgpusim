@@ -85,7 +85,7 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
         num_sub_partitions_per_memory_controller: 2, // 2
         simulate_clock_domains: false,
         fill_l2_on_memcopy: true,
-        flush_l1_cache: true,
+        flush_l1_cache: false,
         flush_l2_cache: false,
         accelsim_compat: false,
         memory_only: input.memory_only.unwrap_or(false),

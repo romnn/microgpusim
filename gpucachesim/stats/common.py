@@ -7,6 +7,12 @@ import typing
 import os
 
 
+BASELINE = dict(
+    cores_per_cluster=1,
+    num_clusters=28,
+)
+
+
 def function_name_from_signature(sig: str) -> str:
     pat = re.compile(r"^\s*(?:\w+\s+)?(\w+)(?:<([^>]+)>)?\s*(?:\(([^)]*)\))?\s*$")
     matches = re.findall(pat, sig)
@@ -36,10 +42,10 @@ class Stats:
         self.result_df = result_df
 
     def cores_per_cluster(self):
-        return int(self.bench_config["values"].get("cores_per_cluster", 1))
+        return int(self.bench_config["values"].get("cores_per_cluster", BASELINE["cores_per_cluster"]))
 
     def num_clusters(self):
-        return int(self.bench_config["values"].get("num_clusters", 20))
+        return int(self.bench_config["values"].get("num_clusters", BASELINE["num_clusters"]))
 
     def total_cores(self):
         return self.cores_per_cluster() * self.num_clusters()

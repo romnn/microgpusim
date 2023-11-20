@@ -11,7 +11,9 @@ PLOTLY_PDF_OPTS = dict(format="pdf", scale=8)
 PPI = 300
 FONT_SIZE_PT = 11
 
-DINA4_WIDTH_MM = 210
+# we use the /textwidth from latex as our page width for better font scaling
+# DINA4_WIDTH_MM = 210
+DINA4_WIDTH_MM = 141.9
 DINA4_HEIGHT_MM = 297
 
 

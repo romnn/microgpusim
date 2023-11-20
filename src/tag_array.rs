@@ -234,6 +234,8 @@ where
 
     // #[inline]
     fn invalidate(&mut self) {
+        log::trace!("tag_array::invalidate()");
+        eprintln!("tag_array::invalidate()");
         for line in &mut self.lines {
             for i in 0..SECTOR_CHUNK_SIZE {
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;

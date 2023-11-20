@@ -41,6 +41,8 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         )
     })?;
 
+    // dbg!(&input);
+
     let mut sim_config = gpucachesim::config::gtx1080::build_config(&input)?;
     sim_config.fill_l2_on_memcopy = l2_prefill.unwrap_or(false);
     gpucachesim::init_deadlock_detector();

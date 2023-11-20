@@ -10,10 +10,12 @@ import wasabi
 import itertools
 import matplotlib
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 import gpucachesim.stats.stats as stats
 import gpucachesim.stats.native as native
 import gpucachesim.stats.accelsim as accelsim
+import gpucachesim.stats.common as common
 import gpucachesim.stats.playground as playground
 import gpucachesim.benchmarks as benchmarks
 from gpucachesim.stats.human import human_readable
@@ -50,18 +52,18 @@ def main():
 
 
 def aggregate_benchmark_results(
-    sim_df: pd.DataFrame,
-    bench_name: str,
+    selected_df: pd.DataFrame,
+    # bench_name: str,
     targets=None,
     mode="serial",
     memory_only=False,
-    cores_per_cluster=1,
-    num_clusters=20,
+    cores_per_cluster=int(common.BASELINE["cores_per_cluster"]),
+    num_clusters=int(common.BASELINE["num_clusters"]),
 ) -> pd.DataFrame:
     """View results for a benchmark"""
 
-    selected_df = sim_df.copy()
-    selected_df = selected_df[selected_df["benchmark"] == bench_name]
+    # selected_df = sim_df.copy()
+    # selected_df = selected_df[selected_df["benchmark"] == bench_name]
     # print(selected_df)
     # only compare serial gpucachesim
     # selected_df = selected_df[selected_df["input_mode"] != "nondeterministic"]
@@ -73,11 +75,18 @@ def aggregate_benchmark_results(
     non_gpucachesim = selected_df["input_mode"].isnull()
     print(selected_df[non_gpucachesim]["target"].unique().tolist())
 
-    serial_gpucachesim = selected_df["input_mode"] == mode
-    compute_gpucachesim = selected_df["input_memory_only"] == memory_only
-    gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == cores_per_cluster
-    gtx1080_gpucachesim &= selected_df["input_num_clusters"] == num_clusters
-    gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
+    # serial_gpucachesim = selected_df["input_mode"] == mode
+    # compute_gpucachesim = selected_df["input_memory_only"] == memory_only
+    # gtx1080_gpucachesim = selected_df["input_cores_per_cluster"] == cores_per_cluster
+    # gtx1080_gpucachesim &= selected_df["input_num_clusters"] == num_clusters
+    # gold_gpucachesim = serial_gpucachesim & compute_gpucachesim & gtx1080_gpucachesim
+
+    gold_gpucachesim = selected_df["input_mode"] == mode
+    gold_gpucachesim &= selected_df["input_memory_only"] == memory_only
+    gold_gpucachesim &= selected_df["input_cores_per_cluster"] == cores_per_cluster
+    gold_gpucachesim &= selected_df["input_num_clusters"] == num_clusters
+    assert gold_gpucachesim.sum() > 0
+
     print(
         "gpucachesim gold input ids:",
         sorted(selected_df.loc[gold_gpucachesim, "input_id"].unique().tolist()),
@@ -113,36 +122,55 @@ def aggregate_benchmark_results(
         selected_df = selected_df[selected_df["target"].isin(targets)]
 
     # restrict inputs to fit screen
-    assert (selected_df["benchmark"] == bench_name).all()
-    if bench_name == "simple_matrixmul":
-        # m: [32, 64, 128]
-        # n: [32, 64, 128]
-        # p: [32, 64, 128]
+    # assert (selected_df["benchmark"] == bench_name).all()
+    # if bench_name == "simple_matrixmul":
+    #     # m: [32, 64, 128]
+    #     # n: [32, 64, 128]
+    #     # p: [32, 64, 128]
+    #
+    #     subset = pd.DataFrame.from_records(
+    #         [
+    #             (32, 32, 32),
+    #             (128, 128, 128),
+    #             (32, 64, 128),
+    #             (128, 32, 32),
+    #             (128, 512, 128),
+    #             (512, 32, 512),
+    #             # (32, 1024, 32),
+    #             # (32, 2048, 32),
+    #             # (32, 4096, 32),
+    #         ],
+    #         columns=["input_m", "input_n", "input_p"],
+    #     )
+    #     # print(subset.index)
+    #     # print(selected_df.index)
+    #     selected_df = selected_df.merge(subset, how="inner")
+    #     # selected_df = selected_df.merge(subset, on=["input_m", "input_n", "input_p"], how="inner")
+    #     # selected_df = selected_df.join(subset, on=["input_m", "input_n", "input_p"], how="left")
+    #     # subset = [(32, 32, 32), (128, 128, 128)]
+    #     # pprint([c for c in selected_df.columns if "input_" in c])
+    #     # print(selected_df[["input_m", "input_n", "input_p"]])
+    #     # selected_df = selected_df[selected_df[["input_m", "input_n", "input_p"]].isin(subset)]
+    #
+    #     mask = np.all([
+    #         selected_df[col] == val
+    #         for col, val in dict(
+    #             benchmark="simple_matrixmul",
+    #             input_n=512,
+    #             target=Target.Profile.value,
+    #         ).items()
+    #     ], axis=0)
+    #     assert len(mask) == len(selected_df)
+    #     print(selected_df.loc[mask, ["cycles", "instructions"]])
 
-        subset = pd.DataFrame.from_records(
-            [
-                (32, 32, 32),
-                (128, 128, 128),
-                (32, 64, 128),
-                (128, 32, 32),
-                (512, 32, 512),
-                # (32, 1024, 32),
-                # (32, 2048, 32),
-                # (32, 4096, 32),
-            ],
-            columns=["input_m", "input_n", "input_p"],
-        )
-        # print(subset.index)
-        # print(selected_df.index)
-        selected_df = selected_df.merge(subset, how="inner")
-        # selected_df = selected_df.merge(subset, on=["input_m", "input_n", "input_p"], how="inner")
-        # selected_df = selected_df.join(subset, on=["input_m", "input_n", "input_p"], how="left")
-        # subset = [(32, 32, 32), (128, 128, 128)]
-        # pprint([c for c in selected_df.columns if "input_" in c])
-        # print(selected_df[["input_m", "input_n", "input_p"]])
-        # selected_df = selected_df[selected_df[["input_m", "input_n", "input_p"]].isin(subset)]
+    input_cols = set(flatten(benchmarks.BENCHMARK_INPUT_COLS.values()))
+    input_cols = sorted(list([col for col in input_cols if col in selected_df]))
+    # if bench_name is None:
+    #     input_cols = sorted(list(set(flatten(benchmarks.BENCHMARK_INPUT_COLS.values()))))
+    # else:
+    #     input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
 
-    input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+    # input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
     # print(selected_df[input_cols].drop_duplicates())
 
     # INDEX_COLS = [
@@ -155,16 +183,16 @@ def aggregate_benchmark_results(
     # aggregate over all kernel launch ids in a single run
     # grouped = selected_df.groupby(["kernel_name", "run"], dropna=False)
 
-    profile_df = selected_df[selected_df["target"] == "Profile"]
-    if False:
-        print(
-            profile_df[
-                benchmarks.BENCH_TARGET_INDEX_COLS
-                + input_cols
-                + ["l2_hits", "l2_misses", "l2_hit_rate"]
-                + ["l1_hits", "l1_misses", "l1_hit_rate"]
-            ]
-        )
+    # profile_df = selected_df[selected_df["target"] == "Profile"]
+    # if False:
+    #     print(
+    #         profile_df[
+    #             benchmarks.BENCH_TARGET_INDEX_COLS
+    #             + input_cols
+    #             + ["l2_hits", "l2_misses", "l2_hit_rate"]
+    #             + ["l1_hits", "l1_misses", "l1_hit_rate"]
+    #         ]
+    #     )
 
     group_cols = (
         benchmarks.BENCH_TARGET_INDEX_COLS + ["kernel_name", "run"] + input_cols
@@ -174,7 +202,7 @@ def aggregate_benchmark_results(
     # non_numeric_cols = sorted(selected_df.select_dtypes(include=["object"]).columns.tolist())
     # print(sorted(set(non_numeric_cols) - set(group_cols)))
 
-    pprint(group_cols)
+    # pprint(group_cols)
     aggregations = {
         **{c: "mean" for c in set(selected_df.columns)},
         **benchmarks.NON_NUMERIC_COLS,
@@ -184,7 +212,7 @@ def aggregate_benchmark_results(
         for col, agg in aggregations.items()
         if col in selected_df and col not in group_cols
     }
-    pprint(aggregations)
+    # pprint(aggregations)
 
     # print(sorted(selected_df.columns.tolist()))
     per_kernel = (
@@ -208,7 +236,7 @@ def aggregate_benchmark_results(
         for col, agg in aggregations.items()
         if col in per_kernel and not col in group_cols
     }
-    pprint(aggregations)
+    # pprint(aggregations)
 
     per_target = grouped.agg(aggregations).reset_index()
     # print(selected_df[INDEX_COLS + input_cols + ["dram_writes", "l2_accesses"]].head(n=200))
@@ -272,23 +300,24 @@ def build_parallel_table_rows(
         # ]])
 
         det = df[threads_mask & det_mask]
-        # print(
-        #     det[
-        #         bench_input_cols
-        #         + [
-        #             "input_threads_parallel",
-        #             "exec_time_sec_parallel",
-        #             "input_id_parallel",
-        #             "input_id_serial",
-        #             # "dram_reads_serial",
-        #             # "dram_reads_parallel",
-        #             # "dram_reads_rel_err",
-        #             "dram_writes_serial",
-        #             "dram_writes_parallel",
-        #             "dram_writes_rel_err",
-        #         ] + different_cols(det)
-        #     ]
-        # )
+        if False:
+            print(
+                det[
+                    # bench_input_cols
+                    + [
+                        "input_threads_parallel",
+                        "exec_time_sec_parallel",
+                        "input_id_parallel",
+                        "input_id_serial",
+                        # "dram_reads_serial",
+                        # "dram_reads_parallel",
+                        # "dram_reads_rel_err",
+                        "dram_writes_serial",
+                        "dram_writes_parallel",
+                        "dram_writes_rel_err",
+                    ] + different_cols(det)
+                ]
+            )
         print("===")
         nondet_no_interleave = df[threads_mask & nondet_no_interleave_mask]
         nondet_interleave = df[threads_mask & nondet_interleave_mask]
@@ -315,6 +344,8 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
+
             nondet_exec_time = nondet["exec_time_sec_parallel"].values[0]
             nondet_speedup = nondet["exec_time_sec_speedup"].values[0]
             if all_benchmarks:
@@ -388,6 +419,7 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
 
             nondet_cycles = int(nondet["cycles_parallel"].values[0])
             nondet_rel_err = nondet["cycles_rel_err"].values[0]
@@ -482,6 +514,7 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
 
             nondet_l1_hit_rate = nondet["l1_hit_rate_parallel"].values[0]
             nondet_rel_err = nondet["l1_hit_rate_rel_err"].values[0]
@@ -571,6 +604,7 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
 
             nondet_l2_hit_rate = nondet["l2_hit_rate_parallel"].values[0]
             nondet_rel_err = nondet["l2_hit_rate_rel_err"].values[0]
@@ -665,6 +699,7 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
 
             nondet_dram_reads = int(nondet["dram_reads_parallel"].values[0])
             nondet_rel_err = nondet["dram_reads_rel_err"].values[0]
@@ -760,6 +795,7 @@ def build_parallel_table_rows(
         for interleave, n in interleave_n:
             nondet = nondet_interleave if interleave else nondet_no_interleave
             nondet = nondet[nondet["input_run_ahead_parallel"] == n]
+            assert len(nondet) == 1
 
             nondet_dram_writes = int(nondet["dram_writes_parallel"].values[0])
             nondet_rel_err = nondet["dram_writes_rel_err"].values[0]
@@ -1100,12 +1136,21 @@ def parallel_plot(bench_name, path, nsight):
         ).mean()
     )
 
-    # grouped.apply(lambda df: print(df.reset_index()[
-    #     bench_cols
-    #     + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
-    #     + ["input_variant"]
-    #     + ["dram_writes_serial", "dram_writes_parallel"]
-    # ]))
+    def _inspect(df):
+        # if df["input_rows"].values[0] != 512:
+        #     return
+
+        print(df.reset_index()[
+            bench_cols
+            + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+            + ["total_cores_parallel"]
+            # + ["input_variant"]
+            + ["input_rows"]
+            + ["l1_hit_rate_serial", "l1_hit_rate_parallel"]
+        ])
+        print(rel_err(true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]))
+
+    # grouped.apply(_inspect)
 
     # print(aggregated.reset_index()[[
     #     "target",
@@ -1148,12 +1193,12 @@ def parallel_plot(bench_name, path, nsight):
     functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
         dict(
             input_memory_only=False,
-            input_num_clusters=20,
+            input_num_clusters=common.BASELINE["num_clusters"],
             input_cores_per_cluster=1,
         ),
         dict(
             input_memory_only=False,
-            input_num_clusters=20,
+            input_num_clusters=common.BASELINE["num_clusters"],
             input_cores_per_cluster=8,
         ),
     ]
@@ -1869,7 +1914,7 @@ def correlation_plots(path, bench_name_arg, nsight):
             def gpucachesim_baseline(target, memory_only=False):
                 # "input_mode", "input_threads", "input_run_ahead",
                 # "input_memory_only", "input_num_clusters", "input_cores_per_cluster",
-                return (target, "serial", 4, 5, memory_only, 20, 1)
+                return (target, "serial", 4, 5, memory_only, int(common.BASELINE["num_clusters"]), int(common.BASELINE["cores_per_cluster"]))
 
             group_cols = bench_input_cols
 
@@ -2024,14 +2069,19 @@ def correlation_plots(path, bench_name_arg, nsight):
 
 def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
     stat_cols = [
+        # GPU load and debug information
         "num_blocks",
         "mean_blocks_per_sm",
         "input_id",
+        # execution time
         "exec_time_sec",
+        # cycles
         "cycles",
+        # instructions
         "instructions",
-        # "dram_reads",
-        # "dram_writes",
+        # dram stats
+        "dram_reads",
+        "dram_writes",
         # l2 stats
         "l2_accesses",
         "l2_reads",
@@ -2043,8 +2093,8 @@ def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
         stat_cols += [
             "l2_read_hit_rate",
             "l2_write_hit_rate",
-            # "l2_read_hits",
-            # "l2_write_hits",
+            "l2_read_hits",
+            "l2_write_hits",
             # "l2_hits",
             # "l2_misses",
             "l1_accesses",
@@ -2060,7 +2110,6 @@ def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
             "l2_hits",
             "l2_misses",
             "l2_hit_rate",
-            # "l2_miss_rate",
             "l1_hit_rate",
         ]
     return stat_cols
@@ -2171,10 +2220,22 @@ STAT_CONFIGS = {
             **dict(label=r"L2 writes", log_y_axis=True, percent=False),
         }
     ),
+    "l2_write_hits": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 write hits", log_y_axis=True, percent=False),
+        }
+    ),
     "l2_reads": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
             **dict(label=r"L2 reads", log_y_axis=True, percent=False),
+        }
+    ),
+    "l2_read_hits": StatConfig(
+        **{
+            **DEFAULT_STAT_CONFIG._asdict(),
+            **dict(label=r"L2 read hits", log_y_axis=True, percent=False),
         }
     ),
 }
@@ -2208,27 +2269,62 @@ STAT_CONFIGS = {
 # @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
 # @click.option("--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config")
-@click.option("--bench", "bench_name", help="Benchmark name")
+@click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
 @click.option("--plot", "should_plot", type=bool, default=True, help="generate plots")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
-@click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
+@click.option("-v", "--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
+@click.option(
+    "--strict", "strict", type=bool, default=True, help="fail on missing results"
+)
 # @click.option("--input", "input_idx", type=int, help="Input index")
-def view(path, bench_name, should_plot, nsight, mem_only, verbose):
+def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     # load the materialized benchmark config
-    profiler = "nsight" if nsight else "nvprof"
-    if bench_name is None:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
-    else:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
-            profiler, bench_name
-        )
+    # profiler = "nsight" if nsight else "nvprof"
+    # if bench_name is None:
+    #     stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.csv".format(profiler)
+    # else:
+    #     stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
+    #         profiler, bench_name
+    #     )
 
-    sim_df = pd.read_csv(stats_file, header=0)
+    profiler = "nsight" if nsight else "nvprof"
+    all_benchmarks = bench_name_arg is None
+
+    selected_df = load_stats(bench_name=bench_name_arg, profiler=profiler, path=path)
+    # print(selected_df[["target", "benchmark"]])
+    if bench_name_arg is not None:
+        assert not all_benchmarks
+        if isinstance(bench_name_arg, str):
+            bench_names = [bench_name_arg]
+        elif isinstance(bench_name_arg, list):
+            bench_names = bench_name_arg
+        else:
+            raise ValueError
+        selected_df = selected_df[selected_df["benchmark"].isin(bench_names)]
+
+    print("num targets={} num benchmarks={}".format(
+        len(selected_df["target"].unique()),
+        len(selected_df["benchmark"].unique())))
+
+    print("num clusters={} cores per cluster={}".format(
+        selected_df["num_clusters"].unique().tolist(),
+        selected_df["cores_per_cluster"].unique().tolist()))
+
+    print(selected_df[[
+        "target", "benchmark", "input_id",
+        "kernel_name", "run", "num_clusters",
+        "input_mode", "input_num_clusters",
+    ]].drop_duplicates())
+
+    # sim_df = pd.read_csv(stats_file, header=0)
     stat_cols = stat_cols_for_profiler(profiler)
+    # stat_cols = ["cycles"]
 
     per_kernel, per_target_pivoted = aggregate_benchmark_results(
-        sim_df, bench_name, memory_only=mem_only
+        selected_df,
+        # bench_name_arg,
+        memory_only=mem_only
     )
 
     def compute_label(df):
@@ -2294,13 +2390,13 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
     pprint(targets)
     benches = sorted(per_kernel["benchmark"].unique().tolist())
     pprint(benches)
-    benchmark_inputs = {
-        benchmark: per_kernel[
-            ["label"] + benchmarks.BENCHMARK_INPUT_COLS[benchmark]
-        ].drop_duplicates()
-        for benchmark in benches
-    }
-    pprint(benchmark_inputs)
+    # benchmark_inputs = {
+    #     benchmark: per_kernel[
+    #         ["label"] + benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+    #     ].drop_duplicates()
+    #     for benchmark in benches
+    # }
+    # pprint(benchmark_inputs)
 
     targets = [
         target
@@ -2308,9 +2404,13 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         if target in ["Profile", "Simulate", "AccelsimSimulate"]
     ]
 
-    input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
-    group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + input_cols
-    per_target = per_kernel.set_index(group_cols).sort_index()
+    # if bench_name is None:
+    #     input_cols = sorted(list(set(flatten(benchmarks.BENCHMARK_INPUT_COLS.values()))))
+    # else:
+    #     input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+
+    # group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + input_cols
+    # per_target = per_kernel.set_index(group_cols).sort_index()
 
     print(" === {} === ".format(profiler))
     print(per_target_pivoted[stat_cols].T)
@@ -2318,10 +2418,8 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
     if not should_plot:
         return
 
-    if False:
-        stat_cols = ["cycles", "dram_reads", "dram_writes"]
-
     for stat_col, benchmark in itertools.product(stat_cols, benches):
+        print(stat_col, benchmark)
         stat_config = STAT_CONFIGS.get(stat_col) or StatConfig(
             **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
         )
@@ -2337,7 +2435,7 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
 
         plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
         fig = plt.figure(
-            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.21 * plot.DINA4_HEIGHT_INCHES),
+            figsize=(1.0 * plot.DINA4_WIDTH_INCHES, 0.16 * plot.DINA4_HEIGHT_INCHES),
             layout="constrained",
         )
         ax = plt.axes()
@@ -2352,22 +2450,96 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
             zorder=1,
         )
 
-        target_configs = itertools.product(
-            targets, benchmark_inputs[benchmark].iterrows()
-        )
+        bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+        group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + bench_input_cols
 
-        for target, (inputs_idx, inputs) in target_configs:
-            key = [target, benchmark] + [
-                inputs[col] for col in benchmarks.BENCHMARK_INPUT_COLS[benchmark]
-            ]
-            target_df = per_target.loc[tuple(key), :]
+        bench_input_values = per_kernel.loc[
+            per_kernel["benchmark"] == benchmark, bench_input_cols].drop_duplicates()
+
+        match benchmark:
+            case "simple_matrixmul":
+                subset = pd.DataFrame.from_records(
+                    [
+                        (32, 32, 32),
+                        (128, 128, 128),
+                        (32, 64, 128),
+                        (128, 32, 32),
+                        (128, 512, 128),
+                        (512, 32, 512),
+                    ],
+                    columns=["input_m", "input_n", "input_p"],
+                )
+                bench_input_values = bench_input_values.merge(subset, how="inner")
+
+                # mask = np.all([
+                #     selected_df[col] == val
+                #     for col, val in dict(
+                #         benchmark="simple_matrixmul",
+                #         input_n=512,
+                #         target=Target.Profile.value,
+                #     ).items()
+                # ], axis=0)
+                # assert len(mask) == len(selected_df)
+                # print(selected_df.loc[mask, ["cycles", "instructions"]])
+
+        target_configs = list(itertools.product(
+            targets, 
+            list(bench_input_values.reset_index().iterrows())
+            # list(input_cols),
+            # list(benchmark_inputs[benchmark].iterrows())
+        ))
+        # pprint(target_configs)
+        # return
+
+        for target, (input_idx, input_values) in target_configs:
+            print(target, input_idx, dict(input_values))
+            # inputs_idx = 0
+            # for target in targets:
+            # target_df = None
+            # key = [target, benchmark] + [
+            #     inputs[col] for col in benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+            # ]
+            target_df_mask = per_kernel["target"] == target
+            target_df_mask &= per_kernel["benchmark"] == benchmark
+            for col in bench_input_cols:
+                target_df_mask &= per_kernel[col] == input_values[col]
+            target_df = per_kernel.loc[target_df_mask, :]
+
+            if len(target_df) < 1:
+                print(color("missing {} {} [{}]".format(
+                    target, benchmark, input_values.values.tolist()), fg="red"))
+                if strict:
+                    return
+                continue
+
+            # print(target_df)
+
+            # print(per_target.index)
+            # try:
+            #     target_df = per_target.loc[tuple(key), :]
+            # except KeyError as e:
+            #     print(color("missing {}".format(tuple(key)), fg="red"))
+            #     if strict:
+            #         raise e
+            #     continue
+            #     # target_df = per_target.iloc[:0]
+
+            # print(tuple(key))
+            # print(target_df.index)
+            # print(target_df.columns.tolist())
+            # assert "target" in target_df.columns.tolist()
+            # print(target_df)
+            # print(target_df[["target", "benchmark"]])
+
+            
             target_df = target_df.groupby(group_cols, dropna=False)
 
             target_idx = targets.index(target)
-            idx = inputs_idx * group_width + (target_idx + 0.5) * (bar_width + spacing)
+            idx = input_idx * group_width + (target_idx + 0.5) * (bar_width + spacing)
 
             target_name = target_df["target_name"].first().values[0]
 
+            # if benchmark == "vectorAdd" and verbose:
             if verbose:
                 print(
                     "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
@@ -2375,10 +2547,8 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
                         stat_col,
                         target_name,
                         target_idx,
-                        str(
-                            inputs[benchmarks.BENCHMARK_INPUT_COLS[benchmark]].tolist()
-                        ),
-                        inputs_idx,
+                        str(input_values[bench_input_cols].tolist()),
+                        input_idx,
                         idx,
                         target_df[stat_col].fillna(0.0).mean(),
                         target_df[stat_col].fillna(0.0).std(),
@@ -2391,17 +2561,17 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
                 y *= 100.0
             ystd = target_df[stat_col].fillna(0.0).std()
 
-            color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target_name.lower()], 1.0)
+            bar_color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target_name.lower()], 1.0)
             ax.bar(
                 x,
                 y,
-                color=color,
+                color=bar_color,
                 hatch=plot.SIM_HATCH[target_name.lower()] * 1,
                 width=bar_width,
                 linewidth=1,
                 edgecolor="black",
                 zorder=2,
-                label=target_name if inputs_idx == 0 else None,
+                label=target_name if input_idx == 0 else None,
             )
 
             ax.errorbar(
@@ -2422,12 +2592,25 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         ax.set_ylabel(ylabel)
         ax.axes.set_zorder(10)
 
-        inputs = benchmark_inputs[benchmark]
-        labels = inputs["label"].values
-        key = [Target.Simulate.value, benchmark] + [
-            inputs[col] for col in benchmarks.BENCHMARK_INPUT_COLS[benchmark]
-        ]
-        simulate_df = per_target.loc[tuple(key), :]
+        # inputs = benchmark_inputs[benchmark]
+        # labels = inputs["label"].values
+        #
+        # key = [Target.Simulate.value, benchmark] + [
+        #     inputs[col] for col in bench_input_cols
+        # ]
+        # simulate_df = per_target.loc[tuple(key), :]
+
+        simulate_df_mask = per_kernel["target"] == Target.Simulate.value
+        simulate_df_mask &= per_kernel["benchmark"] == benchmark
+        # for col in bench_input_cols:
+        #     print(bench_input_values[col])
+        #     simulate_df_mask &= per_kernel[col] == bench_input_values[col]
+
+        simulate_df = per_kernel.loc[simulate_df_mask,:]
+        simulate_df = simulate_df.merge(bench_input_values, how="inner")
+        assert len(simulate_df) > 0
+
+        labels = simulate_df["label"].values
         num_blocks = simulate_df["num_blocks"].values
         assert len(labels) == len(num_blocks)
         xtick_labels = [
@@ -2440,8 +2623,13 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         ax.set_xticks(xtick_values, xtick_labels, rotation=0)
         ax.set_xlim(0, len(xtick_labels) * group_width)
 
-        all_values = per_target[per_target.index.get_level_values(1) == benchmark]
-        ymax = all_values[stat_col].max()
+        # all_values = per_target[per_target.index.get_level_values(1) == benchmark]
+        all_values_mask = per_kernel["benchmark"] == benchmark
+        all_values_df = per_kernel.loc[all_values_mask,:]
+        all_values_df = all_values_df.merge(bench_input_values, how="inner")
+        assert len(all_values_df) > 0
+
+        ymax = all_values_df[stat_col].max()
 
         if stat_config.log_y_axis:
             assert not stat_config.percent
@@ -2467,18 +2655,32 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
         ]
         ax.set_yticks(ytick_values, ytick_labels)
 
+        # ax.legend(
+        #     loc="upper left",
+        #     bbox_to_anchor=(1, 1),
+        #     edgecolor="none",
+        #     fancybox=False,
+        #     shadow=False,
+        # )
         ax.legend(
-            loc="upper left",
-            bbox_to_anchor=(1, 1),
+            loc='lower center',
+            bbox_to_anchor=(0.5, 1.0),
+            borderpad=0.1,
+            labelspacing=0.2,
+            columnspacing=2.0,
             edgecolor="none",
+            frameon=False,
             fancybox=False,
             shadow=False,
+            ncols=4,
         )
+
         filename = plot.PLOT_DIR / "validation/{}.{}.{}.pdf".format(
-            profiler, bench_name, stat_col
+            profiler, benchmark, stat_col
         )
         filename.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(filename)
+        print(color("wrote {}".format(filename), fg="cyan"))
 
 
 @main.command()
@@ -2487,11 +2689,11 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
 @click.option(
     "--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config"
 )
-@click.option("--bench", "bench_name", help="Benchmark name")
-@click.option("--input", "input_idx", type=int, help="Input index")
-@click.option(
-    "--limit", "limit", type=int, help="Limit number of benchmark configs generated"
-)
+@click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
+@click.option("-i", "--input", "input_idx", type=int, help="Input index")
+# @click.option(
+#     "--limit", "limit", type=int, help="Limit number of benchmark configs generated"
+# )
 @click.option(
     "--baseline",
     "--quick",
@@ -2501,12 +2703,13 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
     help="Fast mode: only collect baseline benchmark configurations",
 )
 @click.option(
+    "-t",
     "--target",
     "target",
     type=str,
     help="target",
 )
-@click.option("--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
+@click.option("-v", "--verbose", "verbose", type=bool, is_flag=True, help="verbose output")
 @click.option(
     "--strict", "strict", type=bool, default=True, help="fail on missing results"
 )
@@ -2516,9 +2719,9 @@ def view(path, bench_name, should_plot, nsight, mem_only, verbose):
 def generate(
     path,
     config_path,
-    bench_name,
+    bench_name_arg,
     input_idx,
-    limit,
+    # limit,
     quick,
     target,
     verbose,
@@ -2527,7 +2730,6 @@ def generate(
     nsight,
     output_path,
 ):
-    benches = []
 
     b = Benchmarks(path)
     results_dir = Path(b.config["results_dir"])
@@ -2542,20 +2744,56 @@ def generate(
             Target.AccelsimSimulate,
             Target.PlaygroundSimulate,
         ]
-    print("targets: {}".format(targets))
+    # if bench_name is None:
+    #     unique_bench_names = set()
+    #     for target in targets:
+    #         bench_name.extend(b.benchmarks[target.value].keys())
+    #     bench_name = sorted(list(bench_name))
+    # elif isinstance(bench_name, str):
+    #     bench_name = [bench_name]
+
+    # assert isinstance(bench_name, list)
+
+    print("targets: {}".format([str(t) for t in targets]))
+    print("benchmarks: {}".format(bench_name_arg))
+
+    benches = defaultdict(list)
     for target in targets:
-        if bench_name is None:
-            for bench_configs in b.benchmarks[target.value].values():
-                benches.extend(bench_configs)
+        if bench_name_arg is None:
+            bench_names = b.benchmarks[target.value].keys()
+        elif isinstance(bench_name_arg, str):
+            bench_names = [bench_name_arg]
+        elif isinstance(bench_name_arg, list):
+            bench_names = bench_name_arg
         else:
-            benches.extend(b.benchmarks[target.value][bench_name])
+            raise ValueError
 
-    if limit is not None:
-        benches = benches[:limit]
+        for bench_name in bench_names:
+            benches[bench_name].extend(b.benchmarks[target.value][bench_name])
 
-    print(
-        f"processing {len(benches)} benchmark configurations ({len(targets)} targets)"
-    )
+        # if bench_name_arg is None:
+        #     for bench_name, bench_configs in b.benchmarks[target.value]:
+        #         benches[bench_name].extend(bench_configs)
+        # elif isinstance(bench_name_arg, (str, list)):
+        #     for bench_name, bench_configs in b.benchmarks[target.value]:
+        #         benches[bench_name].extend(bench_configs)
+
+            # benches.update({
+            #     bench_name: b.benchmarks[target.value][bench_name]
+            #     for bench_name in list(bench_name_arg)
+            # })
+
+        # if bench_name is None:
+        #     for name, bench_configs in b.benchmarks[target.value].values():
+        #         benches.extend(bench_configs)
+        # else:
+        #     benches[bench_name].extend(b.benchmarks[target.value][bench_name])
+
+    # if limit is not None:
+    #     benches = benches[:limit]
+
+    print("processing {} benchmark configurations ({} targets)".format(
+        sum([len(b) for b in benches.values()]), len(targets)))
 
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
@@ -2567,250 +2805,252 @@ def generate(
         profilers += ["nsight"]
 
     for profiler in profilers:
-        all_stats = []
-        assert all([b["name"] == benches[0]["name"] for b in benches])
-        bench_name = benches[0]["name"]
-        for bench_config in benches:
-            # pprint(bench_config)
-            name = bench_config["name"]
-            target = bench_config["target"]
-            input_idx = bench_config["input_idx"]
-            input_values = bench_config["values"]
-            target_name = f"[{target}]"
+        # assert all([b["name"] == benches[0]["name"] for b in benches])
+        # bench_name = benches[0]["name"]
+        for bench_name, bench_configs in benches.items():
+            all_stats = []
+            for bench_config in bench_configs:
+                # pprint(bench_config)
+                name = bench_config["name"]
+                target = bench_config["target"]
+                input_idx = bench_config["input_idx"]
+                input_values = bench_config["values"]
+                target_name = f"[{target}]"
 
-            # pprint(input_values)
-            if quick:
-                if input_values.get("mode") not in ["serial", None]:
-                    continue
-                # if input_values.get("memory_only") not in [False, None]:
-                #     continue
-                if input_values.get("cores_per_cluster") not in [1, None]:
-                    continue
-                if input_values.get("num_clusters") not in [20, None]:
-                    continue
-
-            current_bench_log_line = " ===> {:>20} {:>15}@{:<4} {}".format(
-                target_name, name, input_idx, input_values
-            )
-
-            try:
-                match (target.lower(), profiler):
-                    case ("profile", "nvprof"):
-                        target_name += "[nvprof]"
-                        bench_stats = native.NvprofStats(config, bench_config)
-                    case ("profile", "nsight"):
-                        target_name += "[nsight]"
-                        bench_stats = native.NsightStats(config, bench_config)
-                    case ("simulate", _):
-                        bench_stats = stats.Stats(config, bench_config)
-                    case ("execdrivensimulate", _):
-                        bench_stats = stats.ExecDrivenStats(config, bench_config)
-                    case ("accelsimsimulate", _):
-                        bench_stats = accelsim.Stats(config, bench_config)
-                    case ("playgroundsimulate", _):
-                        bench_stats = playground.Stats(config, bench_config)
-                    case other:
-                        print(
-                            color(
-                                f"WARNING: {name} has unknown target {other}", fg="red"
-                            )
-                        )
+                # pprint(input_values)
+                if quick:
+                    if input_values.get("mode") not in ["serial", None]:
                         continue
-                print(current_bench_log_line)
-            except Exception as e:
-                print(color(current_bench_log_line, fg="red"))
-                if strict:
-                    raise e
+                    # if input_values.get("memory_only") not in [False, None]:
+                    #     continue
+                    if input_values.get("cores_per_cluster") not in [
+                            int(common.BASELINE["cores_per_cluster"]), None]:
+                        continue
+                    if input_values.get("num_clusters") not in [
+                            int(common.BASELINE["num_clusters"]), None]:
+                        continue
 
-            values = pd.DataFrame.from_records([bench_config["values"]])
-            values.columns = ["input_" + c for c in values.columns]
-            # values.columns = [name + "input_" + c for c in values.columns]
+                current_bench_log_line = " ===> {:>20} {:>15}@{:<4} {}".format(
+                    target_name, name, input_idx, input_values
+                )
 
-            # this will be the new index
-            values["target"] = target
-            values["benchmark"] = name
-            values["input_id"] = input_idx
+                try:
+                    match (target.lower(), profiler):
+                        case ("profile", "nvprof"):
+                            target_name += "[nvprof]"
+                            bench_stats = native.NvprofStats(config, bench_config)
+                        case ("profile", "nsight"):
+                            target_name += "[nsight]"
+                            bench_stats = native.NsightStats(config, bench_config)
+                        case ("simulate", _):
+                            bench_stats = stats.Stats(config, bench_config)
+                        case ("execdrivensimulate", _):
+                            bench_stats = stats.ExecDrivenStats(config, bench_config)
+                        case ("accelsimsimulate", _):
+                            bench_stats = accelsim.Stats(config, bench_config)
+                        case ("playgroundsimulate", _):
+                            bench_stats = playground.Stats(config, bench_config)
+                        case other:
+                            print(
+                                color(
+                                    f"WARNING: {name} has unknown target {other}", fg="red"
+                                )
+                            )
+                            continue
+                    print(current_bench_log_line)
+                except Exception as e:
+                    print(color(current_bench_log_line, fg="red"))
+                    if strict:
+                        raise e
+                    continue
 
-            # print(bench_stats.result_df)
-            # assert "run" in bench_stats.result_df.columns
-            values = bench_stats.result_df.merge(values, how="cross")
-            assert "run" in values.columns
+                values = pd.DataFrame.from_records([bench_config["values"]])
+                values.columns = ["input_" + c for c in values.columns]
+                # values.columns = [name + "input_" + c for c in values.columns]
 
+                # this will be the new index
+                values["target"] = target
+                values["benchmark"] = name
+                values["input_id"] = input_idx
+
+                # print(bench_stats.result_df)
+                # assert "run" in bench_stats.result_df.columns
+                values = bench_stats.result_df.merge(values, how="cross")
+                assert "run" in values.columns
+
+                if verbose:
+                    print(values.T)
+                all_stats.append(values)
+                # print(bench_stats.result_df.T)
+
+                # print("======")
+                # print(bench_stats.print_all_stats())
+
+            all_stats = pd.concat(all_stats)
             if verbose:
-                print(values.T)
-            all_stats.append(values)
-            # print(bench_stats.result_df.T)
+                print(all_stats)
 
-            # print("======")
-            # print(bench_stats.print_all_stats())
+            stats_output_path = results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
 
-        all_stats = pd.concat(all_stats)
-        if verbose:
-            print(all_stats)
+            if output_path is not None:
+                stats_output_path = Path(output_path)
 
-        stats_output_path = results_dir / f"combined.stats.{profiler}.{bench_name}.csv"
+            print(color(f"saving to {stats_output_path}", fg="cyan"))
+            stats_output_path.parent.mkdir(parents=True, exist_ok=True)
+            all_stats.to_csv(stats_output_path, index=False)
 
-        if output_path is not None:
-            stats_output_path = Path(output_path)
-
-        print(f"saving to {stats_output_path}")
-        stats_output_path.parent.mkdir(parents=True, exist_ok=True)
-        all_stats.to_csv(stats_output_path, index=False)
-
-    return
-
-    pprint(config)
-
-    for bench_config in benches:
-        name = bench_config["name"]
-        input_idx = bench_config["input_idx"]
-        print(f"\n\n=== {name}@{input_idx} ===")
-
-        our_stats = stats.Stats(config, bench_config)
-        playground_stats = playground.Stats(config, bench_config)
-        accelsim_stats = accelsim.Stats(config, bench_config)
-        native_stats = native.Stats(config, bench_config)
-
-        # data = [
-        #     ("native", native_stats.instructions(), accelsim_stats.instructions()),
-        #     ("cycles", native_stats.cycles(), accelsim_stats.cycles()),
-        # ]
-        # print(
-        #     wasabi.table(
-        #         data,
-        #         header=("", "instructions", "cycles"),
-        #         divider=True,
-        #         aligns=("r", "r", "r"),
-        #     )
-        # )
-
-        data = [
-            (
-                "instructions",
-                native_stats.instructions(),
-                our_stats.instructions(),
-                accelsim_stats.instructions(),
-                playground_stats.instructions(),
-            ),
-            (
-                "num blocks",
-                native_stats.num_blocks(),
-                our_stats.num_blocks(),
-                accelsim_stats.num_blocks(),
-                playground_stats.num_blocks(),
-            ),
-            (
-                "warp instructions",
-                native_stats.warp_instructions(),
-                our_stats.warp_instructions(),
-                accelsim_stats.warp_instructions(),
-                playground_stats.warp_instructions(),
-            ),
-            (
-                "cycles",
-                native_stats.cycles(),
-                our_stats.cycles(),
-                accelsim_stats.cycles(),
-                playground_stats.cycles(),
-            ),
-            (
-                "exec time sec",
-                native_stats.exec_time_sec(),
-                our_stats.exec_time_sec(),
-                accelsim_stats.exec_time_sec(),
-                playground_stats.exec_time_sec(),
-            ),
-            (
-                "dram reads",
-                native_stats.dram_reads(),
-                our_stats.dram_reads(),
-                accelsim_stats.dram_reads(),
-                playground_stats.dram_reads(),
-            ),
-            (
-                "dram writes",
-                native_stats.dram_writes(),
-                our_stats.dram_writes(),
-                accelsim_stats.dram_writes(),
-                playground_stats.dram_writes(),
-            ),
-            (
-                "dram accesses",
-                native_stats.dram_accesses(),
-                our_stats.dram_accesses(),
-                accelsim_stats.dram_accesses(),
-                playground_stats.dram_accesses(),
-            ),
-            (
-                "L2 reads",
-                native_stats.l2_reads(),
-                our_stats.l2_reads() * 4,
-                accelsim_stats.l2_reads(),
-                playground_stats.l2_reads(),
-            ),
-            (
-                "L2 writes",
-                native_stats.l2_writes(),
-                our_stats.l2_writes() * 4,
-                accelsim_stats.l2_writes(),
-                playground_stats.l2_writes(),
-            ),
-            (
-                "L2 accesses",
-                native_stats.l2_accesses(),
-                our_stats.l2_accesses() * 4,
-                accelsim_stats.l2_accesses(),
-                playground_stats.l2_accesses(),
-            ),
-            (
-                "L2 read hits",
-                native_stats.l2_read_hits(),
-                our_stats.l2_read_hits() * 4,
-                accelsim_stats.l2_read_hits(),
-                playground_stats.l2_read_hits(),
-            ),
-            (
-                "L2 write hits",
-                native_stats.l2_write_hits(),
-                our_stats.l2_write_hits() * 4,
-                accelsim_stats.l2_write_hits(),
-                playground_stats.l2_write_hits(),
-            ),
-            (
-                "L2 read misses",
-                native_stats.l2_read_misses(),
-                our_stats.l2_read_misses() * 4,
-                accelsim_stats.l2_read_misses(),
-                playground_stats.l2_read_misses(),
-            ),
-            (
-                "L2 write misses",
-                native_stats.l2_write_misses(),
-                our_stats.l2_write_misses() * 4,
-                accelsim_stats.l2_write_misses(),
-                playground_stats.l2_write_misses(),
-            ),
-        ]
-        data = [
-            (
-                k,
-                human_readable(native),
-                human_readable(ours),
-                human_readable(accel),
-                human_readable(play),
-            )
-            for (k, native, ours, accel, play) in data
-        ]
-        # print(native_stats.df)
-        print(
-            wasabi.table(
-                data,
-                header=("", "native", "ours", "accelsim", "playground"),
-                divider=True,
-                aligns=("r", "r", "r", "r", "r"),
-            )
-        )
-        # , widths=widths, ))
+    # pprint(config)
+    #
+    # for bench_config in benches:
+    #     name = bench_config["name"]
+    #     input_idx = bench_config["input_idx"]
+    #     print(f"\n\n=== {name}@{input_idx} ===")
+    #
+    #     our_stats = stats.Stats(config, bench_config)
+    #     playground_stats = playground.Stats(config, bench_config)
+    #     accelsim_stats = accelsim.Stats(config, bench_config)
+    #     native_stats = native.Stats(config, bench_config)
+    #
+    #     # data = [
+    #     #     ("native", native_stats.instructions(), accelsim_stats.instructions()),
+    #     #     ("cycles", native_stats.cycles(), accelsim_stats.cycles()),
+    #     # ]
+    #     # print(
+    #     #     wasabi.table(
+    #     #         data,
+    #     #         header=("", "instructions", "cycles"),
+    #     #         divider=True,
+    #     #         aligns=("r", "r", "r"),
+    #     #     )
+    #     # )
+    #
+    #     data = [
+    #         (
+    #             "instructions",
+    #             native_stats.instructions(),
+    #             our_stats.instructions(),
+    #             accelsim_stats.instructions(),
+    #             playground_stats.instructions(),
+    #         ),
+    #         (
+    #             "num blocks",
+    #             native_stats.num_blocks(),
+    #             our_stats.num_blocks(),
+    #             accelsim_stats.num_blocks(),
+    #             playground_stats.num_blocks(),
+    #         ),
+    #         (
+    #             "warp instructions",
+    #             native_stats.warp_instructions(),
+    #             our_stats.warp_instructions(),
+    #             accelsim_stats.warp_instructions(),
+    #             playground_stats.warp_instructions(),
+    #         ),
+    #         (
+    #             "cycles",
+    #             native_stats.cycles(),
+    #             our_stats.cycles(),
+    #             accelsim_stats.cycles(),
+    #             playground_stats.cycles(),
+    #         ),
+    #         (
+    #             "exec time sec",
+    #             native_stats.exec_time_sec(),
+    #             our_stats.exec_time_sec(),
+    #             accelsim_stats.exec_time_sec(),
+    #             playground_stats.exec_time_sec(),
+    #         ),
+    #         (
+    #             "dram reads",
+    #             native_stats.dram_reads(),
+    #             our_stats.dram_reads(),
+    #             accelsim_stats.dram_reads(),
+    #             playground_stats.dram_reads(),
+    #         ),
+    #         (
+    #             "dram writes",
+    #             native_stats.dram_writes(),
+    #             our_stats.dram_writes(),
+    #             accelsim_stats.dram_writes(),
+    #             playground_stats.dram_writes(),
+    #         ),
+    #         (
+    #             "dram accesses",
+    #             native_stats.dram_accesses(),
+    #             our_stats.dram_accesses(),
+    #             accelsim_stats.dram_accesses(),
+    #             playground_stats.dram_accesses(),
+    #         ),
+    #         (
+    #             "L2 reads",
+    #             native_stats.l2_reads(),
+    #             our_stats.l2_reads() * 4,
+    #             accelsim_stats.l2_reads(),
+    #             playground_stats.l2_reads(),
+    #         ),
+    #         (
+    #             "L2 writes",
+    #             native_stats.l2_writes(),
+    #             our_stats.l2_writes() * 4,
+    #             accelsim_stats.l2_writes(),
+    #             playground_stats.l2_writes(),
+    #         ),
+    #         (
+    #             "L2 accesses",
+    #             native_stats.l2_accesses(),
+    #             our_stats.l2_accesses() * 4,
+    #             accelsim_stats.l2_accesses(),
+    #             playground_stats.l2_accesses(),
+    #         ),
+    #         (
+    #             "L2 read hits",
+    #             native_stats.l2_read_hits(),
+    #             our_stats.l2_read_hits() * 4,
+    #             accelsim_stats.l2_read_hits(),
+    #             playground_stats.l2_read_hits(),
+    #         ),
+    #         (
+    #             "L2 write hits",
+    #             native_stats.l2_write_hits(),
+    #             our_stats.l2_write_hits() * 4,
+    #             accelsim_stats.l2_write_hits(),
+    #             playground_stats.l2_write_hits(),
+    #         ),
+    #         (
+    #             "L2 read misses",
+    #             native_stats.l2_read_misses(),
+    #             our_stats.l2_read_misses() * 4,
+    #             accelsim_stats.l2_read_misses(),
+    #             playground_stats.l2_read_misses(),
+    #         ),
+    #         (
+    #             "L2 write misses",
+    #             native_stats.l2_write_misses(),
+    #             our_stats.l2_write_misses() * 4,
+    #             accelsim_stats.l2_write_misses(),
+    #             playground_stats.l2_write_misses(),
+    #         ),
+    #     ]
+    #     data = [
+    #         (
+    #             k,
+    #             human_readable(native),
+    #             human_readable(ours),
+    #             human_readable(accel),
+    #             human_readable(play),
+    #         )
+    #         for (k, native, ours, accel, play) in data
+    #     ]
+    #     # print(native_stats.df)
+    #     print(
+    #         wasabi.table(
+    #             data,
+    #             header=("", "native", "ours", "accelsim", "playground"),
+    #             divider=True,
+    #             aligns=("r", "r", "r", "r", "r"),
+    #         )
+    #     )
+    #     # , widths=widths, ))
 
 
 if __name__ == "__main__":

@@ -609,11 +609,11 @@ enum cache_request_status data_cache::access(new_addr_type addr, mem_fetch *mf,
 
   if (mf != NULL) {
     const warp_inst_t inst = mf->get_inst();
-    fmt::println(
-        "{} fetch {} [{}] addr={} probe status={} access status={}", name(),
-        mem_fetch_ptr(mf), _memory_space_t_str[inst.space.get_type()],
-        mf->get_relative_byte_addr(), cache_request_status_str[probe_status],
-        cache_request_status_str[access_status]);
+    // fmt::println(
+    //     "{} fetch {} [{}] addr={} probe status={} access status={}", name(),
+    //     mem_fetch_ptr(mf), _memory_space_t_str[inst.space.get_type()],
+    //     mf->get_relative_byte_addr(), cache_request_status_str[probe_status],
+    //     cache_request_status_str[access_status]);
   }
   m_stats.inc_stats(mf->get_access_type(),
                     m_stats.select_stats_status(probe_status, access_status));

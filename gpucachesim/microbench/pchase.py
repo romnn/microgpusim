@@ -973,7 +973,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     # xticks = np.arange(min_x, max_x, step=256 * KB)
     # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
     ax.set_yticks(yticks, yticklabels)
-    ax.set_xticks(xticks, xticklabels, rotation=45)
+    ax.set_xticks(xticks, xticklabels, rotation=30)
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 1.05 * ymax)
 

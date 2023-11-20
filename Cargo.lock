@@ -4270,6 +4270,7 @@ dependencies = [
  "console",
  "csv",
  "cuda-driver-sys",
+ "dialoguer",
  "difflib",
  "duct",
  "env_logger",
@@ -4291,6 +4292,7 @@ dependencies = [
  "strum",
  "trace-model",
  "utils",
+ "validate",
  "walkdir",
 ]
 

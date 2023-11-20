@@ -88,6 +88,7 @@ pub struct BenchmarkConfig {
     pub rel_path: PathBuf,
     pub executable: PathBuf,
     pub executable_path: PathBuf,
+    pub results_dir: PathBuf,
 
     /// Input values for this benchmark config.
     pub values: super::matrix::Input,
@@ -126,6 +127,7 @@ impl BenchmarkConfig {
             benchmark_idx: 0,
             uid: "".into(),
             path: "".into(),
+            results_dir: "".into(),
             rel_path: "".into(),
             executable: "".into(),
             executable_path: "".into(),
@@ -267,7 +269,7 @@ impl crate::Benchmark {
                     trace_config
                         .results_dir
                         .join(&default_bench_dir)
-                        .join("trace")
+                        .join(Target::Trace.to_string())
                 },
                 |path| path.resolve(&trace_config.results_dir),
             );
@@ -283,17 +285,16 @@ impl crate::Benchmark {
                     accelsim_trace_config
                         .results_dir
                         .join(&default_bench_dir)
-                        .join("accelsim-trace")
+                        .join(Target::AccelsimTrace.to_string())
                 },
                 |path| path.resolve(&trace_config.results_dir),
             );
 
+        let results_dir = common_config.results_dir.join(&default_bench_dir);
+
         let target_config = match target {
             Target::Profile => TargetBenchmarkConfig::Profile {
-                profile_dir: common_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("profile"),
+                profile_dir: results_dir.join(Target::Profile.to_string()),
             },
             Target::Trace => TargetBenchmarkConfig::Trace {
                 traces_dir,
@@ -311,10 +312,7 @@ impl crate::Benchmark {
                 traces_dir: accelsim_traces_dir,
             },
             Target::Simulate => TargetBenchmarkConfig::Simulate {
-                stats_dir: common_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("sim"),
+                stats_dir: results_dir.join(Target::Simulate.to_string()),
                 traces_dir,
                 accelsim_traces_dir,
                 parallel: None,
@@ -324,11 +322,9 @@ impl crate::Benchmark {
                     .or(top_level_config.simulate.l2_prefill),
             },
             Target::ExecDrivenSimulate => TargetBenchmarkConfig::ExecDrivenSimulate {
-                stats_dir: common_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("sim")
-                    .join("exec-driven"),
+                stats_dir: results_dir
+                    .join(Target::Simulate.to_string())
+                    .join(Target::ExecDrivenSimulate.to_string()),
                 parallel: None,
                 l2_prefill: self
                     .exec_driven_simulate
@@ -336,10 +332,7 @@ impl crate::Benchmark {
                     .or(top_level_config.exec_driven_simulate.l2_prefill),
             },
             Target::AccelsimSimulate => TargetBenchmarkConfig::AccelsimSimulate {
-                stats_dir: common_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("accelsim-sim"),
+                stats_dir: results_dir.join(Target::AccelsimSimulate.to_string()),
                 configs: self.accelsim_simulate.configs.materialize(
                     base,
                     top_level_config.accelsim_simulate.configs.clone(),
@@ -348,10 +341,7 @@ impl crate::Benchmark {
                 traces_dir: accelsim_traces_dir,
             },
             Target::PlaygroundSimulate => TargetBenchmarkConfig::PlaygroundSimulate {
-                stats_dir: common_config
-                    .results_dir
-                    .join(&default_bench_dir)
-                    .join("playground-sim"),
+                stats_dir: results_dir.join(Target::PlaygroundSimulate.to_string()),
                 configs: self.playground_simulate.configs.materialize(
                     base,
                     top_level_config.playground_simulate.configs.clone(),
@@ -366,6 +356,7 @@ impl crate::Benchmark {
             benchmark_idx: 0,
             input_idx: 0,
             uid: bench_uid,
+            results_dir,
             path: self.path.resolve(base),
             rel_path: self.path.clone(),
             executable: self.executable.clone(),

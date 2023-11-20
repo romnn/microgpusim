@@ -137,7 +137,7 @@ pub mod slurm {
     #[derive(Debug, Clone, Copy, strum::Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
     #[strum(serialize_all = "UPPERCASE")]
     pub enum JobStatus {
-        // #[strum(serialize = "blue", serialize = "b")]
+        // #[strum(serialize = "blue")]
         Running,
         Pending,
     }

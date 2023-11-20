@@ -1,3 +1,4 @@
+import shutil
 import click
 from pathlib import Path
 import os
@@ -13,6 +14,7 @@ except ImportError:
 
 from gpucachesim import ROOT_DIR
 import gpucachesim.utils as utils
+import gpucachesim.stats.common as common
 
 
 REPO_ROOT_DIR = ROOT_DIR.parent
@@ -377,8 +379,8 @@ def table(path, baseline):
             return not baseline or all(
                 [
                     config["values"].get("memory_only") in [False, None],
-                    config["values"].get("num_clusters") in [20, None],
-                    config["values"].get("cores_per_cluster") in [1, None],
+                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
                     # config["values"]["mode"].lower() == "serial",
                     # config["values"]["run_ahead"].lower() == "serial",
@@ -427,6 +429,122 @@ def list(path):
 
     benchmark_names = list(b.benchmarks.keys())
     pprint(benchmark_names)
+
+
+@main.command()
+@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+def fix(path):
+    print("loading", path)
+    b = Benchmarks(path)
+
+    result_dirs: typing.Set[Path] = set()
+    for target, target_configs in b.benchmarks.items():
+        for name, bench_configs in target_configs.items():
+            print(target, name)
+            for bench_config in bench_configs:
+                result_dirs.add(Path(bench_config["results_dir"]))
+
+    valid = set(
+        [
+            "profile",
+            "simulate",
+            "accelsim-simulate",
+            "playground-simulate",
+            "exec-driven-simulate",
+            "trace",
+            "accelsim-trace",
+        ]
+    )
+    for result_dir in result_dirs:
+        if not result_dir.is_dir():
+            print("SKIP:", result_dir)
+            continue
+        print("fixing", result_dir)
+
+        try:
+            # if (result_dir / "Profile").is_dir() and (result_dir / "profile").is_dir():
+            #     # Profile is newer
+            #     shutil.rmtree(result_dir / "profile")
+            if (result_dir / "profile/Profile").is_dir():
+                os.rename(result_dir / "profile", result_dir / "profile-tmp")
+                os.rename(result_dir / "profile/Profile", result_dir / "profile")
+                shutil.rmtree(result_dir / "profile-tmp")
+                os.rmdir(result_dir / "profile-tmp")
+        except FileNotFoundError:
+            pass
+
+        try:
+            if (result_dir / "profile-tmp").is_dir():
+                os.rename(result_dir / "profile-tmp/Profile", result_dir / "profile")
+                shutil.rmtree(result_dir / "profile-tmp")
+                os.rmdir(result_dir / "profile-tmp")
+        except FileNotFoundError:
+            pass
+
+        try:
+            if (result_dir / "Profile").is_dir() and (result_dir / "profile").is_dir():
+                # Profile is newer
+                shutil.rmtree(result_dir / "profile")
+            os.rename(result_dir / "Profile", result_dir / "profile")
+            # shutil.move(result_dir / "Profile", result_dir / "profile")
+        except FileNotFoundError:
+            pass
+
+        # except shutil.Error as e:
+        #     if "already exists" in str(e):
+        #         shutil.rmtree(result_dir / "profile")
+        #         shutil.move(result_dir / "Profile", result_dir / "profile")
+
+        try:
+            os.rename(result_dir / "sim", result_dir / "simulate")
+            # shutil.move(result_dir / "sim", result_dir / "simulate")
+        except FileNotFoundError:
+            pass
+
+        try:
+            if (result_dir / "Simulate").is_dir() and (result_dir / "simulate").is_dir():
+                # Simulate is newer
+                shutil.rmtree(result_dir / "simulate")
+            os.rename(result_dir / "Simulate", result_dir / "simulate")
+            # shutil.move(result_dir / "Simulate", result_dir / "simulate")
+        except FileNotFoundError:
+            pass
+
+        try:
+            # shutil.move(
+            os.rename(
+                result_dir / "sim/exec-driven",
+                result_dir / "simulate/exec-driven-simulate",
+            )
+        except FileNotFoundError:
+            pass
+
+        try:
+            # shutil.move(
+            os.rename(
+                result_dir / "simulate/exec-driven",
+                result_dir / "simulate/exec-driven-simulate",
+            )
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.rename(result_dir / "playground-sim", result_dir / "playground-simulate")
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.rename(result_dir / "accelsim-sim", result_dir / "accelsim-simulate")
+        except FileNotFoundError:
+            pass
+
+        if (result_dir / "profile-tmp").is_dir():
+            assert (result_dir / "profile").is_dir()
+            os.rmdir(result_dir / "profile-tmp")
+
+        remaining_dir_names = [dir.name for dir in result_dir.iterdir()]
+        if not all([dir_name in valid for dir_name in remaining_dir_names]):
+            raise ValueError(remaining_dir_names)
 
 
 if __name__ == "__main__":

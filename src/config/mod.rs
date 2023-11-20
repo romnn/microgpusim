@@ -1471,7 +1471,7 @@ impl Input {
         let mut is_baseline = true;
         is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
         is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
-        is_baseline &= matches!(self.num_clusters, Some(20) | None);
+        is_baseline &= matches!(self.num_clusters, Some(28) | None);
         // is_baseline &= matches!(self.memory_only, Some(false) | None);
         is_baseline
     }

@@ -37,6 +37,7 @@ pub use crate::yaml as input;
     Copy,
     strum::EnumIter,
     strum::EnumString,
+    strum::Display,
     Hash,
     PartialEq,
     Eq,
@@ -47,12 +48,19 @@ pub use crate::yaml as input;
 )]
 #[strum(ascii_case_insensitive)]
 pub enum Target {
+    #[strum(serialize = "profile")]
     Profile,
+    #[strum(serialize = "trace")]
     Trace,
+    #[strum(serialize = "accelsim-trace")]
     AccelsimTrace,
+    #[strum(serialize = "simulate")]
     Simulate,
+    #[strum(serialize = "exec-driven-simulate")]
     ExecDrivenSimulate,
+    #[strum(serialize = "accelsim-simulate")]
     AccelsimSimulate,
+    #[strum(serialize = "playground-simulate")]
     PlaygroundSimulate,
 }
 

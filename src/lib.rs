@@ -1026,15 +1026,30 @@ where
             // Depending on configuration, invalidate the caches
             // once all of threads are completed.
 
+            let mut not_completed = 0;
             let mut all_threads_complete = true;
             if self.config.flush_l1_cache {
+                log::debug!("flushing l1 caches");
                 for cluster in &mut self.clusters {
-                    if cluster.try_read().not_completed() == 0 {
+                    let cluster_id = cluster.try_read().cluster_id;
+                    let cluster_not_completed = cluster.try_read().not_completed();
+                    log::debug!(
+                        "cluster {}: {} threads not completed",
+                        cluster_id,
+                        cluster_not_completed
+                    );
+                    if cluster_not_completed == 0 {
                         cluster.try_write().cache_invalidate();
                     } else {
+                        not_completed += cluster_not_completed;
                         all_threads_complete = false;
                     }
                 }
+                log::trace!(
+                    "all threads completed: {} ({} not completed)",
+                    all_threads_complete,
+                    not_completed
+                );
             }
 
             if self.config.flush_l2_cache {
@@ -1049,7 +1064,7 @@ where
 
                 if let Some(l2_config) = &self.config.data_cache_l2 {
                     if all_threads_complete {
-                        log::debug!("flushed L2 caches...");
+                        log::debug!("flushing l2 caches");
                         if l2_config.inner.total_lines() > 0 {
                             for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                                 let mut mem_sub = mem_sub.try_lock();

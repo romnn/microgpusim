@@ -63,15 +63,9 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 [source](https://forums.developer.nvidia.com/t/pascal-l1-cache/49571/12)
 
-- today:
-
 - TODO:
 
-  - update config for TitanX
-  - tool to remove invalid configurations from results dir (should keep profile in place bc clusters did not change)
-  - update the l2 prefill percent to 90 percent
   - rerun all the benchmarks
-  - profile vectoradd
 
   - make the basic plots look good for pascal pchase and write it down
   - run the same for older fermi or maxwell gpu on das5 and write it down
@@ -85,6 +79,9 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: update config for TitanX
+  - DONE: tool to remove invalid configurations from results dir (should keep profile in place bc clusters did not change)
+  - DONE: update the l2 prefill percent to 90 percent
   - DONE: validate: add remote connection to das5 and das6
   - DONE: overall results in parallel table
   - GIVE UP: have another go at ampere
