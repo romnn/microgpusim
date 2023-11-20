@@ -17,6 +17,7 @@ need_cuda = true
 [dependencies]
 color-eyre = "0"
 console = "0"
+dialoguer = "0"
 duct = "0"
 once_cell = "1"
 regex = "1"
@@ -47,6 +48,7 @@ utils = { path = "../utils" }
 gpucachesim = { path = "../" }
 accelsim = { path = "../accelsim" }
 trace-model = { path = "../trace/model" }
+validate = { path = "../validate" }
 
 # optional: cuda
 rustacuda = { version = "0", optional = true }
