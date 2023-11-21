@@ -92,13 +92,15 @@ where
 
     // number of thread blocks in grid
     let grid_size = (n as f64 / <f64 as From<_>>::from(BLOCK_SIZE)).ceil() as u32;
-    let kernel: VecAdd<T> = VecAdd {
+    let mut kernel: VecAdd<T> = VecAdd {
         dev_a: Mutex::new(dev_a),
         dev_b: Mutex::new(dev_b),
         dev_result: Mutex::new(dev_result),
         n,
     };
-    let trace = tracer.trace_kernel(grid_size, BLOCK_SIZE, kernel).await?;
+    let trace = tracer
+        .trace_kernel(grid_size, BLOCK_SIZE, &mut kernel)
+        .await?;
     Ok((tracer.commands().await, vec![trace]))
 }
 

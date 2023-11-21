@@ -14,13 +14,15 @@ pub mod simple_matrixmul;
 pub mod transpose;
 pub mod vectoradd;
 
-pub type Result = color_eyre::eyre::Result<(
+pub type TraceResult = (
     Vec<trace_model::command::Command>,
     Vec<(
         trace_model::command::KernelLaunch,
         trace_model::MemAccessTrace,
     )>,
-)>;
+);
+
+pub type Result = color_eyre::eyre::Result<TraceResult>;
 
 #[cfg(test)]
 pub mod tests {

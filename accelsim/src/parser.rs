@@ -1,10 +1,11 @@
 use super::read::BufReadLine;
 use super::stats::Stats;
 use color_eyre::eyre::{self, WrapErr};
+use indexmap::IndexSet;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Options {
@@ -608,9 +609,9 @@ pub fn parse_stats(
         eprintln!("invalid: termination message from GPGPU-Sim not found");
     }
 
-    let mut all_named_kernels: HashSet<(String, usize)> = HashSet::new();
+    let mut all_named_kernels: IndexSet<(String, usize)> = IndexSet::new();
 
-    let mut stat_found: HashSet<String> = HashSet::new();
+    let mut stat_found: IndexSet<String> = IndexSet::new();
 
     let mut stat_map = Stats::default();
 
@@ -622,6 +623,7 @@ pub fn parse_stats(
 
         let mut reader = std::io::BufReader::new(reader);
         let mut buffer = String::new();
+        let mut kernel_launch_id = 0;
 
         while let Some(Ok(line)) = reader.read_line(&mut buffer) {
             // was simulation aborted due to too many instructions?
@@ -630,13 +632,11 @@ pub fn parse_stats(
 
             if LAST_KERNEL_BREAK_REGEX.captures(line).is_some() {
                 log::warn!("found max instructions - ignoring last kernel");
-                // remove
+                // remove incomplete kernel stats
                 for stat_name in stats.keys() {
                     stat_map.remove(&(
                         current_kernel.0.to_string(),
                         current_kernel.1,
-                        // running_kcount[&current_kernel.0],
-                        // running_kcount[&current_kernel.0],
                         stat_name.to_string(),
                     ));
                     assert_eq!(
@@ -648,37 +648,23 @@ pub fn parse_stats(
 
             if let Some(kernel_name) = KERNEL_NAME_REGEX.captures(line).and_then(|c| c.get(1)) {
                 let kernel_name = kernel_name.as_str().trim().to_string();
-                // let last_kernel_kcount = running_kcount.get(&current_kernel).copied().unwrap_or(0);
                 last_kernel = current_kernel;
-                // last_kernel = (current_kernel, last_kernel_kcount);
+
+                current_kernel = (
+                    kernel_name.clone(),
+                    kernel_launch_id,
+                    // running_kcount.get(&kernel_name).copied().unwrap_or(0),
+                );
 
                 if options.kernel_instance {
                     running_kcount
                         .entry(kernel_name.clone())
                         .and_modify(|count| *count += 1)
                         .or_insert(0);
-                    // *count += 1;
-                    // if !running_kcount.contains_key(&current_kernel) {
-                    //     running_kcount.insert(current_kernel.clone(), 0);
-                    // } else if let Some(c) = running_kcount.get_mut(&current_kernel) {
-                    //     *c += 1;
-                    // }
+                    kernel_launch_id += 1;
                 }
 
-                current_kernel = (
-                    kernel_name.clone(),
-                    running_kcount.get(&kernel_name).copied().unwrap_or(0),
-                );
-
-                assert_eq!(
-                    current_kernel.1,
-                    running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
-                );
-                all_named_kernels.insert((
-                    current_kernel.0.clone(),
-                    current_kernel.1,
-                    // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
-                ));
+                all_named_kernels.insert((current_kernel.0.clone(), current_kernel.1));
 
                 // makes no sense when doing per kernel instance
                 if !options.kernel_instance {
@@ -686,7 +672,6 @@ pub fn parse_stats(
                         .entry((
                             current_kernel.0.clone(),
                             current_kernel.1,
-                            // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
                             "k-count".to_string(),
                         ))
                         .or_insert(0.0);
@@ -696,9 +681,7 @@ pub fn parse_stats(
             }
 
             for (stat_name, (stat_kind, stat_regex)) in &stats {
-                if let Some(value) = stat_regex.captures(line).and_then(|c| c.get(1))
-                // .and_then(|m| m.as_str().trim().parse::<f64>().ok())
-                {
+                if let Some(value) = stat_regex.captures(line).and_then(|c| c.get(1)) {
                     let value = value.as_str().trim();
                     let value = value.parse::<f64>().wrap_err_with(|| {
                         eyre::eyre!("invalid value {:?} for {:?}", value, stat_name)
@@ -707,13 +690,12 @@ pub fn parse_stats(
                     let key = (
                         current_kernel.0.to_string(),
                         current_kernel.1,
-                        // running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
                         stat_name.to_string(),
                     );
-                    assert_eq!(
-                        current_kernel.1,
-                        running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
-                    );
+                    // assert_eq!(
+                    //     current_kernel.1,
+                    //     running_kcount.get(&current_kernel.0).copied().unwrap_or(0),
+                    // );
 
                     if *stat_kind != StatKind::Aggregate {
                         stat_map.insert(key.clone(), value);
@@ -767,15 +749,19 @@ pub fn parse_stats(
         }
     }
 
+    log::debug!(
+        "kernels: {:?}",
+        stat_map
+            .keys()
+            .map(|(name, id, _)| (name, id))
+            .collect::<IndexSet<_>>()
+    );
+
     // fill in default values
-    for (kernel_name, kernel_launch_id) in all_named_kernels.iter() {
+    for (kernel_name, kernel_launch_id) in all_named_kernels.into_iter() {
         for (stat_name, _) in &stats {
             stat_map
-                .entry((
-                    kernel_name.clone(),
-                    *kernel_launch_id,
-                    stat_name.to_string(),
-                ))
+                .entry((kernel_name.clone(), kernel_launch_id, stat_name.to_string()))
                 .or_insert(0.0);
         }
     }

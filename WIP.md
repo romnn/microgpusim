@@ -65,7 +65,13 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - rerun all the benchmarks
+  - overall correlation plots revamped
+  - interesting questions: how much time do we save with mem only and with exec driven?
+  - compare speed of native, accelsim, serial, mem only, exec driven
+
+  - DONE: validation plots with/without: top legend, bottom ticks
+
+  - rerun all the benchmarks for parallel table
 
   - make the basic plots look good for pascal pchase and write it down
   - run the same for older fermi or maxwell gpu on das5 and write it down
@@ -79,6 +85,8 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: result table with error metrics
+  - DONE: better benchmark table
   - DONE: update config for TitanX
   - DONE: tool to remove invalid configurations from results dir (should keep profile in place bc clusters did not change)
   - DONE: update the l2 prefill percent to 90 percent

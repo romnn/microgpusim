@@ -6,6 +6,7 @@ from enum import Enum
 import typing
 import yaml
 from pprint import pprint
+from collections import defaultdict
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -117,6 +118,7 @@ NON_NUMERIC_COLS = {
         "Host Name": "first",
         "Process Name": "first",
         "device": "first",
+        "context_id": "first",
         "is_release_build": "first",
         "kernel_function_signature": "first",
         "kernel_name": "first",
@@ -303,18 +305,10 @@ def construct_playground_simulate_target_config(self, node):
 BenchmarkLoader.add_constructor("!Profile", construct_profile_target_config)
 BenchmarkLoader.add_constructor("!Trace", construct_trace_target_config)
 BenchmarkLoader.add_constructor("!Simulate", construct_simulate_target_config)
-BenchmarkLoader.add_constructor(
-    "!ExecDrivenSimulate", construct_exec_driven_simulate_target_config
-)
-BenchmarkLoader.add_constructor(
-    "!AccelsimSimulate", construct_accelsim_simulate_target_config
-)
-BenchmarkLoader.add_constructor(
-    "!AccelsimTrace", construct_accelsim_trace_target_config
-)
-BenchmarkLoader.add_constructor(
-    "!PlaygroundSimulate", construct_playground_simulate_target_config
-)
+BenchmarkLoader.add_constructor("!ExecDrivenSimulate", construct_exec_driven_simulate_target_config)
+BenchmarkLoader.add_constructor("!AccelsimSimulate", construct_accelsim_simulate_target_config)
+BenchmarkLoader.add_constructor("!AccelsimTrace", construct_accelsim_trace_target_config)
+BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simulate_target_config)
 
 
 class Benchmarks:
@@ -358,16 +352,14 @@ def main():
 
 
 @main.command()
-@click.option(
-    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
-)
+@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
 @click.option("--baseline", type=bool, default=True, help="Baseline configurations")
 def table(path, baseline):
     print("loading", path)
     b = Benchmarks(path)
     benches = b.benchmarks[Target.Simulate.value]
 
-    table = r"Benchmark & Type & Input configurations \\ \hline"
+    table = r"\rowcolor{gray!10} Benchmark & Type & \multicolumn{2}{c}{Input parameters} \\ \hline"
     table += "\n"
 
     def get_name(bench_name):
@@ -384,56 +376,71 @@ def table(path, baseline):
             case _:
                 return "MB"
 
-    row_idx = 0
+    # row_idx = 0
     for bench_name, bench_configs in benches.items():
-        # pprint(bench_configs)
 
         def is_baseline(config):
-            # pprint(config)
-            # print(config["name"])
             return not baseline or all(
                 [
                     config["values"].get("memory_only") in [False, None],
-                    config["values"].get("num_clusters")
-                    in [int(common.BASELINE["num_clusters"]), None],
-                    config["values"].get("cores_per_cluster")
-                    in [int(common.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
-                    # config["values"]["mode"].lower() == "serial",
-                    # config["values"]["run_ahead"].lower() == "serial",
                 ]
             )
 
-        baseline_bench_configs = [
-            config for config in bench_configs if is_baseline(config)
-        ]
+        baseline_bench_configs = [config for config in bench_configs if is_baseline(config)]
 
         print(bench_name)
-        num_rows = len(baseline_bench_configs)
-        for input_idx, bench_config in enumerate(baseline_bench_configs):
-            # sim_input_cols = SIMULATE_INPUT_COLS
-            input_cols = BENCHMARK_INPUT_COLS[bench_name]
-            if row_idx % 2 == 0:
-                table += r"\rowcolor{gray!10}"
-            if input_idx == 0:
-                table += r"\multirow[t]{" + str(num_rows) + r"}{*}{"
-                table += r"\shortstack[l]{" + get_name(bench_name) + r"}}"
-                table += r" & \multirow[t]{" + str(num_rows) + r"}{*}{"
-                table += r"\shortstack[l]{" + get_kind(bench_name) + "}}"
-            else:
-                table += " & "
 
+        bench_input_values = defaultdict(set)
+
+        for bench_config in baseline_bench_configs:
+            input_cols = BENCHMARK_INPUT_COLS[bench_name]
             values = bench_config["values"]
             inputs = {k: values[k.removeprefix("input_")] for k in input_cols}
-            # sim_inputs = {k: values[k.removeprefix("input_")] for k in sim_input_cols}
-            table += r" & "
-            for i, (k, v) in enumerate(inputs.items()):
-                if i > 0:
-                    table += ", "
-                k = [kk.strip() for kk in k.removeprefix("input_").split("_")]
-                table += "{}={}".format(" ".join(k), v)
-            table += r" \\" + "\n"
-            row_idx += 1
+            for k, v in inputs.items():
+                bench_input_values[k].add(v)
+
+        for i, (k, input_values) in enumerate(bench_input_values.items()):
+            if i == 0:
+                table += r"\multirow[t]{" + str(len(bench_input_values)) + "}{*}{"
+                table += r"\shortstack[l]{" + get_name(bench_name) + "}}"
+                table += r" & \multirow[t]{" + str(len(bench_input_values)) + "}{*}{"
+                table += r"\shortstack[l]{" + get_kind(bench_name) + "}}"
+            else:
+                table += r" & & "
+
+            input_values = sorted([v for v in input_values])
+            key = " ".join([kk.strip() for kk in k.removeprefix("input_").split("_")])
+            table += r" & \textbf{" + str(key) + r"}"
+            table += r" & " + (", ".join([str(v) for v in input_values]))
+
+        table += r" \\ \hline" + "\n"
+
+        # num_rows = len(baseline_bench_configs)
+        # for input_idx, bench_config in enumerate(baseline_bench_configs):
+        #     input_cols = BENCHMARK_INPUT_COLS[bench_name]
+        #     if row_idx % 2 == 0:
+        #         table += r"\rowcolor{gray!10}"
+        #     if input_idx == 0:
+        #         table += r"\multirow[t]{" + str(num_rows) + r"}{*}{"
+        #         table += r"\shortstack[l]{" + get_name(bench_name) + r"}}"
+        #         table += r" & \multirow[t]{" + str(num_rows) + r"}{*}{"
+        #         table += r"\shortstack[l]{" + get_kind(bench_name) + "}}"
+        #     else:
+        #         table += " & "
+        #
+        #     values = bench_config["values"]
+        #     inputs = {k: values[k.removeprefix("input_")] for k in input_cols}
+        #     table += r" & "
+        #     for i, (k, v) in enumerate(inputs.items()):
+        #         if i > 0:
+        #             table += ", "
+        #         k = [kk.strip() for kk in k.removeprefix("input_").split("_")]
+        #         table += "{}={}".format(" ".join(k), v)
+        #     table += r" \\" + "\n"
+        #     row_idx += 1
 
     print(table)
     utils.copy_to_clipboard(table)
@@ -441,9 +448,7 @@ def table(path, baseline):
 
 
 @main.command()
-@click.option(
-    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
-)
+@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
 def list(path):
     print("loading", path)
     b = Benchmarks(path)
@@ -453,9 +458,7 @@ def list(path):
 
 
 @main.command()
-@click.option(
-    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
-)
+@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
 def fix(path):
     print("loading", path)
     b = Benchmarks(path)
@@ -525,9 +528,7 @@ def fix(path):
             pass
 
         try:
-            if (result_dir / "Simulate").is_dir() and (
-                result_dir / "simulate"
-            ).is_dir():
+            if (result_dir / "Simulate").is_dir() and (result_dir / "simulate").is_dir():
                 # Simulate is newer
                 shutil.rmtree(result_dir / "simulate")
             os.rename(result_dir / "Simulate", result_dir / "simulate")

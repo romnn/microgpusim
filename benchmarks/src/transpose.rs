@@ -244,7 +244,7 @@ pub enum Variant {
     Optimized,
 }
 
-pub async fn benchmark<T>(dim: usize, variant: Variant) -> super::Result
+pub async fn benchmark<T>(dim: usize, variant: Variant, repetitions: usize) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
 {
@@ -258,9 +258,9 @@ where
     }
 
     match variant {
-        Variant::Naive => transpose_naive(&mat, &mut result, dim, dim).await,
-        Variant::Coalesced => transpose_coalesced(&mat, &mut result, dim, dim).await,
-        Variant::Optimized => transpose_optimized(&mat, &mut result, dim, dim).await,
+        Variant::Naive => transpose_naive(&mat, &mut result, dim, dim, repetitions).await,
+        Variant::Coalesced => transpose_coalesced(&mat, &mut result, dim, dim, repetitions).await,
+        Variant::Optimized => transpose_optimized(&mat, &mut result, dim, dim, repetitions).await,
     }
 }
 
@@ -293,6 +293,7 @@ pub async fn transpose_naive<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
+    repetitions: usize,
 ) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
@@ -309,13 +310,20 @@ where
         .allocate(result, MemorySpace::Global, Some("result"))
         .await;
 
-    let kernel: naive::Transpose<T> = naive::Transpose {
+    let mut kernel: naive::Transpose<T> = naive::Transpose {
         dev_mat: Mutex::new(dev_mat),
         dev_result: Mutex::new(dev_result),
         rows,
         cols,
     };
-    transpose::<T, naive::Transpose<T>>(tracer, rows, cols, kernel).await
+    let mut result = transpose::<T, naive::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+    for _ in 0..repetitions {
+        let (commands, traces) =
+            transpose::<T, naive::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+        result.0.extend(commands);
+        result.1.extend(traces);
+    }
+    Ok(result)
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -324,6 +332,7 @@ pub async fn transpose_coalesced<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
+    repetitions: usize,
 ) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
@@ -350,14 +359,22 @@ where
         )
         .await;
 
-    let kernel: coalesced::Transpose<T> = coalesced::Transpose {
+    let mut kernel: coalesced::Transpose<T> = coalesced::Transpose {
         dev_mat: Mutex::new(dev_mat),
         dev_result: Mutex::new(dev_result),
         shared_mem_tiles: Mutex::new(shared_mem_tiles),
         rows,
         cols,
     };
-    transpose::<T, coalesced::Transpose<T>>(tracer, rows, cols, kernel).await
+    let mut result =
+        transpose::<T, coalesced::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+    for _ in 0..repetitions {
+        let (commands, traces) =
+            transpose::<T, coalesced::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+        result.0.extend(commands);
+        result.1.extend(traces);
+    }
+    Ok(result)
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -366,6 +383,7 @@ pub async fn transpose_optimized<T>(
     result: &mut Vec<T>,
     rows: usize,
     cols: usize,
+    repetitions: usize,
 ) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
@@ -392,21 +410,33 @@ where
         )
         .await;
 
-    let kernel: optimized::Transpose<T> = optimized::Transpose {
+    let mut kernel: optimized::Transpose<T> = optimized::Transpose {
         dev_mat: Mutex::new(dev_mat),
         dev_result: Mutex::new(dev_result),
         shared_mem_tiles: Mutex::new(shared_mem_tiles),
         rows,
         cols,
     };
-    transpose::<T, optimized::Transpose<T>>(tracer, rows, cols, kernel).await
+    // let mut result = super::TraceResult::default();
+    // let (commands, traces) =
+    let mut result =
+        transpose::<T, optimized::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+    // result.0.extend(commands);
+    // result.1.extend(traces);
+    for _ in 0..repetitions {
+        let (commands, traces) =
+            transpose::<T, optimized::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+        result.0.extend(commands);
+        result.1.extend(traces);
+    }
+    Ok(result)
 }
 
 pub async fn transpose<T, K>(
-    tracer: std::sync::Arc<Tracer>,
+    tracer: &std::sync::Arc<Tracer>,
     rows: usize,
     cols: usize,
-    kernel: K,
+    kernel: &mut K,
 ) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
@@ -441,6 +471,7 @@ mod tests {
     async fn test_correctness() -> eyre::Result<()> {
         crate::tests::init_test();
         let dim = 32;
+        let repetitions = 0;
 
         // create host vectors
         let mut mat: Vec<f32> = vec![0.0; dim * dim];
@@ -457,7 +488,7 @@ mod tests {
             ref_mat.reversed_axes()
         };
         let (_commands, kernel_traces) =
-            super::transpose_optimized(&mat, &mut result, dim, dim).await?;
+            super::transpose_optimized(&mat, &mut result, dim, dim, repetitions).await?;
         assert_eq!(kernel_traces.len(), 1);
         let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
         super::reference(&mat, &mut ref_result, dim, dim);

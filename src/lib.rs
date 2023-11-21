@@ -1033,7 +1033,7 @@ where
                 for cluster in &mut self.clusters {
                     let cluster_id = cluster.try_read().cluster_id;
                     let cluster_not_completed = cluster.try_read().not_completed();
-                    log::debug!(
+                    log::trace!(
                         "cluster {}: {} threads not completed",
                         cluster_id,
                         cluster_not_completed

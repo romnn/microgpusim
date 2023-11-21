@@ -16,6 +16,8 @@ enum Command {
         dim: usize,
         #[arg(long = "variant")]
         variant: benchmarks::transpose::Variant,
+        #[arg(long = "repetitions")]
+        repetitions: Option<usize>,
     },
     Matrixmul {
         #[arg(long = "dtype", default_value = "32")]
@@ -73,9 +75,11 @@ async fn main() -> eyre::Result<()> {
             64 => benchmarks::matrixmul::benchmark::<f64>(rows).await,
             other => return Err(eyre::eyre!("invalid dtype {other:?}")),
         },
-        Command::Transpose { dim, variant } => {
-            benchmarks::transpose::benchmark::<f32>(dim, variant).await
-        }
+        Command::Transpose {
+            dim,
+            variant,
+            repetitions,
+        } => benchmarks::transpose::benchmark::<f32>(dim, variant, repetitions.unwrap_or(0)).await,
         Command::Babelstream { .. } => unimplemented!("babelstream not yet supported"),
     }?;
 

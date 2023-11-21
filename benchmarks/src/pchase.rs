@@ -100,7 +100,7 @@ pub async fn pchase(
     }
 
     // number of thread blocks in grid
-    let kernel = FineGrainPChase {
+    let mut kernel = FineGrainPChase {
         dev_array: Mutex::new(dev_array),
         size,
         stride,
@@ -109,7 +109,9 @@ pub async fn pchase(
     };
     let grid_size = 1;
     let block_size = 1;
-    let trace = tracer.trace_kernel(grid_size, block_size, kernel).await?;
+    let trace = tracer
+        .trace_kernel(grid_size, block_size, &mut kernel)
+        .await?;
     traces.push(trace);
     Ok((tracer.commands().await, traces))
 }

@@ -63,11 +63,14 @@ impl std::ops::Deref for Allocations {
 impl Allocations {
     pub fn insert(&mut self, range: std::ops::Range<address>, name: Option<String>) {
         // check for intersections
-        assert!(
-            !self.0.overlaps(&range),
-            "overlapping memory allocation {:?}",
-            &range
-        );
+        if self.0.overlaps(&range) {
+            log::warn!("overlapping memory allocation {:?}", &range);
+        }
+        // assert!(
+        //     !self.0.overlaps(&range),
+        //     "overlapping memory allocation {:?}",
+        //     &range
+        // );
         let id = self.0.len() + 1; // zero is reserved for instructions
         let start_addr = range.start;
         let end_addr = Some(range.end);

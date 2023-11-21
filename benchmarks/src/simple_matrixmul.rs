@@ -145,7 +145,7 @@ where
     assert!(grid_dim.y > 0);
     assert!(grid_dim.z > 0);
 
-    let kernel: SimpleMatrixmul<T> = SimpleMatrixmul {
+    let mut kernel: SimpleMatrixmul<T> = SimpleMatrixmul {
         dev_a: Mutex::new(dev_a),
         dev_b: Mutex::new(dev_b),
         dev_result: Mutex::new(dev_result),
@@ -153,7 +153,9 @@ where
         n,
         p,
     };
-    let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
+    let trace = tracer
+        .trace_kernel(grid_dim, block_dim, &mut kernel)
+        .await?;
     Ok((tracer.commands().await, vec![trace]))
 }
 

@@ -207,7 +207,7 @@ where
     assert!(grid_dim.y > 0);
     assert!(grid_dim.z > 0);
 
-    let kernel: Matrixmul<T> = Matrixmul {
+    let mut kernel: Matrixmul<T> = Matrixmul {
         dev_a: Mutex::new(dev_a),
         dev_b: Mutex::new(dev_b),
         dev_result: Mutex::new(dev_result),
@@ -215,7 +215,9 @@ where
         shared_mem_b: Mutex::new(shared_mem_b),
         num_rows,
     };
-    let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
+    let trace = tracer
+        .trace_kernel(grid_dim, block_dim, &mut kernel)
+        .await?;
     Ok((tracer.commands().await, vec![trace]))
 }
 

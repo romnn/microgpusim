@@ -36,7 +36,7 @@ pub trait TraceGenerator {
         self: &Arc<Self>,
         grid: G,
         block_size: B,
-        mut kernel: K,
+        kernel: &mut K,
     ) -> Result<
         (
             trace_model::command::KernelLaunch,
@@ -231,7 +231,7 @@ impl Tracer {
         self: &Arc<Self>,
         grid: trace_model::Dim,
         block_size: trace_model::Dim,
-        kernel: K,
+        kernel: &mut K,
         kernel_launch_id: u64,
     ) where
         K: Kernel + Send + Sync,
@@ -380,7 +380,7 @@ impl TraceGenerator for Tracer {
         self: &Arc<Self>,
         grid: G,
         block_size: B,
-        kernel: K,
+        kernel: &mut K,
     ) -> Result<
         (
             trace_model::command::KernelLaunch,
@@ -898,7 +898,9 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleForLoopKernel {}).await?;
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, &mut SingleForLoopKernel {})
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -954,7 +956,7 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, SingleIfKernel {}).await?;
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut SingleIfKernel {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1077,7 +1079,7 @@ mod tests {
 
         let tracer = super::Tracer::new();
         let (_launch_config, trace) = tracer
-            .trace_kernel(1, 32, TwoLevelNestedForLoops {})
+            .trace_kernel(1, 32, &mut TwoLevelNestedForLoops {})
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -1151,7 +1153,7 @@ mod tests {
 
         let tracer = super::Tracer::new();
         let (_launch_config, trace) = tracer
-            .trace_kernel(1, 32, TwoLevelNestedMultipleSerialIf {})
+            .trace_kernel(1, 32, &mut TwoLevelNestedMultipleSerialIf {})
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -1218,7 +1220,7 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, Balanced {}).await?;
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut Balanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1278,7 +1280,7 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, Imbalanced {}).await?;
+        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut Imbalanced {}).await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1382,14 +1384,16 @@ mod tests {
             .allocate(&mut result, MemorySpace::Global, Some("result"))
             .await;
 
-        let kernel: VecAdd<f32> = VecAdd {
+        let mut kernel: VecAdd<f32> = VecAdd {
             dev_a: Mutex::new(dev_a),
             dev_b: Mutex::new(dev_b),
             dev_result: Mutex::new(dev_result),
             n,
         };
         let grid_size = (n as f64 / f64::from(block_size)).ceil() as u32;
-        let (_launch_config, trace) = tracer.trace_kernel(grid_size, block_size, kernel).await?;
+        let (_launch_config, trace) = tracer
+            .trace_kernel(grid_size, block_size, &mut kernel)
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 

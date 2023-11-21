@@ -244,12 +244,15 @@ pub mod exec {
                 #[derive(Debug, serde::Deserialize)]
                 struct TransposeInput {
                     dim: usize,
+                    repeat: Option<usize>,
                     variant: benchmarks::transpose::Variant,
                 }
-                let TransposeInput { dim, variant } =
-                    serde_json::from_value(values.clone()).map_err(parse_err)?;
-
-                benchmarks::transpose::benchmark::<f32>(dim, variant).await
+                let TransposeInput {
+                    dim,
+                    variant,
+                    repeat,
+                } = serde_json::from_value(values.clone()).map_err(parse_err)?;
+                benchmarks::transpose::benchmark::<f32>(dim, variant, repeat.unwrap_or(0)).await
             }
             "babelstream" => return Err(RunError::Skipped),
             other => {
@@ -262,39 +265,6 @@ pub mod exec {
 
         let traces_dir = stats_dir.join("traces");
         gpucachesim::exec::write_traces(commands, kernel_traces, &traces_dir)?;
-
-        // create_dirs(&traces_dir).map_err(eyre::Report::from)?;
-        // {
-        //     for command in commands.iter_mut() {
-        //         dbg!(&command);
-        //         if let trace_model::command::Command::KernelLaunch(kernel_launch) = command {
-        //             let kernel_trace_name = format!("kernel-{}.msgpack", kernel_launch.id);
-        //             let kernel_trace_path = traces_dir.join(&kernel_trace_name);
-        //
-        //             let mut writer =
-        //                 utils::fs::open_writable(&kernel_trace_path).map_err(eyre::Report::from)?;
-        //             let (kernel_launch_config, kernel_trace) =
-        //                 &kernel_traces[kernel_launch.id as usize];
-        //             assert_eq!(kernel_launch_config, kernel_launch);
-        //             rmp_serde::encode::write(&mut writer, &kernel_trace)
-        //                 .map_err(eyre::Report::from)?;
-        //             println!("written {}", kernel_trace_path.display());
-        //
-        //             // update the kernel trace path
-        //             kernel_launch.trace_file = kernel_trace_name;
-        //         }
-        //     }
-        //
-        //     let commands_path = traces_dir.join("commands.json");
-        //     let mut json_serializer = serde_json::Serializer::with_formatter(
-        //         utils::fs::open_writable(&commands_path).map_err(eyre::Report::from)?,
-        //         serde_json::ser::PrettyFormatter::with_indent(b"    "),
-        //     );
-        //     commands
-        //         .serialize(&mut json_serializer)
-        //         .map_err(eyre::Report::from)?;
-        //     println!("written {}", commands_path.display());
-        // }
 
         let mut total_dur = Duration::ZERO;
         for repetition in 0..bench.common.repetitions {
@@ -322,29 +292,6 @@ pub mod exec {
             let full = false;
             super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition, full)?;
         }
-
-        // // this is just the same
-        // for repetition in 0..bench.common.repetitions {
-        //     // let launch_config = launch_config.clone();
-        //     // let trace = trace.clone();
-        //
-        //     let mut sim = super::configure_simulator(&bench)?;
-        //
-        //     let (sim, dur) = tokio::task::spawn_blocking(move || {
-        //         let start = std::time::Instant::now();
-        //         let kernel = Kernel::new(launch_config, trace);
-        //         sim.add_kernel(kernel);
-        //         sim.launch_kernels(0);
-        //         sim.run()?;
-        //         Ok::<_, eyre::Report>((sim, start.elapsed()))
-        //     })
-        //     .await
-        //     .map_err(eyre::Report::from)??;
-        //
-        //     let stats = sim.stats();
-        //     dbg!(&stats.clone().reduce().sim);
-        //     super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition)?;
-        // }
         Ok(total_dur)
     }
 }
