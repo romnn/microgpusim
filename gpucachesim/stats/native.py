@@ -693,6 +693,13 @@ class NvprofStats(common.Stats):
         self._compute_l1_miss_rate()
         self._compute_l1_misses()
 
+        # additional metrics
+        grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
+        self.result_df["dram_bytes_read"] = grouped["dram_read_bytes"].mean()
+        self.result_df["dram_bytes_written"] = grouped["dram_write_bytes"].mean()
+        self.result_df["num_global_stores"] = grouped["gst_transactions"].mean()
+        self.result_df["num_global_loads"] = grouped["gld_transactions"].mean()
+
         # chart_name="L1D Hit Rate",
         # plotfile="l1hitrate",
         # hw_eval="np.average(hw[\"tex_cache_hit_rate\"])",
@@ -759,6 +766,7 @@ class NvprofStats(common.Stats):
         else:
             grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
             sm_count = self.config.num_total_cores
+            print(sm_count)
             self.result_df["cycles"] = grouped["elapsed_cycles_sm"].sum()
             self.result_df["cycles"] /= sm_count
 
@@ -838,6 +846,9 @@ class NvprofStats(common.Stats):
         # print(grouped[[nvprof_key]].sum().head())
         assert (grouped["dram_read_transactions"].mean() == grouped["dram_read_transactions"].sum()).all()
         self.result_df["dram_reads"] = grouped["dram_read_transactions"].mean()
+
+        
+
 
     # def dram_reads(self) -> float:
     #     return self.result_df["dram_reads_mean"].sum()

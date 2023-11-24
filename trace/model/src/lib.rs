@@ -139,6 +139,7 @@ pub struct MemAccessTraceEntry {
     /// We note that addresses are split into different memory adress spaces,
     /// which means that accesses to address 0 should generally not occur.
     pub addrs: [u64; 32],
+    pub thread_indices: [(u32, u32, u32); 32],
 }
 
 impl MemAccessTraceEntry {

@@ -65,12 +65,21 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - overall correlation plots revamped
+  - investigate the increased DRAM writebacks depite saturated L2 cache
+
+    - try a vectoradd without copying back data from device to host
+    - there seems to be a somewhat 50 percent threshold evicting dirty lines from L2
+    - another explanation could be that there are two memory controllers and it has to do with the partition set mapping but that is less likely i think
+    - we defo need the partition set camping
+
+  - fix the results table dram error metric (more robust against outliers and zero and relative)
+
   - interesting questions: how much time do we save with mem only and with exec driven?
-  - compare speed of native, accelsim, serial, mem only, exec driven
+  - compare speed of native, accelsim, serial, mem only, exec driven, parallel
 
-  - DONE: validation plots with/without: top legend, bottom ticks
+  - add averaged section for each parallel table and then a final overall table separately
 
+  - overall correlation plots revamped
   - rerun all the benchmarks for parallel table
 
   - make the basic plots look good for pascal pchase and write it down
@@ -85,6 +94,11 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: why did we get so much slower now
+  - NOPE: how is exec time measured for exec driven? maybe exclude trace generation?
+  - DONE: why did we get so much slower now
+    - one cause: flush l1 and/or launch latency
+  - DONE: validation plots with/without: top legend, bottom ticks
   - DONE: result table with error metrics
   - DONE: better benchmark table
   - DONE: update config for TitanX

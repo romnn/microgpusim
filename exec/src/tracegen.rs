@@ -565,6 +565,7 @@ impl TraceGenerator for Tracer {
                 num_src_regs: 0,
                 active_mask: trace_model::ActiveMask::ZERO,
                 addrs: [0; 32],
+                thread_indices: [(0, 0, 0); 32],
             };
 
             let mut pc = 0;
@@ -647,6 +648,8 @@ impl TraceGenerator for Tracer {
                         if let Some(access) = instructions.get(instr_idx) {
                             instr.active_mask.set(*tid, true);
                             instr.addrs[*tid] = access.addr;
+                            // TODO: find a way to add the thread idx here
+                            // instr.thread_indices[*tid] = access.addr;
                             instr.instr_offset = pc;
 
                             // We assume memory instructions are all data dependant.

@@ -473,6 +473,7 @@ pub fn convert_instruction(
         num_src_regs,
         active_mask: trace_instruction.active_mask,
         addrs: trace_instruction.mem_addresses,
+        thread_indices: [(0, 0, 0); 32],
     }))
 }
 

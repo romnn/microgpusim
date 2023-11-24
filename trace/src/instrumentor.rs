@@ -222,6 +222,15 @@ impl<'c> Instrumentor<'c> {
             };
             let instr_mem_space: trace_model::MemorySpace = convert_mem_space(instr_mem_space);
 
+            let mut thread_indices = [(0, 0, 0); trace_model::WARP_SIZE];
+            for i in 0..trace_model::WARP_SIZE {
+                thread_indices[i] = (
+                    packet.thread_idx_x[i],
+                    packet.thread_idx_y[i],
+                    packet.thread_idx_z[i],
+                );
+            }
+
             let entry = trace_model::MemAccessTraceEntry {
                 cuda_ctx,
                 device_id: packet.device_id,
@@ -251,9 +260,9 @@ impl<'c> Instrumentor<'c> {
                 src_regs: packet.src_regs,
                 num_src_regs: packet.num_src_regs,
                 addrs: packet.addrs,
+                thread_indices,
             };
 
-            // dbg!(&entry);
             rmp_encoder
                 .encode::<trace_model::MemAccessTraceEntry>(&entry)
                 .unwrap();

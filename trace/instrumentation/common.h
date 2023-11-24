@@ -40,6 +40,9 @@ typedef struct {
   uint32_t active_mask;
   uint32_t predicate_mask;
   uint64_t addrs[32];
+  uint32_t thread_idx_x[32];
+  uint32_t thread_idx_y[32];
+  uint32_t thread_idx_z[32];
 
   // register info
   uint32_t dest_regs[MAX_DST];

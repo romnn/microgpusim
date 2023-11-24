@@ -75,6 +75,51 @@ impl AccessKind {
     }
 
     #[must_use]
+    pub fn is_global(self) -> bool {
+        matches!(self, AccessKind::GLOBAL_ACC_R | AccessKind::GLOBAL_ACC_W)
+    }
+
+    #[must_use]
+    pub fn is_local(self) -> bool {
+        matches!(self, AccessKind::LOCAL_ACC_R | AccessKind::LOCAL_ACC_W)
+    }
+
+    #[must_use]
+    pub fn is_texture(self) -> bool {
+        matches!(self, AccessKind::TEXTURE_ACC_R)
+    }
+
+    #[must_use]
+    pub fn is_inst(self) -> bool {
+        matches!(self, AccessKind::INST_ACC_R)
+    }
+
+    #[must_use]
+    pub fn is_const(self) -> bool {
+        matches!(self, AccessKind::CONST_ACC_R)
+    }
+
+    #[must_use]
+    pub fn is_l1_writeback(self) -> bool {
+        matches!(self, AccessKind::L1_WRBK_ACC)
+    }
+
+    #[must_use]
+    pub fn is_l2_writeback(self) -> bool {
+        matches!(self, AccessKind::L2_WRBK_ACC)
+    }
+
+    #[must_use]
+    pub fn is_l2_write_allocate(self) -> bool {
+        matches!(self, AccessKind::L2_WR_ALLOC_R)
+    }
+
+    #[must_use]
+    pub fn is_l1_write_allocate(self) -> bool {
+        matches!(self, AccessKind::L1_WR_ALLOC_R)
+    }
+
+    #[must_use]
     pub fn is_read(self) -> bool {
         !self.is_write()
     }

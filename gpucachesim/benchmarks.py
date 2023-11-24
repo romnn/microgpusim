@@ -111,6 +111,20 @@ STAT_COLS = [
 
 BENCH_TARGET_INDEX_COLS = ["target", "benchmark"]
 
+RATE_COLUMNS = [
+    "l2_hit_rate",
+    "l2_miss_rate",
+    "l2_read_hit_rate",
+    "l2_write_hit_rate",
+    "l2_read_miss_rate",
+    "l2_write_miss_rate",
+    "l2_read_miss_rate",
+    "l2_write_miss_rate",
+    "l1_hit_rate",
+    "l1_global_hit_rate",
+    "l1_local_hit_rate",
+]
+
 NON_NUMERIC_COLS = {
     **{
         "target": "first",

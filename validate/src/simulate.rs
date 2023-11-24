@@ -70,9 +70,9 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
     // dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
     // dbg!(&stats.inner.len());
     for kernel_stats in &stats.inner {
-        dbg!(&kernel_stats.sim);
+        // dbg!(&kernel_stats.sim);
         // dbg!(&kernel_stats.l1d_stats);
-        dbg!(&kernel_stats.l1d_stats.reduce());
+        // dbg!(&kernel_stats.l1d_stats.reduce());
         // dbg!(&kernel_stats.l1d_stats.reduce().num_accesses());
         // dbg!(&kernel_stats
         //     .l1d_stats
@@ -83,8 +83,24 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         // dbg!(&kernel_stats.l2d_stats);
         // dbg!(&kernel_stats.l2d_stats.reduce());
         // dbg!(&kernel_stats.l2d_stats.reduce().num_accesses());
-        dbg!(&kernel_stats.dram.reduce());
+        // dbg!(&kernel_stats.dram.reduce());
         // dbg!(&kernel_stats.sim);
+        eprintln!("SIM: {:#?}", &kernel_stats.sim);
+        eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
+        eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
+        eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+        eprintln!(
+            "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
+            &kernel_stats.l2d_stats.reduce().hit_rate() * 100.0,
+            &kernel_stats.l2d_stats.reduce().num_hits(),
+            &kernel_stats.l2d_stats.reduce().num_accesses(),
+        );
+        eprintln!(
+            "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
+            &kernel_stats.l2d_stats.reduce().write_hit_rate() * 100.0,
+            &kernel_stats.l2d_stats.reduce().num_write_hits(),
+            &kernel_stats.l2d_stats.reduce().num_writes(),
+        );
     }
 
     // let reduced = stats.clone().reduce();

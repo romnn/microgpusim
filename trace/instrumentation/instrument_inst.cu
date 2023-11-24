@@ -57,6 +57,13 @@ instrument_inst(uint32_t pred, uint32_t instr_data_width,
     } else {
       ma.addrs[i] = 0;
     }
+    unsigned volatile tid_x = threadIdx.x;
+    unsigned volatile tid_y = threadIdx.y;
+    unsigned volatile tid_z = threadIdx.z;
+    // %tid.x
+    ma.thread_idx_x[i] = __shfl_sync(active_mask, tid_x, i);
+    ma.thread_idx_y[i] = __shfl_sync(active_mask, tid_y, i);
+    ma.thread_idx_z[i] = __shfl_sync(active_mask, tid_z, i);
   }
 
   int4 block = get_ctaid();

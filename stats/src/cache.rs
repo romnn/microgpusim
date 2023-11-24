@@ -98,6 +98,14 @@ impl AccessStatus {
         )
     }
 
+    pub fn is_global(&self) -> bool {
+        self.kind().is_global()
+    }
+
+    pub fn is_local(&self) -> bool {
+        self.kind().is_local()
+    }
+
     pub fn is_write(&self) -> bool {
         self.kind().is_write()
     }
@@ -365,7 +373,37 @@ impl Cache {
     pub fn num_read_hits(&self) -> usize {
         self.inner
             .iter()
-            .filter(|((_, access), _)| access.is_read() && access.is_hit())
+            .filter(|((_, access), _)| {
+                access.is_read()
+                    && access.is_global()
+                    && (access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_reads(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_read()
+                    && access.is_global()
+                    && (access.is_miss() || access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_writes(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_write()
+                    && access.is_global()
+                    && (access.is_miss() || access.is_hit() || access.is_pending_hit())
+            })
             .map(|(_, count)| count)
             .sum()
     }
@@ -374,7 +412,11 @@ impl Cache {
     pub fn num_write_hits(&self) -> usize {
         self.inner
             .iter()
-            .filter(|((_, access), _)| access.is_write() && access.is_hit())
+            .filter(|((_, access), _)| {
+                access.is_write()
+                    && access.is_global()
+                    && (access.is_hit() || access.is_pending_hit())
+            })
             .map(|(_, count)| count)
             .sum()
     }
@@ -383,9 +425,26 @@ impl Cache {
     pub fn num_hits(&self) -> usize {
         self.inner
             .iter()
-            .filter(|((_, access), _)| access.is_hit())
+            .filter(|((_, access), _)| {
+                access.is_global() && (access.is_hit() || access.is_pending_hit())
+            })
             .map(|(_, count)| count)
             .sum()
+    }
+
+    #[must_use]
+    pub fn hit_rate(&self) -> f32 {
+        self.num_hits() as f32 / self.num_accesses() as f32
+    }
+
+    #[must_use]
+    pub fn write_hit_rate(&self) -> f32 {
+        self.num_write_hits() as f32 / self.num_writes() as f32
+    }
+
+    #[must_use]
+    pub fn read_hit_rate(&self) -> f32 {
+        self.num_read_hits() as f32 / self.num_reads() as f32
     }
 
     #[must_use]

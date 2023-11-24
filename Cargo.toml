@@ -50,7 +50,9 @@ publish = false
 
 [features]
 # default = ["detailed-stats", "parking_lot", "parallel", "deadlock_detection"]
-default = ["detailed-stats", "parking_lot", "parallel", "jemalloc"]
+# default = ["detailed-stats", "parking_lot", "parallel", "jemalloc"]
+# default = ["parking_lot", "parallel", "jemalloc"]
+default = ["parallel"]
 # default = ["parking_lot", "parallel", "deadlock_detection"]
 deadlock_detection = ["parking_lot/deadlock_detection"]
 jemalloc = ["dep:tikv-jemallocator"]

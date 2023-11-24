@@ -196,6 +196,12 @@ pub struct Options {
     )]
     pub baseline: bool,
 
+    #[clap(
+        long = "parallel",
+        help = "run parallel baseline benchmarks (default configuration)"
+    )]
+    pub parallel: bool,
+
     #[clap(subcommand)]
     pub command: Command,
 }

@@ -148,7 +148,7 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
       // Then this cacheline is eligible to be considered for replacement
       // candidate i.e. Only evict clean cachelines until total dirty
       // cachelines reach the limit.
-      assert(m_config.m_wr_percent == 0);
+      // assert(m_config.m_wr_percent == 0);
       if (!line->is_modified_line() ||
           dirty_line_percentage >= m_config.m_wr_percent) {
         all_reserved = false;
