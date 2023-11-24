@@ -147,7 +147,8 @@ benchmarks:
         # - "optimized"
       include:
         - repeat: 1
-    args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"
+    args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat=0"
+    # args: "-variant={{ input.variant }} -dimX={{ input.dim }} -dimY={{ input.dim }} -repeat={{ input.repeat }}"
     simulate:
       traces_dir: "transpose/transpose-dim-{{ input.dim }}-repeat-{{ input.repeat }}-variant-{{ input.variant }}/trace"
       accelsim_traces_dir: "transpose/transpose-dim-{{ input.dim }}-repeat-{{ input.repeat }}-variant-{{ input.variant }}/accelsim-trace"

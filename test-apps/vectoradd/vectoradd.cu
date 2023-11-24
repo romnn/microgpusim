@@ -43,6 +43,8 @@ __global__ void gpucachesim_skip_copy(float *a, float *b, float *dest,
   // const float4* myinput = input+i;
   // asm("ld.global.cv.v4.f32 {%0, %1, %2, %3}, [%4];" : "=f"(val.x),
   // "=f"(val.y), "=f"(val.z), "=f"(val.w) : "l"(myinput));
+
+  // __threadfence_system();
 }
 
 // find largest power of 2
@@ -126,6 +128,8 @@ __global__ void vecAdd(T *a, T *b, T *c, int n) {
     c[id] = a[id] + b[id];
     // c[id] = a[id] + 32.0;
   }
+
+  // __threadfence_system();
 }
 
 template <typename T> int vectoradd(int n) {
@@ -165,7 +169,7 @@ template <typename T> int vectoradd(int n) {
   // Copy host vectors to device
   CUDA_SAFECALL(cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
-  CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
+  // CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
   // invalidate all caches
   // invalidate_caches();

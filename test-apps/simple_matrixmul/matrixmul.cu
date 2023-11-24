@@ -174,6 +174,7 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
     printf("PASS\n");
     return 0;
   }
+
   return 1;
 }
 

@@ -158,8 +158,8 @@ __global__ __noinline__ void global_latency_l1_set_mapping_cc86_host_mapped(
       // index[k] = array[array_length + overflow_index];
     }
     // if (k >= 0 && j == 0) {
-      // overflow the cache now
-      // index[k] = array[array_length + overflow_index];
+    // overflow the cache now
+    // index[k] = array[array_length + overflow_index];
     // }
     if (k >= 0) {
       start_time = clock();
@@ -203,7 +203,6 @@ __global__ __noinline__ void global_latency_l1_set_mapping_pchase_host_mapped(
   array[array_length + 1] = array[j];
 }
 
-
 __global__ __noinline__ void global_latency_l1_set_mapping_random_host_mapped(
     unsigned int *array, int array_length, unsigned int *latency,
     unsigned int *index, int iter_size, int stride, size_t warmup_iterations,
@@ -212,8 +211,9 @@ __global__ __noinline__ void global_latency_l1_set_mapping_random_host_mapped(
   uint32_t j = 0;
 
   // first pass: linear loading
-//bool no_hits = true;
-  for (int k = (int)warmup_iterations * -(int)round_size; k < 1 * (int)round_size; k++) {
+  // bool no_hits = true;
+  for (int k = (int)warmup_iterations * -(int)round_size;
+       k < 1 * (int)round_size; k++) {
     if (k >= 0) {
       start_time = clock();
       j = array[j];
@@ -221,62 +221,63 @@ __global__ __noinline__ void global_latency_l1_set_mapping_random_host_mapped(
       end_time = clock();
 
       latency[k] = end_time - start_time;
-      //if (latency[k] <= 100) {
-//	 no_hits = false;
+      // if (latency[k] <= 100) {
+      //	 no_hits = false;
       //}
     } else {
       j = array[j];
     }
   }
-  //assert(no_hits && "no hits during loading");
+  // assert(no_hits && "no hits during loading");
 
   // accesses until cache miss starting at overflow index
   /*
-	  cache_miss = false;
+          cache_miss = false;
   size_t attempt = 0;
   while (!cache_miss) {
-	  float index = curand_uniform(overflow_index * iter_size + attempt);
-	  index
-	  attempt++;
+          float index = curand_uniform(overflow_index * iter_size + attempt);
+          index
+          attempt++;
   }
   */
-// int latency2;
-bool have_miss = false;
-/*
-  for (int i = 0; i < overflow_index / stride; i++) {
-	j = array[j];
-  }
-  */
-j = overflow_index;
-  for (int k = 1 * (int)round_size + (int)overflow_index / stride; k < 3 * (int)round_size; k++) {
-	start_time = clock();
-	j = array[j];
-	index[k] = j;
-	end_time = clock();
+  // int latency2;
+  bool have_miss = false;
+  /*
+    for (int i = 0; i < overflow_index / stride; i++) {
+          j = array[j];
+    }
+    */
+  j = overflow_index;
+  for (int k = 1 * (int)round_size + (int)overflow_index / stride;
+       k < 3 * (int)round_size; k++) {
+    start_time = clock();
+    j = array[j];
+    index[k] = j;
+    end_time = clock();
 
-	// latency2 = end_time - start_time;
-	latency[k] = end_time - start_time;
-	if (latency[k] > 100) {
-		have_miss = true;
-		break;
-	}
+    // latency2 = end_time - start_time;
+    latency[k] = end_time - start_time;
+    if (latency[k] > 100) {
+      have_miss = true;
+      break;
+    }
   }
 
   // assert(have_miss && "have miss");
   if (!have_miss) {
-	  // return;
+    // return;
   }
 
-// second pass: linear loading
+  // second pass: linear loading
   j = 0;
   for (int k = 3 * (int)round_size; k < (int)iter_size; k++) {
     // if (k >= 0) {
-	start_time = clock();
-	j = array[j];
-	index[k] = j;
-	end_time = clock();
+    start_time = clock();
+    j = array[j];
+    index[k] = j;
+    end_time = clock();
 
-	latency[k] = end_time - start_time;
+    latency[k] = end_time - start_time;
     // }
   }
 
@@ -317,8 +318,7 @@ __global__ __noinline__ void global_latency_l2_set_mapping_host_mapped(
 int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
                               size_t N, size_t stride, size_t iter_size,
                               size_t warmup_iterations, size_t repetition,
-                              size_t compute_capability,
-                              bool random,
+                              size_t compute_capability, bool random,
                               unsigned int clock_overhead,
                               unsigned int overflow_index) {
   // initialize array elements on CPU with pointers into d_a
@@ -326,7 +326,6 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
     h_a[i] = (i + stride) % N;
   }
 
-  
   /*
   if (random) {
     const unsigned long seed = 0;
@@ -338,9 +337,9 @@ int parametric_measure_global(unsigned int *h_a, unsigned int *d_a, memory mem,
   assert(N % stride == 0);
   size_t round_size = N / stride;
 
-if (random) {
-  assert(iter_size >= 4 * round_size);
-assert(overflow_index / stride <= round_size);
+  if (random) {
+    assert(iter_size >= 4 * round_size);
+    assert(overflow_index / stride <= round_size);
   }
 
   h_a[N] = 0;
@@ -435,27 +434,29 @@ assert(overflow_index / stride <= round_size);
               d_a, N, d_latency, d_index, iter_size, warmup_iterations,
               overflow_index)));
     } else if (USE_HOST_MAPPED_MEMORY && compute_capability == 86) {
-	    if (random) {
-	CUDA_CHECK((global_latency_l1_set_mapping_random_host_mapped<<<grid_dim,
-                                                                   block_dim>>>(
-          d_a, N, d_latency, d_index, iter_size, stride, warmup_iterations, round_size,
-          overflow_index)));
-	    } else if (INC_SIZE) {
-      CUDA_CHECK((global_latency_l1_set_mapping_pchase_host_mapped<<<grid_dim,
-                                                                   block_dim>>>(
-          d_a, N, d_latency, d_index, iter_size, warmup_iterations, round_size,
-          overflow_index)));
-	    } else {
-   CUDA_CHECK((global_latency_l1_set_mapping_cc86_host_mapped<<<grid_dim,
-                                                                   block_dim>>>(
-          d_a, N, d_latency, d_index, iter_size, warmup_iterations, round_size,
-          overflow_index)));
-	    }
+      if (random) {
+        CUDA_CHECK(
+            (global_latency_l1_set_mapping_random_host_mapped<<<grid_dim,
+                                                                block_dim>>>(
+                d_a, N, d_latency, d_index, iter_size, stride,
+                warmup_iterations, round_size, overflow_index)));
+      } else if (INC_SIZE) {
+        CUDA_CHECK((global_latency_l1_set_mapping_pchase_host_mapped<<<
+                        grid_dim, block_dim>>>(d_a, N, d_latency, d_index,
+                                               iter_size, warmup_iterations,
+                                               round_size, overflow_index)));
+      } else {
+        CUDA_CHECK((global_latency_l1_set_mapping_cc86_host_mapped<<<
+                        grid_dim, block_dim>>>(d_a, N, d_latency, d_index,
+                                               iter_size, warmup_iterations,
+                                               round_size, overflow_index)));
+      }
     } else {
       CUDA_CHECK(
           (global_latency_l1_set_mapping_shared_memory<<<grid_dim, block_dim>>>(
               d_a, N, d_latency, d_index, iter_size, warmup_iterations,
-              overflow_index))); }
+              overflow_index)));
+    }
     break;
   default:
     assert(false && "error dispatching to memory");
@@ -506,8 +507,8 @@ assert(overflow_index / stride <= round_size);
     break;
   default:
     for (size_t k = 0; k < iter_size; k++) {
-	unsigned int index = indexof(h_a, N, h_index[k]);
-	assert(index < N);
+      unsigned int index = indexof(h_a, N, h_index[k]);
+      assert(index < N);
       unsigned int latency = (int)h_latency[k] - (int)clock_overhead;
       unsigned long long virt_addr =
           (unsigned long long)d_a +
@@ -553,7 +554,7 @@ int main(int argc, char *argv[]) {
   if (compute_capability_env != NULL) {
     compute_capability = (size_t)atoi(compute_capability_env);
   }
-bool random = false;
+  bool random = false;
   if (random_env != NULL) {
     random = true;
   }
@@ -648,13 +649,13 @@ bool random = false;
   size_t start_size_bytes = size_bytes;
   size_t end_size_bytes = size_bytes;
   if (INC_SIZE && compute_capability == 86) {
-	  end_size_bytes = 3 * size_bytes;
+    end_size_bytes = 3 * size_bytes;
   }
   size_t start_size = start_size_bytes / sizeof(uint32_t);
   size_t end_size = end_size_bytes / sizeof(uint32_t);
   size_t size = end_size;
 
-	if (USE_HOST_MAPPED_MEMORY) {
+  if (USE_HOST_MAPPED_MEMORY) {
     if (iter_size == (size_t)-1) {
       // default to 4 rounds through N
       iter_size = end_size_bytes * 4;
@@ -662,7 +663,6 @@ bool random = false;
   } else {
     iter_size = std::min(iter_size, MAX_SHARED_MEM_ITER_SIZE);
   }
-
 
   if (size_bytes < 1) {
     fprintf(stderr, "ERROR: size is too small (%lu)\n", size_bytes);
@@ -706,31 +706,31 @@ bool random = false;
   fprintf(stdout, "r,n,overflow_index,k,index,virt_addr,latency\n");
 
   if (INC_SIZE && compute_capability == 86) {
-	  size_t overflow_index = 0;
-	for (unsigned int size = start_size; size < end_size; size += stride) {
-	  for (size_t r = 0; r < repetitions; r++) {
-	      exit_code = parametric_measure_global(
-		  h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
-		  compute_capability, random, clock_overhead, overflow_index);
-	      if (exit_code != EXIT_SUCCESS) {
-		break;
-	      }
-	    }
-		overflow_index += stride;
-	  }
+    size_t overflow_index = 0;
+    for (unsigned int size = start_size; size < end_size; size += stride) {
+      for (size_t r = 0; r < repetitions; r++) {
+        exit_code = parametric_measure_global(
+            h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
+            compute_capability, random, clock_overhead, overflow_index);
+        if (exit_code != EXIT_SUCCESS) {
+          break;
+        }
+      }
+      overflow_index += stride;
+    }
 
   } else {
-	  for (unsigned int overflow_index = 0; overflow_index < size;
-		 overflow_index += stride) {
-	  for (size_t r = 0; r < repetitions; r++) {
-	      exit_code = parametric_measure_global(
-		  h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
-		  compute_capability, random, clock_overhead, overflow_index);
-	      if (exit_code != EXIT_SUCCESS) {
-		break;
-	      }
-	    }
-	  }
+    for (unsigned int overflow_index = 0; overflow_index < size;
+         overflow_index += stride) {
+      for (size_t r = 0; r < repetitions; r++) {
+        exit_code = parametric_measure_global(
+            h_a, d_a, mem, size, stride, iter_size, warmup_iterations, r,
+            compute_capability, random, clock_overhead, overflow_index);
+        if (exit_code != EXIT_SUCCESS) {
+          break;
+        }
+      }
+    }
   }
 
   cudaFree(d_a);

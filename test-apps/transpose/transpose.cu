@@ -86,6 +86,8 @@ __global__ void copy(float *odata, float *idata, int width, int height) {
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index + i * width] = idata[index + i * width];
   }
+
+  // __threadfence_system();
 }
 
 __global__ void copySharedMem(float *odata, float *idata, int width,
@@ -112,6 +114,8 @@ __global__ void copySharedMem(float *odata, float *idata, int width,
       odata[index] = tile[threadIdx.y][threadIdx.x];
     }
   }
+
+  // __threadfence_system();
 }
 
 // -------------------------------------------------------
@@ -121,6 +125,9 @@ __global__ void copySharedMem(float *odata, float *idata, int width,
 
 __global__ void transposeNaive(float *odata, float *idata, int width,
                                int height) {
+  assert(TILE_DIM == blockDim.x);
+  assert(BLOCK_ROWS == blockDim.y);
+  assert(TILE_DIM == BLOCK_ROWS);
   int xIndex = blockIdx.x * TILE_DIM + threadIdx.x;
   int yIndex = blockIdx.y * TILE_DIM + threadIdx.y;
 
@@ -128,8 +135,14 @@ __global__ void transposeNaive(float *odata, float *idata, int width,
   int index_out = yIndex + height * xIndex;
 
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
+    // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
+    //   printf("thread (%3d, %3d, %3d): odata[%d] = idata[%d]\n", threadIdx.x,
+    //          threadIdx.y, threadIdx.z, index_out + i, index_in + i * width);
+    // }
     odata[index_out + i] = idata[index_in + i * width];
   }
+
+  // __threadfence_system();
 }
 
 // coalesced transpose (with bank conflicts)
@@ -157,6 +170,8 @@ __global__ void transposeCoalesced(float *odata, float *idata, int width,
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index_out + i * height] = tile[threadIdx.x][threadIdx.y + i];
   }
+
+  // __threadfence_system();
 }
 
 // Coalesced transpose with no bank conflicts
@@ -184,6 +199,8 @@ __global__ void transposeNoBankConflicts(float *odata, float *idata, int width,
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index_out + i * height] = tile[threadIdx.x][threadIdx.y + i];
   }
+
+  // __threadfence_system();
 }
 
 // Transpose that effectively reorders execution of thread blocks along
@@ -236,6 +253,8 @@ __global__ void transposeDiagonal(float *odata, float *idata, int width,
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index_out + i * height] = tile[threadIdx.x][threadIdx.y + i];
   }
+
+  // __threadfence_system();
 }
 
 // --------------------------------------------------------------------
@@ -266,6 +285,8 @@ __global__ void transposeFineGrained(float *odata, float *idata, int width,
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index + i * height] = block[threadIdx.x][threadIdx.y + i];
   }
+
+  // __threadfence_system();
 }
 
 __global__ void transposeCoarseGrained(float *odata, float *idata, int width,
@@ -291,6 +312,8 @@ __global__ void transposeCoarseGrained(float *odata, float *idata, int width,
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
     odata[index_out + i * height] = block[threadIdx.y + i][threadIdx.x];
   }
+
+  // __threadfence_system();
 }
 
 // ---------------------

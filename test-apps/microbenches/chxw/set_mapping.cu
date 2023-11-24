@@ -133,7 +133,7 @@ __global__ __noinline__ void global_latency_l1_set_mapping_cc86_host_mapped(
   array[array_length] = j;
   array[array_length + 1] = array[j];
 
-  __threadfence_system();
+  // __threadfence_system();
 }
 
 __global__ __noinline__ void global_latency_l2_set_mapping_host_mapped(

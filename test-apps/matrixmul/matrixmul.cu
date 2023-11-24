@@ -203,6 +203,8 @@ __global__ void mult_gpu(T *A, T *B, T *C, int wA, int wB) {
       C[c + wB * (ty + 112) + tx] = Csub[14];
       C[c + wB * (ty + 120) + tx] = Csub[15];
   */
+
+  // __threadfence_system();
 }
 
 template <typename T> int matrixmul(int MROW) {
