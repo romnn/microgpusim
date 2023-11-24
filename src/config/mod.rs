@@ -156,7 +156,7 @@ impl Cache {
     // #[inline]
     #[must_use]
     pub fn total_bytes(&self) -> usize {
-        self.line_size as usize * self.num_sets * self.associativity
+        self.total_lines() * self.line_size as usize
     }
 
     /// Number of lines in total.
@@ -177,7 +177,8 @@ impl Cache {
     // #[inline]
     #[must_use]
     pub fn max_cache_multiplier(&self) -> u8 {
-        MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
+        1
+        // MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
     }
 
     // // #[inline]
@@ -389,7 +390,7 @@ pub struct GPU {
     /// Deadlock check
     pub deadlock_check: bool,
     /// Deadlock check
-    pub l2_prefetch_percent: f32,
+    pub l2_prefetch_percent: Option<f32>,
 
     pub memory_controller_unit: std::sync::OnceLock<mcu::MemoryControllerUnit>,
     /// The SM number to pass to ptxas when getting register usage for
@@ -997,7 +998,8 @@ impl Default for GPU {
             simulate_clock_domains: false,
             simulation_threads: None,
             deadlock_check: false,
-            l2_prefetch_percent: 90.0, // for TitanX
+            // l2_prefetch_percent: None, // for TitanX
+            l2_prefetch_percent: Some(90.0), // for TitanX
             // l2_prefetch_percent: 25.0, // for GTX 1080
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
@@ -1125,6 +1127,7 @@ impl Default for GPU {
                     // num_sets: 64,
                     // num_memory_controllers=8 * num_sub_partitions_per_memory_controller=2 = 16
                     // 16 * 64 * 128 * 16 = 2097152 = 2MiB
+                    // 64 * 128 * 16 / 128 = 64 * 16 = 1024 lines per slice
                     num_sets: 64,
                     line_size: 128,
                     associativity: 16,
@@ -1155,7 +1158,7 @@ impl Default for GPU {
             registers_per_block: 8192,
             ignore_resources_limitation: false,
             max_concurrent_blocks_per_core: 32,
-            kernel_launch_latency: 5000,
+            kernel_launch_latency: 0, // 5000,
             block_launch_latency: 0,
             max_barriers_per_block: 16,
             num_simt_clusters: 28, // 20 for GTX1080
@@ -1275,7 +1278,7 @@ impl Default for GPU {
             memory_partition_indexing: MemoryPartitionIndexingScheme::Consecutive,
             compute_capability_major: 7,
             compute_capability_minor: 0,
-            flush_l1_cache: true,
+            flush_l1_cache: false,
             flush_l2_cache: false,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config
@@ -1467,9 +1470,11 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn is_baseline(&self) -> bool {
+    pub fn is_baseline(&self, parallel: bool) -> bool {
         let mut is_baseline = true;
-        is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
+        if !parallel {
+            is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
+        }
         is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
         is_baseline &= matches!(self.num_clusters, Some(28) | None);
         // is_baseline &= matches!(self.memory_only, Some(false) | None);

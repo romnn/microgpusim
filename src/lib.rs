@@ -53,7 +53,6 @@ use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
 use kernel::Kernel;
-use once_cell::sync::Lazy;
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
@@ -169,12 +168,13 @@ pub const STATIC_ALLOC_LIMIT: u64 = GLOBAL_HEAP_START - (TOTAL_LOCAL_MEM + TOTAL
 /// Note: should be distinct from other memory spaces.
 pub const PROGRAM_MEM_START: usize = 0xF000_0000;
 
-pub static PROGRAM_MEM_ALLOC: Lazy<Allocation> = Lazy::new(|| Allocation {
-    name: Some("PROGRAM_MEM".to_string()),
-    id: 0,
-    start_addr: PROGRAM_MEM_START as address,
-    end_addr: None,
-});
+pub static PROGRAM_MEM_ALLOC: once_cell::sync::Lazy<Allocation> =
+    once_cell::sync::Lazy::new(|| Allocation {
+        name: Some("PROGRAM_MEM".to_string()),
+        id: 0,
+        start_addr: PROGRAM_MEM_START as address,
+        end_addr: None,
+    });
 
 #[must_use]
 pub fn is_debug() -> bool {
@@ -245,29 +245,33 @@ impl TotalDuration {
 pub static TIMINGS: once_cell::sync::Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
     once_cell::sync::Lazy::new(|| Mutex::new(HashMap::default()));
 
-#[derive(Debug)]
-pub struct WIPStats {
-    pub issued_instructions: u64,
-    pub executed_instructions: u64,
-    pub warp_instructions: u64,
-    pub num_warps: u64,
-    pub warps_per_core: Vec<u64>,
-}
+pub mod wip_stats {
+    use crate::sync::Mutex;
 
-impl Default for WIPStats {
-    fn default() -> Self {
-        Self {
-            issued_instructions: 0,
-            executed_instructions: 0,
-            warp_instructions: 0,
-            num_warps: 0,
-            warps_per_core: vec![0; 20 * 8],
+    #[derive(Debug)]
+    pub struct WIPStats {
+        pub issued_instructions: u64,
+        pub executed_instructions: u64,
+        pub warp_instructions: u64,
+        pub num_warps: u64,
+        pub warps_per_core: Vec<u64>,
+    }
+
+    impl Default for WIPStats {
+        fn default() -> Self {
+            Self {
+                issued_instructions: 0,
+                executed_instructions: 0,
+                warp_instructions: 0,
+                num_warps: 0,
+                warps_per_core: vec![0; 20 * 8],
+            }
         }
     }
-}
 
-pub static WIP_STATS: once_cell::sync::Lazy<Mutex<WIPStats>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(WIPStats::default()));
+    pub static WIP_STATS: once_cell::sync::Lazy<Mutex<WIPStats>> =
+        once_cell::sync::Lazy::new(|| Mutex::new(WIPStats::default()));
+}
 
 #[macro_export]
 macro_rules! timeit {
@@ -1223,7 +1227,41 @@ where
         );
         // let alloc_range = addr..(addr + num_bytes);
         // self.allocations.write().insert(alloc_range, name);
-        //
+
+        let print_cache = |sim: &Self| {
+            let mut num_total_lines = 0;
+            let mut num_total_lines_used = 0;
+            let num_sub_partitions = sim.mem_sub_partitions.len();
+            for (_, sub) in sim.mem_sub_partitions.iter().enumerate() {
+                let sub = sub.lock();
+                if let Some(ref l2_cache) = sub.l2_cache {
+                    let num_lines_used = l2_cache.num_used_lines();
+                    let num_lines = l2_cache.num_total_lines();
+                    println!(
+                        "sub {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+                        sub.id,
+                        num_sub_partitions,
+                        num_lines_used,
+                        num_lines,
+                        num_lines_used as f32 / num_lines as f32 * 100.0,
+                        human_bytes::human_bytes(num_lines_used as f64 * 128.0),
+                    );
+                    num_total_lines += num_lines;
+                    num_total_lines_used += num_lines_used;
+                }
+            }
+            println!(
+                "Total L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+                num_total_lines_used,
+                num_total_lines,
+                num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
+                human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
+            );
+            for kernel_stats in sim.stats().as_ref() {
+                eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+            }
+        };
+
         if self.config.fill_l2_on_memcopy {
             if self.config.accelsim_compat {
                 let chunk_size: u64 = 32;
@@ -1234,10 +1272,47 @@ where
                 }
             } else {
                 if let Some(ref l2_cache) = self.config.data_cache_l2 {
-                    println!("l2 cache prefill {} bytes", num_bytes);
-                    let percent = (num_bytes as f32 / l2_cache.inner.total_bytes() as f32) * 100.0;
-                    if percent <= self.config.l2_prefetch_percent {
+                    let l2_cache_size_bytes =
+                        self.mem_sub_partitions.len() * l2_cache.inner.total_bytes();
+                    let percent = (num_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
+
+                    let should_prefetch = self
+                        .config
+                        .l2_prefetch_percent
+                        .map(|l2_prefetch_percent| percent <= l2_prefetch_percent)
+                        .unwrap_or(true);
+
+                    // find allocation
+                    let allocation_id = self
+                        .allocations
+                        .read()
+                        .iter()
+                        .find(|(_, alloc)| alloc.start_addr == addr)
+                        .map(|(_, alloc)| alloc.id)
+                        .unwrap();
+                    // let should_prefetch = allocation_id == 3;
+                    let should_prefetch = allocation_id != 3;
+
+                    println!(
+                        "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
+                        human_bytes::human_bytes(num_bytes as f64),
+                        human_bytes::human_bytes(l2_cache_size_bytes as f64),
+                        percent,
+                        self.config.l2_prefetch_percent,
+                        allocation_id,
+                        should_prefetch,
+                    );
+
+                    print_cache(self);
+
+                    if should_prefetch {
                         self.fill_l2_transaction(addr, num_bytes, cycle);
+                    }
+
+                    print_cache(self);
+
+                    if allocation_id == 2 {
+                        panic!("test");
                     }
                 }
             }
@@ -1297,7 +1372,7 @@ where
             let dest_mem_device = self.config.mem_id_to_device_id(dest_sub_partition_id);
             let packet_size = fetch.control_size();
 
-            log::info!("push transaction: {fetch} to device {dest_mem_device} (cluster_id={:?}, core_id={:?})", fetch.cluster_id, fetch.core_id);
+            log::debug!("push transaction: {fetch} to device {dest_mem_device} (cluster_id={:?}, core_id={:?})", fetch.cluster_id, fetch.core_id);
 
             self.interconn.push(
                 0,
@@ -1336,8 +1411,9 @@ where
                     };
                     let device = self.config.mem_id_to_device_id(sub_id);
                     if self.interconn.has_buffer(device, response_packet_size) {
-                        let fetch = mem_sub.pop().unwrap();
-                        println!("l2 fill fetch: {}", &fetch);
+                        mem_sub.pop().unwrap();
+                        // let fetch = mem_sub.pop().unwrap();
+                        // println!("l2 fill fetch: {}", &fetch);
                         // if let Some(cluster_id) = fetch.cluster_id {
                         //     fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
                         //     log::trace!(
@@ -1469,7 +1545,7 @@ where
             // dbg!(self.active());
         }
 
-        dbg!(new_cycle - cycle);
+        log::debug!("new cycle: {}", new_cycle - cycle);
 
         // let mut active_clusters = utils::box_slice![false; self.clusters.len()];
         // for (cluster_id, cluster) in self.clusters.iter().enumerate() {
@@ -1892,6 +1968,15 @@ where
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
             self.launch_kernels(cycle);
+
+            // log::info!("MAMMAMIA PLS");
+            // for (kernel_launch_id, kernel_stats) in self.stats().as_ref().iter().enumerate() {
+            //     log::info!(
+            //         "MAMMAMIA KERNEL {} DRAM: {:#?}",
+            //         kernel_launch_id,
+            //         &kernel_stats.dram.reduce()
+            //     );
+            // }
 
             let mut finished_kernel = None;
             loop {

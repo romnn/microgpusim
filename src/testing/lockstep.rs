@@ -464,6 +464,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             .cores_per_cluster
             .unwrap_or(box_sim.config.num_cores_per_simt_cluster)
             .to_string(),
+        "-gpgpu_perf_sim_memcpy".to_string(),
+        "0".to_string(),
     ];
 
     dbg!(&args);
@@ -1050,6 +1052,7 @@ lockstep_checks! {
     vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000  }),
     vectoradd_32_10000_test: ("vectorAdd", { "dtype": 32, "length": 10000 }),
     vectoradd_64_10000_test: ("vectorAdd", { "dtype": 64, "length": 10000 }),
+    vectoradd_64_20000_test: ("vectorAdd", { "dtype": 64, "length": 20000 }),
 
     // simple matrixmul
     simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),

@@ -26,9 +26,6 @@ pub enum Kind {
     WRITE_ACK,
 }
 
-// impl From<Kind> for stats::mem::RequestKind {
-// }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Status {
     INITIALIZED,
@@ -253,7 +250,15 @@ pub mod access {
         #[must_use]
         pub fn build(self) -> MemAccess {
             if let Some(ref alloc) = self.allocation {
-                debug_assert!(alloc.start_addr <= self.addr);
+                // TODO: this does not always hold: find out why
+                // debug_assert!(alloc.start_addr <= self.addr);
+                if alloc.start_addr > self.addr {
+                    log::warn!(
+                        "bad alloc: addr={} but start addr of allocation is {}",
+                        self.addr,
+                        alloc.start_addr
+                    );
+                }
             }
             assert_eq!(self.kind.is_write(), self.is_write);
             MemAccess {

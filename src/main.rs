@@ -115,26 +115,51 @@ fn main() -> eyre::Result<()> {
         ),
     };
 
-    let config = gpucachesim::config::GPU {
-        num_simt_clusters: options.num_clusters.unwrap_or(28), // 20
-        num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1),
-        num_schedulers_per_core: 4,                  // 4
-        num_memory_controllers: 12,                  // 8
-        num_dram_chips_per_memory_controller: 1,     // 1
-        num_sub_partitions_per_memory_controller: 2, // 2
-        simulate_clock_domains: options.simulate_clock_domains.unwrap_or(false),
-        fill_l2_on_memcopy: options.fill_l2.unwrap_or(false),
-        flush_l1_cache: options.flush_l1.unwrap_or(true),
-        flush_l2_cache: options.flush_l2.unwrap_or(false),
-        accelsim_compat: options.accelsim_compat_mode.unwrap_or(false),
-        memory_only: options.memory_only.unwrap_or(false),
+    let mut config = gpucachesim::config::GPU {
+        // num_simt_clusters: options.num_clusters.unwrap_or(28),
+        // num_cores_per_simt_cluster: options.cores_per_cluster.unwrap_or(1),
+        // num_schedulers_per_core: 4,                  // 4
+        // num_memory_controllers: 12,                  // 8
+        // num_dram_chips_per_memory_controller: 1,     // 1
+        // num_sub_partitions_per_memory_controller: 2, // 2
+        // simulate_clock_domains: options.simulate_clock_domains.unwrap_or(false),
+        // fill_l2_on_memcopy: options.fill_l2.unwrap_or(false),
+        // flush_l1_cache: options.flush_l1.unwrap_or(false),
+        // flush_l2_cache: options.flush_l2.unwrap_or(false),
+        // accelsim_compat: options.accelsim_compat_mode.unwrap_or(false),
+        // memory_only: options.memory_only.unwrap_or(false),
         parallelization,
         deadlock_check,
         log_after_cycle,
         simulation_threads: options.num_threads,
         ..gpucachesim::config::GPU::default()
     };
+    if let Some(num_simt_clusters) = options.num_clusters {
+        config.num_simt_clusters = num_simt_clusters;
+    }
+    if let Some(num_cores_per_simt_cluster) = options.cores_per_cluster {
+        config.num_cores_per_simt_cluster = num_cores_per_simt_cluster
+    }
+    if let Some(simulate_clock_domains) = options.simulate_clock_domains {
+        config.simulate_clock_domains = simulate_clock_domains;
+    }
+    if let Some(fill_l2) = options.fill_l2 {
+        config.fill_l2_on_memcopy = fill_l2;
+    }
+    if let Some(flush_l1) = options.flush_l1 {
+        config.flush_l1_cache = flush_l1;
+    }
+    if let Some(flush_l2) = options.flush_l2 {
+        config.flush_l2_cache = flush_l2;
+    }
+    if let Some(accelsim_compat_mode) = options.accelsim_compat_mode {
+        config.accelsim_compat = accelsim_compat_mode;
+    }
+    if let Some(memory_only) = options.memory_only {
+        config.memory_only = memory_only;
+    }
 
+    dbg!(&config.accelsim_compat);
     dbg!(&config.memory_only);
     dbg!(&config.num_schedulers_per_core);
     dbg!(&config.num_simt_clusters);
@@ -162,6 +187,24 @@ fn main() -> eyre::Result<()> {
         eprintln!("L1I: {:#?}", &kernel_stats.l1i_stats.reduce());
         eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
         eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+        eprintln!(
+            "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
+            &kernel_stats.l2d_stats.reduce().hit_rate() * 100.0,
+            &kernel_stats.l2d_stats.reduce().num_hits(),
+            &kernel_stats.l2d_stats.reduce().num_accesses(),
+        );
+        eprintln!(
+            "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
+            &kernel_stats.l2d_stats.reduce().write_hit_rate() * 100.0,
+            &kernel_stats.l2d_stats.reduce().num_write_hits(),
+            &kernel_stats.l2d_stats.reduce().num_writes(),
+        );
+        eprintln!(
+            "L2D read hit rate: {:4.2}% ({} read hits / {} reads)",
+            &kernel_stats.l2d_stats.reduce().read_hit_rate() * 100.0,
+            &kernel_stats.l2d_stats.reduce().num_read_hits(),
+            &kernel_stats.l2d_stats.reduce().num_reads(),
+        );
     }
     eprintln!("completed in {:?}", start.elapsed());
     Ok(())

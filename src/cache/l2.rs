@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
 pub struct L2DataCacheController<MC, CC> {
+    accelsim_compat: bool,
     memory_controller: MC,
     cache_controller: CC,
 }
@@ -27,9 +28,11 @@ where
 
     // #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        #[allow(unused_variables)]
-        let partition_addr = addr;
-        let partition_addr = self.memory_controller.memory_partition_address(addr);
+        let partition_addr = if true || self.accelsim_compat {
+            self.memory_controller.memory_partition_address(addr)
+        } else {
+            addr
+        };
         // println!("partition address for addr {} is {}", addr, partition_addr);
         self.cache_controller.set_index(partition_addr)
     }
@@ -74,8 +77,8 @@ impl DataL2 {
         let default_cache_controller = cache::controller::pascal::DataCacheController::new(
             cache::Config::new(cache_config.inner.as_ref(), config.accelsim_compat),
         );
-        // let cache_controller = default_cache_controller;
         let cache_controller = L2DataCacheController {
+            accelsim_compat: config.accelsim_compat,
             memory_controller: mem_controller.clone(),
             cache_controller: default_cache_controller,
         };
@@ -193,6 +196,14 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     fn invalidate(&mut self) {
         self.inner.invalidate();
     }
+
+    fn num_used_lines(&self) -> usize {
+        self.inner.inner.tag_array.num_used_lines()
+    }
+
+    fn num_total_lines(&self) -> usize {
+        self.inner.inner.tag_array.num_total_lines()
+    }
 }
 
 impl super::Bandwidth for DataL2 {
@@ -222,6 +233,7 @@ mod tests {
             crate::cache::Config::new(l2_cache_config.as_ref(), accelsim_compat),
         );
         let l2_cache_controller = super::L2DataCacheController {
+            accelsim_compat: false,
             memory_controller,
             cache_controller,
         };

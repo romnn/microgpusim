@@ -105,6 +105,7 @@ pub struct PerThreadInfo {
     /// 8 chunks of 4B each.
     /// Note that "no memory request" is encoded as the zero address.
     pub mem_req_addr: [address; MAX_ACCESSES_PER_THREAD_INSTRUCTION],
+    pub thread_idx: (u32, u32, u32),
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -692,13 +693,15 @@ impl WarpInstruction {
                 // if let Some(l1_tex) = &config.tex_cache_l1 {
                 //     cache_block_size_bytes = l1_tex.line_size;
                 // }
-                None
+                todo!("texture");
+                // None
             }
             Some(MemorySpace::Constant) => {
                 // if let Some(l1_const) = &config.const_cache_l1 {
                 //     cache_block_size_bytes = l1_const.line_size;
                 // }
-                None
+                todo!("constant");
+                // None
             }
             Some(MemorySpace::Global | MemorySpace::Local) => {
                 let access_kind = self.access_kind().expect("has access kind");
@@ -743,7 +746,7 @@ impl WarpInstruction {
             coalescing_arch >= 40
         };
 
-        // If `use_sector_segment_size` is false,
+        // dbg!(&self.data_size);
         let segment_size = match self.data_size {
             1 => 32,
             2 if use_sector_segment_size => 32,
@@ -753,6 +756,8 @@ impl WarpInstruction {
             size => panic!("invalid data size {size}"),
         };
         let subwarp_size = config.warp_size / warp_parts;
+        // dbg!(&warp_parts);
+        // dbg!(&segment_size);
         log::trace!(
             "memory_coalescing_arch {:?}: segment size={} subwarp size={}",
             access_kind,
@@ -769,10 +774,12 @@ impl WarpInstruction {
                 let thread_id = subwarp * subwarp_size + i;
                 let thread = &self.threads[thread_id];
                 log::trace!(
-                    "memory_coalescing_arch {:?}: checking thread {} active={} request addresses={:?}",
+                // println!(
+                    "memory_coalescing_arch {:?}: checking thread {:<2} tid={:?} active={:<5} request addresses={:?}",
                     access_kind,
                     thread_id,
-                    self.active_mask[thread_id],
+                    thread.thread_idx,
+                    self.active_mask[thread_id].to_string(),
                     thread.mem_req_addr,
                 );
 
@@ -783,6 +790,7 @@ impl WarpInstruction {
                 let mut num_accesses = 1;
 
                 if self.memory_space == Some(MemorySpace::Local) {
+                    dbg!("have local mem");
                     // Local memory accesses >4B were split into 4B chunks
                     if self.data_size >= 4 {
                         data_size_coalesced = 4;
@@ -847,6 +855,17 @@ impl WarpInstruction {
             // sort for deterministic ordering: add smallest addresses first
             subwarp_accesses.sort_by_key(|(block_addr, _)| *block_addr);
 
+            for (block_addr, subwarp_access) in &subwarp_accesses {
+                use trace_model::ToBitString;
+                log::trace!(
+                    "{:>18}: chunk={:>4} byte={:<128} activemask={:<32}",
+                    block_addr,
+                    subwarp_access.chunk_mask[..4].to_bit_string(),
+                    subwarp_access.byte_mask[..128].to_bit_string(),
+                    subwarp_access.active_mask[..32].to_bit_string(),
+                )
+            }
+
             // step 2: reduce each transaction size, if possible
             accesses.extend(
                 subwarp_accesses
@@ -866,12 +885,21 @@ impl WarpInstruction {
                 self.active_mask.not_any() || !accesses.is_empty(),
                 "active memory instruction must coalesce to at least one access"
             );
-            log::debug!(
-                "coalesced warp instruction {self} into {} transactions: {:?}",
-                accesses.len(),
-                accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
-            );
         }
+        let active_thread_count = self.active_mask.count_ones();
+        let mean_transaction_size = active_thread_count as f32 / accesses.len() as f32;
+        log::debug!(
+            "coalesced warp instruction {self} into {} transactions (transaction size={:2.2}): {:?}",
+            accesses.len(),
+            mean_transaction_size,
+            accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
+        );
+        // println!(
+        //     "coalesced warp instruction {self} into {} transactions (transaction size={:2.2})",
+        //     accesses.len(),
+        //     mean_transaction_size,
+        //     self.active_mask.count_ones() as f32 / accesses.len() as f32,
+        // );
         accesses
     }
 

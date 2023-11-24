@@ -396,6 +396,7 @@ where
                 // the cache line is eligible to be considered for replacement candidate
                 //
                 // i.e. only evict clean cache lines until total dirty cache lines reach the limit.
+                // dbg!(dirty_line_percent, self.max_dirty_cache_lines_percent);
                 if !line.is_modified() || dirty_line_percent >= self.max_dirty_cache_lines_percent {
                     all_reserved = false;
                     if line.is_invalid() {
@@ -530,6 +531,14 @@ where
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
+    }
+
+    pub fn num_total_lines(&self) -> usize {
+        self.lines.len()
+    }
+
+    pub fn num_used_lines(&self) -> usize {
+        self.lines.iter().filter(|line| !line.is_invalid()).count()
     }
 }
 

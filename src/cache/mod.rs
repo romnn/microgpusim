@@ -178,6 +178,12 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
 
     /// The write allocate policy used by this cache.
     fn write_allocate_policy(&self) -> config::WriteAllocatePolicy;
+
+    /// Number of lines used
+    fn num_used_lines(&self) -> usize;
+
+    /// Number of total lines
+    fn num_total_lines(&self) -> usize;
 }
 
 pub trait Bandwidth {

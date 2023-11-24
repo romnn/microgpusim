@@ -223,6 +223,14 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
     fn flush(&mut self) -> usize {
         self.inner.flush()
     }
+
+    fn num_used_lines(&self) -> usize {
+        self.inner.tag_array.num_used_lines()
+    }
+
+    fn num_total_lines(&self) -> usize {
+        self.inner.tag_array.num_total_lines()
+    }
 }
 
 #[cfg(test)]

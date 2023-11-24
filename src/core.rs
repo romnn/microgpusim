@@ -162,8 +162,12 @@ where
 
         // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
+            // println!("core {} generates mem accesses", self.core_id);
             if let Some(accesses) = pipe_reg_mut.generate_mem_accesses(&self.config) {
                 for mut access in accesses {
+                    if let AccessKind::LOCAL_ACC_W | AccessKind::LOCAL_ACC_R = access.kind {
+                        panic!("have local access!");
+                    }
                     // set mem accesses allocation start addr, because only core knows
                     match access.kind {
                         AccessKind::GLOBAL_ACC_R
@@ -1823,8 +1827,8 @@ where
                 }
             }
 
-            crate::WIP_STATS.lock().num_warps += 1;
-            crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
+            // crate::WIP_STATS.lock().num_warps += 1;
+            // crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
 
             self.warps[warp_id].try_lock().init(
                 block_hw_id as u64,
@@ -1932,7 +1936,7 @@ pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerK
     let mut stats = stats.lock();
     let kernel_stats = stats.get_mut(instr.kernel_launch_id as usize);
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
-    crate::WIP_STATS.lock().warp_instructions += 1;
+    // crate::WIP_STATS.lock().warp_instructions += 1;
 }
 
 #[allow(dead_code)]

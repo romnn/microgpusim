@@ -153,8 +153,7 @@ where
         probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         // evict a line that hits on global memory write
-        let evict = fetch.access_kind() == mem_fetch::access::Kind::GLOBAL_ACC_W;
-        if evict {
+        if let mem_fetch::access::Kind::GLOBAL_ACC_W = fetch.access_kind() {
             // write-evict
             self.write_hit_write_evict(addr, cache_index, fetch, time, events, probe_status)
         } else {
@@ -619,9 +618,10 @@ where
             // READ_ONLY is now a separate cache class, config is deprecated
             WritePolicy::READ_ONLY => unimplemented!("todo: remove the read only cache write policy / writable data cache set as READ_ONLY"),
             WritePolicy::WRITE_BACK => Self::write_hit_write_back,
-            WritePolicy::WRITE_THROUGH => unimplemented!("Self::wr_hit_wt"),
-            WritePolicy::WRITE_EVICT => unimplemented!("Self::wr_hit_we"),
-            WritePolicy::LOCAL_WB_GLOBAL_WT => Self::write_hit_global_write_evict_local_write_back,
+            WritePolicy::WRITE_THROUGH => unimplemented!("WritePolicy::WRITE_THROUGH"),
+            WritePolicy::WRITE_EVICT => unimplemented!("WritePolicy::WRITE_EVICT"),
+            WritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("WritePolicy::LOCAL_WB_GLOBAL_WT"),
+            // WritePolicy::LOCAL_WB_GLOBAL_WT => Self::write_hit_global_write_evict_local_write_back,
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
     }
@@ -638,22 +638,14 @@ where
         events: &mut Vec<cache::Event>,
         time: u64,
     ) -> cache::RequestStatus {
-        // dbg!(cache_index, probe_status);
-        // Each function pointer ( m_[rd/wr]_[hit/miss] ) is set in the
-        // data_cache constructor to reflect the corresponding cache
-        // configuration options.
-        //
-        // Function pointers were used to avoid many long conditional
-        // branches resulting from many cache configuration options.
-        let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
-
-        let mut access_status = probe_status;
-        let data_size = fetch.data_size();
-
         assert!(
             !matches!(probe, Some((_, cache::RequestStatus::RESERVATION_FAIL))),
             "reservation fail should not be returned as a status"
         );
+
+        let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
+        let mut access_status = probe_status;
+        let data_size = fetch.data_size();
 
         if is_write {
             let no_allocate_on_write = self.inner.cache_config.write_allocate_policy
@@ -666,8 +658,13 @@ where
                         &fetch,
                         time,
                         events,
-                        cache::RequestStatus::RESERVATION_FAIL,
+                        probe_status,
+                        // cache::RequestStatus::RESERVATION_FAIL,
                     );
+                }
+                Some((cache_index, probe_status)) => {
+                    access_status =
+                        self.write_miss(addr, Some(cache_index), fetch, time, events, probe_status);
                 }
                 None if no_allocate_on_write => {
                     access_status = self.write_miss(
@@ -676,7 +673,8 @@ where
                         fetch,
                         time,
                         events,
-                        cache::RequestStatus::RESERVATION_FAIL,
+                        probe_status,
+                        // cache::RequestStatus::RESERVATION_FAIL,
                     );
                 }
                 None => {
@@ -698,10 +696,6 @@ where
                             },
                         );
                     }
-                }
-                Some((cache_index, probe_status)) => {
-                    access_status =
-                        self.write_miss(addr, Some(cache_index), fetch, time, events, probe_status);
                 }
             }
         } else {
@@ -896,6 +890,14 @@ where
 
     fn flush(&mut self) -> usize {
         self.inner.flush()
+    }
+
+    fn num_used_lines(&self) -> usize {
+        self.inner.tag_array.num_used_lines()
+    }
+
+    fn num_total_lines(&self) -> usize {
+        self.inner.tag_array.num_total_lines()
     }
 }
 

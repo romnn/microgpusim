@@ -58,8 +58,7 @@ impl DRAM {
         if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(kernel_launch_id);
-            // log::warn!(
-            log::trace!(
+            log::info!(
                 "dram access: {} ({:?}) data size={} uid={}",
                 fetch,
                 fetch.access_kind(),
@@ -75,6 +74,14 @@ impl DRAM {
             );
 
             kernel_stats.dram.bank_accesses[idx] += 1;
+        } else {
+            log::warn!(
+                "dram access without kernel launch id: {} ({:?}) data size={} uid={}",
+                fetch,
+                fetch.access_kind(),
+                fetch.data_size(),
+                fetch.uid
+            );
         }
 
         // if fetch.is_write() {

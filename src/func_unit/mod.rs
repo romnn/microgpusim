@@ -116,7 +116,7 @@ impl PipelinedSimdUnit {
                 active += src_reg.active_mask.count_ones();
             }
         }
-        crate::WIP_STATS.lock().executed_instructions += active as u64;
+        // crate::WIP_STATS.lock().executed_instructions += active as u64;
 
         register_set::move_warp(
             Some(src_reg),
