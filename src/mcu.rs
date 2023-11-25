@@ -376,6 +376,8 @@ impl MemoryController for MemoryControllerUnit {
         let dec = &self.decode_config;
         let addr_chip_start = dec.addr_chip_start.unwrap();
 
+        let mut rest_of_addr_high_bits = 0;
+
         if self.has_gap {
             // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
             // - extract chip address using modulus of MSBs
@@ -391,7 +393,7 @@ impl MemoryController for MemoryControllerUnit {
             tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
 
-            // let _rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
+            rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
         } else {
             tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
             tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
@@ -399,13 +401,49 @@ impl MemoryController for MemoryControllerUnit {
             tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
             tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
 
-            // let _rest_of_addr_high_bits = addr
-            //     >> (addr_chip_start
-            //         + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
+            rest_of_addr_high_bits = addr
+                >> (addr_chip_start
+                    + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
         }
 
         match self.memory_partition_indexing {
-            config::MemoryPartitionIndexingScheme::Consecutive => {}
+            config::MemoryPartitionIndexingScheme::Consecutive => {
+                // do nothing
+            }
+            config::MemoryPartitionIndexingScheme::BitwiseXor => {
+                // assert!(!self.has_gap);
+                tlx.chip = crate::cache::set_index::bitwise_xor::bitwise_hash_function(
+                    rest_of_addr_high_bits,
+                    tlx.chip as usize,
+                    num_channels as usize,
+                );
+                tlx.chip = tlx.chip % num_channels;
+                assert!(tlx.chip < num_channels);
+            }
+            config::MemoryPartitionIndexingScheme::IPoly => {
+                let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
+                let sub_partition = tlx.chip * self.num_sub_partitions_per_channel as u64
+                    + (tlx.bk & sub_partition_addr_mask as u64);
+                tlx.sub_partition = crate::cache::set_index::ipoly::hash(
+                    rest_of_addr_high_bits,
+                    sub_partition as usize,
+                    self.num_channels_next_power2 as usize * self.num_sub_partitions_per_channel,
+                );
+
+                if self.has_gap {
+                    // if it is not 2^n partitions, then take modular
+                    tlx.sub_partition = tlx.sub_partition
+                        % (num_channels * self.num_sub_partitions_per_channel as u64);
+                }
+                //
+                tlx.chip = tlx.sub_partition / self.num_sub_partitions_per_channel as u64;
+                assert!(tlx.chip < num_channels);
+                assert!(
+                    tlx.sub_partition
+                        < self.num_channels as u64 * self.num_sub_partitions_per_channel as u64
+                );
+                return tlx;
+            }
             other => unimplemented!("{:?} partition index not implemented", other),
         }
 

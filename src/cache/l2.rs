@@ -1,5 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mcu, mem_fetch};
+use color_eyre::eyre;
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
@@ -128,6 +129,13 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
         &self.inner.inner.cache_controller
     }
 
+    fn write_state(
+        &self,
+        csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
+    ) -> eyre::Result<()> {
+        self.inner.inner.tag_array.write_state(csv_writer)
+    }
+
     // #[inline]
     fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
         self.inner.write_allocate_policy()
@@ -153,14 +161,14 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     // L2 state after the memcopy - so just force the tag array to act as though
     // something is read or written without doing anything else.
     // #[inline]
-    fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: &mem_fetch::SectorMask) {
-        let byte_mask = mem_fetch::ByteMask::ZERO;
-        let is_write = true;
-        self.inner
-            .inner
-            .tag_array
-            .fill_on_fill(addr, sector_mask, &byte_mask, is_write, time);
-    }
+    // fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: &mem_fetch::SectorMask) {
+    //     let byte_mask = mem_fetch::ByteMask::ZERO;
+    //     let is_write = true;
+    //     self.inner
+    //         .inner
+    //         .tag_array
+    //         .fill_on_fill(addr, sector_mask, &byte_mask, is_write, allocation_id, time);
+    // }
 
     /// Access read only cache.
     ///

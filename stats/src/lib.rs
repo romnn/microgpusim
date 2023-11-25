@@ -44,6 +44,7 @@ pub struct Config {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerKernel {
     pub inner: Vec<Stats>,
+    pub no_kernel: Stats,
     pub config: Config,
 }
 
@@ -62,18 +63,32 @@ impl AsMut<Vec<Stats>> for PerKernel {
 impl PerKernel {
     #[must_use]
     pub fn new(config: Config) -> Self {
+        let no_kernel = Stats::new(&config);
         Self {
             config,
+            no_kernel,
             inner: Vec::new(),
         }
     }
 
     // #[inline]
-    pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
-        if idx >= self.inner.len() {
-            self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+    // pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
+    //     if idx >= self.inner.len() {
+    //         self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+    //     }
+    //     &mut self.inner[idx]
+    // }
+
+    pub fn get_mut(&mut self, idx: Option<usize>) -> &mut Stats {
+        match idx {
+            None => &mut self.no_kernel,
+            Some(idx) => {
+                if idx >= self.inner.len() {
+                    self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+                }
+                &mut self.inner[idx]
+            }
         }
-        &mut self.inner[idx]
     }
 
     // #[inline]
@@ -102,7 +117,6 @@ impl std::ops::AddAssign for Stats {
     }
 }
 
-// todo: implement index for kernel references too
 impl std::ops::Index<usize> for PerKernel {
     type Output = Stats;
     fn index(&self, idx: usize) -> &Self::Output {
@@ -113,6 +127,38 @@ impl std::ops::Index<usize> for PerKernel {
 impl std::ops::IndexMut<usize> for PerKernel {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
         &mut self.inner[idx]
+    }
+}
+
+impl std::ops::Index<Option<usize>> for PerKernel {
+    type Output = Stats;
+    fn index(&self, idx: Option<usize>) -> &Self::Output {
+        match idx {
+            None => &self.no_kernel,
+            Some(idx) => &self[idx],
+        }
+    }
+}
+
+impl std::ops::IndexMut<Option<usize>> for PerKernel {
+    fn index_mut(&mut self, idx: Option<usize>) -> &mut Self::Output {
+        match idx {
+            None => &mut self.no_kernel,
+            Some(idx) => &mut self[idx],
+        }
+    }
+}
+
+impl std::ops::Index<&KernelInfo> for PerKernel {
+    type Output = Stats;
+    fn index(&self, kernel: &KernelInfo) -> &Self::Output {
+        &self[kernel.launch_id]
+    }
+}
+
+impl std::ops::IndexMut<&KernelInfo> for PerKernel {
+    fn index_mut(&mut self, kernel: &KernelInfo) -> &mut Self::Output {
+        &mut self[kernel.launch_id]
     }
 }
 
@@ -141,6 +187,26 @@ pub struct Stats {
 }
 
 impl Stats {
+    #[must_use]
+    pub fn empty() -> Self {
+        let num_total_cores = 1;
+        let num_mem_units = 1;
+        let num_dram_banks = 1;
+        let num_sub_partitions = 1;
+        Self {
+            accesses: Accesses::default(),
+            instructions: InstructionCounts::default(),
+            sim: Sim::default(),
+            dram: DRAM::new(num_total_cores, num_mem_units, num_dram_banks),
+            l1i_stats: PerCache::new(num_total_cores),
+            l1c_stats: PerCache::new(num_total_cores),
+            l1t_stats: PerCache::new(num_total_cores),
+            l1d_stats: PerCache::new(num_total_cores),
+            l2d_stats: PerCache::new(num_sub_partitions),
+            stall_dram_full: 0,
+        }
+    }
+
     #[must_use]
     pub fn new(config: &Config) -> Self {
         Self {

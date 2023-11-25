@@ -36,7 +36,7 @@ from gpucachesim.asm import (
     solve_mapping_table_xor,
     solve_mapping_table,
 )
-from gpucachesim.benchmarks import REPO_ROOT_DIR
+from gpucachesim import MB, KB, REPO_ROOT_DIR
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from gpucachesim.plot import PLOT_DIR
 import gpucachesim.cmd as cmd_utils
@@ -96,10 +96,6 @@ assoc           = 6
 -gpgpu_cache:dl2 S:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32 # used to be 128:4
 -gpgpu_cache:dl2_texture_only 0 
 """
-
-KB = 1024
-MB = 1024**2
-
 
 @click.group()
 # @click.pass_context
@@ -1697,7 +1693,7 @@ def plot_access_process_latencies(
     )
 
     print(values.shape)
-    c = plt.imshow(
+    im = plt.imshow(
         values,
         cmap=latency_cmap,
         vmin=min_latency,
@@ -1708,7 +1704,7 @@ def plot_access_process_latencies(
         aspect="auto",
         # aspect="equal",
     )
-    fig.colorbar(c, ax=ax)
+    fig.colorbar(im, ax=ax)
 
     # rect = plt.Rectangle(
     #     (0,-10),

@@ -287,6 +287,7 @@ impl TryFrom<Stats> for stats::PerKernel {
 
         Ok(Self {
             inner,
+            no_kernel: stats::Stats::empty(),
             config: stats::Config {
                 num_total_cores: 1,
                 num_mem_units: 1,

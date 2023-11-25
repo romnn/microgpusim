@@ -1382,6 +1382,7 @@ dependencies = [
  "console",
  "criterion",
  "crossbeam",
+ "csv",
  "cxx",
  "env_logger",
  "exec",

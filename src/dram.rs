@@ -55,34 +55,34 @@ impl DRAM {
         let dram_id = fetch.physical_addr.chip as usize;
         let bank = fetch.physical_addr.bk as usize;
 
-        if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(kernel_launch_id);
-            log::info!(
-                "dram access: {} ({:?}) data size={} uid={}",
-                fetch,
-                fetch.access_kind(),
-                fetch.data_size(),
-                fetch.uid
-            );
-            // let atom_size = self.config.atom_size;
-            let idx = (
-                fetch.core_id.unwrap_or(0),
-                dram_id,
-                bank,
-                fetch.access_kind() as usize,
-            );
+        // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+        let mut stats = self.stats.lock();
+        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        log::info!(
+            "dram access: {} ({:?}) data size={} uid={}",
+            fetch,
+            fetch.access_kind(),
+            fetch.data_size(),
+            fetch.uid
+        );
+        // let atom_size = self.config.atom_size;
+        let idx = (
+            fetch.core_id.unwrap_or(0),
+            dram_id,
+            bank,
+            fetch.access_kind() as usize,
+        );
 
-            kernel_stats.dram.bank_accesses[idx] += 1;
-        } else {
-            log::warn!(
-                "dram access without kernel launch id: {} ({:?}) data size={} uid={}",
-                fetch,
-                fetch.access_kind(),
-                fetch.data_size(),
-                fetch.uid
-            );
-        }
+        kernel_stats.dram.bank_accesses[idx] += 1;
+        // } else {
+        //     log::warn!(
+        //         "dram access without kernel launch id: {} ({:?}) data size={} uid={}",
+        //         fetch,
+        //         fetch.access_kind(),
+        //         fetch.data_size(),
+        //         fetch.uid
+        //     );
+        // }
 
         // if fetch.is_write() {
         //     // do not count L2_writebacks here

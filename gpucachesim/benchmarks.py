@@ -13,12 +13,12 @@ try:
 except ImportError:
     from yaml import SafeLoader
 
-from gpucachesim import ROOT_DIR
+from gpucachesim import REPO_ROOT_DIR
+
 import gpucachesim.utils as utils
 import gpucachesim.stats.common as common
 
 
-REPO_ROOT_DIR = ROOT_DIR.parent
 DEFAULT_BENCH_FILE = REPO_ROOT_DIR / "test-apps/test-apps-materialized.yml"
 
 WARP_SIZE = 32

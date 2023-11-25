@@ -2,6 +2,7 @@ use crate::sync::{Arc, Mutex};
 use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, mshr::MSHR, tag_array};
 
 use cache::block::Block;
+use color_eyre::eyre;
 use mcu::MemoryController;
 use mem_fetch::access::Kind as AccessKind;
 use tag_array::Access;
@@ -104,7 +105,10 @@ where
 
         let block = self.inner.tag_array.get_block_mut(cache_index);
         let was_modified_before = block.is_modified();
-        block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
+        block.set_status(
+            cache::block::Status::MODIFIED,
+            fetch.access.sector_mask.first_one().unwrap(),
+        );
         block.set_byte_mask(&fetch.access.byte_mask);
         if !was_modified_before {
             self.inner.tag_array.num_dirty += 1;
@@ -134,7 +138,10 @@ where
         let block = self.inner.tag_array.get_block_mut(cache_index);
 
         // Invalidate block
-        block.set_status(cache::block::Status::INVALID, &fetch.access.sector_mask);
+        block.set_status(
+            cache::block::Status::INVALID,
+            fetch.access.sector_mask.first_one().unwrap(),
+        );
 
         let event = cache::Event::WriteRequestSent {};
         self.send_write_request(fetch.clone(), event, time, events);
@@ -184,7 +191,7 @@ where
                 // }
                 // if all_set {
                 if bytes.all() {
-                    block.set_readable(true, sector_mask);
+                    block.set_readable(true, sector);
                 }
             }
         }
@@ -212,7 +219,10 @@ where
             debug_assert_eq!(fetch.access_kind(), AccessKind::GLOBAL_ACC_R);
             let block = tag_array.get_block_mut(cache_index);
             let was_modified_before = block.is_modified();
-            block.set_status(cache::block::Status::MODIFIED, &fetch.access.sector_mask);
+            block.set_status(
+                cache::block::Status::MODIFIED,
+                fetch.access.sector_mask.first_one().unwrap(),
+            );
             block.set_byte_mask(&fetch.access.byte_mask);
             if !was_modified_before {
                 tag_array.num_dirty += 1;
@@ -251,21 +261,19 @@ where
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
-            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(
-                    fetch.allocation_id(),
-                    fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    if self.inner.cache_config.accelsim_compat {
-                        1
-                    } else {
-                        fetch.access.num_transactions()
-                    },
-                );
-            }
+            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                if self.inner.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
+            // }
             return cache::RequestStatus::RESERVATION_FAIL;
         }
 
@@ -375,21 +383,19 @@ where
 
         if self.inner.miss_queue_full() {
             let mut stats = self.inner.stats.lock();
-            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(
-                    fetch.allocation_id(),
-                    fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(
-                        cache::ReservationFailure::MISS_QUEUE_FULL,
-                    ),
-                    if self.inner.cache_config.accelsim_compat {
-                        1
-                    } else {
-                        fetch.access.num_transactions()
-                    },
-                );
-            }
+            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                if self.inner.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
+            // }
             // cannot handle request this cycle
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -438,19 +444,19 @@ where
                 panic!("write_miss_write_allocate_naive bad reason");
             };
             let mut stats = self.inner.stats.lock();
-            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(
-                    fetch.allocation_id(),
-                    fetch.access_kind(),
-                    cache::AccessStat::ReservationFailure(failure),
-                    if self.inner.cache_config.accelsim_compat {
-                        1
-                    } else {
-                        fetch.access.num_transactions()
-                    },
-                );
-            }
+            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(failure),
+                if self.inner.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
+            // }
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
             return cache::RequestStatus::RESERVATION_FAIL;
         }
@@ -681,21 +687,21 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                        let kernel_stats = stats.get_mut(kernel_launch_id);
-                        kernel_stats.inc(
-                            fetch.allocation_id(),
-                            fetch.access_kind(),
-                            cache::AccessStat::ReservationFailure(
-                                cache::ReservationFailure::LINE_ALLOC_FAIL,
-                            ),
-                            if self.inner.cache_config.accelsim_compat {
-                                1
-                            } else {
-                                fetch.access.num_transactions()
-                            },
-                        );
-                    }
+                    // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    kernel_stats.inc(
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::LINE_ALLOC_FAIL,
+                        ),
+                        if self.inner.cache_config.accelsim_compat {
+                            1
+                        } else {
+                            fetch.access.num_transactions()
+                        },
+                    );
+                    // }
                 }
             }
         } else {
@@ -704,21 +710,21 @@ where
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
-                    if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                        let kernel_stats = stats.get_mut(kernel_launch_id);
-                        kernel_stats.inc(
-                            fetch.allocation_id(),
-                            fetch.access_kind(),
-                            cache::AccessStat::ReservationFailure(
-                                cache::ReservationFailure::LINE_ALLOC_FAIL,
-                            ),
-                            if self.inner.cache_config.accelsim_compat {
-                                1
-                            } else {
-                                fetch.access.num_transactions()
-                            },
-                        );
-                    }
+                    // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    kernel_stats.inc(
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::LINE_ALLOC_FAIL,
+                        ),
+                        if self.inner.cache_config.accelsim_compat {
+                            1
+                        } else {
+                            fetch.access.num_transactions()
+                        },
+                    );
+                    // }
                 }
                 Some((_cache_index, cache::RequestStatus::HIT)) => {
                     access_status = self.read_hit(addr, &fetch, time, events);
@@ -761,6 +767,13 @@ where
         &self.inner.cache_controller
     }
 
+    fn write_state(
+        &self,
+        csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
+    ) -> eyre::Result<()> {
+        self.inner.tag_array.write_state(csv_writer)
+    }
+
     fn access(
         &mut self,
         addr: address,
@@ -800,7 +813,7 @@ where
         let access_status =
             self.process_tag_probe(is_write, probe, addr, fetch.clone(), events, time);
 
-        log::debug!(
+        log::info!(
             "{}::access({}) => probe status={:?} access status={:?}",
             self.inner.name,
             &dbg_fetch,
@@ -808,55 +821,57 @@ where
             access_status
         );
 
-        if let Some(kernel_launch_id) = kernel_launch_id {
-            use trace_model::ToBitString;
+        // if let Some(kernel_launch_id) = kernel_launch_id {
+        use trace_model::ToBitString;
 
-            let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(kernel_launch_id);
-            let access_stat =
-                cache::AccessStat::Status(cache::select_status(probe_status, access_status));
-            kernel_stats.inc(
-                allocation_id,
-                access_kind,
-                access_stat,
-                if self.inner.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+        let mut stats = self.inner.stats.lock();
+        let kernel_stats = stats.get_mut(kernel_launch_id);
+        let access_stat =
+            cache::AccessStat::Status(cache::select_status(probe_status, access_status));
+        kernel_stats.inc(
+            allocation_id,
+            access_kind,
+            access_stat,
+            if self.inner.cache_config.accelsim_compat {
+                1
+            } else {
+                fetch.access.num_transactions()
+            },
+        );
+        // dbg!(&kernel_launch_id);
+        // dbg!(&kernel_stats);
+
+        if crate::DEBUG_PRINT
+            && (probe_status, access_status)
+                != (
+                    cache::RequestStatus::HIT_RESERVED,
+                    cache::RequestStatus::RESERVATION_FAIL,
+                )
+        {
+            let addr = fetch.relative_byte_addr();
+            eprintln!(
+                // space={:<10?} 
+                "{:>40}: cycle={:<5} fetch {:<40} inst={:<20} addr={:<5} ({:<4}) size={:<2} sector={} probe status={:<10?} access status={:<10?}",
+                self.inner.name,
+                time,
+                fetch,
+                fetch.instr.as_ref().map(ToString::to_string).as_deref().unwrap_or("?"),
+                addr,
+                fetch.relative_byte_addr() / 4,
+                fetch.data_size(),
+                // fetch.access_kind().memory_space(),
+                trace_model::colorize_bits(fetch.access.sector_mask[..4].to_bit_string(), None),
+                probe_status,
+                access_status,
             );
-
-            if crate::DEBUG_PRINT
-                && (probe_status, access_status)
-                    != (
-                        cache::RequestStatus::HIT_RESERVED,
-                        cache::RequestStatus::RESERVATION_FAIL,
-                    )
-            {
-                let addr = fetch.relative_byte_addr();
-                eprintln!(
-                    // space={:<10?} 
-                    "{:>40}: cycle={:<5} fetch {:<40} inst={:<20} addr={:<5} ({:<4}) size={:<2} sector={} probe status={:<10?} access status={:<10?}",
-                    self.inner.name,
-                    time,
-                    fetch,
-                    fetch.instr.as_ref().map(ToString::to_string).as_deref().unwrap_or("?"),
-                    addr,
-                    fetch.relative_byte_addr() / 4,
-                    fetch.data_size(),
-                    // fetch.access_kind().memory_space(),
-                    trace_model::colorize_bits(fetch.access.sector_mask[..4].to_bit_string(), None),
-                    probe_status,
-                    access_status,
-                );
-            }
-            #[cfg(feature = "detailed-stats")]
-            kernel_stats.accesses.push((
-                (&fetch).into(),
-                allocation_id,
-                stats::cache::AccessStatus((access_kind.into(), access_stat.into())),
-            ))
         }
+        #[cfg(feature = "detailed-stats")]
+        kernel_stats.accesses.push((
+            (&fetch).into(),
+            allocation_id,
+            stats::cache::AccessStatus((access_kind.into(), access_stat.into())),
+        ));
+        // }
         access_status
     }
 

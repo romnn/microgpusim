@@ -4,6 +4,7 @@ use crate::{
     tag_array::{self, Access},
 };
 use cache::CacheController;
+use color_eyre::eyre;
 use std::collections::VecDeque;
 
 pub struct ReadOnly {
@@ -75,6 +76,13 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         &self.inner.cache_controller
     }
 
+    fn write_state(
+        &self,
+        csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
+    ) -> eyre::Result<()> {
+        self.inner.tag_array.write_state(csv_writer)
+    }
+
     // #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
@@ -136,17 +144,17 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         match probe {
             None => {
                 let mut stats = self.inner.stats.lock();
-                if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                    let kernel_stats = stats.get_mut(kernel_launch_id);
-                    kernel_stats.inc(
-                        fetch.allocation_id(),
-                        fetch.access_kind(),
-                        cache::AccessStat::ReservationFailure(
-                            cache::ReservationFailure::LINE_ALLOC_FAIL,
-                        ),
-                        1,
-                    );
-                }
+                // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                kernel_stats.inc(
+                    fetch.allocation_id(),
+                    fetch.access_kind(),
+                    cache::AccessStat::ReservationFailure(
+                        cache::ReservationFailure::LINE_ALLOC_FAIL,
+                    ),
+                    1,
+                );
+                // }
             }
             Some((_, cache::RequestStatus::HIT)) => {
                 // update LRU state
@@ -159,17 +167,17 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                     access_status = cache::RequestStatus::RESERVATION_FAIL;
 
                     let mut stats = self.inner.stats.lock();
-                    if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                        let kernel_stats = stats.get_mut(kernel_launch_id);
-                        kernel_stats.inc(
-                            fetch.allocation_id(),
-                            fetch.access_kind(),
-                            cache::AccessStat::ReservationFailure(
-                                cache::ReservationFailure::MISS_QUEUE_FULL,
-                            ),
-                            1,
-                        );
-                    }
+                    // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    kernel_stats.inc(
+                        fetch.allocation_id(),
+                        fetch.access_kind(),
+                        cache::AccessStat::ReservationFailure(
+                            cache::ReservationFailure::MISS_QUEUE_FULL,
+                        ),
+                        1,
+                    );
+                    // }
                 } else {
                     let (should_miss, _evicted) = self.inner.send_read_request(
                         addr,
@@ -190,16 +198,16 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
             }
         }
 
-        if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-            let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(kernel_launch_id);
-            kernel_stats.inc(
-                fetch.allocation_id(),
-                fetch.access_kind(),
-                cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
-                1,
-            );
-        }
+        // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+        let mut stats = self.inner.stats.lock();
+        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        kernel_stats.inc(
+            fetch.allocation_id(),
+            fetch.access_kind(),
+            cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
+            1,
+        );
+        // }
         access_status
     }
 

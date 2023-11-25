@@ -864,11 +864,16 @@ where
                     }
                 } else {
                     log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
-                    if let Some(kernel) = &*self.current_kernel.lock() {
-                        let mut stats = self.stats.lock();
-                        let kernel_stats = stats.get_mut(kernel.id() as usize);
-                        kernel_stats.stall_dram_full += 1;
-                    }
+                    // if let Some(kernel) = &*self.current_kernel.lock() {
+                    let kernel_id = self
+                        .current_kernel
+                        .lock()
+                        .as_ref()
+                        .map(|kernel| kernel.id() as usize);
+                    let mut stats = self.stats.lock();
+                    let kernel_stats = stats.get_mut(kernel_id);
+                    kernel_stats.stall_dram_full += 1;
+                    // }
                 }
                 // we borrow all of sub here, which is a problem for the cyclic reference in l2
                 // interface
@@ -1232,7 +1237,7 @@ where
             let mut num_total_lines = 0;
             let mut num_total_lines_used = 0;
             let num_sub_partitions = sim.mem_sub_partitions.len();
-            for (_, sub) in sim.mem_sub_partitions.iter().enumerate() {
+            for sub in sim.mem_sub_partitions.iter() {
                 let sub = sub.lock();
                 if let Some(ref l2_cache) = sub.l2_cache {
                     let num_lines_used = l2_cache.num_used_lines();
@@ -1257,9 +1262,32 @@ where
                 num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
                 human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
             );
-            for kernel_stats in sim.stats().as_ref() {
-                eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+            let stats = sim.stats();
+            for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+                eprintln!(
+                    "L2D[kernel {}]: {:#?}",
+                    kernel_launch_id,
+                    &kernel_stats.l2d_stats.reduce()
+                );
             }
+            eprintln!("L2D[no kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
+            eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
+        };
+
+        let write_l2_cache_state = |sim: &Self, path: &Path| -> eyre::Result<()> {
+            // open csv writer
+            let writer = utils::fs::open_writable(path)?;
+            let mut csv_writer = csv::WriterBuilder::new()
+                .flexible(false)
+                .from_writer(writer);
+
+            for sub in sim.mem_sub_partitions.iter() {
+                let sub = sub.lock();
+                if let Some(ref l2_cache) = sub.l2_cache {
+                    l2_cache.write_state(&mut csv_writer)?;
+                }
+            }
+            Ok(())
         };
 
         if self.config.fill_l2_on_memcopy {
@@ -1291,7 +1319,7 @@ where
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
                     // let should_prefetch = allocation_id == 3;
-                    let should_prefetch = allocation_id != 3;
+                    // let should_prefetch = allocation_id != 3;
 
                     println!(
                         "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
@@ -1303,16 +1331,33 @@ where
                         should_prefetch,
                     );
 
-                    print_cache(self);
+                    let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
+                    std::fs::create_dir_all(&debug_dir).ok();
+
+                    if num_bytes > 64 && !self.config.accelsim_compat {
+                        write_l2_cache_state(
+                            self,
+                            &debug_dir.join(format!("l2_cache_state_{}_before.csv", allocation_id)),
+                        )
+                        .unwrap();
+                        print_cache(self);
+                    }
 
                     if should_prefetch {
                         self.fill_l2_transaction(addr, num_bytes, cycle);
                     }
 
-                    print_cache(self);
+                    if num_bytes > 64 && !self.config.accelsim_compat {
+                        write_l2_cache_state(
+                            self,
+                            &debug_dir.join(format!("l2_cache_state_{}_after.csv", allocation_id)),
+                        )
+                        .unwrap();
+                        print_cache(self);
+                    }
 
                     if allocation_id == 2 {
-                        panic!("test");
+                        // panic!("test");
                     }
                 }
             }
@@ -1647,52 +1692,13 @@ where
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats: stats::PerKernel = self.stats.lock().clone();
 
-        // compute on demand
-        // dbg!(stats
-        //     .inner
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(kernel_launch_id, kernel_stats)| {
-        //         (
-        //             kernel_launch_id,
-        //             kernel_stats.sim.kernel_launch_id,
-        //             &kernel_stats.sim.kernel_name,
-        //         )
-        //     })
-        //     .collect::<Vec<_>>());
-
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
-            // dbg!(&kernel_launch_id);
-            // dbg!(&self
-            //     .executed_kernels
-            //     .lock()
-            //     .iter()
-            //     .map(|(i, k)| (i, k.to_string()))
-            //     .collect::<Vec<_>>());
-
-            // {
-            //     let kernels = self.executed_kernels.lock();
-            //     dbg!(&kernel_launch_id);
-            //     dbg!(&kernels.len());
-            //     dbg!(&kernels
-            //         .iter()
-            //         .map(|(id, k)| (id, k.id(), k.name()))
-            //         .collect::<Vec<_>>());
-            //     assert!(&kernels.iter().all(|(id, k)| *id == k.id()));
-            // }
-
-            // let kernel = &self.executed_kernels.lock()[&(kernel_launch_id as u64)];
             if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
                 let kernel_info = stats::KernelInfo {
                     name: kernel.config.unmangled_name.clone(),
                     mangled_name: kernel.config.mangled_name.clone(),
                     launch_id: kernel_launch_id,
                 };
-                // let kernel = self
-                //     .kernels
-                //     .iter()
-                //     .find(|k| k.id() == kernel_launch_id as u64)
-                //     .unwrap();
                 kernel_stats.sim.kernel_name = kernel_info.name.clone();
                 kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
                 kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
@@ -1712,34 +1718,7 @@ where
                     cache_stats.kernel_info = kernel_info.clone();
                 }
             }
-            // for cache_stats in [&mut kernel_stats.l1i_stats]
-            //     .into_iter()
-            //     .flat_map(|cache| cache.iter_mut())
-            // {
-            //     // for cache.iter_mut()
-            //     cache_stats.kernel_info = kernel_info.clone();
-            //     // cache.kernel_name = kernel.config.unmangled_name.clone();
-            // }
-
-            // kernel_stats.accesses.kernel_info = stats::KernelInfo {
-            //     name: kernel.config.unmangled_name.clone(),
-            //     launch_id: kernel_launch_id,
-            // }
         }
-        //     // if kernel was launched, update stats
-        //
-        // let time = std::time::Instant::now();
-        // *kernel.completed_time.lock() = Some(completion_time);
-        // *kernel.completed_cycle.lock() = Some(cycle);
-
-        // kernel_stats.sim.cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
-        // kernel_stats.sim.elapsed_millis = kernel
-        //     .start_time
-        //     .lock()
-        //     .map(|start_time| completion_time.duration_since(start_time).as_millis())
-        //     .unwrap_or(0);
-        // }
-
         macro_rules! per_kernel_cache_stats {
             ($cache:expr) => {{
                 $cache
@@ -1756,46 +1735,29 @@ where
             .iter()
             .flat_map(|cluster| cluster.read().cores.clone());
         for core in cores {
-            // for cluster in &self.clusters {
-            //     let cluster = cluster.try_read();
-            //     for core in &cluster.cores {
             let core = core.try_read();
-            // let core_id = core.core_id;
-            // todo:
-
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
-                //     .per_kernel_stats()
-                //     .try_lock()
-                //     .as_ref()
-                //     .iter()
-                //     .enumerate()
-                // {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
                 kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
             }
-            // stats.l1i_stats[core.core_id] = core.instr_l1_cache.stats().try_lock().clone();
 
             let ldst_unit = &core.load_store_unit.try_lock();
             let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
                 kernel_stats.l1d_stats[core.core_id] = cache_stats.clone();
             }
-            // stats.l1d_stats[core.core_id] = data_l1.stats().try_lock().clone();
-            // stats.l1c_stats[core.core_id] = stats::Cache::default();
-            // stats.l1t_stats[core.core_id] = stats::Cache::default();
-            //     }
-            // }
         }
 
         for sub in &self.mem_sub_partitions {
             let sub = sub.try_lock();
             let l2_cache = sub.l2_cache.as_ref().unwrap();
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(l2_cache) {
-                let kernel_stats = stats.get_mut(kernel_launch_id);
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
                 kernel_stats.l2d_stats[sub.id] = cache_stats.clone();
             }
-            // stats.l2d_stats[sub.id] = l2_cache.stats().try_lock().clone();
+            stats.no_kernel.l2d_stats[sub.id] =
+                l2_cache.per_kernel_stats().try_lock().no_kernel.clone();
         }
         stats
     }
@@ -1931,6 +1893,7 @@ where
 
     pub fn run(&mut self) -> eyre::Result<()> {
         dbg!(&self.config.parallelization);
+        dbg!(&self.config.fill_l2_on_memcopy);
         match self.config.parallelization {
             config::Parallelization::Serial => {
                 self.run_to_completion()?;
@@ -2116,7 +2079,7 @@ where
         *kernel.completed_cycle.lock() = Some(cycle);
 
         let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(kernel.id() as usize);
+        let kernel_stats = stats.get_mut(Some(kernel.id() as usize));
 
         kernel_stats.sim.is_release_build = !is_debug();
         let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);

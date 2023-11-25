@@ -186,6 +186,13 @@ fn main() -> eyre::Result<()> {
         eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
         eprintln!("L1I: {:#?}", &kernel_stats.l1i_stats.reduce());
         eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
+        eprintln!(
+            "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
+            &kernel_stats.l1d_stats.reduce().hit_rate() * 100.0,
+            &kernel_stats.l1d_stats.reduce().num_hits(),
+            &kernel_stats.l1d_stats.reduce().num_accesses(),
+        );
+
         eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
         eprintln!(
             "L2D hit rate: {:4.2}% ({} hits / {} accesses)",

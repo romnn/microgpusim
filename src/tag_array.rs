@@ -1,5 +1,6 @@
 use super::{address, cache, mem_fetch};
 use crate::{config, mem_sub_partition::SECTOR_CHUNK_SIZE};
+use color_eyre::eyre;
 
 use std::collections::HashMap;
 
@@ -147,7 +148,7 @@ where
                 }
 
                 let line = &mut self.lines[cache_index];
-                line.set_last_access_time(time, &fetch.access.sector_mask);
+                line.set_last_access_time(time, fetch.access.sector_mask.first_one().unwrap());
             }
             cache::RequestStatus::MISS => {
                 self.num_miss += 1;
@@ -186,7 +187,8 @@ where
                     line.allocate(
                         self.cache_controller.tag(addr),
                         self.cache_controller.block_addr(addr),
-                        &fetch.access.sector_mask,
+                        fetch.access.sector_mask.first_one().unwrap(),
+                        fetch.allocation_id(),
                         time,
                     );
                 }
@@ -197,7 +199,7 @@ where
                 if self.cache_config.allocate_policy == cache::config::AllocatePolicy::ON_MISS {
                     let line = &mut self.lines[cache_index];
                     let was_modified_before = line.is_modified();
-                    line.allocate_sector(&fetch.access.sector_mask, time);
+                    line.allocate_sector(fetch.access.sector_mask.first_one().unwrap(), time);
                     if was_modified_before && !line.is_modified() {
                         self.num_dirty -= 1;
                     }
@@ -220,10 +222,10 @@ where
         let mut flushed = 0;
         for line in &mut self.lines {
             if line.is_modified() {
-                for i in 0..SECTOR_CHUNK_SIZE {
-                    let mut sector_mask = mem_fetch::SectorMask::ZERO;
-                    sector_mask.set(i as usize, true);
-                    line.set_status(cache::block::Status::INVALID, &sector_mask);
+                for sector in 0..SECTOR_CHUNK_SIZE {
+                    // let mut sector_mask = mem_fetch::SectorMask::ZERO;
+                    // sector_mask.set(i as usize, true);
+                    line.set_status(cache::block::Status::INVALID, sector);
                 }
                 flushed += 1;
             }
@@ -237,10 +239,10 @@ where
         log::trace!("tag_array::invalidate()");
         eprintln!("tag_array::invalidate()");
         for line in &mut self.lines {
-            for i in 0..SECTOR_CHUNK_SIZE {
-                let mut sector_mask = mem_fetch::SectorMask::ZERO;
-                sector_mask.set(i as usize, true);
-                line.set_status(cache::block::Status::INVALID, &sector_mask);
+            for sector in 0..SECTOR_CHUNK_SIZE {
+                // let mut sector_mask = mem_fetch::SectorMask::ZERO;
+                // sector_mask.set(i as usize, true);
+                line.set_status(cache::block::Status::INVALID, sector);
             }
         }
         self.num_dirty = 0;
@@ -343,7 +345,7 @@ where
                 crate::Optional(fetch),
                 idx,
                 line.tag(),
-                line.status(sector_mask),
+                line.status(sector_mask.first_one().unwrap()),
                 line.last_access_time()
             );
             if line.tag() == tag {
@@ -368,7 +370,7 @@ where
                 //   } else {
                 //     assert(line->get_status(mask) == INVALID);
                 //   }
-                match line.status(sector_mask) {
+                match line.status(sector_mask.first_one().unwrap()) {
                     cache::block::Status::RESERVED => {
                         return Some((idx, cache::RequestStatus::HIT_RESERVED));
                     }
@@ -376,7 +378,9 @@ where
                         return Some((idx, cache::RequestStatus::HIT));
                     }
                     cache::block::Status::MODIFIED => {
-                        let status = if is_write || (!is_write && line.is_readable(sector_mask)) {
+                        let status = if is_write
+                            || (!is_write && line.is_readable(sector_mask.first_one().unwrap()))
+                        {
                             cache::RequestStatus::HIT
                         } else {
                             cache::RequestStatus::SECTOR_MISS
@@ -471,7 +475,7 @@ where
         );
 
         let was_modified_before = self.lines[cache_index].is_modified();
-        self.lines[cache_index].fill(sector_mask, byte_mask, time);
+        self.lines[cache_index].fill(sector_mask.first_one().unwrap(), byte_mask, time);
         if self.lines[cache_index].is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
@@ -482,6 +486,7 @@ where
         addr: address,
         sector_mask: &mem_fetch::SectorMask,
         byte_mask: &mem_fetch::ByteMask,
+        allocation_id: Option<usize>,
         is_write: bool,
         time: u64,
     ) {
@@ -517,17 +522,18 @@ where
             line.allocate(
                 self.cache_controller.tag(addr),
                 self.cache_controller.block_addr(addr),
-                sector_mask,
+                sector_mask.first_one().unwrap(),
+                allocation_id,
                 time,
             );
         } else if probe_status == cache::RequestStatus::SECTOR_MISS {
-            line.allocate_sector(&sector_mask, time);
+            line.allocate_sector(sector_mask.first_one().unwrap(), time);
         }
         if was_modified_before && !line.is_modified() {
             self.num_dirty -= 1;
         }
         was_modified_before = line.is_modified();
-        line.fill(sector_mask, byte_mask, time);
+        line.fill(sector_mask.first_one().unwrap(), byte_mask, time);
         if line.is_modified() && !was_modified_before {
             self.num_dirty += 1;
         }
@@ -539,6 +545,44 @@ where
 
     pub fn num_used_lines(&self) -> usize {
         self.lines.iter().filter(|line| !line.is_invalid()).count()
+    }
+
+    pub fn write_state(
+        &self,
+        csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
+    ) -> eyre::Result<()> {
+        #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+        struct CsvRow {
+            pub line_id: usize,
+            pub sector: usize,
+            pub tag: u64,
+            pub allocation_id: Option<usize>,
+            pub block_addr: u64,
+            pub status: cache::block::Status,
+            pub alloc_time: u64,
+            pub sector_alloc_time: u64,
+            pub last_access_time: u64,
+            pub last_sector_access_time: u64,
+        }
+
+        for (line_id, line) in self.lines.iter().enumerate() {
+            for sector in 0..SECTOR_CHUNK_SIZE {
+                let row = CsvRow {
+                    line_id,
+                    sector,
+                    tag: line.tag(),
+                    allocation_id: line.allocation_id(sector),
+                    block_addr: line.block_addr(),
+                    status: line.status(sector),
+                    alloc_time: line.alloc_time(),
+                    sector_alloc_time: line.alloc_time(),
+                    last_access_time: line.last_access_time(),
+                    last_sector_access_time: line.last_sector_access_time(sector),
+                };
+                csv_writer.serialize(row)?;
+            }
+        }
+        Ok(())
     }
 }
 

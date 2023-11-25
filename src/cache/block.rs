@@ -2,7 +2,9 @@ use crate::{address, mem_fetch, mem_sub_partition};
 
 use bitvec::array::BitArray;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum Status {
     INVALID = 0,
     RESERVED,
@@ -15,51 +17,65 @@ pub trait Block: std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
         &mut self,
         tag: address,
         block_addr: address,
-        sector_mask: &mem_fetch::SectorMask,
+        sector_idx: usize,
+        allocation_id: Option<usize>,
+        // sector_mask: &mem_fetch::SectorMask,
         time: u64,
     );
 
-    fn allocate_sector(&mut self, sector_mask: &mem_fetch::SectorMask, time: u64);
+    // fn allocate_sector(&mut self, sector_mask: &mem_fetch::SectorMask, time: u64);
+    fn allocate_sector(&mut self, sector_idx: usize, time: u64);
 
     fn fill(
         &mut self,
-        sector_mask: &mem_fetch::SectorMask,
+        // sector_mask: &mem_fetch::SectorMask,
+        sector_idx: usize,
         byte_mask: &mem_fetch::ByteMask,
         time: u64,
     );
 
     #[must_use]
     fn block_addr(&self) -> address;
+
     #[must_use]
     fn tag(&self) -> address;
+
+    #[must_use]
+    fn allocation_id(&self, sector_idx: usize) -> Option<usize>;
 
     // #[inline]
     #[must_use]
     fn is_valid(&self) -> bool {
-        self.status(&mem_fetch::SectorMask::ZERO) == Status::VALID
+        self.status(0) == Status::VALID
+        // self.status(&mem_fetch::SectorMask::ZERO) == Status::VALID
     }
 
     // #[inline]
     #[must_use]
     fn is_modified(&self) -> bool {
-        self.status(&mem_fetch::SectorMask::ZERO) == Status::MODIFIED
+        self.status(0) == Status::MODIFIED
+        // self.status(&mem_fetch::SectorMask::ZERO) == Status::MODIFIED
     }
 
     // #[inline]
     #[must_use]
     fn is_invalid(&self) -> bool {
-        self.status(&mem_fetch::SectorMask::ZERO) == Status::INVALID
+        self.status(0) == Status::INVALID
+        // self.status(&mem_fetch::SectorMask::ZERO) == Status::INVALID
     }
 
     // #[inline]
     #[must_use]
     fn is_reserved(&self) -> bool {
-        self.status(&mem_fetch::SectorMask::ZERO) == Status::RESERVED
+        self.status(0) == Status::RESERVED
+        // self.status(&mem_fetch::SectorMask::ZERO) == Status::RESERVED
     }
 
     #[must_use]
-    fn status(&self, mask: &mem_fetch::SectorMask) -> Status;
-    fn set_status(&mut self, status: Status, mask: &mem_fetch::SectorMask);
+    // fn status(&self, mask: &mem_fetch::SectorMask) -> Status;
+    fn status(&self, sector_idx: usize) -> Status;
+    // fn set_status(&mut self, status: Status, mask: &mem_fetch::SectorMask);
+    fn set_status(&mut self, status: Status, sector_idx: usize);
 
     fn set_byte_mask(&mut self, mask: &mem_fetch::ByteMask);
     #[must_use]
@@ -67,12 +83,17 @@ pub trait Block: std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
     #[must_use]
     fn dirty_sector_mask(&self) -> mem_fetch::SectorMask;
 
-    fn set_last_access_time(&mut self, time: u64, mask: &mem_fetch::SectorMask);
+    // fn set_last_access_time(&mut self, time: u64, mask: &mem_fetch::SectorMask);
+    fn set_last_access_time(&mut self, time: u64, sector_idx: usize);
     #[must_use]
     fn last_access_time(&self) -> u64;
+    #[must_use]
+    fn last_sector_access_time(&self, sector_idx: usize) -> u64;
 
     #[must_use]
     fn alloc_time(&self) -> u64;
+    #[must_use]
+    fn sector_alloc_time(&self, sector_idx: usize) -> u64;
     // fn set_ignore_on_fill(&mut self, ignore: bool, mask: &mem_fetch::SectorMask);
     // fn set_modified_on_fill(&mut self, modified: bool, mask: &mem_fetch::SectorMask);
     // fn set_readable_on_fill(&mut self, readable: bool, mask: &mem_fetch::SectorMask);
@@ -82,8 +103,10 @@ pub trait Block: std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
     fn modified_size(&self) -> u32;
 
     #[must_use]
-    fn is_readable(&self, mask: &mem_fetch::SectorMask) -> bool;
-    fn set_readable(&mut self, readable: bool, mask: &mem_fetch::SectorMask);
+    // fn is_readable(&self, mask: &mem_fetch::SectorMask) -> bool;
+    fn is_readable(&self, sector_idx: usize) -> bool;
+    // fn set_readable(&mut self, readable: bool, mask: &mem_fetch::SectorMask);
+    fn set_readable(&mut self, readable: bool, sector_idx: usize);
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -91,6 +114,7 @@ pub trait Block: std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
 pub struct Line {
     pub tag: u64,
     pub block_addr: address,
+    pub allocation_id: Option<usize>,
 
     pub status: Status,
     is_readable: bool,
@@ -121,6 +145,7 @@ impl Default for Line {
         Self {
             tag: 0,
             block_addr: 0,
+            allocation_id: None,
             status: Status::INVALID,
             alloc_time: 0,
             fill_time: 0,
@@ -153,8 +178,13 @@ impl Block for Line {
         self.tag
     }
 
+    fn allocation_id(&self, sector_idx: usize) -> Option<usize> {
+        self.allocation_id
+    }
+
     // #[inline]
-    fn allocate_sector(&mut self, _sector_mask: &mem_fetch::SectorMask, _time: u64) {
+    // fn allocate_sector(&mut self, _sector_mask: &mem_fetch::SectorMask, _time: u64) {
+    fn allocate_sector(&mut self, sector_idx: usize, _time: u64) {
         unimplemented!("line block is not sectored");
     }
 
@@ -163,11 +193,14 @@ impl Block for Line {
         &mut self,
         tag: address,
         block_addr: address,
-        _sector_mask: &mem_fetch::SectorMask,
+        sector_idx: usize,
+        allocation_id: Option<usize>,
+        // _sector_mask: &mem_fetch::SectorMask,
         time: u64,
     ) {
         self.tag = tag;
         self.block_addr = block_addr;
+        self.allocation_id = allocation_id;
         self.alloc_time = time;
         self.last_access_time = time;
         self.fill_time = 0;
@@ -181,7 +214,8 @@ impl Block for Line {
     // #[inline]
     fn fill(
         &mut self,
-        _sector_mask: &mem_fetch::SectorMask,
+        sector_idx: usize,
+        // _sector_mask: &mem_fetch::SectorMask,
         byte_mask: &mem_fetch::ByteMask,
         time: u64,
     ) {
@@ -202,7 +236,8 @@ impl Block for Line {
     }
 
     // #[inline]
-    fn set_last_access_time(&mut self, time: u64, _mask: &mem_fetch::SectorMask) {
+    // fn set_last_access_time(&mut self, time: u64, _mask: &mem_fetch::SectorMask) {
+    fn set_last_access_time(&mut self, time: u64, sector_idx: usize) {
         self.last_access_time = time;
     }
 
@@ -212,24 +247,28 @@ impl Block for Line {
     }
 
     // #[inline]
-    fn set_status(&mut self, status: Status, _mask: &mem_fetch::SectorMask) {
+    // fn set_status(&mut self, status: Status, _mask: &mem_fetch::SectorMask) {
+    fn set_status(&mut self, status: Status, sector_idx: usize) {
         self.status = status;
     }
 
     // #[inline]
     #[must_use]
-    fn status(&self, _mask: &mem_fetch::SectorMask) -> Status {
+    // fn status(&self, _mask: &mem_fetch::SectorMask) -> Status {
+    fn status(&self, sector_idx: usize) -> Status {
         self.status
     }
 
     // #[inline]
     #[must_use]
-    fn is_readable(&self, _mask: &mem_fetch::SectorMask) -> bool {
+    // fn is_readable(&self, _mask: &mem_fetch::SectorMask) -> bool {
+    fn is_readable(&self, sector_idx: usize) -> bool {
         self.is_readable
     }
 
     // #[inline]
-    fn set_readable(&mut self, readable: bool, _mask: &mem_fetch::SectorMask) {
+    // fn set_readable(&mut self, readable: bool, _mask: &mem_fetch::SectorMask) {
+    fn set_readable(&mut self, readable: bool, sector_idx: usize) {
         self.is_readable = readable;
     }
 
@@ -239,9 +278,19 @@ impl Block for Line {
         self.alloc_time
     }
 
+    #[must_use]
+    fn sector_alloc_time(&self, sector_idx: usize) -> u64 {
+        self.alloc_time
+    }
+
     // #[inline]
     #[must_use]
     fn last_access_time(&self) -> u64 {
+        self.last_access_time
+    }
+
+    #[must_use]
+    fn last_sector_access_time(&self, sector_idx: usize) -> u64 {
         self.last_access_time
     }
 
@@ -278,6 +327,7 @@ pub mod sector {
     pub struct Block<const N: usize> {
         pub tag: u64,
         pub block_addr: address,
+        pub allocation_id: Option<usize>,
 
         sector_alloc_time: [u64; N],
         pub last_sector_access_time: [u64; N],
@@ -311,6 +361,7 @@ pub mod sector {
             Self {
                 tag: 0,
                 block_addr: 0,
+                allocation_id: None,
                 sector_alloc_time: [0; N],
                 sector_fill_time: [0; N],
                 last_sector_access_time: [0; N],
@@ -350,10 +401,10 @@ pub mod sector {
         }
     }
 
-    pub fn sector_index(sector_mask: &mem_fetch::SectorMask) -> usize {
-        assert_eq!(sector_mask.count_ones(), 1);
-        sector_mask.first_one().unwrap()
-    }
+    // pub fn sector_index(sector_mask: &mem_fetch::SectorMask) -> usize {
+    //     assert_eq!(sector_mask.count_ones(), 1);
+    //     sector_mask.first_one().unwrap()
+    // }
 
     impl<const N: usize> super::Block for Block<N> {
         // #[inline]
@@ -366,11 +417,16 @@ pub mod sector {
             self.tag
         }
 
+        fn allocation_id(&self, sector_idx: usize) -> Option<usize> {
+            self.allocation_id
+        }
+
         // #[inline]
-        fn allocate_sector(&mut self, sector_mask: &mem_fetch::SectorMask, time: u64) {
+        // fn allocate_sector(&mut self, sector_mask: &mem_fetch::SectorMask, time: u64) {
+        fn allocate_sector(&mut self, sector_idx: usize, time: u64) {
             // allocate invalid sector of this allocated valid line.
             assert!(self.is_valid());
-            let sector_idx = sector_index(sector_mask);
+            // let sector_idx = sector_index(sector_mask);
 
             // set sector stats
             self.sector_alloc_time[sector_idx] = time;
@@ -397,13 +453,16 @@ pub mod sector {
             &mut self,
             tag: address,
             block_addr: address,
-            sector_mask: &mem_fetch::SectorMask,
+            sector_idx: usize,
+            allocation_id: Option<usize>,
+            // sector_mask: &mem_fetch::SectorMask,
             time: u64,
         ) {
             self.reset();
             self.tag = tag;
             self.block_addr = block_addr;
-            let sector_idx = sector_index(sector_mask);
+            self.allocation_id = allocation_id;
+            // let sector_idx = sector_index(sector_mask);
 
             // set sector stats
             self.sector_alloc_time[sector_idx] = time;
@@ -424,11 +483,12 @@ pub mod sector {
         // #[inline]
         fn fill(
             &mut self,
-            sector_mask: &mem_fetch::SectorMask,
+            sector_idx: usize,
+            // sector_mask: &mem_fetch::SectorMask,
             byte_mask: &mem_fetch::ByteMask,
             time: u64,
         ) {
-            let sector_idx = sector_index(sector_mask);
+            // let sector_idx = sector_index(sector_mask);
 
             self.status[sector_idx] = if self.set_modified_on_fill[sector_idx] {
                 Status::MODIFIED
@@ -449,8 +509,9 @@ pub mod sector {
         }
 
         // #[inline]
-        fn set_last_access_time(&mut self, time: u64, sector_mask: &mem_fetch::SectorMask) {
-            let sector_idx = sector_index(sector_mask);
+        // fn set_last_access_time(&mut self, time: u64, sector_mask: &mem_fetch::SectorMask) {
+        fn set_last_access_time(&mut self, time: u64, sector_idx: usize) {
+            // let sector_idx = sector_index(sector_mask);
             self.last_sector_access_time[sector_idx] = time;
             self.last_access_time = time;
         }
@@ -461,15 +522,17 @@ pub mod sector {
         }
 
         // #[inline]
-        fn set_status(&mut self, status: Status, sector_mask: &mem_fetch::SectorMask) {
-            let sector_idx = sector_index(sector_mask);
+        // fn set_status(&mut self, status: Status, sector_mask: &mem_fetch::SectorMask) {
+        fn set_status(&mut self, status: Status, sector_idx: usize) {
+            // let sector_idx = sector_index(sector_mask);
             self.status[sector_idx] = status;
         }
 
         // #[inline]
         #[must_use]
-        fn status(&self, sector_mask: &mem_fetch::SectorMask) -> Status {
-            let sector_idx = sector_index(sector_mask);
+        // fn status(&self, sector_mask: &mem_fetch::SectorMask) -> Status {
+        fn status(&self, sector_idx: usize) -> Status {
+            // let sector_idx = sector_index(sector_mask);
             self.status[sector_idx]
         }
 
@@ -502,14 +565,15 @@ pub mod sector {
 
         // #[inline]
         #[must_use]
-        fn is_readable(&self, sector_mask: &mem_fetch::SectorMask) -> bool {
-            let sector_idx = sector_index(sector_mask);
+        fn is_readable(&self, sector_idx: usize) -> bool {
+            // let sector_idx = sector_index(sector_mask);
             self.readable[sector_idx]
         }
 
         // #[inline]
-        fn set_readable(&mut self, readable: bool, sector_mask: &mem_fetch::SectorMask) {
-            let sector_idx = sector_index(sector_mask);
+        // fn set_readable(&mut self, readable: bool, sector_mask: &mem_fetch::SectorMask) {
+        fn set_readable(&mut self, readable: bool, sector_idx: usize) {
+            // let sector_idx = sector_index(sector_mask);
             self.readable[sector_idx] = readable;
         }
 
@@ -519,10 +583,20 @@ pub mod sector {
             self.alloc_time
         }
 
+        #[must_use]
+        fn sector_alloc_time(&self, sector_idx: usize) -> u64 {
+            self.sector_alloc_time[sector_idx]
+        }
+
         // #[inline]
         #[must_use]
         fn last_access_time(&self) -> u64 {
             self.last_access_time
+        }
+
+        #[must_use]
+        fn last_sector_access_time(&self, sector_idx: usize) -> u64 {
+            self.last_sector_access_time[sector_idx]
         }
 
         // #[inline]

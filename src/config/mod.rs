@@ -135,7 +135,7 @@ impl std::fmt::Display for Cache {
     }
 }
 
-pub static MAX_DEFAULT_CACHE_SIZE_MULTIPLIER: u8 = 4;
+// pub static MAX_DEFAULT_CACHE_SIZE_MULTIPLIER: u8 = 4;
 
 /// TODO: use a builder here so we can fill in the remaining values
 /// and do the validation as found below:
@@ -1128,6 +1128,11 @@ impl Default for GPU {
                     // num_memory_controllers=8 * num_sub_partitions_per_memory_controller=2 = 16
                     // 16 * 64 * 128 * 16 = 2097152 = 2MiB
                     // 64 * 128 * 16 / 128 = 64 * 16 = 1024 lines per slice
+                    // num_sets: 32,
+                    // num_sets: 128,
+                    // line_size: 128,
+                    // associativity: 16,
+                    // associativity: 16,
                     num_sets: 64,
                     line_size: 128,
                     associativity: 16,
@@ -1276,8 +1281,10 @@ impl Default for GPU {
             ),
             memory_address_mask: MemoryAddressingMask::New, // 1
             memory_partition_indexing: MemoryPartitionIndexingScheme::Consecutive,
-            compute_capability_major: 7,
-            compute_capability_minor: 0,
+            // memory_partition_indexing: MemoryPartitionIndexingScheme::BitwiseXor,
+            // memory_partition_indexing: MemoryPartitionIndexingScheme::IPoly,
+            compute_capability_major: 6,
+            compute_capability_minor: 1,
             flush_l1_cache: false,
             flush_l2_cache: false,
             max_concurrent_kernels: 32,

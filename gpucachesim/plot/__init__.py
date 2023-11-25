@@ -2,7 +2,7 @@ import matplotlib.colors as mc
 import colorsys
 import math
 
-from gpucachesim.benchmarks import REPO_ROOT_DIR
+from gpucachesim import REPO_ROOT_DIR
 
 PLOT_DIR = REPO_ROOT_DIR / "plot"
 
@@ -116,8 +116,6 @@ def human_format_thousands(num, round_to=2, variable_precision=False):
         magnitude += 1
         num = num / 1000.0
     return "{}{}".format(
-        round_to_precision(
-            num, round_to=round_to, variable_precision=variable_precision
-        ),
+        round_to_precision(num, round_to=round_to, variable_precision=variable_precision),
         ["", "K", "M", "G", "T", "P"][magnitude],
     )

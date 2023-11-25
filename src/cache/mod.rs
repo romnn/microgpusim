@@ -19,6 +19,7 @@ pub use readonly::ReadOnly;
 
 use super::{address, mem_fetch};
 use crate::sync::{Arc, Mutex};
+use color_eyre::eyre;
 use std::collections::VecDeque;
 
 #[derive(Debug, strum::EnumIter, Clone, Copy, Hash, PartialEq, Eq)]
@@ -112,8 +113,10 @@ impl From<AccessStat> for stats::cache::AccessStat {
 // #[inline]
 pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
     match probe {
-        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => probe,
-        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => probe,
+        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
+            RequestStatus::HIT_RESERVED
+        }
+        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => RequestStatus::SECTOR_MISS,
         _ => access,
     }
 }
@@ -127,6 +130,12 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
 
     /// Cache controller
     fn controller(&self) -> &dyn CacheController;
+
+    /// Write state of the cache to csv file
+    fn write_state(
+        &self,
+        csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
+    ) -> eyre::Result<()>;
 
     /// Access the cache.
     fn access(

@@ -370,15 +370,15 @@ where
         let ic::Packet { data, time } = packet;
         let mut fetch = data;
 
-        if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-            let access_kind = fetch.access_kind();
-            debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(kernel_launch_id);
-            kernel_stats
-                .accesses
-                .inc(fetch.allocation_id(), access_kind, 1);
-        }
+        // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+        let access_kind = fetch.access_kind();
+        debug_assert_eq!(fetch.is_write(), access_kind.is_write());
+        let mut stats = self.stats.lock();
+        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        kernel_stats
+            .accesses
+            .inc(fetch.allocation_id(), access_kind, 1);
+        // }
 
         let dest_sub_partition_id = fetch.sub_partition_id();
         let mem_dest = self.config.mem_id_to_device_id(dest_sub_partition_id);
@@ -1788,7 +1788,7 @@ where
         let have_block = kernel.next_threadblock_traces(selected_warps, &self.config);
         if have_block {
             let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(kernel.id() as usize);
+            let kernel_stats = stats.get_mut(Some(kernel.id() as usize));
             kernel_stats.sim.num_blocks += 1;
         }
         log::debug!(
@@ -1934,7 +1934,7 @@ where
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerKernel>) {
     // TODO: use per core stats
     let mut stats = stats.lock();
-    let kernel_stats = stats.get_mut(instr.kernel_launch_id as usize);
+    let kernel_stats = stats.get_mut(Some(instr.kernel_launch_id as usize));
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
     // crate::WIP_STATS.lock().warp_instructions += 1;
 }

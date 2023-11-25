@@ -136,6 +136,7 @@ impl AccessStatus {
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerKernel {
     pub inner: Vec<Cache>,
+    pub no_kernel: Cache,
 }
 
 impl AsRef<Vec<Cache>> for PerKernel {
@@ -146,9 +147,14 @@ impl AsRef<Vec<Cache>> for PerKernel {
 
 impl PerKernel {
     // #[inline]
-    pub fn get_mut(&mut self, idx: usize) -> &mut Cache {
-        self.inner.resize_with(idx + 1, Cache::default);
-        &mut self.inner[idx]
+    pub fn get_mut(&mut self, idx: Option<usize>) -> &mut Cache {
+        match idx {
+            None => &mut self.no_kernel,
+            Some(idx) => {
+                self.inner.resize_with(idx + 1, Cache::default);
+                &mut self.inner[idx]
+            }
+        }
     }
 
     // #[inline]

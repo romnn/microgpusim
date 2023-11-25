@@ -29,7 +29,6 @@ from gpucachesim.benchmarks import (
     Target,
     Benchmarks,
     GPUConfig,
-    REPO_ROOT_DIR,
 )
 
 

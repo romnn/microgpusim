@@ -1652,8 +1652,13 @@ where
                 }
             } else {
                 log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                let kernel_id = self
+                    .current_kernel
+                    .lock()
+                    .as_ref()
+                    .map(|kernel| kernel.id() as usize);
                 let mut stats = self.stats.lock();
-                let kernel_stats = stats.get_mut(0);
+                let kernel_stats = stats.get_mut(kernel_id);
                 kernel_stats.stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2

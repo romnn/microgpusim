@@ -146,20 +146,20 @@ where
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                let mut stats = self.stats.lock();
-                let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(
-                    fetch.allocation_id(),
-                    fetch.access_kind(),
-                    super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                    if self.cache_config.accelsim_compat {
-                        1
-                    } else {
-                        fetch.access.num_transactions()
-                    },
-                );
-            }
+            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
+                if self.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
+            // }
 
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
@@ -217,20 +217,20 @@ where
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL)
             };
 
-            if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-                let mut stats = self.stats.lock();
-                let kernel_stats = stats.get_mut(kernel_launch_id);
-                kernel_stats.inc(
-                    fetch.allocation_id(),
-                    fetch.access_kind(),
-                    access_stat,
-                    if self.cache_config.accelsim_compat {
-                        1
-                    } else {
-                        fetch.access.num_transactions()
-                    },
-                );
-            }
+            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
+            let mut stats = self.stats.lock();
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                access_stat,
+                if self.cache_config.accelsim_compat {
+                    1
+                } else {
+                    fetch.access.num_transactions()
+                },
+            );
+            // }
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",
@@ -390,7 +390,7 @@ where
             .sorted()
             .collect::<Vec<_>>();
 
-        log::warn!(
+        log::trace!(
             "{}::baseline_cache::fill({}) uid={} pending={:?}",
             self.name,
             fetch,
@@ -407,19 +407,29 @@ where
 
         match self.cache_config.allocate_policy {
             cache::config::AllocatePolicy::ON_MISS => {
+                // assert_eq!(
+                //     fetch.allocation_id(),
+                //     self.tag_array.allocation_id(fetch.access.sector_mask.first_one().unwrap(),
+                // );
                 self.tag_array.fill_on_miss(
                     pending.cache_index,
                     fetch.addr(),
                     &fetch.access.sector_mask,
                     &fetch.access.byte_mask,
+                    // fetch.allocation_id(),
                     time,
                 );
             }
             cache::config::AllocatePolicy::ON_FILL => {
+                // assert_eq!(
+                //     fetch.allocation_id(),
+                //     self.tag_array.allocation_id(fetch.access.sector_mask.first_one().unwrap(),
+                // );
                 self.tag_array.fill_on_fill(
                     pending.block_addr,
                     &fetch.access.sector_mask,
                     &fetch.access.byte_mask,
+                    fetch.allocation_id(),
                     fetch.is_write(),
                     time,
                 );
@@ -444,7 +454,10 @@ where
             let block = self.tag_array.get_block_mut(pending.cache_index);
             // mark line as dirty for atomic operation
             let was_modified_before = block.is_modified();
-            block.set_status(super::block::Status::MODIFIED, &access_sector_mask);
+            block.set_status(
+                super::block::Status::MODIFIED,
+                access_sector_mask.first_one().unwrap(),
+            );
             block.set_byte_mask(&access_byte_mask);
             if !was_modified_before {
                 self.tag_array.num_dirty += 1;
