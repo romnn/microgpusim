@@ -877,7 +877,7 @@ where
                 }
                 // we borrow all of sub here, which is a problem for the cyclic reference in l2
                 // interface
-                mem_sub.cache_cycle(cycle);
+                mem_sub.cycle(cycle);
             }
             #[cfg(feature = "timings")]
             TIMINGS
@@ -1292,6 +1292,7 @@ where
 
         if self.config.fill_l2_on_memcopy {
             if self.config.accelsim_compat {
+                // todo: remove this branch because accelsim is broken
                 let chunk_size: u64 = 32;
                 let chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
                 for chunk in 0..chunks {
@@ -1331,10 +1332,17 @@ where
                         should_prefetch,
                     );
 
+                    let output_memcopy_l2_cache_state = std::env::var("OUTPUT_L2_CACHE_STATE")
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase()
+                        == "yes";
                     let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
-                    std::fs::create_dir_all(&debug_dir).ok();
 
-                    if num_bytes > 64 && !self.config.accelsim_compat {
+                    if output_memcopy_l2_cache_state
+                        && num_bytes > 64
+                        && !self.config.accelsim_compat
+                    {
                         write_l2_cache_state(
                             self,
                             &debug_dir.join(format!("l2_cache_state_{}_before.csv", allocation_id)),
@@ -1347,7 +1355,10 @@ where
                         self.fill_l2_transaction(addr, num_bytes, cycle);
                     }
 
-                    if num_bytes > 64 && !self.config.accelsim_compat {
+                    if output_memcopy_l2_cache_state
+                        && num_bytes > 64
+                        && !self.config.accelsim_compat
+                    {
                         write_l2_cache_state(
                             self,
                             &debug_dir.join(format!("l2_cache_state_{}_after.csv", allocation_id)),
@@ -1356,9 +1367,9 @@ where
                         print_cache(self);
                     }
 
-                    if allocation_id == 2 {
-                        // panic!("test");
-                    }
+                    // if allocation_id == 2 {
+                    //     panic!("test");
+                    // }
                 }
             }
         }
@@ -1527,7 +1538,7 @@ where
                 }
                 // we borrow all of sub here, which is a problem for the cyclic reference in l2
                 // interface
-                mem_sub.cache_cycle(new_cycle);
+                mem_sub.cycle(new_cycle);
             }
 
             for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
@@ -1551,7 +1562,7 @@ where
             //         .any(|unit| unit.try_lock().busy()));
             // }
             // dbg!(self.interconn.busy());
-            if self.interconn.busy() {
+            if false && self.interconn.busy() {
                 use itertools::Itertools;
                 for cluster_id in 0..self.config.num_simt_clusters {
                     let queue = self
@@ -1590,7 +1601,8 @@ where
             // dbg!(self.active());
         }
 
-        log::debug!("new cycle: {}", new_cycle - cycle);
+        println!("l2 memcopy took {} cycles", new_cycle - cycle);
+        log::debug!("l2 memcopy took {} cycles", new_cycle - cycle);
 
         // let mut active_clusters = utils::box_slice![false; self.clusters.len()];
         // for (cluster_id, cluster) in self.clusters.iter().enumerate() {
@@ -1931,15 +1943,6 @@ where
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             self.process_commands(cycle);
             self.launch_kernels(cycle);
-
-            // log::info!("MAMMAMIA PLS");
-            // for (kernel_launch_id, kernel_stats) in self.stats().as_ref().iter().enumerate() {
-            //     log::info!(
-            //         "MAMMAMIA KERNEL {} DRAM: {:#?}",
-            //         kernel_launch_id,
-            //         &kernel_stats.dram.reduce()
-            //     );
-            // }
 
             let mut finished_kernel = None;
             loop {
