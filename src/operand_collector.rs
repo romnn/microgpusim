@@ -913,7 +913,8 @@ impl RegisterFileUnit {
                     }
 
                     if allocated {
-                        break; // cu has been allocated, no need to search more.
+                        // cu has been allocated, no need to search more.
+                        break;
                     }
                 }
             }

@@ -673,6 +673,7 @@ where
                         self.write_miss(addr, Some(cache_index), fetch, time, events, probe_status);
                 }
                 None if no_allocate_on_write => {
+                    // this almost never happens
                     access_status = self.write_miss(
                         addr,
                         None,
@@ -684,6 +685,7 @@ where
                     );
                 }
                 None => {
+                    // this almost never happens
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();

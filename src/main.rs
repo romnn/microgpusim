@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use color_eyre::eyre;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -175,6 +175,7 @@ fn main() -> eyre::Result<()> {
     }
 
     eprintln!("STATS:\n");
+    eprintln!("SIM[no-kernel]: {:#?}", &stats.no_kernel.sim);
     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
         eprintln!(
             "\n ===== kernel launch {kernel_launch_id:<3}: {}  =====\n",

@@ -95,11 +95,11 @@ impl MemoryPartitionUnit {
     }
 
     // #[inline]
-    pub fn cache_cycle(&mut self, cycle: u64) {
-        for mem_sub in &mut self.sub_partitions {
-            mem_sub.try_lock().cache_cycle(cycle);
-        }
-    }
+    // pub fn cache_cycle(&mut self, cycle: u64) {
+    //     for mem_sub in &mut self.sub_partitions {
+    //         mem_sub.try_lock().cycle(cycle);
+    //     }
+    // }
 
     // #[inline]
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {

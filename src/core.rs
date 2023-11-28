@@ -52,7 +52,7 @@ pub trait WarpIssuer {
         cycle: u64,
     ) -> eyre::Result<()>;
 
-    fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool;
+    fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool;
 
     #[must_use]
     fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool;
@@ -65,13 +65,13 @@ impl<I> WarpIssuer for Core<I>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
-    fn has_free_register(&self, stage: PipelineStage, register_id: usize) -> bool {
+    fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
         let pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
 
         if self.config.sub_core_model {
             pipeline_stage
-                .get(register_id)
+                .get(scheduler_id)
                 .map(Option::as_ref)
                 .flatten()
                 .is_none()
@@ -302,18 +302,31 @@ where
 #[derive(strum::EnumIter, strum::EnumCount, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum PipelineStage {
+    /// Instruction Decode -> Operand Collector stage for single precision unit
     ID_OC_SP = 0,
+    /// Instruction Decode -> Operand Collector stage for double precision unit
     ID_OC_DP = 1,
+    /// Instruction Decode -> Operand Collector stage for integer unit
     ID_OC_INT = 2,
+    /// Instruction Decode -> Operand Collector stage for special function unit
     ID_OC_SFU = 3,
+    /// Instruction Decode -> Operand Collector stage for load store unit
     ID_OC_MEM = 4,
+    /// Operand Collector -> Execution stage for single precision unit
     OC_EX_SP = 5,
+    /// Operand Collector -> Execution stage for double precision unit
     OC_EX_DP = 6,
+    /// Operand Collector -> Execution stage for integer precision unit
     OC_EX_INT = 7,
+    /// Operand Collector -> Execution stage for special function unit
     OC_EX_SFU = 8,
+    /// Operand Collector -> Execution stage for load store unit
     OC_EX_MEM = 9,
+    /// Execution -> Writeback stage
     EX_WB = 10,
+    /// Instruction Decode -> Operand Collector stage for tensor unit
     ID_OC_TENSOR_CORE = 11,
+    /// Operand Collector -> Execution stage for tensor unit
     OC_EX_TENSOR_CORE = 12,
 }
 
@@ -1876,6 +1889,7 @@ where
         );
 
         // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
+        // FIXME: this is likely implemented wrong - causing a invalidations every cycle
         let need_l1_flush = {
             let mut need_l1_flush_lock = self.need_l1_flush.lock();
             let need_l1_flush = *need_l1_flush_lock;

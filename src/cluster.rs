@@ -107,6 +107,7 @@ where
             .cyan()
         );
 
+        // Handle received package
         if let Some(fetch) = self.response_fifo.front() {
             let core_id = self
                 .config
@@ -126,7 +127,7 @@ where
 
             match fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
-                    // this could be the reason
+                    // forward instruction fetch response to core
                     if core.fetch_unit_response_buffer_full() {
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     } else {
@@ -136,6 +137,7 @@ where
                     }
                 }
                 _ if !core.ldst_unit_response_buffer_full() => {
+                    // Forward load store unit response to core
                     let fetch = self.response_fifo.pop_front().unwrap();
                     log::debug!("accepted ldst unit fetch {}", fetch);
                     // m_memory_stats->memlatstat_read_done(mf);
@@ -147,7 +149,6 @@ where
             }
         }
 
-        // this could be the reason?
         let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
         if self.response_fifo.len() >= eject_buffer_size {
             log::debug!(
@@ -158,6 +159,7 @@ where
             return;
         }
 
+        // Receive a packet from interconnect
         let Some(packet) = self.interconn.pop(self.cluster_id) else {
             return;
         };

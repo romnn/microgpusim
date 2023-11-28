@@ -181,7 +181,7 @@ fn new_serial_cycle<I>(
         }
         // we borrow all of sub here, which is a problem for the cyclic reference in l2
         // interface
-        mem_sub.cache_cycle(cycle);
+        mem_sub.cycle(cycle);
     }
 
     if false {
@@ -545,7 +545,7 @@ where
             let mut active_clusters = vec![false; num_clusters];
 
             while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
-                self.process_commands(cycle);
+                cycle = self.process_commands(cycle);
                 self.launch_kernels(cycle);
 
                 let mut finished_kernel = None;
@@ -567,163 +567,163 @@ where
 
                     let span = tracing::span!(tracing::Level::INFO, "wave", cycle, run_ahead);
                     let enter = span.enter();
-                    if false && interleave_serial {
-                        // let kernels_completed = self
-                        //     .running_kernels
-                        //     .try_read()
-                        //     .iter()
-                        //     .filter_map(std::option::Option::as_ref)
-                        //     .all(|k| k.no_more_blocks_to_run());
-
-                        for (cluster_id, _cluster) in clusters.iter().enumerate() {
-                            active_clusters[cluster_id] = true;
-                            // active_clusters[cluster_id] =
-                            //     !(kernels_completed && cluster.read().not_completed() == 0);
-                        }
-                        // let active_clusters: Vec<_> = clusters
-                        //     .iter()
-                        //     .map(|cluster| !(kernels_completed && cluster.read().not_completed() == 0))
-                        //     .collect();
-
-                        rayon::scope_fifo(|wave| {
-                            for i in 0..run_ahead {
-                                for (cluster_id, _cluster_arc) in
-                                    clusters.iter().cloned().enumerate()
-                                {
-                                    if !active_clusters[cluster_id] {
-                                        continue;
-                                    }
-                                    // let cores = Arc::clone(&cores);
-                                    // wave.spawn_fifo(move |_| {
-                                    //     for (core_id, core) in
-                                    //         cores[cluster_id].iter().cloned().enumerate()
-                                    //     {
-                                    //         let mut core = core.write();
-                                    //         crate::timeit!(
-                                    //             "parallel core cycle",
-                                    //             core.cycle(cycle + i as u64)
-                                    //         );
-                                    //     }
-                                    // });
-
-                                    for (_core_id, core) in
-                                        cores[cluster_id].iter().cloned().enumerate()
-                                    {
-                                        wave.spawn_fifo(move |_| {
-                                            let mut core = core.write();
-                                            crate::timeit!(
-                                                "parallel core cycle",
-                                                core.cycle(cycle + i as u64)
-                                            );
-                                        });
-                                    }
-                                }
-
-                                // crate::timeit!(
-                                //     "prepare serial",
-                                //     interleaved_serial_cycle(
-                                //         cycle,
-                                //         // i,
-                                //         &active_clusters,
-                                //         // &progress,
-                                //         &cores,
-                                //         &sim_orders,
-                                //         &mem_ports,
-                                //         &self.interconn,
-                                //         &clusters,
-                                //         &self.config,
-                                //     )
-                                // );
-                                //
-                                // crate::timeit!("SERIAL PART", self.serial_cycle(cycle));
-                                // crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
-
-                                // let last_cycle = Arc::clone(&last_cycle);
-                                // let progress = Arc::clone(&progress);
-                                //
-                                let sim_orders = Arc::clone(&sim_orders);
-                                let mem_ports = Arc::clone(&mem_ports);
-                                let cores = Arc::clone(&cores);
-                                // let states = Arc::clone(&states);
-
-                                let interconn = Arc::clone(&self.interconn);
-                                let clusters = Arc::clone(&clusters);
-
-                                let stats = Arc::clone(&self.stats);
-                                let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
-                                let mem_partition_units = Arc::clone(&mem_partition_units);
-                                let config = Arc::clone(&self.config);
-
-                                let running_kernels = Arc::clone(&self.running_kernels);
-                                let executed_kernels = Arc::clone(&self.executed_kernels);
-
-                                let last_cluster_issue = Arc::clone(&self.last_cluster_issue);
-                                let last_issued_kernel = Arc::clone(&last_issued_kernel);
-                                let block_issue_next_core = Arc::clone(&block_issue_next_core);
-                                let need_issue = Arc::clone(&need_issue);
-                                let issue_guard = Arc::clone(&issue_guard);
-                                let serial_lock = Arc::clone(&serial_lock);
-                                let active_clusters = active_clusters.clone();
-
-                                wave.spawn_fifo(move |_| {
-                                    let _guard = serial_lock.lock();
-                                    interleaved_serial_cycle(
-                                        cycle + i as u64,
-                                        // i,
-                                        &active_clusters,
-                                        // &progress,
-                                        &cores,
-                                        &sim_orders,
-                                        &mem_ports,
-                                        &interconn,
-                                        &clusters,
-                                        &config,
-                                    );
-                                    crate::timeit!(
-                                        "SERIAL PART",
-                                        new_serial_cycle(
-                                            cycle,
-                                            &stats,
-                                            &need_issue,
-                                            &last_issued_kernel,
-                                            &block_issue_next_core,
-                                            &running_kernels,
-                                            &executed_kernels,
-                                            &mem_sub_partitions,
-                                            &mem_partition_units,
-                                            &interconn,
-                                            &clusters,
-                                            &cores,
-                                            &last_cluster_issue,
-                                            &config,
-                                        )
-                                    );
-                                });
-                            }
-                        });
-
-                        // crate::timeit!(
-                        //     "prepare serial",
-                        //     interleaved_serial_cycle(
-                        //         cycle + run_ahead as u64,
-                        //         // i,
-                        //         &active_clusters,
-                        //         // &progress,
-                        //         &cores,
-                        //         &sim_orders,
-                        //         &mem_ports,
-                        //         &self.interconn,
-                        //         &clusters,
-                        //         &self.config,
-                        //     )
-                        // );
-                        //
-                        // crate::timeit!("SERIAL PART", self.serial_cycle(cycle + run_ahead as u64));
-                        crate::timeit!(
-                            "issue blocks",
-                            self.issue_block_to_core(cycle + run_ahead as u64)
-                        );
-                    }
+                    // if false && interleave_serial {
+                    //     // let kernels_completed = self
+                    //     //     .running_kernels
+                    //     //     .try_read()
+                    //     //     .iter()
+                    //     //     .filter_map(std::option::Option::as_ref)
+                    //     //     .all(|k| k.no_more_blocks_to_run());
+                    //
+                    //     for (cluster_id, _cluster) in clusters.iter().enumerate() {
+                    //         active_clusters[cluster_id] = true;
+                    //         // active_clusters[cluster_id] =
+                    //         //     !(kernels_completed && cluster.read().not_completed() == 0);
+                    //     }
+                    //     // let active_clusters: Vec<_> = clusters
+                    //     //     .iter()
+                    //     //     .map(|cluster| !(kernels_completed && cluster.read().not_completed() == 0))
+                    //     //     .collect();
+                    //
+                    //     rayon::scope_fifo(|wave| {
+                    //         for i in 0..run_ahead {
+                    //             for (cluster_id, _cluster_arc) in
+                    //                 clusters.iter().cloned().enumerate()
+                    //             {
+                    //                 if !active_clusters[cluster_id] {
+                    //                     continue;
+                    //                 }
+                    //                 // let cores = Arc::clone(&cores);
+                    //                 // wave.spawn_fifo(move |_| {
+                    //                 //     for (core_id, core) in
+                    //                 //         cores[cluster_id].iter().cloned().enumerate()
+                    //                 //     {
+                    //                 //         let mut core = core.write();
+                    //                 //         crate::timeit!(
+                    //                 //             "parallel core cycle",
+                    //                 //             core.cycle(cycle + i as u64)
+                    //                 //         );
+                    //                 //     }
+                    //                 // });
+                    //
+                    //                 for (_core_id, core) in
+                    //                     cores[cluster_id].iter().cloned().enumerate()
+                    //                 {
+                    //                     wave.spawn_fifo(move |_| {
+                    //                         let mut core = core.write();
+                    //                         crate::timeit!(
+                    //                             "parallel core cycle",
+                    //                             core.cycle(cycle + i as u64)
+                    //                         );
+                    //                     });
+                    //                 }
+                    //             }
+                    //
+                    //             // crate::timeit!(
+                    //             //     "prepare serial",
+                    //             //     interleaved_serial_cycle(
+                    //             //         cycle,
+                    //             //         // i,
+                    //             //         &active_clusters,
+                    //             //         // &progress,
+                    //             //         &cores,
+                    //             //         &sim_orders,
+                    //             //         &mem_ports,
+                    //             //         &self.interconn,
+                    //             //         &clusters,
+                    //             //         &self.config,
+                    //             //     )
+                    //             // );
+                    //             //
+                    //             // crate::timeit!("SERIAL PART", self.serial_cycle(cycle));
+                    //             // crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
+                    //
+                    //             // let last_cycle = Arc::clone(&last_cycle);
+                    //             // let progress = Arc::clone(&progress);
+                    //             //
+                    //             let sim_orders = Arc::clone(&sim_orders);
+                    //             let mem_ports = Arc::clone(&mem_ports);
+                    //             let cores = Arc::clone(&cores);
+                    //             // let states = Arc::clone(&states);
+                    //
+                    //             let interconn = Arc::clone(&self.interconn);
+                    //             let clusters = Arc::clone(&clusters);
+                    //
+                    //             let stats = Arc::clone(&self.stats);
+                    //             let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
+                    //             let mem_partition_units = Arc::clone(&mem_partition_units);
+                    //             let config = Arc::clone(&self.config);
+                    //
+                    //             let running_kernels = Arc::clone(&self.running_kernels);
+                    //             let executed_kernels = Arc::clone(&self.executed_kernels);
+                    //
+                    //             let last_cluster_issue = Arc::clone(&self.last_cluster_issue);
+                    //             let last_issued_kernel = Arc::clone(&last_issued_kernel);
+                    //             let block_issue_next_core = Arc::clone(&block_issue_next_core);
+                    //             let need_issue = Arc::clone(&need_issue);
+                    //             let issue_guard = Arc::clone(&issue_guard);
+                    //             let serial_lock = Arc::clone(&serial_lock);
+                    //             let active_clusters = active_clusters.clone();
+                    //
+                    //             wave.spawn_fifo(move |_| {
+                    //                 let _guard = serial_lock.lock();
+                    //                 interleaved_serial_cycle(
+                    //                     cycle + i as u64,
+                    //                     // i,
+                    //                     &active_clusters,
+                    //                     // &progress,
+                    //                     &cores,
+                    //                     &sim_orders,
+                    //                     &mem_ports,
+                    //                     &interconn,
+                    //                     &clusters,
+                    //                     &config,
+                    //                 );
+                    //                 crate::timeit!(
+                    //                     "SERIAL PART",
+                    //                     new_serial_cycle(
+                    //                         cycle,
+                    //                         &stats,
+                    //                         &need_issue,
+                    //                         &last_issued_kernel,
+                    //                         &block_issue_next_core,
+                    //                         &running_kernels,
+                    //                         &executed_kernels,
+                    //                         &mem_sub_partitions,
+                    //                         &mem_partition_units,
+                    //                         &interconn,
+                    //                         &clusters,
+                    //                         &cores,
+                    //                         &last_cluster_issue,
+                    //                         &config,
+                    //                     )
+                    //                 );
+                    //             });
+                    //         }
+                    //     });
+                    //
+                    //     // crate::timeit!(
+                    //     //     "prepare serial",
+                    //     //     interleaved_serial_cycle(
+                    //     //         cycle + run_ahead as u64,
+                    //     //         // i,
+                    //     //         &active_clusters,
+                    //     //         // &progress,
+                    //     //         &cores,
+                    //     //         &sim_orders,
+                    //     //         &mem_ports,
+                    //     //         &self.interconn,
+                    //     //         &clusters,
+                    //     //         &self.config,
+                    //     //     )
+                    //     // );
+                    //     //
+                    //     // crate::timeit!("SERIAL PART", self.serial_cycle(cycle + run_ahead as u64));
+                    //     crate::timeit!(
+                    //         "issue blocks",
+                    //         self.issue_block_to_core(cycle + run_ahead as u64)
+                    //     );
+                    // }
 
                     if interleave_serial {
                         // rayon::spawn(|| {
@@ -1229,6 +1229,7 @@ where
                             //     }
                             // });
 
+                            // run cores in any order
                             rayon::scope(|core_scope| {
                                 for cluster_arc in &self.clusters {
                                     let cluster = cluster_arc.try_read();
@@ -1258,6 +1259,7 @@ where
                                 }
                             });
 
+                            // push memory request packets generated by cores to the interconnection network.
                             for (cluster_id, cluster) in self.clusters.iter().enumerate() {
                                 let cluster = cluster.try_read();
                                 assert_eq!(cluster.cluster_id, cluster_id);
@@ -1580,9 +1582,12 @@ where
     #[tracing::instrument]
     pub fn serial_cycle(&mut self, cycle: u64) {
         for cluster in &self.clusters {
+            // Receive memory responses addressed to each cluster and forward to cores
             cluster.write().interconn_cycle(cycle);
         }
 
+        // send memory responses from memory sub partitions to the requestor clusters via
+        // interconnect
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.try_lock();
             if let Some(fetch) = mem_sub.top() {
@@ -1616,10 +1621,14 @@ where
             }
         }
 
+        // dram cycle
         for (_i, unit) in self.mem_partition_units.iter().enumerate() {
             unit.try_write().simple_dram_cycle(cycle);
         }
 
+        // receive requests sent to L2 from interconnect and push them to the
+        // targeted memory sub partition.
+        // Run cycle for each sub partition
         for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.try_lock();
             // move memory request from interconnect into memory partition
@@ -1631,7 +1640,6 @@ where
             // buffer for them
             let device = self.config.mem_id_to_device_id(i);
 
-            // same as full with parameter overload
             if mem_sub
                 .interconn_to_l2_queue
                 .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
@@ -1663,7 +1671,7 @@ where
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
-            mem_sub.cache_cycle(cycle);
+            mem_sub.cycle(cycle);
         }
 
         // this has been moved out, but does that make sense?

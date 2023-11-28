@@ -32,14 +32,13 @@ pub struct MemorySubPartition {
     pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
     request_tracker: HashSet<mem_fetch::MemFetch>,
-
     // This is a cycle offset that has to be applied to the l2 accesses to account
     // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
     // kernel execution but we want cudamemcpy to go through the L2. Everytime an
     // access is made from cudamemcpy this counter is incremented, and when the l2
     // is accessed (in both cudamemcpyies and otherwise) this value is added to
     // the gpgpu-sim cycle counters.
-    memcpy_cycle_offset: u64,
+    // memcpy_cycle_offset: u64,
 }
 
 // impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
@@ -111,7 +110,7 @@ impl MemorySubPartition {
             mem_controller,
             stats,
             l2_cache,
-            memcpy_cycle_offset: 0,
+            // memcpy_cycle_offset: 0,
             interconn_to_l2_queue,
             l2_to_dram_queue,
             dram_to_l2_queue,
@@ -128,8 +127,9 @@ impl MemorySubPartition {
         time: u64,
     ) {
         if let Some(ref mut l2_cache) = self.l2_cache {
-            l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, sector_mask);
-            self.memcpy_cycle_offset += 1;
+            // l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, sector_mask);
+            l2_cache.force_tag_access(addr, time, sector_mask);
+            // self.memcpy_cycle_offset += 1;
         }
     }
 
@@ -348,7 +348,7 @@ impl MemorySubPartition {
     }
 
     #[tracing::instrument]
-    pub fn cache_cycle(&mut self, cycle: u64) {
+    pub fn cycle(&mut self, cycle: u64) {
         use mem_fetch::{access::Kind as AccessKind, Status};
 
         let log_line = || {
@@ -421,7 +421,8 @@ impl MemorySubPartition {
             }
         }
 
-        let mem_copy_time = cycle + self.memcpy_cycle_offset;
+        // let mem_copy_time = cycle + self.memcpy_cycle_offset;
+        let mem_copy_time = cycle;
 
         // DRAM to L2 (texture) and icnt (not texture)
         if let Some(reply) = self.dram_to_l2_queue.first() {
