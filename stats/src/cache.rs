@@ -349,10 +349,39 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn num_global_accesses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_global()
+                    && matches!(
+                        access.stat(),
+                        AccessStat::Status(
+                            RequestStatus::HIT
+                                | RequestStatus::MISS
+                                | RequestStatus::SECTOR_MISS
+                                | RequestStatus::HIT_RESERVED
+                        )
+                    )
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
     pub fn num_read_misses(&self) -> usize {
         self.inner
             .iter()
             .filter(|((_, access), _)| access.is_read() && access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_read_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_global() && access.is_read() && access.is_miss())
             .map(|(_, count)| count)
             .sum()
     }
@@ -367,6 +396,15 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn num_global_write_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_global() && access.is_write() && access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
     pub fn num_misses(&self) -> usize {
         self.inner
             .iter()
@@ -376,7 +414,27 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn num_global_misses(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.is_global() && access.is_miss())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
     pub fn num_read_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_read() && (access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_read_hits(&self) -> usize {
         self.inner
             .iter()
             .filter(|((_, access), _)| {
@@ -390,6 +448,17 @@ impl Cache {
 
     #[must_use]
     pub fn num_reads(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_read() && (access.is_miss() || access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_reads(&self) -> usize {
         self.inner
             .iter()
             .filter(|((_, access), _)| {
@@ -407,6 +476,18 @@ impl Cache {
             .iter()
             .filter(|((_, access), _)| {
                 access.is_write()
+                    && (access.is_miss() || access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_writes(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_write()
                     && access.is_global()
                     && (access.is_miss() || access.is_hit() || access.is_pending_hit())
             })
@@ -416,6 +497,17 @@ impl Cache {
 
     #[must_use]
     pub fn num_write_hits(&self) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| {
+                access.is_write() && (access.is_hit() || access.is_pending_hit())
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_write_hits(&self) -> usize {
         self.inner
             .iter()
             .filter(|((_, access), _)| {
@@ -431,11 +523,25 @@ impl Cache {
     pub fn num_hits(&self) -> usize {
         self.inner
             .iter()
+            .filter(|((_, access), _)| access.is_hit() || access.is_pending_hit())
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
+    pub fn num_global_hits(&self) -> usize {
+        self.inner
+            .iter()
             .filter(|((_, access), _)| {
                 access.is_global() && (access.is_hit() || access.is_pending_hit())
             })
             .map(|(_, count)| count)
             .sum()
+    }
+
+    #[must_use]
+    pub fn global_hit_rate(&self) -> f32 {
+        self.num_global_hits() as f32 / self.num_global_accesses() as f32
     }
 
     #[must_use]
@@ -451,6 +557,16 @@ impl Cache {
     #[must_use]
     pub fn read_hit_rate(&self) -> f32 {
         self.num_read_hits() as f32 / self.num_reads() as f32
+    }
+
+    #[must_use]
+    pub fn global_write_hit_rate(&self) -> f32 {
+        self.num_global_write_hits() as f32 / self.num_global_writes() as f32
+    }
+
+    #[must_use]
+    pub fn global_read_hit_rate(&self) -> f32 {
+        self.num_global_read_hits() as f32 / self.num_global_reads() as f32
     }
 
     #[must_use]
@@ -470,40 +586,6 @@ impl Cache {
             .map(|(_, count)| count)
             .sum()
     }
-
-    // #[deprecated]
-    // pub fn sub_stats(&self) {
-    //     let mut total_accesses = 0;
-    //     let mut total_misses = 0;
-    //     let mut total_pending_hits = 0;
-    //     let mut total_reservation_fails = 0;
-    //     for ((_alloc_id, access), accesses) in &self.inner {
-    //         let AccessStatus((_access_kind, status)) = access;
-    //
-    //         if let AccessStat::Status(
-    //             RequestStatus::HIT
-    //             | RequestStatus::MISS
-    //             | RequestStatus::SECTOR_MISS
-    //             | RequestStatus::HIT_RESERVED,
-    //         ) = status
-    //         {
-    //             total_accesses += accesses;
-    //         }
-    //
-    //         match status {
-    //             AccessStat::Status(RequestStatus::MISS | RequestStatus::SECTOR_MISS) => {
-    //                 total_misses += accesses;
-    //             }
-    //             AccessStat::Status(RequestStatus::HIT_RESERVED) => {
-    //                 total_pending_hits += accesses;
-    //             }
-    //             AccessStat::Status(RequestStatus::RESERVATION_FAIL) => {
-    //                 total_reservation_fails += accesses;
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    // }
 
     // #[inline]
     pub fn inc(

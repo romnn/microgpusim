@@ -10,8 +10,6 @@ pub struct Sim {
     pub num_blocks: u64,
     pub elapsed_millis: u128,
     pub is_release_build: bool,
-    // pub elapsed_millis_debug: u128,
-    // pub elapsed_millis_release: u128,
 }
 
 impl std::ops::AddAssign for Sim {
@@ -20,7 +18,6 @@ impl std::ops::AddAssign for Sim {
         self.instructions += other.instructions;
         self.num_blocks += other.num_blocks;
         self.elapsed_millis += other.elapsed_millis;
-        // self.elapsed_millis_debug += other.elapsed_millis_debug;
-        // self.elapsed_millis_release += other.elapsed_millis_release;
+        self.is_release_build |= other.is_release_build;
     }
 }
