@@ -63,32 +63,13 @@ async fn main() -> eyre::Result<()> {
     }
 
     // write log
-    let log_file_path = options
-        .log_file
-        .unwrap_or(traces_dir.join("accelsim_log.txt"));
+    if let Some(log_file_path) = options.log_file
+    // .unwrap_or(traces_dir.join("accelsim_log.txt"))
+    {
+        let mut log_file = utils::fs::open_writable(&log_file_path)?;
+        log_file.write_all(stdout.as_bytes())?;
 
-    let mut log_file = utils::fs::open_writable(&log_file_path)?;
-    log_file.write_all(stdout.as_bytes())?;
-
-    println!("wrote log to {}", log_file_path.display());
-
-    // let log_reader = std::io::Cursor::new(stdout);
-    // let parse_options = accelsim::parser::Options::default();
-    // let stats = accelsim::parser::parse_stats(log_reader, &parse_options)?;
-
-    // println!("{:#?}", &stats);
-
-    // let converted: Result<stats::Stats, _> = stats.clone().try_into();
-    // println!("{:#?}", &converted);
-    // for stat in stats.iter() {
-    //     println!("{}", &stat);
-    // }
-
-    // let stats_file_path = options
-    //     .stats_file
-    //     .unwrap_or(log_file_path.with_extension("json"));
-
-    // let flat_stats: Vec<_> = stats.into_iter().collect();
-    // serde_json::to_writer_pretty(utils::fs::open_writable(stats_file_path)?, &flat_stats)?;
+        println!("wrote log to {}", log_file_path.display());
+    }
     Ok(())
 }
