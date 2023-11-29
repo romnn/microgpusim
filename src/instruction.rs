@@ -3,7 +3,7 @@ use crate::{
     kernel::Kernel,
     mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
-    opcodes::{ArchOp, Op, Opcode},
+    opcodes::{pascal, ArchOp, Op, Opcode},
     operand_collector as opcoll, warp,
 };
 
@@ -279,7 +279,26 @@ impl WarpInstruction {
         }
 
         // fill latency and init latency
-        let (latency, initiation_interval) = config.get_latencies(opcode.category);
+        let (mut latency, initiation_interval) = config.get_latencies(opcode.category);
+
+        // temp workaround for per instruction pascal latencies.
+        // TODO: make this configurable and discover the instruction latencies using a
+        // custom disassembler in the future
+        if !config.accelsim_compat {
+            latency = match opcode.op {
+                Op::IMUL | Op::IMAD => 86,
+                Op::DADD | Op::DMUL | Op::DFMA | Op::Pascal(pascal::op::Op::DMNMX) => 8,
+                Op::FSET | Op::Pascal(pascal::op::Op::DSET) | Op::DSETP | Op::ISETP | Op::FSETP => {
+                    12
+                }
+                Op::POPC | Op::FLO | Op::MUFU | Op::F2F | Op::F2I | Op::I2F | Op::I2I => 14,
+                // BFE, BFI, IADD, IADD32I, FADD, FMUL, FFMA, FMNMX, 6
+                // HADD2, HMUL2, HFMA2, IMNMX, ISCADD, LOP, LOP32I,
+                // LOP3, MOV, MOV32I, SEL, SHL, SHR, VADD, VABSDIFF,
+                // VMNMX, XMAD
+                _ => 6,
+            };
+        }
 
         // fill addresses
         let mut data_size = 0;

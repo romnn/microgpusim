@@ -432,6 +432,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
     box_config.fill_l2_on_memcopy = false;
+    box_config.perfect_inst_const_cache = true;
     // box_config.flush_l1_cache = true;
     // box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;

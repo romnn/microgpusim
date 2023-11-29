@@ -185,33 +185,44 @@ fn main() -> eyre::Result<()> {
         eprintln!("SIM: {:#?}", &kernel_stats.sim);
         eprintln!("INSTRUCTIONS: {:#?}", &kernel_stats.instructions);
         eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
-        eprintln!("L1I: {:#?}", &kernel_stats.l1i_stats.reduce());
-        eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
+
+        let l1i_stats = kernel_stats.l1i_stats.reduce();
+        eprintln!("L1I: {:#?}", &l1i_stats);
         eprintln!(
-            "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
-            &kernel_stats.l1d_stats.reduce().hit_rate() * 100.0,
-            &kernel_stats.l1d_stats.reduce().num_hits(),
-            &kernel_stats.l1d_stats.reduce().num_accesses(),
+            "L1I hit rate: {:4.2}% ({} hits / {} accesses)",
+            &l1i_stats.hit_rate() * 100.0,
+            &l1i_stats.num_hits(),
+            &l1i_stats.num_accesses(),
         );
 
-        eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
+        let l1d_stats = kernel_stats.l1d_stats.reduce();
+        eprintln!("L1D: {:#?}", &l1d_stats);
+        eprintln!(
+            "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
+            &l1d_stats.global_hit_rate() * 100.0,
+            &l1d_stats.num_global_hits(),
+            &l1d_stats.num_global_accesses(),
+        );
+
+        let l2d_stats = kernel_stats.l2d_stats.reduce();
+        eprintln!("L2D: {:#?}", &l2d_stats);
         eprintln!(
             "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
-            &kernel_stats.l2d_stats.reduce().hit_rate() * 100.0,
-            &kernel_stats.l2d_stats.reduce().num_hits(),
-            &kernel_stats.l2d_stats.reduce().num_accesses(),
+            &l2d_stats.global_hit_rate() * 100.0,
+            &l2d_stats.num_global_hits(),
+            &l2d_stats.num_global_accesses(),
         );
         eprintln!(
             "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
-            &kernel_stats.l2d_stats.reduce().write_hit_rate() * 100.0,
-            &kernel_stats.l2d_stats.reduce().num_write_hits(),
-            &kernel_stats.l2d_stats.reduce().num_writes(),
+            &l2d_stats.global_write_hit_rate() * 100.0,
+            &l2d_stats.num_global_write_hits(),
+            &l2d_stats.num_global_writes(),
         );
         eprintln!(
             "L2D read hit rate: {:4.2}% ({} read hits / {} reads)",
-            &kernel_stats.l2d_stats.reduce().read_hit_rate() * 100.0,
-            &kernel_stats.l2d_stats.reduce().num_read_hits(),
-            &kernel_stats.l2d_stats.reduce().num_reads(),
+            &l2d_stats.global_read_hit_rate() * 100.0,
+            &l2d_stats.num_global_read_hits(),
+            &l2d_stats.num_global_reads(),
         );
     }
     eprintln!("completed in {:?}", start.elapsed());

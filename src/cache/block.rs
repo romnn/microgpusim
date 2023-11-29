@@ -12,7 +12,7 @@ pub enum Status {
     MODIFIED,
 }
 
-pub trait Block: std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
+pub trait Block: Default + std::fmt::Debug + std::fmt::Display + Sync + Send + 'static {
     fn allocate(
         &mut self,
         tag: address,

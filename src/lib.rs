@@ -1800,11 +1800,6 @@ where
 
         while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
             cycle = self.process_commands(cycle);
-            // let before_cycle = cycle;
-            // cycle = self.process_commands(before_cycle);
-            // {
-            //     self.stats.lock().no_kernel.sim.cycles += cycle - before_cycle;
-            // }
             self.launch_kernels(cycle);
 
             let mut finished_kernel = None;

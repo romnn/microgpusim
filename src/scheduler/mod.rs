@@ -116,9 +116,11 @@ impl Base {
         core: &dyn WarpIssuer,
         cycle: u64,
     ) -> bool {
-        if let ExecUnitKind::SFU = unit {
-            panic!("we do use the sfu unit");
-        }
+        // if let ExecUnitKind::SFU = unit {
+        //     dbg!(warp.current_instr().unwrap().opcode);
+        //     dbg!(warp.ibuffer_peek().unwrap().opcode);
+        //     panic!("we do use the sfu unit");
+        // }
         let free_register = core.has_free_register(stage, self.id);
         let can_dual_issue =
             !self.config.dual_issue_only_to_different_exec_units || prev_issued_exec_unit != unit;

@@ -1249,23 +1249,25 @@ where
     // #[inline]
     #[tracing::instrument]
     fn fetch(&mut self, cycle: u64) {
-        log::debug!(
-            "{}",
-            style(format!(
-                "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
-                cycle,
-                self.id(),
-                self.instr_fetch_buffer.valid,
-                self.instr_l1_cache
-                    .ready_accesses()
-                    .cloned()
-                    .unwrap_or_default()
-                    .iter()
-                    .map(std::string::ToString::to_string)
-                    .collect::<Vec<_>>(),
-            ))
-            .green()
-        );
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "{}",
+                style(format!(
+                    "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
+                    cycle,
+                    self.id(),
+                    self.instr_fetch_buffer.valid,
+                    self.instr_l1_cache
+                        .ready_accesses()
+                        .cloned()
+                        .unwrap_or_default()
+                        .iter()
+                        .map(std::string::ToString::to_string)
+                        .collect::<Vec<_>>(),
+                ))
+                .green()
+            );
+        }
 
         if !self.instr_fetch_buffer.valid {
             if let Some(fetch) = self.instr_l1_cache.next_access() {
@@ -1442,9 +1444,13 @@ where
                             allocation: Some(inst_alloc.clone()),
                             req_size_bytes: num_bytes as u32,
                             is_write: false,
-                            warp_active_mask: warp::ActiveMask::ZERO,
-                            byte_mask: mem_fetch::ByteMask::ZERO,
-                            sector_mask: mem_fetch::SectorMask::ZERO,
+                            warp_active_mask: instr.active_mask,
+                            // warp_active_mask: warp::ActiveMask::all_ones(),
+                            // we dont need to set the sector and bit
+                            // masks, because they will be computed
+                            // when inserted into the memory sub partition
+                            byte_mask: !mem_fetch::ByteMask::ZERO,
+                            sector_mask: !mem_fetch::SectorMask::ZERO,
                         }
                         .build();
 
@@ -1467,11 +1473,15 @@ where
                             cache::RequestStatus::HIT
                         } else {
                             let mut events = Vec::new();
-                            self.instr_l1_cache
-                                .access(ppc as address, fetch, &mut events, cycle)
+                            self.instr_l1_cache.access(
+                                ppc as address,
+                                fetch.clone(),
+                                &mut events,
+                                cycle,
+                            )
                         };
 
-                        log::debug!("L1I->access(addr={}) -> status = {:?}", ppc, status);
+                        log::warn!("L1I access({}) -> {:?}", fetch, status);
 
                         self.last_warp_fetched = Some(warp_id);
 

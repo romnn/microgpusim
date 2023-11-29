@@ -153,17 +153,12 @@ impl MemorySubPartition {
             // config: &'c config::GPU,
         }
 
+        assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+
         impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
             fn into(self) -> mem_fetch::MemFetch {
-                let physical_addr = self
-                    // .config.address_mapping()
-                    .mem_controller
-                    .to_physical_address(self.addr);
-                let partition_addr = self
-                    // .config
-                    // .address_mapping()
-                    .mem_controller
-                    .memory_partition_address(self.addr);
+                let physical_addr = self.mem_controller.to_physical_address(self.addr);
+                let partition_addr = self.mem_controller.memory_partition_address(self.addr);
 
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;
                 sector_mask.set(self.sector, true);
@@ -270,12 +265,49 @@ impl MemorySubPartition {
         let mut sector_requests: [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE] =
             [(); SECTOR_CHUNK_SIZE].map(|_| None);
 
-        let l2_config = self.config.data_cache_l2.as_ref().unwrap();
-        if l2_config.inner.kind == config::CacheKind::Sector {
-            self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+        // let l2_config = self.config.data_cache_l2.as_ref().unwrap();
+        if self.config.accelsim_compat {
+            let sectored = self
+                .config
+                .data_cache_l2
+                .as_ref()
+                .map(|l2_cache| l2_cache.inner.kind == config::CacheKind::Sector)
+                .unwrap_or(false);
+            if sectored {
+                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+            } else {
+                let mut sector_fetch = fetch;
+                sector_fetch.access.sector_mask.fill(true);
+                sector_requests[0] = Some(sector_fetch);
+            };
         } else {
-            sector_requests[0] = Some(fetch);
-        };
+            let sectored = match fetch.access_kind() {
+                mem_fetch::access::Kind::INST_ACC_R => self
+                    .config
+                    .inst_cache_l1
+                    .as_ref()
+                    .map(|inst_cache| inst_cache.kind == config::CacheKind::Sector)
+                    .unwrap_or(false),
+                _ => self
+                    .config
+                    .data_cache_l2
+                    .as_ref()
+                    .map(|inst_cache| inst_cache.inner.kind == config::CacheKind::Sector)
+                    .unwrap_or(false),
+            };
+
+            if sectored {
+                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+            } else {
+                let mut sector_fetch = fetch;
+                sector_fetch.access.sector_mask.fill(true);
+                sector_requests[0] = Some(sector_fetch);
+            }
+            // if let mem_fetch::access::Kind::INST_ACC_R = fetch.access_kind() {
+            //     sector_requests[0] = Some(fetch);
+            //     return;
+            // }
+        }
 
         for mut fetch in sector_requests
             .into_iter()

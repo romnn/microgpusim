@@ -18,6 +18,12 @@ pub struct Entry<F> {
     has_atomic: bool,
 }
 
+impl<F> Entry<F> {
+    pub fn len(&self) -> usize {
+        self.requests.len()
+    }
+}
+
 impl<F> Default for Entry<F> {
     fn default() -> Self {
         Self {
@@ -92,12 +98,12 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
     fn add(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) {
         let entry = self.entries.entry(block_addr).or_default();
 
-        debug_assert!(entry.requests.len() <= self.max_merged);
+        assert!(entry.requests.len() <= self.max_merged);
 
         // indicate that this MSHR entry contains an atomic operation
         entry.has_atomic |= fetch.is_atomic();
         entry.requests.push_back(fetch);
-        debug_assert!(self.entries.len() <= self.num_entries);
+        assert!(self.entries.len() <= self.num_entries);
     }
 
     // #[inline]
@@ -157,6 +163,12 @@ impl Table<mem_fetch::MemFetch> {
             return None;
         };
         Some(&entry.requests)
+    }
+
+    /// Returns the entries in the MSHR
+    #[must_use]
+    pub fn entries(&self) -> &HashMap<u64, Entry<mem_fetch::MemFetch>> {
+        &self.entries
     }
 
     /// Returns mutable reference to the next ready accesses

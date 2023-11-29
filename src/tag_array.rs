@@ -121,7 +121,7 @@ where
 {
     // #[inline]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
-        log::trace!("tag_array::access({}, time={})", fetch, time);
+        log::debug!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
         self.is_used = true;
 
@@ -336,6 +336,12 @@ where
             dirty_line_percent,
         );
 
+        // if let Some(fetch) = fetch {
+        //     dbg!(&fetch.to_string());
+        //     dbg!(&fetch.access.sector_mask);
+        // }
+        // dbg!(&sector_mask);
+
         // check for hit or pending hit
         for way in 0..self.cache_config.associativity {
             let idx = set_index * self.cache_config.associativity + way;
@@ -348,6 +354,7 @@ where
                 line.status(sector_mask.first_one().unwrap()),
                 line.last_access_time()
             );
+
             if line.tag() == tag {
                 // if (line->get_status(mask) == RESERVED) {
                 //     idx = index;

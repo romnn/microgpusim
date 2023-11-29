@@ -8,8 +8,11 @@ use color_eyre::eyre;
 use std::collections::VecDeque;
 
 pub struct ReadOnly {
-    inner:
-        cache::base::Base<cache::controller::pascal::DataCacheController, stats::cache::PerKernel>,
+    inner: cache::base::Base<
+        cache::block::Line,
+        cache::controller::pascal::DataCacheController,
+        stats::cache::PerKernel,
+    >,
 }
 
 impl ReadOnly {
@@ -124,13 +127,11 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         debug_assert!(!fetch.is_write());
         let block_addr = cache_controller.block_addr(addr);
 
-        log::debug!(
-            "{}::readonly_cache::access({addr}, write = {}, data size = {}, control size = {}, block = {block_addr}, time={})",
+        log::warn!(
+            "{}::readonly_cache::access({fetch}, warp = {}, size = {}, block = {block_addr}, time = {time}))",
             self.inner.name,
-            fetch.is_write(),
+            fetch.warp_id,
             fetch.data_size(),
-            fetch.control_size(),
-            time,
         );
 
         let is_probe = false;
@@ -140,6 +141,14 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
             probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, status)| status);
 
         let mut access_status = cache::RequestStatus::RESERVATION_FAIL;
+
+        log::info!(
+            "{}::access({}) => probe status={:?} access status={:?}",
+            self.inner.name,
+            &fetch,
+            probe_status,
+            access_status
+        );
 
         match probe {
             None => {
