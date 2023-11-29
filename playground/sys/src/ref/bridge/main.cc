@@ -316,6 +316,7 @@ void accelsim_bridge::process_commands() {
       // unsupported commands will fail the simulation
       assert(0 && "undefined command");
     }
+    m_gpgpu_sim->gpu_sim_cycle++;
   }
   m_gpgpu_sim->logger->info("allocations: {}", m_gpgpu_sim->m_allocations);
 }
