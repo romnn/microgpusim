@@ -1,5 +1,10 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, interconn as ic, mcu, mem_fetch, mshr::MSHR, tag_array};
+use crate::{
+    address, cache, config, interconn as ic, mcu, mem_fetch,
+    mem_sub_partition::{SECTOR_CHUNK_SIZE, SECTOR_SIZE},
+    mshr::MSHR,
+    tag_array,
+};
 
 use cache::block::Block;
 use color_eyre::eyre;
@@ -29,7 +34,7 @@ pub struct Builder<MC, CC, S> {
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
 pub struct Data<MC, CC, S> {
-    pub inner: cache::base::Base<CC, S>,
+    pub inner: cache::base::Base<cache::block::sector::Block<SECTOR_CHUNK_SIZE>, CC, S>,
 
     /// Memory controller
     pub mem_controller: MC,
@@ -120,9 +125,10 @@ where
 
     /// Write-evict hit.
     /// Send request to lower level memory and invalidate corresponding block
+    #[allow(dead_code)]
     fn write_hit_write_evict(
         &mut self,
-        addr: address,
+        _addr: address,
         cache_index: usize,
         fetch: &mem_fetch::MemFetch,
         time: u64,
@@ -149,7 +155,7 @@ where
         cache::RequestStatus::HIT
     }
 
-    #[allow(clippy::needless_pass_by_value)]
+    #[allow(dead_code, clippy::needless_pass_by_value)]
     fn write_hit_global_write_evict_local_write_back(
         &mut self,
         addr: address,
@@ -170,7 +176,6 @@ where
     }
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
-        use crate::mem_sub_partition::{SECTOR_CHUNK_SIZE, SECTOR_SIZE};
         let block = self.inner.tag_array.get_block_mut(cache_index);
         for sector in 0..SECTOR_CHUNK_SIZE as usize {
             let sector_mask = &fetch.access.sector_mask;
@@ -673,6 +678,7 @@ where
                         self.write_miss(addr, Some(cache_index), fetch, time, events, probe_status);
                 }
                 None if no_allocate_on_write => {
+                    // this almost never happens
                     access_status = self.write_miss(
                         addr,
                         None,
@@ -684,6 +690,7 @@ where
                     );
                 }
                 None => {
+                    // this almost never happens
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();

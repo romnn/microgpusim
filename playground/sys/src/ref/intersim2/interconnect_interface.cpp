@@ -188,6 +188,8 @@ void InterconnectInterface::Push(unsigned input_deviceID,
     }
   }
 
+  _push_cycle[data] = _traffic_manager->getTime();
+
   // TODO: _include_queuing ?
   _traffic_manager->_GeneratePacket(input_icntID, -1, 0 /*class*/,
                                     _traffic_manager->_time, subnet, n_flits,
@@ -222,6 +224,10 @@ void *InterconnectInterface::Pop(unsigned deviceID) {
   }
   if (data) {
     _round_robin_turn[subnet][icntID] = turn;
+    unsigned long elapsed = _traffic_manager->getTime() - _push_cycle[data];
+    _interconn_total_elapsed += elapsed;
+    // printf("interconn elapsed: %lu cycles\n", elapsed);
+    _num_packets++;
   }
 
   return data;

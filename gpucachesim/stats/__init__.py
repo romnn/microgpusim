@@ -15,6 +15,7 @@ import scipy.stats
 import sklearn.metrics
 from collections import defaultdict
 
+from gpucachesim import REPO_ROOT_DIR
 import gpucachesim.stats.stats
 import gpucachesim.stats.native
 import gpucachesim.stats.accelsim
@@ -985,7 +986,7 @@ def aggregate_mean_input_config_stats(
     aggregations = {
         col: agg
         for col, agg in aggregations.items()
-        if col in set(df.columns) - set(group_cols)
+        if col in df.columns and not col in group_cols
     }
     df = df.groupby(group_cols, dropna=False).agg(aggregations).reset_index()
     return df
@@ -2052,6 +2053,8 @@ def parallel_table(bench_name_arg, path, nsight):
     )
     input_cols = benchmarks.SIMULATE_INPUT_COLS
 
+    selected_df = selected_df[
+        selected_df["target"] == Target.Simulate.value]
     selected_df = sum_per_config_kernel_metrics(selected_df)
 
     # get serial
@@ -2069,10 +2072,13 @@ def parallel_table(bench_name_arg, path, nsight):
         **{c: "first" for c in serial.columns if c.startswith("input_")},
         **benchmarks.NON_NUMERIC_COLS,
     }
-    aggregations = {col: agg for col, agg in aggregations.items() if col in serial}
     aggregations = {
-        col: agg for col, agg in aggregations.items() if col not in group_cols
+        col: agg for col, agg in aggregations.items()
+        if col in serial and not col in group_cols
     }
+    # aggregations = {
+    #     col: agg for col, agg in aggregations.items() if col not in group_cols
+    # }
     mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
 
     metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
@@ -2099,10 +2105,23 @@ def parallel_table(bench_name_arg, path, nsight):
     if len(parallel_input_ids) == 0:
         raise ValueError("have zero parallel benchmark configurations")
 
+    print(serial_input_ids)
+    print(parallel_input_ids)
+    print(serial.loc[
+        serial["input_id"] == 0,
+        ["target", "input_id", "benchmark"],
+    ])
+    print(parallel.loc[
+        parallel["input_id"] == 0,
+        ["target", "input_id", "benchmark"],
+    ])
+
+    return
     input_id_partitoning = set(serial["input_id"].unique()).intersection(
         set(parallel["input_id"].unique())
     )
     if len(input_id_partitoning) > 0:
+        print(color("serial and parallel input ids intersect ", fg="red"))
         for input_id in input_id_partitoning:
             print("serial input", input_id)
             print(
@@ -2194,10 +2213,14 @@ def parallel_table(bench_name_arg, path, nsight):
         **{c + "_parallel": agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
         **{c + "_serial": agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
     }
-    aggregations = {col: agg for col, agg in aggregations.items() if col in joined}
     aggregations = {
-        col: agg for col, agg in aggregations.items() if col not in group_cols
+        col: agg for col, agg in aggregations.items()
+        if col in joined and not col in group_cols
     }
+    # aggregations = {col: agg for col, agg in aggregations.items() if col in joined}
+    # aggregations = {
+    #     col: agg for col, agg in aggregations.items() if col not in group_cols
+    # }
 
     if set(joined.columns.tolist()) - set(group_cols) != set(aggregations.keys()):
         pprint(
@@ -3081,11 +3104,12 @@ def correlation_plots(path, bench_name_arg, nsight):
             group_cols = bench_input_cols
 
             aggregations = {
-                **{c: "mean" for c in set(bench_df.columns) - set(group_cols)},
+                **{c: "mean" for c in bench_df},
                 **benchmarks.NON_NUMERIC_COLS,
             }
             aggregations = {
-                col: agg for col, agg in aggregations.items() if col in bench_df
+                col: agg for col, agg in aggregations.items()
+                if col in bench_df and not col in group_cols
             }
 
             native_df = bench_df.loc[Target.Profile.value]

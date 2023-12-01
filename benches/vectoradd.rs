@@ -1,5 +1,6 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+use clap::{Parser, Subcommand};
 use color_eyre::eyre;
 use criterion::{black_box, Criterion};
 use gpucachesim::config::Parallelization;
@@ -12,35 +13,34 @@ use validate::{
     Target, TraceProvider,
 };
 
-// fn get_bench_config(
-//     target: Target,
-//     benchmark_name: &str,
-//     input_query: validate::benchmark::Input,
-//     // input_idx: usize,
-// ) -> eyre::Result<BenchmarkConfig> {
-//     use std::path::PathBuf;
-//
-//     let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-//     let benchmarks_path = manifest_dir.join("test-apps/test-apps-materialized.yml");
-//     let reader = utils::fs::open_readable(benchmarks_path)?;
-//     let benchmarks = Benchmarks::from_reader(reader)?;
-//     let bench_config = benchmarks
-//         .find_all(target, benchmark_name, input_idx)
-//         // .get_single_config(target, benchmark_name, input_idx)
-//         // .ok_or_else(|| {
-//         //     eyre::eyre!(
-//         //         "no benchmark {:?} or input index {}",
-//         //         benchmark_name,
-//         //         input_idx
-//         //     )
-//         // })?;
-//     Ok(bench_config.clone())
-// }
+#[derive(Debug, Subcommand, strum::EnumIter)]
+enum Command {
+    Accelsim,
+    Playground,
+    Serial,
+    Deterministic,
+    Nondeterministic {
+        run_ahead: Option<usize>,
+        interleaved: Option<bool>,
+    },
+}
+
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+struct Options {
+    #[clap(subcommand)]
+    pub command: Option<Command>,
+
+    #[arg(long = "threads", help = "number of threads")]
+    pub threads: Option<usize>,
+}
 
 pub fn run_box(
     bench_config: &BenchmarkConfig,
     parallelization: Parallelization,
+    threads: Option<usize>,
 ) -> eyre::Result<stats::PerKernel> {
+    use gpucachesim::config::{gtx1080::build_config, Input, GPU};
     let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench_config.target_config else {
         unreachable!();
     };
@@ -54,22 +54,27 @@ pub fn run_box(
     // if std::env::var("PARALLEL").unwrap_or_default().to_lowercase() == "yes";
     // println!("parallel: {}", bench_config.simulate.parallel);
     // let sim = validate::simulate::simulate_bench_config(&*bench_config)?;
-    let config = gpucachesim::config::GPU {
-        num_simt_clusters: 20,                       // 20
-        num_cores_per_simt_cluster: 1,               // 1
-        num_schedulers_per_core: 2,                  // 1
-        num_memory_controllers: 8,                   // 8
-        num_dram_chips_per_memory_controller: 1,     // 1
-        num_sub_partitions_per_memory_controller: 2, // 2
-        fill_l2_on_memcopy: false,                   // true
-        parallelization,
-        log_after_cycle: None,
-        simulation_threads: None, // can use env variables still
-        ..gpucachesim::config::GPU::default()
-    };
+    // let config = gpucachesim::config::GPU {
+    //     num_simt_clusters: 20,                       // 20
+    //     num_cores_per_simt_cluster: 1,               // 1
+    //     num_schedulers_per_core: 2,                  // 1
+    //     num_memory_controllers: 8,                   // 8
+    //     num_dram_chips_per_memory_controller: 1,     // 1
+    //     num_sub_partitions_per_memory_controller: 2, // 2
+    //     fill_l2_on_memcopy: false,                   // true
+    //     parallelization,
+    //     log_after_cycle: None,
+    //     simulation_threads: None, // can use env variables still
+    //     ..gpucachesim::config::GPU::default()
+    // };
 
+    let mut config: GPU = build_config(&Input::default())?;
+    config.parallelization = parallelization;
+    config.simulation_threads = threads;
+    config.fill_l2_on_memcopy = false;
     assert!(!gpucachesim::is_debug());
     let sim = gpucachesim::accelmain(traces_dir, config)?;
+
     // fast parallel:   cycle loop time: 558485 ns
     // serial:          cycle loop time: 2814591 ns (speedup 5x)
     // have 80 cores and 16 threads
@@ -143,9 +148,6 @@ pub fn accelsim_benchmark(c: &mut Criterion) {
         b.to_async(&runtime)
             .iter(|| run_accelsim(black_box(bench_config.clone())));
     });
-    // group.bench_function("transpose/256/naive", |b| {
-    //     b.iter(|| run_accelsim(black_box(get_bench_config("transpose", 0).unwrap())))
-    // });
 }
 
 pub fn play_benchmark(c: &mut Criterion) {
@@ -163,9 +165,6 @@ pub fn play_benchmark(c: &mut Criterion) {
     group.bench_function("vectoradd/10000", |b| {
         b.iter(|| run_playground(black_box(&bench_config)));
     });
-    // group.bench_function("transpose/256/naive", |b| {
-    //     b.iter(|| run_playground(black_box(get_bench_config("transpose", 0).unwrap())))
-    // });
 }
 
 pub fn box_benchmark(c: &mut Criterion) {
@@ -181,11 +180,8 @@ pub fn box_benchmark(c: &mut Criterion) {
     .unwrap()
     .unwrap();
     group.bench_function("vectoradd/10000", |b| {
-        b.iter(|| run_box(black_box(&bench_config), Parallelization::Serial));
+        b.iter(|| run_box(black_box(&bench_config), Parallelization::Serial, None));
     });
-    // group.bench_function("transpose/256/naive", |b| {
-    //     b.iter(|| run_box(black_box(get_bench_config("transpose", 0).unwrap())))
-    // });
 }
 
 fn print_timings() {
@@ -235,13 +231,21 @@ fn main() -> eyre::Result<()> {
     #[allow(unused_imports)]
     use std::io::Write;
     use std::time::Instant;
+    use validate::benchmark::find_first;
 
     color_eyre::install()?;
-    let mut tracing_guard = configure_tracing();
+
+    // let options = Options::parse();
+    let options = Options {
+        command: None,
+        threads: None,
+    };
 
     // takes 34 sec (accel same)
     let (bench_name, input_query): (_, Input) =
         ("transpose", input!({ "dim": 256, "variant": "naive"})?);
+    let (bench_name, input_query): (_, Input) = ("vectorAdd", input!({ "length": 500_000 })?);
+
     // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
     // let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
     // let (bench_name, input_query) = (
@@ -253,79 +257,132 @@ fn main() -> eyre::Result<()> {
         .enable_all()
         .build()?;
 
-    let non_deterministic: Option<usize> = std::env::var("NONDET")
-        .ok()
-        .as_deref()
-        .map(str::parse)
-        .transpose()?;
-    let parallelization = match non_deterministic {
-        None => Parallelization::Deterministic,
-        Some(run_ahead) => Parallelization::Nondeterministic {
-            run_ahead,
-            interleave: true,
-        },
+    let mut tracing_guard = match options.command {
+        Some(Command::Serial | Command::Nondeterministic { .. } | Command::Deterministic) => {
+            configure_tracing()
+        }
+        _ => None,
     };
 
-    let start = Instant::now();
-    let bench_config =
-        validate::benchmark::find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
-    println!("running {}@{}", bench_config.name, bench_config.input_idx);
+    let commands = options
+        .command
+        .map(|cmd| vec![cmd])
+        // .unwrap_or(<Command as strum::IntoEnumIterator>::iter().collect());
+        .unwrap_or(vec![
+            Command::Accelsim,
+            Command::Playground,
+            Command::Serial,
+            Command::Deterministic,
+            Command::Nondeterministic {
+                run_ahead: Some(10),
+                interleaved: Some(false),
+            },
+            Command::Nondeterministic {
+                run_ahead: Some(10),
+                interleaved: Some(true),
+            },
+        ]);
 
-    let stats = run_box(black_box(&bench_config), parallelization)?;
-    let box_dur = start.elapsed();
-    dbg!(&stats.reduce().sim);
-    // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
-    //     dbg!(kernel_launch_id);
-    //     dbg!(&kernel_stats.sim);
-    // }
-    println!("box took:\t\t{box_dur:?}");
+    let mut box_baseline: Option<Duration> = None;
+    for cmd in commands {
+        // clear timing measurements
+        gpucachesim::TIMINGS.lock().clear();
 
-    if tracing_guard.take().is_some() {
-        // when tracing is enabled, only trace our implementation
-        return Ok(());
+        match cmd {
+            Command::Accelsim => {
+                let bench_config = Arc::new(
+                    find_first(Target::AccelsimSimulate, bench_name, &input_query)?.unwrap(),
+                );
+                println!("running {}@{}", bench_config.name, bench_config.input_idx);
+                let start = Instant::now();
+                let stats = runtime.block_on(async {
+                    let stats = run_accelsim(black_box(bench_config)).await?;
+                    let stats: stats::PerKernel = stats.try_into()?;
+                    Ok::<_, eyre::Report>(stats)
+                })?;
+                let accel_dur = start.elapsed();
+                dbg!(&stats.reduce().sim);
+                println!("accelsim took: {accel_dur:?}");
+            }
+            Command::Playground => {
+                let bench_config =
+                    find_first(Target::PlaygroundSimulate, bench_name, &input_query)?.unwrap();
+                println!("running {}@{}", bench_config.name, bench_config.input_idx);
+                let (_, stats, play_dur) = run_playground(black_box(&bench_config))?;
+                dbg!(&stats::Stats::from(stats).sim);
+                println!("playground took: {play_dur:?}");
+            }
+            Command::Serial => {
+                let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
+                println!("running {}@{}", bench_config.name, bench_config.input_idx);
+                let start = Instant::now();
+                let stats = run_box(
+                    black_box(&bench_config),
+                    Parallelization::Serial,
+                    options.threads,
+                )?;
+                let serial_box_dur = start.elapsed();
+                dbg!(&stats.reduce().sim);
+                // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+                //     dbg!(kernel_launch_id);
+                //     dbg!(&kernel_stats.sim);
+                // }
+                box_baseline = Some(serial_box_dur);
+                println!("box[serial] took: {serial_box_dur:?}");
+                if let Some(baseline) = box_baseline {
+                    println!(
+                        "speedup is: {:.2}x",
+                        baseline.as_secs_f64() / serial_box_dur.as_secs_f64()
+                    );
+                }
+            }
+            Command::Deterministic => {
+                let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
+                println!("running {}@{}", bench_config.name, bench_config.input_idx);
+                let start = Instant::now();
+                let stats = run_box(
+                    black_box(&bench_config),
+                    Parallelization::Deterministic,
+                    options.threads,
+                )?;
+                let box_dur = start.elapsed();
+                println!("box[deterministic] took: {box_dur:?}");
+                if let Some(baseline) = box_baseline {
+                    println!(
+                        "speedup is: {:.2}x",
+                        baseline.as_secs_f64() / box_dur.as_secs_f64()
+                    );
+                }
+            }
+            Command::Nondeterministic {
+                run_ahead,
+                interleaved,
+            } => {
+                let start = Instant::now();
+                let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
+                let stats = run_box(
+                    black_box(&bench_config),
+                    Parallelization::Nondeterministic {
+                        run_ahead: run_ahead.unwrap_or(5),
+                        interleave: interleaved.unwrap_or(false),
+                    },
+                    options.threads,
+                )?;
+                let box_dur = start.elapsed();
+                println!("box[nondeterministic][run_ahead={run_ahead:?}][interleave={interleaved:?}] took: {box_dur:?}");
+                if let Some(baseline) = box_baseline {
+                    println!(
+                        "speedup is: {:.2}x",
+                        baseline.as_secs_f64() / box_dur.as_secs_f64()
+                    );
+                }
+            }
+        }
+
+        print_timings();
     }
 
-    print_timings();
-
-    // clear timing measurements
-    gpucachesim::TIMINGS.lock().clear();
-
-    let bench_config =
-        validate::benchmark::find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
-    let start = Instant::now();
-    let stats = run_box(black_box(&bench_config), Parallelization::Serial)?;
-    let serial_box_dur = start.elapsed();
-    dbg!(&stats.reduce().sim);
-    // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
-    //     dbg!(kernel_launch_id);
-    //     dbg!(&kernel_stats.sim);
-    // }
-    println!("serial box took:\t\t{serial_box_dur:?}");
-    println!(
-        "speedup is :\t\t{:.2}",
-        serial_box_dur.as_secs_f64() / box_dur.as_secs_f64()
-    );
-
-    let bench_config =
-        validate::benchmark::find_first(Target::PlaygroundSimulate, bench_name, &input_query)?
-            .unwrap();
-    let (_, stats, play_dur) = run_playground(black_box(&bench_config))?;
-    dbg!(&stats::Stats::from(stats).sim);
-    println!("play took:\t\t{play_dur:?}");
-
-    let bench_config = Arc::new(
-        validate::benchmark::find_first(Target::AccelsimSimulate, bench_name, &input_query)?
-            .unwrap(),
-    );
-    let start = Instant::now();
-    let stats = runtime.block_on(async {
-        let stats = run_accelsim(black_box(bench_config)).await?;
-        let stats: stats::PerKernel = stats.try_into()?;
-        Ok::<_, eyre::Report>(stats)
-    })?;
-    let accel_dur = start.elapsed();
-    dbg!(&stats.reduce().sim);
-    println!("accel took:\t\t{accel_dur:?}");
+    tracing_guard.take();
 
     Ok(())
 }

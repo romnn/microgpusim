@@ -332,7 +332,7 @@ pub enum Parallelization {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClockFrequencies {
     pub core_freq_hz: u64,
     pub interconn_freq_hz: u64,
@@ -368,7 +368,7 @@ impl ClockFrequenciesBuilder {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,
@@ -571,7 +571,7 @@ pub struct GPU {
     /// Fill the L2 cache on memcpy
     pub fill_l2_on_memcopy: bool, // true
     /// simple_dram_model with fixed latency and BW
-    pub simple_dram_model: bool, // 0
+    // pub simple_dram_model: bool, // 0
     /// DRAM scheduler kind. 0 = fifo, 1 = FR-FCFS (default)
     pub dram_scheduler: DRAMSchedulerKind, // 1
     /// DRAM partition queue
@@ -1061,12 +1061,15 @@ impl Default for GPU {
                 data_port_width: None,
             })),
             // N:8:128:4,L:R:f:N:L,A:2:48,4
+            // total of 4KB (should be 8KB right?)
+            // 32KB L1.5 (see volta dissect paper)
+            // 2KB of L2 (see volta dissect paper)
             // {<nsets>:<bsize>:<assoc>,<rep>:<wr>:<alloc>:<wr_alloc>,<mshr>:<N>:<merge>,<mq>}
             inst_cache_l1: Some(Arc::new(Cache {
                 // accelsim_compat,
                 kind: CacheKind::Normal,
                 num_sets: 8,
-                line_size: 128,
+                line_size: 256,
                 associativity: 4,
                 replacement_policy: cache::config::ReplacementPolicy::LRU,
                 write_policy: cache::config::WritePolicy::READ_ONLY,
@@ -1114,6 +1117,7 @@ impl Default for GPU {
                     miss_queue_size: 4,
                     result_fifo_entries: None,
                     l1_cache_write_ratio_percent: 0,
+                    // l1_cache_write_ratio_percent: 50,
                     data_port_width: None,
                 }),
             })),
@@ -1241,11 +1245,11 @@ impl Default for GPU {
             num_tensor_core_units: 0,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
-            perfect_inst_const_cache: true,
+            perfect_inst_const_cache: false, // true
             inst_fetch_throughput: 1,
             reg_file_port_throughput: 2, // 1 for GTX1080
             fill_l2_on_memcopy: true,
-            simple_dram_model: false,
+            // simple_dram_model: false,
             dram_scheduler: DRAMSchedulerKind::FrFcfs,
             dram_partition_queue_interconn_to_l2: 8,
             dram_partition_queue_l2_to_dram: 8,
@@ -1295,11 +1299,26 @@ impl Default for GPU {
             // trace_opcode_latency_initiation_sfu: (21, 8), // default 4, 1
             // trace_opcode_latency_initiation_tensor: (32, 32), // default 4, 1
             //
-            trace_opcode_latency_initiation_int: (4, 1),
-            trace_opcode_latency_initiation_sp: (4, 1),
-            trace_opcode_latency_initiation_dp: (20, 8), // (4, 1)
-            trace_opcode_latency_initiation_sfu: (20, 4), // (4, 1)
-            trace_opcode_latency_initiation_tensor: (4, 1),
+            /// On Pascal, most integer and single-precision instructions have a latency of 6 cycles.
+            /// Double-precision instructions have latency 8 cycles
+            /// More complex instructions, some of which run on the SFU,
+            /// require 14 cycles.
+            /// On Maxwell and Pascal, instructions IMAD and IMUL have
+            /// a long latency because they are emulated
+            ///
+            /// source: https://arxiv.org/pdf/1804.06826.pdf
+            // format: fill latency and init latency
+            trace_opcode_latency_initiation_int: (6, 1),
+            trace_opcode_latency_initiation_sp: (6, 1),
+            trace_opcode_latency_initiation_dp: (8, 8), // (4, 1)
+            trace_opcode_latency_initiation_sfu: (14, 4), // (4, 1)
+            /// does not have tensor units
+            trace_opcode_latency_initiation_tensor: (usize::MAX, 1),
+            // trace_opcode_latency_initiation_int: (4, 1),
+            // trace_opcode_latency_initiation_sp: (4, 1),
+            // trace_opcode_latency_initiation_dp: (20, 8), // (4, 1)
+            // trace_opcode_latency_initiation_sfu: (20, 4), // (4, 1)
+            // trace_opcode_latency_initiation_tensor: (4, 1),
         }
     }
 }

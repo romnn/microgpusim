@@ -8,7 +8,7 @@ pub struct PlaygroundOptions {
     pub accelsim: accelsim::Options,
 
     #[clap(long = "accelsim-compat", help = "accelsim compat mode")]
-    pub accelsim_compat_mode: Option<bool>,
+    pub accelsim_compat: Option<bool>,
 }
 
 fn main() -> eyre::Result<()> {
@@ -79,7 +79,7 @@ fn main() -> eyre::Result<()> {
 
     dbg!(&args);
 
-    let accelsim_compat_mode = options.accelsim_compat_mode.unwrap_or(false);
+    let accelsim_compat_mode = options.accelsim_compat.unwrap_or(false);
     let config = playground::Config {
         accelsim_compat_mode,
         ..playground::Config::default()

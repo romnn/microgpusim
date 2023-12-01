@@ -432,6 +432,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
     let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
     box_config.fill_l2_on_memcopy = false;
+    box_config.perfect_inst_const_cache = true;
     // box_config.flush_l1_cache = true;
     // box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;
@@ -547,7 +548,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         play_sim.launch_kernels();
         play_time_other += start.elapsed();
 
-        box_sim.process_commands(cycle);
+        let _ = box_sim.process_commands(cycle);
         box_sim.launch_kernels(cycle);
 
         // check that memcopy commands were handled correctly
@@ -974,28 +975,6 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     Ok(())
 }
 
-fn get_bench_config(
-    bench_name: &str,
-    mut input: validate::benchmark::Input,
-) -> eyre::Result<BenchmarkConfig> {
-    input
-        .entry("mode".to_string())
-        .or_insert(validate::input!("serial")?);
-    input
-        .entry("memory_only".to_string())
-        .or_insert(validate::input!(false)?);
-    input
-        .entry("cores_per_cluster".to_string())
-        .or_insert(validate::input!(1)?);
-    input
-        .entry("num_clusters".to_string())
-        .or_insert(validate::input!(28)?);
-
-    let bench_config =
-        validate::benchmark::find_exact(validate::Target::Simulate, bench_name, &input)?;
-    Ok(bench_config)
-}
-
 #[test]
 fn lockstep_accelsim_pchase() -> eyre::Result<()> {
     crate::testing::init_test();
@@ -1024,21 +1003,30 @@ macro_rules! lockstep_checks {
                 #[test]
                 fn [<lockstep_native_ $name>]() -> color_eyre::eyre::Result<()> {
                     $crate::testing::init_test();
-                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
+                    let bench_config = $crate::testing::get_bench_config(
+                        $bench_name,
+                        validate::input!($($input)+)?,
+                    )?;
                     run(&bench_config, TraceProvider::Native)
                 }
 
                 #[test]
                 fn [<lockstep_accelsim_ $name>]() -> color_eyre::eyre::Result<()> {
                     $crate::testing::init_test();
-                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
+                    let bench_config = $crate::testing::get_bench_config(
+                        $bench_name,
+                        validate::input!($($input)+)?,
+                    )?;
                     run(&bench_config, TraceProvider::Accelsim)
                 }
 
                 #[test]
                 fn [<lockstep_box_ $name>]() -> color_eyre::eyre::Result<()> {
                     $crate::testing::init_test();
-                    let bench_config = get_bench_config($bench_name, validate::input!($($input)+)?)?;
+                    let bench_config = $crate::testing::get_bench_config(
+                        $bench_name,
+                        validate::input!($($input)+)?,
+                    )?;
                     run(&bench_config, TraceProvider::Box)
                 }
             }

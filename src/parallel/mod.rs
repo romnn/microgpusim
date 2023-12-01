@@ -4,6 +4,8 @@ pub mod nondeterministic;
 pub fn get_num_threads() -> Result<Option<usize>, std::num::ParseIntError> {
     let count = std::env::var("NUM_THREADS")
         .ok()
+        .filter(String::is_empty)
+        .or_else(|| std::env::var("THREADS").ok())
         .as_deref()
         .map(str::parse)
         .transpose()?;

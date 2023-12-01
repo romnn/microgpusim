@@ -153,7 +153,7 @@ def cache(input):
             origin="upper",
             aspect="auto",
         )
-        ax.set_title("subpartition {}".format(partition_id + 1))
+        ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
     diff = status_norm_bins[1:] - status_norm_bins[:-1]
     status_ticks = status_norm_bins[:-1] + diff / 2
@@ -211,7 +211,7 @@ def cache(input):
             origin="upper",
             aspect="auto",
         )
-        ax.set_title("subpartition {}".format(partition_id + 1))
+        ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
     cbar = fig.colorbar(
         im,
@@ -221,7 +221,11 @@ def cache(input):
         orientation="horizontal",
         location="bottom",
         label="allocation",
+        aspect=20,
     )
+    # cbar.ax.set_xticklabels(allocation_tick_labels)
+    # cbar.ax.set_width(20)
+    # cbar.ax.set_aspect(2)
     # cbar.ax.set_xticklabels(allocation_tick_labels)
 
     plt.grid(False)
@@ -247,7 +251,7 @@ def cache(input):
             origin="upper",
             aspect="auto",
         )
-        ax.set_title("subpartition {}".format(partition_id + 1))
+        ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
     # diff = status_norm_bins[1:] - status_norm_bins[:-1]
     # tickz = status_norm_bins[:-1] + diff / 2
@@ -283,7 +287,7 @@ def cache(input):
             origin="upper",
             aspect="auto",
         )
-        ax.set_title("subpartition {}".format(partition_id + 1))
+        ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
     # diff = status_norm_bins[1:] - status_norm_bins[:-1]
     # tickz = status_norm_bins[:-1] + diff / 2

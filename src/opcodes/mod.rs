@@ -1,7 +1,7 @@
-mod ampere;
-mod kepler;
-mod pascal;
-mod turing;
+pub mod ampere;
+pub mod kepler;
+pub mod pascal;
+pub mod turing;
 
 use color_eyre::eyre;
 

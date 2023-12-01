@@ -116,6 +116,8 @@ template <typename T> int matrixmul(size_t m, size_t n, size_t p) {
       cudaMemcpy(dev_a, a, sizeof(T) * a_vec.size(), cudaMemcpyHostToDevice));
   checkCuda(
       cudaMemcpy(dev_b, b, sizeof(T) * b_vec.size(), cudaMemcpyHostToDevice));
+  // checkCuda(cudaMemcpy(dev_c, c, sizeof(T) * c_gpu_vec.size(),
+  //                      cudaMemcpyHostToDevice));
 
   // run matrix multiplication on GPU
   dim3 block_size(BLOCK_DIM, BLOCK_DIM);

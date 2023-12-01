@@ -32,14 +32,13 @@ pub struct MemorySubPartition {
     pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
     request_tracker: HashSet<mem_fetch::MemFetch>,
-
     // This is a cycle offset that has to be applied to the l2 accesses to account
     // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
     // kernel execution but we want cudamemcpy to go through the L2. Everytime an
     // access is made from cudamemcpy this counter is incremented, and when the l2
     // is accessed (in both cudamemcpyies and otherwise) this value is added to
     // the gpgpu-sim cycle counters.
-    memcpy_cycle_offset: u64,
+    // memcpy_cycle_offset: u64,
 }
 
 // impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
@@ -111,7 +110,7 @@ impl MemorySubPartition {
             mem_controller,
             stats,
             l2_cache,
-            memcpy_cycle_offset: 0,
+            // memcpy_cycle_offset: 0,
             interconn_to_l2_queue,
             l2_to_dram_queue,
             dram_to_l2_queue,
@@ -128,8 +127,9 @@ impl MemorySubPartition {
         time: u64,
     ) {
         if let Some(ref mut l2_cache) = self.l2_cache {
-            l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, sector_mask);
-            self.memcpy_cycle_offset += 1;
+            // l2_cache.force_tag_access(addr, time + self.memcpy_cycle_offset, sector_mask);
+            l2_cache.force_tag_access(addr, time, sector_mask);
+            // self.memcpy_cycle_offset += 1;
         }
     }
 
@@ -153,17 +153,12 @@ impl MemorySubPartition {
             // config: &'c config::GPU,
         }
 
+        assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+
         impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
             fn into(self) -> mem_fetch::MemFetch {
-                let physical_addr = self
-                    // .config.address_mapping()
-                    .mem_controller
-                    .to_physical_address(self.addr);
-                let partition_addr = self
-                    // .config
-                    // .address_mapping()
-                    .mem_controller
-                    .memory_partition_address(self.addr);
+                let physical_addr = self.mem_controller.to_physical_address(self.addr);
+                let partition_addr = self.mem_controller.memory_partition_address(self.addr);
 
                 let mut sector_mask = mem_fetch::SectorMask::ZERO;
                 sector_mask.set(self.sector, true);
@@ -270,12 +265,49 @@ impl MemorySubPartition {
         let mut sector_requests: [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE] =
             [(); SECTOR_CHUNK_SIZE].map(|_| None);
 
-        let l2_config = self.config.data_cache_l2.as_ref().unwrap();
-        if l2_config.inner.kind == config::CacheKind::Sector {
-            self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+        // let l2_config = self.config.data_cache_l2.as_ref().unwrap();
+        if self.config.accelsim_compat {
+            let sectored = self
+                .config
+                .data_cache_l2
+                .as_ref()
+                .map(|l2_cache| l2_cache.inner.kind == config::CacheKind::Sector)
+                .unwrap_or(false);
+            if sectored {
+                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+            } else {
+                let mut sector_fetch = fetch;
+                sector_fetch.access.sector_mask.fill(true);
+                sector_requests[0] = Some(sector_fetch);
+            };
         } else {
-            sector_requests[0] = Some(fetch);
-        };
+            let sectored = match fetch.access_kind() {
+                mem_fetch::access::Kind::INST_ACC_R => self
+                    .config
+                    .inst_cache_l1
+                    .as_ref()
+                    .map(|inst_cache| inst_cache.kind == config::CacheKind::Sector)
+                    .unwrap_or(false),
+                _ => self
+                    .config
+                    .data_cache_l2
+                    .as_ref()
+                    .map(|inst_cache| inst_cache.inner.kind == config::CacheKind::Sector)
+                    .unwrap_or(false),
+            };
+
+            if sectored {
+                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+            } else {
+                let mut sector_fetch = fetch;
+                sector_fetch.access.sector_mask.fill(true);
+                sector_requests[0] = Some(sector_fetch);
+            }
+            // if let mem_fetch::access::Kind::INST_ACC_R = fetch.access_kind() {
+            //     sector_requests[0] = Some(fetch);
+            //     return;
+            // }
+        }
 
         for mut fetch in sector_requests
             .into_iter()
@@ -348,7 +380,7 @@ impl MemorySubPartition {
     }
 
     #[tracing::instrument]
-    pub fn cache_cycle(&mut self, cycle: u64) {
+    pub fn cycle(&mut self, cycle: u64) {
         use mem_fetch::{access::Kind as AccessKind, Status};
 
         let log_line = || {
@@ -421,7 +453,8 @@ impl MemorySubPartition {
             }
         }
 
-        let mem_copy_time = cycle + self.memcpy_cycle_offset;
+        // let mem_copy_time = cycle + self.memcpy_cycle_offset;
+        let mem_copy_time = cycle;
 
         // DRAM to L2 (texture) and icnt (not texture)
         if let Some(reply) = self.dram_to_l2_queue.first() {

@@ -77,7 +77,7 @@ typedef std::bitset<MAX_WARP_SIZE> active_mask_t;
 typedef std::bitset<MAX_WARP_SIZE_SIMT_STACK> simt_mask_t;
 typedef std::vector<address_type> addr_vector_t;
 
-#define MAX_DEFAULT_CACHE_SIZE_MULTIBLIER 4
+#define MAX_DEFAULT_CACHE_SIZE_MULTIBLIER 1
 
 // the maximum number of destination, source, or address uarch operands in a
 // instruction

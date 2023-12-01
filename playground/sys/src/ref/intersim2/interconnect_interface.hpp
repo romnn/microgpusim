@@ -30,6 +30,7 @@
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <queue>
 #include <vector>
@@ -152,6 +153,11 @@ class InterconnectInterface {
 
   // icntID to deviceID map
   std::map<unsigned, unsigned> _reverse_node_map;
+
+  // roman: for counting the average latency of the interconnect
+  std::unordered_map<void *, unsigned long> _push_cycle;
+  unsigned int _interconn_total_elapsed;
+  unsigned int _num_packets;
 };
 
 std::unique_ptr<InterconnectInterface> new_interconnect_interface(

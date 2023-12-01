@@ -116,6 +116,11 @@ impl Base {
         core: &dyn WarpIssuer,
         cycle: u64,
     ) -> bool {
+        // if let ExecUnitKind::SFU = unit {
+        //     dbg!(warp.current_instr().unwrap().opcode);
+        //     dbg!(warp.ibuffer_peek().unwrap().opcode);
+        //     panic!("we do use the sfu unit");
+        // }
         let free_register = core.has_free_register(stage, self.id);
         let can_dual_issue =
             !self.config.dual_issue_only_to_different_exec_units || prev_issued_exec_unit != unit;
@@ -261,30 +266,6 @@ impl Base {
                             warp_inst_issued = true;
                             prev_issued_exec_unit = ExecUnitKind::MEM;
                         }
-                        // let mem_stage = PipelineStage::ID_OC_MEM;
-                        //
-                        // let free_register = core.has_free_register(mem_stage, self.id);
-                        // let can_dual_issue = !dual_issue_only_to_different_exec_units
-                        //     || prev_issued_exec_unit != ExecUnitKind::MEM;
-                        //
-                        // if free_register && can_dual_issue {
-                        //     // warp.ibuffer_step();
-                        //     // let instr = warp.ibuffer_take().unwrap();
-                        //     // debug_assert_eq!(warp_id, warp.warp_id);
-                        //     if core
-                        //         .issue_warp(mem_stage, &mut warp, self.id)
-                        //         // .issue_warp(mem_stage, warp_id, self.id)
-                        //         // .issue_warp(mem_stage, &mut warp, instr, self.id)
-                        //         .is_ok()
-                        //     {
-                        //         num_issued += 1;
-                        //         issued_inst = true;
-                        //         warp_inst_issued = true;
-                        //         prev_issued_exec_unit = ExecUnitKind::MEM;
-                        //     }
-                        // } else {
-                        //     log::debug!("issue failed: no free mem port register");
-                        // }
                     }
                     op @ (ArchOp::NO_OP
                     | ArchOp::ALU_OP
@@ -296,12 +277,6 @@ impl Base {
                     | ArchOp::CALL_OPS
                     | ArchOp::RET_OPS
                     | ArchOp::EXIT_OPS) => {
-                        // op => {
-                        //     if op != ArchOp::TENSOR_CORE_OP
-                        //         && op != ArchOp::SFU_OP
-                        //         && op != ArchOp::DP_OP
-                        //         && (op as usize) < opcodes::SPEC_UNIT_START_ID
-                        //     {
                         let mut execute_on_sp = false;
                         let mut execute_on_int = false;
 
@@ -359,19 +334,6 @@ impl Base {
                                 prev_issued_exec_unit = unit;
                             }
                         }
-
-                        // if let Some((stage, unit)) = issue_target {
-                        //     // let instr = warp.ibuffer_take().unwrap();
-                        //     // warp.ibuffer_step();
-                        //     debug_assert_eq!(warp.warp_id, warp_id);
-                        //     if core.issue_warp(stage, &mut warp, self.id).is_ok() {
-                        //         // .issue_warp(stage, &mut warp, instr, self.id).is_ok() {
-                        //         num_issued += 1;
-                        //         issued_inst = true;
-                        //         warp_inst_issued = true;
-                        //         prev_issued_exec_unit = unit;
-                        //     }
-                        // }
                     }
                     op @ (ArchOp::DP_OP | ArchOp::SFU_OP) => {
                         let dp_can_dual_issue = !dual_issue_only_to_different_exec_units

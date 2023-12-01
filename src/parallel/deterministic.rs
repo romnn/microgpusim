@@ -33,7 +33,7 @@ where
             let mut last_time = std::time::Instant::now();
 
             while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
-                self.process_commands(cycle);
+                cycle = self.process_commands(cycle);
                 self.launch_kernels(cycle);
 
                 let mut finished_kernel = None;

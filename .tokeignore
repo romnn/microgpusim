@@ -1,2 +1,4 @@
 src/deprecated
+accelsim/accel-sim-framework-dev*
+test-apps/
 CuAssembler
