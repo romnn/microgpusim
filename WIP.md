@@ -65,6 +65,23 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
+  - add flags to measure how long core cycle takes of total execution time when running serial
+
+  - parallel plot / results: do not count the small inputs where serial is faster than parallel
+
+    - e.g. take the min out of serial and parallel exec time
+
+  - transpose: why is there no dram write hit rate?
+
+    - benchmarks using shared mem: babelstream, transpose
+
+  - check if non-interleave nondeterministic is deterministic
+
+    - add repetitions=2 to parallel gpucachesim
+    - the gains are so low we should just remove it
+
+  - always perform l2 mem copy, but set skip l2 flag if above threshold
+
   - investigate the increased DRAM writebacks depite saturated L2 cache
 
     - try a vectoradd without copying back data from device to host
@@ -72,10 +89,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - another explanation could be that there are two memory controllers and it has to do with the partition set mapping but that is less likely i think
     - we defo need the partition set camping
 
-  - fix the results table dram error metric (more robust against outliers and zero and relative)
-
-  - interesting questions: how much time do we save with mem only and with exec driven?
-  - compare speed of native, accelsim, serial, mem only, exec driven, parallel
+  - fix the results table dram error metric (more robust against outliers and zero and relative - use SMAPE)
 
   - add averaged section for each parallel table and then a final overall table separately
 
@@ -94,6 +108,18 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
 
+  - DONE: parallel test: test parallel vs serial version of gpucachesim, not playground
+  - DONE: rerun transpose profile
+  - DONE: playground: use default interconn network and somehow measure the average latency it takes for packets to arrive at their destination. (5 to 1700 cycle latency on average for vectoradd)
+  - DONE: make memcopies go faster (parallel?)
+  - SKIP: add cycles from l2 mem copies to the overall cycles (reduce MAPE cycle error)
+
+    - the memcopies take too many cycles this does not make sense.
+    - the GPU must use a different mechanism
+
+  - DONE: try to enable the l1 instruction cache again for the fun of it
+  - DONE: interesting questions: how much time do we save with mem only and with exec driven?
+  - DONE: compare speed of native, accelsim, serial, mem only, exec driven, parallel
   - DONE: why did we get so much slower now
   - NOPE: how is exec time measured for exec driven? maybe exclude trace generation?
   - DONE: why did we get so much slower now
