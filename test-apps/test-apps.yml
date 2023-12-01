@@ -31,12 +31,12 @@ config:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
     repetitions: 1
-    l2_prefill: true
+    # l2_prefill: true
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
-    repetitions: 1
-    l2_prefill: true
+    repetitions: 3
+    # l2_prefill: true
     # this is added to all inputs
     inputs:
       mode:
@@ -91,9 +91,9 @@ benchmarks:
     # executable: vectoradd_l1_disabled
     inputs:
       dtype: [32, 64]
-      # at a size of 500000 we have 2*500k*4 bytes = 4MB of floats,
-      # which is enough to saturate the 2MB L2 cache
-      length: [100, 1000, 10000, 20000, 500000]
+      # at a size of 500000 we have 3*500k*4 bytes = 6MB of floats,
+      # which is enough to saturate the 3MB L2 cache
+      length: [100, 1000, 10000, 20000, 100000, 500000]
     args: "{{ input.length }} {{ input.dtype }}"
     simulate:
       traces_dir: "vectorAdd/vectorAdd-dtype-{{ input.dtype }}-length-{{ input.length }}/trace"
@@ -107,15 +107,15 @@ benchmarks:
       n: [32, 64, 128]
       p: [32, 64, 128]
       include:
-        - {m: 512, n: 32, p: 512, dtype: 32} # included because of size (parallel speedup)
-        - {m: 128, n: 512, p: 128, dtype: 32,} # included because large n leading to lower L1 hit rate
+        - { m: 512, n: 32, p: 512, dtype: 32 } # included because of size (parallel speedup)
+        - { m: 128, n: 512, p: 128, dtype: 32 } # included because large n leading to lower L1 hit rate
         # - { m: 32, n: 1024, p: 32, dtype: 32 }
       #   - { m: 32, n: 2048, p: 32, dtype: 32 }
       #   - { m: 32, n: 4096, p: 32, dtype: 32 }
     # (m x n) x (n x p)
     args: "{{ input.m }} {{ input.n }} {{ input.p }} {{ input.dtype }}"
     simulate:
-      l2_prefill: false
+      # l2_prefill: false
       traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/trace"
       accelsim_traces_dir: "simple_matrixmul/simple_matrixmul-dtype-{{ input.dtype }}-m-{{ input.m }}-n-{{ input.n }}-p-{{ input.p }}/accelsim-trace"
   matrixmul:

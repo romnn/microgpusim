@@ -332,7 +332,7 @@ pub enum Parallelization {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClockFrequencies {
     pub core_freq_hz: u64,
     pub interconn_freq_hz: u64,
@@ -368,7 +368,7 @@ impl ClockFrequenciesBuilder {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,

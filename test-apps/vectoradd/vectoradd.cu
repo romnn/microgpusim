@@ -169,7 +169,7 @@ template <typename T> int vectoradd(int n) {
   // Copy host vectors to device
   CUDA_SAFECALL(cudaMemcpy(d_a, h_a, bytes, cudaMemcpyHostToDevice));
   CUDA_SAFECALL(cudaMemcpy(d_b, h_b, bytes, cudaMemcpyHostToDevice));
-  // CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
+  CUDA_SAFECALL(cudaMemcpy(d_c, h_c, bytes, cudaMemcpyHostToDevice));
 
   // invalidate all caches
   // invalidate_caches();

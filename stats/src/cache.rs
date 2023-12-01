@@ -91,6 +91,10 @@ impl AccessStatus {
         &((self.0).1)
     }
 
+    pub fn is_reservation_failure_reason(&self) -> bool {
+        matches!(self.stat(), AccessStat::ReservationFailure(_))
+    }
+
     pub fn is_reservation_fail(&self) -> bool {
         matches!(
             self.stat(),
@@ -296,6 +300,32 @@ impl Cache {
             inner,
             ..Self::default()
         }
+    }
+
+    #[must_use]
+    pub fn union<'a>(
+        &'a self,
+        other: &'a Self,
+    ) -> impl Iterator<Item = (&'a (Option<usize>, AccessStatus), (usize, usize))> {
+        let keys: std::collections::HashSet<_> =
+            self.as_ref().keys().chain(other.as_ref().keys()).collect();
+        keys.into_iter().map(|k| {
+            let left = self.as_ref().get(k).copied().unwrap_or(0);
+            let right = other.as_ref().get(k).copied().unwrap_or(0);
+            (k, (left, right))
+        })
+    }
+
+    #[must_use]
+    pub fn reduce_allocations(self) -> Self {
+        let mut reduced = Self {
+            inner: HashMap::default(),
+            ..self.clone()
+        };
+        for ((_, access_status), value) in self.inner {
+            *reduced.inner.entry((None, access_status)).or_insert(0) += value;
+        }
+        reduced
     }
 
     pub fn iter(

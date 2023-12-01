@@ -2,7 +2,6 @@ use super::mem::AccessKind;
 use ndarray::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use strum::IntoEnumIterator;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BankAccessesCsvRow {
