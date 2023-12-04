@@ -16,8 +16,6 @@ from gpucachesim.benchmarks import (
 )
 import gpucachesim.stats.common as common
 
-# from gpucachesim.stats.common import stat_cols, STAT_SUFFIXES
-
 NVPROF_INDEX_COLS = [
     "Stream",
     "Context",
@@ -206,13 +204,11 @@ class NsightStats(common.Stats):
         for r in range(self.repetitions):
             with open(self.path / f"profile.nsight.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
-                # pprint(metrics)
                 df = pd.DataFrame.from_records(
                     [{k: None if v is None else v["value"] for k, v in m.items()} for m in metrics]
                 )
                 df = df.drop(columns=["Kernel Time"])
                 df["run"] = r
-                # _units = pd.DataFrame.from_records([{k: v["unit"] for k, v in m.items()} for m in metrics])
                 dfs.append(df)
 
         self.df = pd.concat(dfs)
@@ -276,9 +272,6 @@ class NsightStats(common.Stats):
         )
         self.result_df["kernel_name_mangled"] = np.nan
         self.result_df["kernel_function_signature"] = np.nan
-        # self.result_df["kernel_name"] = self.result_df["kernel_function_signature"].apply(
-        #     lambda sig: np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
-        # )
 
         assert "run" in self.result_df.columns
 
@@ -288,15 +281,9 @@ class NsightStats(common.Stats):
         self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
 
     def _compute_cycles(self):
-        # print(self.df.dropna(axis=1).groupby(NSIGHT_INDEX_COLS, dropna=False).mean().T)
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         sm_count = self.config.num_total_cores
-        # print(grouped[["sm__cycles_active.avg", "sm__cycles_elapsed.sum"]].mean())
-        # print(grouped["sm__cycles_active.avg", "gpc__cycles_elapsed.avg"].mean().columns.tolist())
-        # sm__elapsed_cycles_sum
-        # sm__elapsed_cycles_avg
         self.result_df["cycles"] = grouped["sm__active_cycles_avg"].sum()
-        # self.result_df["cycles"] /= sm_count
 
     def _kernel_durations_us(self):
         # convert ns to us
@@ -305,8 +292,6 @@ class NsightStats(common.Stats):
         return grouped["gpu__time_duration"].sum() * 1e-3
 
     def _compute_exec_time_sec(self):
-        # print(self._kernel_durations_us())
-        # print(self.result_df)
         self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
 
     def _compute_num_blocks(self):
@@ -316,10 +301,6 @@ class NsightStats(common.Stats):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         # there is also sm__inst_executed.sum_inst
         # sm__sass_thread_inst_executed.sum_inst
-        # self.result_df["instructions"] = grouped["smsp__inst_executed_sum"].sum()
-        # self.result_df["instructions"] = grouped["sm__inst_executed_sum"].sum()
-        # self.result_df["instructions"] = grouped["smsp__thread_inst_executed_sum"].sum()
-        # self.result_df["instructions"] = grouped["smsp__thread_inst_executed_sum"].sum()
         self.result_df["instructions"] = grouped["smsp__thread_inst_executed_not_pred_off_sum"].sum()
 
     def _compute_warp_instructions(self):
@@ -328,7 +309,6 @@ class NsightStats(common.Stats):
 
     def _compute_dram_reads(self):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
-        # print(self.df[NSIGHT_INDEX_COLS + ["dram__read_sectors"]])
         self.result_df["dram_reads"] = grouped["dram__read_sectors"].sum()
 
     def _compute_dram_writes(self):
@@ -345,7 +325,6 @@ class NsightStats(common.Stats):
         # lts__request_tex_read_sectors
         # lts__request_tex_sectors
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
-        # print(grouped["lts__request_tex_read_sectors"].sum())
         self.result_df["l2_reads"] = grouped["lts__request_tex_read_sectors"].sum()
 
     def _compute_l2_writes(self):
@@ -357,18 +336,7 @@ class NsightStats(common.Stats):
         accesses = (
             grouped[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]].sum().astype(float).sum(axis=1)
         )
-        # self.df["lts__request_tex_sectors"].fillna(0.0)
-        # print(self.df["lts__request_tex_sectors"].fillna(0.0))
-        # print(accesses.fillna(0.0).sum(axis=1))
-        # print(self.df["lts__request_tex_sectors"].fillna(0.0).sum())
-        # print(accesses.fillna(0.0).sum(axis=1).sum())
-        # assert (self.df["lts__request_tex_sectors"].fillna(0.0) == accesses.fillna(0.0).sum(axis=1)).all()
         total = grouped["lts__request_tex_sectors"].sum()
-        # less than 5 percent rel error, otherwise we should investigate
-        # print(total.shape)
-        # print(accesses.shape)
-        # print((total - accesses).abs())
-        # print((total - accesses).abs() / total.abs())
         assert (((total - accesses).abs() / total.abs()) < 0.05).all()
 
         self.result_df["l2_accesses"] = grouped["lts__request_tex_sectors"].sum()
@@ -401,8 +369,6 @@ class NsightStats(common.Stats):
         self.result_df["l2_hits"] = np.nan
 
     def _compute_l2_misses(self):
-        # grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
-
         # tex__m_rd_sectors_miss_global_ld_cached
         # tex__m_rd_sectors_miss_global_ld_cached_pct
         # tex__m_rd_sectors_miss_global_ld_uncached
@@ -564,22 +530,15 @@ class NvprofStats(common.Stats):
             with open(self.path / f"profile.nvprof.commands.{r}.json", "rb") as f:
                 commands = json.load(f)
                 commands_df = pd.DataFrame.from_records([{k: v["value"] for k, v in c.items()} for c in commands])
-                # _units = pd.DataFrame.from_records([{k: v["unit"] for k, v in c.items()} for c in commands])
-
                 # name refers to kernels now
                 commands_df = commands_df.rename(columns={"Name": "Kernel"})
-
-                # commands_df["Device"] = commands_df["Device"].apply(normalize_device_name)
                 commands_df["run"] = r
                 command_dfs.append(commands_df)
 
             with open(self.path / f"profile.nvprof.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
                 df = pd.DataFrame.from_records([{k: v["value"] for k, v in m.items()} for m in metrics])
-                # df["Device"] = df["Device"].apply(normalize_device_name)
                 df["run"] = r
-
-                # _units = pd.DataFrame.from_records([{k: v["unit"] for k, v in m.items()} for m in metrics])
                 dfs.append(df)
 
         self.df = pd.concat(dfs)
@@ -619,16 +578,10 @@ class NvprofStats(common.Stats):
                 .reset_index()
             )
 
-        # nvprof_key = "l2_read_transactions"
-        # if nvprof_key in self.df:
-        #     grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        #     self.result_df["l2_reads"] = grouped[nvprof_key].sum()
-
         self.commands_df = pd.concat(command_dfs)
 
         self.compute_native_result_df_nvprof()
 
-        # print(grouped[["dram_write_transactions", "dram_read_transactions"]].sum().head())
         if False:
             print(self.result_df[["l1_accesses", "l1_hit_rate"]].head(n=20))
             print(
@@ -643,8 +596,6 @@ class NvprofStats(common.Stats):
                 ].head(n=20)
             )
             print(self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head(n=20))
-
-        # print(commands_df.select_dtypes(include=["object"]).columns)
 
     def compute_native_result_df_nvprof(self):
         self.result_df = pd.DataFrame()
@@ -700,23 +651,6 @@ class NvprofStats(common.Stats):
         self.result_df["num_global_stores"] = grouped["gst_transactions"].mean()
         self.result_df["num_global_loads"] = grouped["gld_transactions"].mean()
 
-        # chart_name="L1D Hit Rate",
-        # plotfile="l1hitrate",
-        # hw_eval="np.average(hw[\"tex_cache_hit_rate\"])",
-        # hw_error=None,
-        # sim_eval="float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)\"])" +\
-        #          "/(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])" +\
-        #          "+float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"]) + 1) * 100",
-
-        # CorrelStat(chart_name="L1D Hit Rate (global_hit_rate match)",
-        # plotfile="l1hitrate.global",
-        # hw_eval="np.average(hw[\"global_hit_rate\"])",
-        # hw_error=None,
-        # sim_eval="(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[HIT\]\s*=\s*(.*)\"])" +\
-        #         " + float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[HIT\]\s*=\s*(.*)\"]))" +\
-        #          "/(float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_W\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"])" +\
-        #          "+float(sim[\"\s+Total_core_cache_stats_breakdown\[GLOBAL_ACC_R\]\[TOTAL_ACCESS\]\s*=\s*(.*)\"]) + 1) * 100",
-
         # fix the index
         self.result_df = self.result_df.reset_index()
         self.result_df = self.result_df.rename(
@@ -741,15 +675,7 @@ class NvprofStats(common.Stats):
         self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
 
     def _compute_exec_time_sec(self):
-        # print(self._kernel_durations_us())
-        # print(self.result_df)
         self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
-        # self.result_df["exec_time_sec"] = self._kernel_durations_us() * float(1e-6)
-        # self.result_df[stat_cols("exec_time_sec")] = self._duration_us() * float(1e-6)
-
-    # def exec_time_sec(self) -> float:
-    #     return self.result_df["exec_time_sec_mean"].sum()
-    #     # return self._duration_us().sum() * float(1e-6)
 
     def _compute_cycles(self):
         if self.use_duration:
@@ -759,10 +685,6 @@ class NvprofStats(common.Stats):
             durations = self._kernel_durations_us()
             clock_speed = float(self.config.core_clock_speed)
             self.result_df["cycles"] = durations * clock_speed
-            # self.result_df["cycles_mean"] = durations["mean"] * clock_speed
-            # self.result_df["cycles_min"] = durations["min"] * clock_speed
-            # self.result_df["cycles_max"] = durations["max"] * clock_speed
-            # self.result_df["cycles_std"] = durations["std"] * clock_speed
         else:
             grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
             sm_count = self.config.num_total_cores
@@ -777,9 +699,6 @@ class NvprofStats(common.Stats):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["num_warps"] = grouped["unique_warps_launched"].sum()
 
-    # def num_blocks(self) -> float:
-    #     return self.result_df["num_blocks_mean"].sum()
-
     def _compute_instructions(self):
         inst_cols = [
             "inst_fp_16",
@@ -792,201 +711,58 @@ class NvprofStats(common.Stats):
         ]
 
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        # print(grouped[inst_cols].sum().astype(float))
-        # print(grouped[inst_cols].sum().astype(float).sum(axis=1))
         self.result_df["instructions"] = grouped[inst_cols].sum().astype(float).sum(axis=1)
-        # self.result_df["instructions"] = grouped[inst_cols].sum().astype(float).sum(axis=1)
-        # self.result_df[stat_cols("instructions")] = self.df[
-        #         [col + "_mean" for col in inst_cols]].sum().sum()
-        # self.result_df["instructions_mean"] = self.df[[col + "_mean" for col in inst_cols]].sum().sum()
-        # self.result_df["instructions_min"] = self.df[[col + "_min" for col in inst_cols]].sum().sum()
-        # self.result_df["instructions_max"] = self.df[[col + "_max" for col in inst_cols]].sum().sum()
-        # self.result_df["instructions_std"] = self.df[[col + "_std" for col in inst_cols]].sum().sum()
-
-    # def instructions(self) -> float:
-    #     return self.result_df["instructions_mean"].sum()
-    # inst_cols = [
-    #     "inst_fp_16_mean",
-    #     "inst_fp_32_mean",
-    #     "inst_fp_64_mean",
-    #     "inst_integer_mean",
-    #     "inst_control_mean",
-    #     "inst_compute_ld_st_mean",
-    #     "inst_misc_mean",
-    # ]
-    # total_instructions = self.df[inst_cols].sum().sum()
-    # # print(total_instructions)
-    # # per_run_total_instructions = self.df[["run"] + inst_cols].astype(int)
-    # # print(per_run_total_instructions)
-    # # per_run_total_instructions = per_run_total_instructions.groupby("run")[inst_cols].sum()
-    # # per_run_total_instructions = per_run_total_instructions.sum(axis=1)
-    # return int(total_instructions)
 
     def _compute_warp_instructions(self):
         nvprof_key = "inst_per_warp"
         if nvprof_key in self.df:
-            # print(self.df[stat_cols(nvprof_key)])
             grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
             self.result_df["warp_inst"] = grouped[nvprof_key].sum()
-            # self.result_df[stat_cols("warp_inst")] = self.df[stat_cols(nvprof_key)]
         else:
             raise ValueError("missing nsight warp instructions")
 
-    # def warp_instructions(self) -> float:
-    #     return self.result_df["warp_inst_mean"].sum()
-    #     # nvprof_key = "inst_per_warp_mean"
-    #     # if nvprof_key in self.df:
-    #     #     return float(self.df[nvprof_key].mean())
-    #     # else:
-    #     #     raise ValueError("nsight warp instructions")
-
     def _compute_dram_reads(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        # print(grouped[[nvprof_key]].mean().head())
-        # print(grouped[[nvprof_key]].sum().head())
         assert (grouped["dram_read_transactions"].mean() == grouped["dram_read_transactions"].sum()).all()
         self.result_df["dram_reads"] = grouped["dram_read_transactions"].mean()
-
-    # def dram_reads(self) -> float:
-    #     return self.result_df["dram_reads_mean"].sum()
-    #     # nvprof_key = "dram_read_transactions_mean"
-    #     # if nvprof_key in self.df:
-    #     #     return int(self.df[nvprof_key].sum())
-    #     # else:
-    #     #     nsight_key = "dram__sectors_read.sum_sector"
-    #     #     return int(self.df[nsight_key].sum())
 
     def _compute_dram_writes(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS)
         self.result_df["dram_writes"] = grouped["dram_write_transactions"].sum()
-
-    # def dram_writes(self) -> float:
-    #     return self.result_df["dram_writes_mean"].sum()
-    #     # nvprof_key = "dram_write_transactions_mean"
-    #     # if nvprof_key in self.df:
-    #     #     return int(self.df[nvprof_key].sum())
-    #     # else:
-    #     #     nsight_key = "dram__sectors_write.sum_sector"
-    #     #     return int(self.df[nsight_key].sum())
 
     def _compute_dram_accesses(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         reads_and_writes = grouped[["dram_read_transactions", "dram_write_transactions"]]
         self.result_df["dram_accesses"] = reads_and_writes.sum().astype(float).sum(axis=1)
 
-        # for s in STAT_SUFFIXES:
-        #     if "dram_read_transactions_mean" in self.df:
-        #         self.result_df["dram_accesses" + s] = self.df[
-        #             ["dram_read_transactions" + s, "dram_write_transactions" + s]
-        #         ].sum(axis=1)
-        #     else:
-        #         self.result_df["dram_accesses" + s] = self.df[
-        #             [
-        #                 "dram__sectors_read.sum_sector" + s,
-        #                 "dram__sectors_write.sum_sector" + s,
-        #             ]
-        # ].sum(axis=1)
-
-    # def dram_accesses(self) -> float:
-    #     return self.result_df["dram_accesses_mean"].sum()
-    #     # nvprof_keys = ["dram_read_transactions_mean", "dram_write_transactions_mean"]
-    #     # if set(nvprof_keys).issubset(self.df):
-    #     #     return self.df[nvprof_keys].sum().sum()
-    #     # else:
-    #     #     nsight_keys = [
-    #     #         "dram__sectors_read.sum_sector",
-    #     #         "dram__sectors_write.sum_sector",
-    #     #     ]
-    #     #     return self.df[nsight_keys].sum().sum()
-
     def _compute_l2_reads(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l2_reads"] = grouped["l2_tex_read_transactions"].sum()
-
-    # def l2_reads(self) -> float:
-    #     return self.result_df["l2_reads_mean"].sum()
-    #     # nvprof_key = "l2_tex_read_transactions_mean"
-    #     # nvprof_key = "l2_read_transactions_mean"
-    #     # if nvprof_key in self.df:
-    #     #     return self.df[nvprof_key].sum()
-    #     # else:
-    #     #     return self.df["lts__t_sectors_srcunit_tex_op_read.sum_sector"].sum()
 
     def _compute_l2_writes(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l2_writes"] = grouped["l2_tex_write_transactions"].sum()
 
-    # def l2_writes(self) -> float:
-    #     return self.result_df["l2_writes_mean"].sum()
-    #     # nvprof_key = "l2_tex_write_transactions_mean"
-    #     # nvprof_key = "l2_write_transactions_mean"
-    #     # if nvprof_key in self.df:
-    #     #     return self.df[nvprof_key].sum()
-    #     # else:
-    #     #     nsight_key = "lts__t_sectors_srcunit_tex_op_write.sum_sector"
-    #     #     return self.df[nsight_key].sum()
-
     def _compute_l2_accesses(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         reads_and_writes = grouped[["l2_read_transactions", "l2_write_transactions"]]
         self.result_df["l2_accesses"] = reads_and_writes.sum().astype(float).sum(axis=1)
-        # self.result_df["l2_accesses"] = grouped["tex_cache_transactions"].sum()
-
-    # def l2_accesses(self) -> float:
-    #     return self.result_df["l2_accesses_mean"].sum()
-    #     # # nvprof_read_key = "l2_tex_read_transactions"
-    #     # # nvprof_write_key = "l2_tex_write_transactions"
-    #     #
-    #     # nvprof_keys = ["l2_read_transactions_mean", "l2_write_transactions_mean"]
-    #     # if set(nvprof_keys).issubset(self.df):
-    #     #     # if nvprof_keys in self.df:
-    #     #     return self.df[nvprof_keys].sum().sum()
-    #     # else:
-    #     #     nsight_keys = [
-    #     #         "lts__t_sectors_srcunit_tex_op_write.sum_sector",
-    #     #         "lts__t_sectors_srcunit_tex_op_read.sum_sector",
-    #     #     ]
-    #     #     return self.df[nsight_keys].sum().sum()
 
     def _compute_l2_read_hit_rate(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l2_read_hit_rate"] = grouped["l2_tex_read_hit_rate"].mean()
         self.result_df["l2_read_hit_rate"] /= 100.0
-        # self.result_df[stat_cols("l2_read_hit_rate")] = self.df[stat_cols("l2_tex_read_hit_rate")] / 100.0
-
-    # def l2_read_hit_rate(self) -> float:
-    #     return float(self.result_df["l2_read_hit_rate_mean"].mean())
-    #     # nvprof_key = "l2_tex_read_hit_rate_mean"
-    #     # # nvprof_key = "l2_read_hit_rate"
-    #     # return float(self.df[nvprof_key].mean()) / 100.0
 
     def _compute_l2_write_hit_rate(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l2_write_hit_rate"] = grouped["l2_tex_write_hit_rate"].mean()
         self.result_df["l2_write_hit_rate"] /= 100.0
-        # self.result_df[stat_cols("l2_write_hit_rate")] = self.df[stat_cols("l2_tex_write_hit_rate")] / 100.0
-        # self.result_df[stat_cols("l2_write_hit_rate")] = self.df[stat_cols("l2_tex_write_hit_rate")] / 100.0
-        # nvprof_key = "l2_tex_write_hit_rate_mean"
-        # # nvprof_key = "l2_write_hit_rate"
-        # return float(self.df[nvprof_key].mean()) / 100.0
-
-    # def l2_write_hit_rate(self) -> float:
-    #     return float(self.result_df["l2_write_hit_rate_mean"].mean())
-    #     # nvprof_key = "l2_tex_write_hit_rate_mean"
-    #     # # nvprof_key = "l2_write_hit_rate"
-    #     # return float(self.df[nvprof_key].mean()) / 100.0
 
     def _compute_l2_read_miss_rate(self):
         self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"].fillna(0.0)
-        # self.result_df[stat_cols("l2_read_miss_rate")] = 1.0 - self.result_df[stat_cols("l2_read_hit_rate")]
-
-    # def l2_read_miss_rate(self) -> float:
-    #     return float(self.result_df["l2_read_miss_rate_mean"].mean())
-    #     # return 1 - self.l2_read_hit_rate()
 
     def _compute_l2_write_miss_rate(self):
         self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"].fillna(0.0)
-        # self.result_df[stat_cols("l2_write_miss_rate")] = 1.0 - self.result_df[stat_cols("l2_write_hit_rate")]
 
     def _compute_l2_hit_rate(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
@@ -996,74 +772,23 @@ class NvprofStats(common.Stats):
     def _compute_l2_miss_rate(self):
         self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"].fillna(0.0)
 
-    # def l2_write_miss_rate(self) -> float:
-    #     return float(self.result_df["l2_write_miss_rate_mean"].mean())
-    #     # return 1 - self.l2_write_hit_rate()
-
     def _compute_l2_read_hits(self):
         self.result_df["l2_read_hits"] = self.result_df["l2_reads"] * self.result_df["l2_read_hit_rate"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_read_hits" + s] = self.result_df["l2_reads" + s] * self.result_df["l2_read_hit_rate" + s]
-        # return int(float(self.l2_reads()) * self.l2_read_hit_rate())
-
-    # def l2_read_hits(self) -> float:
-    #     return self.result_df["l2_read_hits_mean"].sum()
-    #     # return int(float(self.l2_reads()) * self.l2_read_hit_rate())
 
     def _compute_l2_write_hits(self):
         self.result_df["l2_write_hits"] = self.result_df["l2_writes"] * self.result_df["l2_write_hit_rate"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_write_hits" + s] = (
-        #         self.result_df["l2_writes" + s] * self.result_df["l2_write_hit_rate" + s]
-        #     )
-        # return int(float(self.l2_writes()) * self.l2_write_hit_rate())
-
-    # def l2_write_hits(self) -> float:
-    #     return self.result_df["l2_write_hits_mean"].sum()
-    #     # return int(float(self.l2_writes()) * self.l2_write_hit_rate())
 
     def _compute_l2_read_misses(self):
         self.result_df["l2_read_misses"] = self.result_df["l2_reads"] * self.result_df["l2_read_miss_rate"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_read_misses" + s] = (
-        #         self.result_df["l2_reads" + s] * self.result_df["l2_read_miss_rate" + s]
-        #     )
-
-    # def l2_read_misses(self) -> float:
-    #     return self.result_df["l2_read_misses_mean"].sum()
-    # return int(float(self.l2_reads()) * self._l2_read_miss_rate())
 
     def _compute_l2_write_misses(self):
         self.result_df["l2_write_misses"] = self.result_df["l2_writes"] * self.result_df["l2_write_miss_rate"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_write_misses" + s] = (
-        #         self.result_df["l2_writes" + s] * self.result_df["l2_write_miss_rate" + s]
-        #     )
-
-    # def l2_write_misses(self) -> float:
-    #     return self.result_df["l2_write_misses_mean"].sum()
-    #     # return int(float(self.l2_writes()) * self._l2_write_miss_rate())
 
     def _compute_l2_hits(self):
         self.result_df["l2_hits"] = self.result_df["l2_read_hits"] + self.result_df["l2_write_hits"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_hits" + s] = self.result_df["l2_read_hits" + s] + self.result_df["l2_write_hits" + s]
-        # return self.l2_read_hits() + self.l2_write_hits()
-
-    # def l2_hits(self) -> float:
-    #     return self.result_df["l2_hits"].sum()
-    #     # return self.l2_read_hits() + self.l2_write_hits()
 
     def _compute_l2_misses(self):
         self.result_df["l2_misses"] = self.result_df["l2_read_misses"] + self.result_df["l2_write_misses"]
-        # for s in STAT_SUFFIXES:
-        #     self.result_df["l2_misses" + s] = (
-        #         self.result_df["l2_read_misses" + s] + self.result_df["l2_write_misses" + s]
-        #     )
-
-    # def l2_misses(self) -> float:
-    #     return self.result_df["l2_misses"].sum()
-    #     # return self.l2_read_misses() + self.l2_write_misses()
 
     def _compute_l1_accesses(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
@@ -1073,7 +798,6 @@ class NvprofStats(common.Stats):
     def _compute_l1_reads(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
         self.result_df["l1_accesses"] = grouped["tex_cache_transactions"].sum()
-        # self.result_df["l1_reads"] = grouped["gld_transactions"].sum()
 
     def _compute_l1_writes(self):
         self.result_df["l1_writes"] = np.nan
@@ -1107,8 +831,6 @@ class NvprofStats(common.Stats):
         self.result_df["l1_misses"] = np.nan
 
     def _kernel_launches_df(self) -> pd.DataFrame:
-        # print(self.commands_df.index)
-        # commands = self.commands_df.reset_index()
         commands = self.commands_df
         kernel_launches = commands[~commands["Kernel"].str.contains(r"\[CUDA memcpy|memset.*\]")]
         if isinstance(kernel_launches, pd.Series):
@@ -1121,80 +843,7 @@ class NvprofStats(common.Stats):
         grouped = kernel_launches.groupby(NVPROF_INDEX_COLS, dropna=False)
         return grouped["Duration"].sum()
 
-        # duration_df["mean"] = kernel_launches[nvprof_key + "_mean"]
-        # duration_df["mean"] = kernel_launches[nvprof_key + "_mean"]
-        # duration_df["min"] = kernel_launches[nvprof_key + "_min"]
-        # duration_df["max"] = kernel_launches[nvprof_key + "_max"]
-        # duration_df["std"] = kernel_launches[nvprof_key + "_std"]
-
     def executed_instructions(self):
         nvprof_key = "inst_issued_mean"
         nvprof_key = "inst_executed_mean"
         return self.df[nvprof_key].sum() * self.config.num_total_cores
-
-        # print("inst_issued", self.df["inst_issued"].sum() * self.config.num_total_cores)
-        # print(
-        #     "inst_executed",
-        #     self.df["inst_executed"].sum() * self.config.num_total_cores,
-        # )
-        #
-        # total_instructions = (
-        #     self.df[
-        #         [
-        #             "inst_fp_16",
-        #             "inst_fp_32",
-        #             "inst_fp_64",
-        #             "inst_integer",
-        #             "inst_control",
-        #             "inst_compute_ld_st",
-        #             "inst_misc",
-        #         ]
-        #     ]
-        #     .astype(int)
-        #     .sum()
-        #     .sum()
-        # )
-        # print("total", total_instructions)
-        #
-        # sub_instructions = (
-        #     self.df[
-        #         [
-        #             "inst_fp_16",
-        #             "inst_fp_32",
-        #             "inst_fp_64",
-        #             "inst_integer",
-        #             # "inst_control",
-        #             "inst_compute_ld_st",
-        #             "inst_misc",
-        #         ]
-        #     ]
-        #     .astype(int)
-        #     .sum()
-        #     .sum()
-        # )
-        #
-        # print(
-        #     self.df[
-        #         [
-        #             "inst_fp_16",
-        #             "inst_fp_32",
-        #             "inst_fp_64",
-        #             "inst_integer",
-        #             # "inst_control",
-        #             "inst_compute_ld_st",
-        #             "inst_misc",
-        #         ]
-        #     ]
-        #     .astype(int)
-        #     .sum()
-        # )
-        # print("sub", sub_instructions)
-
-        # inst_fp_16	{'value': 0, 'unit': None}
-        # inst_fp_32	{'value': 100, 'unit': None}
-        # inst_fp_64	{'value': 0, 'unit': None}
-        # inst_integer	{'value': 4896, 'unit': None}
-        # inst_bit_convert	{'value': '0', 'unit': None}
-        # inst_control	{'value': '1024', 'unit': None}
-        # inst_compute_ld_st	{'value': '300', 'unit': None}
-        # inst_misc	{'value': '4196', 'unit': None}
