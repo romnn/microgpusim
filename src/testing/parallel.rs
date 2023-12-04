@@ -8,6 +8,8 @@ use std::time::Instant;
 use utils::diff;
 use validate::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 
+#[deprecated]
+#[allow(dead_code)]
 pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     let TargetBenchmarkConfig::Simulate {
         ref traces_dir,
@@ -210,6 +212,9 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
 
     let max_mape_err = Some(0.1); // allow 10% difference
     let max_smape_err = Some(0.1); // allow 10% difference
+    let max_mape_err = Some(0.05); // allow 5% difference
+    let max_smape_err = Some(0.05); // allow 5% difference
+
     assert_stats_match(serial_stats, parallel_stats, max_mape_err, max_smape_err);
     Ok(())
 }
@@ -272,6 +277,20 @@ pub fn assert_stats_match(
         &mut parallel_l1t_stats,
         &mut parallel_l2d_stats,
     ] {
+        use stats::cache::{AccessStat, AccessStatus, RequestStatus};
+        // combine hits and pending hits
+        let pending_hits: std::collections::HashSet<_> = cache_stats.pending_hits().collect();
+        for ((allocation, access), count) in pending_hits {
+            cache_stats.inner.remove(&(allocation, access));
+            let AccessStatus((kind, _)) = access;
+            let hit = AccessStat::Status(RequestStatus::HIT);
+            *cache_stats
+                .inner
+                .entry((None, AccessStatus((kind, hit))))
+                .or_insert(0) += count;
+        }
+
+        // remove reservation failure reasons
         cache_stats.inner.retain(|(_, status), _| {
             !status.is_reservation_fail() && !status.is_reservation_failure_reason()
         });

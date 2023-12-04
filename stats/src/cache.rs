@@ -399,6 +399,16 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn pending_hits(
+        &self,
+    ) -> impl Iterator<Item = ((Option<usize>, AccessStatus), usize)> + '_ {
+        self.inner
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .filter(|((_, access), _)| access.is_pending_hit())
+    }
+
+    #[must_use]
     pub fn num_read_misses(&self) -> usize {
         self.inner
             .iter()

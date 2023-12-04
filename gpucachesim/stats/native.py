@@ -464,7 +464,7 @@ class NsightStats(common.Stats):
         self.result_df["l1_read_hit_rate"] /= 100.0
 
     def _compute_l1_miss_rate(self):
-        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
+        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"].fillna(0.0)
 
     def _compute_l1_misses(self):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
@@ -543,7 +543,7 @@ class NsightStats(common.Stats):
         self.result_df["l2_hit_rate"] /= 100.0
 
     def _compute_l2_miss_rate(self):
-        self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"]
+        self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"].fillna(0.0)
 
 
 class NvprofStats(common.Stats):
@@ -847,9 +847,6 @@ class NvprofStats(common.Stats):
         assert (grouped["dram_read_transactions"].mean() == grouped["dram_read_transactions"].sum()).all()
         self.result_df["dram_reads"] = grouped["dram_read_transactions"].mean()
 
-        
-
-
     # def dram_reads(self) -> float:
     #     return self.result_df["dram_reads_mean"].sum()
     #     # nvprof_key = "dram_read_transactions_mean"
@@ -980,7 +977,7 @@ class NvprofStats(common.Stats):
     #     # return float(self.df[nvprof_key].mean()) / 100.0
 
     def _compute_l2_read_miss_rate(self):
-        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"]
+        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"].fillna(0.0)
         # self.result_df[stat_cols("l2_read_miss_rate")] = 1.0 - self.result_df[stat_cols("l2_read_hit_rate")]
 
     # def l2_read_miss_rate(self) -> float:
@@ -988,7 +985,7 @@ class NvprofStats(common.Stats):
     #     # return 1 - self.l2_read_hit_rate()
 
     def _compute_l2_write_miss_rate(self):
-        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"]
+        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"].fillna(0.0)
         # self.result_df[stat_cols("l2_write_miss_rate")] = 1.0 - self.result_df[stat_cols("l2_write_hit_rate")]
 
     def _compute_l2_hit_rate(self):
@@ -997,7 +994,7 @@ class NvprofStats(common.Stats):
         self.result_df["l2_hit_rate"] /= 100.0
 
     def _compute_l2_miss_rate(self):
-        self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"]
+        self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"].fillna(0.0)
 
     # def l2_write_miss_rate(self) -> float:
     #     return float(self.result_df["l2_write_miss_rate_mean"].mean())
@@ -1104,7 +1101,7 @@ class NvprofStats(common.Stats):
         self.result_df["l1_hits"] = np.nan
 
     def _compute_l1_miss_rate(self):
-        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
+        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"].fillna(0.0)
 
     def _compute_l1_misses(self):
         self.result_df["l1_misses"] = np.nan

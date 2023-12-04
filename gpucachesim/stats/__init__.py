@@ -2045,6 +2045,7 @@ def parallel_table(bench_name_arg, path, nsight):
     profiler = "nsight" if nsight else "nvprof"
     all_benchmarks = bench_name_arg is None
     selected_df = load_stats(bench_name=bench_name_arg, profiler=profiler, path=path)
+    print(selected_df[["target", "run"]].drop_duplicates())
     num_benchmarks = len(selected_df["benchmark"].unique().tolist())
 
     bench_cols = ["target", "benchmark"]
@@ -2076,17 +2077,34 @@ def parallel_table(bench_name_arg, path, nsight):
         col: agg for col, agg in aggregations.items()
         if col in serial and not col in group_cols
     }
-    # aggregations = {
-    #     col: agg for col, agg in aggregations.items() if col not in group_cols
-    # }
+    metric_cols = set(serial.columns)
+    metric_cols -= set([
+        c for c in serial.columns if c.startswith("input_")])
+    metric_cols -= set(benchmarks.NON_NUMERIC_COLS)
+    metric_cols -= set(["exec_time_sec", "run"])
+    metric_cols = list(metric_cols)
+    # pprint(metric_cols)
+    # print(serial[["cycles", "kernel_launch_id", "stream_id", "run"]])
+    unique_values = serial.fillna(0.0).groupby("input_id")[metric_cols].nunique()
+    # print(serial.groupby("input_id", dropna=False)[metric_cols ].nunique())
+    # print(unique_values)
+    # pprint(serial.columns[(serial != 1).any()].tolist())
+    # print((unique_values == 1).all(axis=0))
+    # print(serial[["input_id", "kernel_launch_id", "run", "l2_miss_rate", "l2_write_hit_rate", "l2_write_miss_rate", "l1_local_hit_rate"]])
+    # pprint(serial[unique_values != 1])
+    # print((unique_values == 1).all(axis=1))
+    # serial.loc[serial.index].eq(ts, axis=0).idxmax(axis=1)
+    assert (unique_values == 1).all(axis=1).all()
+
     mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
 
-    metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
+    preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
 
     serial = mean_serial
     parallel = selected_df[~selected_df["input_mode"].isin([np.nan, "serial"])]
     assert "total_cores" in serial
     assert "total_cores" in parallel
+    assert parallel["run"].isna().sum() == 0
 
     # cols = ["dram_writes", "l1_accesses"]
     # print(serial[(serial["benchmark"] == "transpose") & (serial["input_variant"] == "naive") & (serial["input_dim"] == 512)][benchmarks.INDEX_COLS + benchmarks.SIMULATE_INPUT_COLS + cols])
@@ -2105,8 +2123,8 @@ def parallel_table(bench_name_arg, path, nsight):
     if len(parallel_input_ids) == 0:
         raise ValueError("have zero parallel benchmark configurations")
 
-    print(serial_input_ids)
-    print(parallel_input_ids)
+    print("serial input ids", serial_input_ids)
+    print("parallel input ids", parallel_input_ids)
     print(serial.loc[
         serial["input_id"] == 0,
         ["target", "input_id", "benchmark"],
@@ -2116,7 +2134,16 @@ def parallel_table(bench_name_arg, path, nsight):
         ["target", "input_id", "benchmark"],
     ])
 
-    return
+    deterministic = parallel[parallel["input_mode"] == "deterministic"]
+    unique_values = deterministic.fillna(0.0).groupby("input_id")[metric_cols].nunique()
+    assert (unique_values == 1).all(axis=1).all()
+
+    # non deterministic without interleaving is also deterministic actually
+    nondeterministic = parallel[parallel["input_mode"] == "nondeterministic"]
+    unique_values = nondeterministic.fillna(0.0).groupby("input_id")[metric_cols].nunique()
+    assert len(nondeterministic) > 0
+    assert (unique_values == 1).all(axis=1).all()
+
     input_id_partitoning = set(serial["input_id"].unique()).intersection(
         set(parallel["input_id"].unique())
     )
@@ -2176,8 +2203,8 @@ def parallel_table(bench_name_arg, path, nsight):
             + bench_input_cols
             + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
             + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
-            + [c + "_parallel" for c in metric_cols]
-            + [c + "_serial" for c in metric_cols]
+            + [c + "_parallel" for c in preview_metric_cols]
+            + [c + "_serial" for c in preview_metric_cols]
             + ["input_id_serial", "input_id_parallel"]
         )
     )
@@ -2405,7 +2432,7 @@ def parallel_table(bench_name_arg, path, nsight):
         bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
         assert all([c in df for c in bench_input_cols])
 
-        assert (df["total_cores_parallel"] == df["total_cores_serial"]).all()
+        assert (df[["total_cores_parallel"]].values == df[["total_cores_serial"]].values).all()
 
         assert len(df[["input_cores_per_cluster"]].value_counts()) == 1
         assert len(df[["input_num_clusters"]].value_counts()) == 1
@@ -2675,7 +2702,7 @@ def parallel_table(bench_name_arg, path, nsight):
 
             print("==> {}".format(bench_config["name"]))
             mask_cols = ["benchmark"] + list(bench_inputs.keys())
-            mask_values = [bench_name] + list(bench_inputs.values())
+            mask_values = [bench_name_arg] + list(bench_inputs.values())
             # mask = aggregated["benchmark"] == bench_name
             # for col, value in zip(mask_cols, mask_values):
             #     mask &= aggregated[col] == value
@@ -3037,6 +3064,8 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
     }
     dtypes = {col: dtype for col, dtype in dtypes.items() if col in stats_df}
     stats_df = stats_df.astype(dtypes)
+    stats_df["run"] = stats_df["run"].fillna(0.0)
+    assert stats_df["run"].isna().sum() == 0
 
     simulation_targets = [
         Target.Simulate.value,

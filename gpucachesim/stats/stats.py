@@ -264,7 +264,7 @@ class Stats(common.Stats):
         self.result_df["l2_read_hit_rate"] = self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
 
     def _compute_l2_read_miss_rate(self):
-        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"]
+        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"].fillna(0.0)
 
     def _compute_l2_write_hit_rate(self):
         # df = self.l2_data_stats_df
@@ -286,7 +286,7 @@ class Stats(common.Stats):
         # self.result_df["is_release_build"] = grouped["is_release_build"].first()
 
     def _compute_l2_write_miss_rate(self):
-        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"]
+        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"].fillna(0.0)
 
     def _compute_l2_hit_rate(self):
         # print(self.result_df[["l2_accesses", "l2_hits"]].T)
@@ -392,7 +392,7 @@ class Stats(common.Stats):
         self.result_df["l1_local_hit_rate"] = (hits / accesses).fillna(0.0)
 
     def _compute_l1_miss_rate(self):
-        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"]
+        self.result_df["l1_miss_rate"] = 1.0 - self.result_df["l1_hit_rate"].fillna(0.0)
 
     def _compute_is_release_build(self):
         grouped = self.sim_df.groupby(INDEX_COLS, dropna=False)

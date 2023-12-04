@@ -30,15 +30,7 @@ def round_down_to_multiple_of(x, multiple_of):
 
 
 def copy_to_clipboard(value):
-    pyperclip.copy(value)
-    # tk.clipboard_clear()
-    # tk.clipboard_append(value)
-    # p = platform.system()
-    # match p:
-    #     case "Linux":
-    #         command = 'echo "{}" | clip'.format(value.strip())
-    #     case "Darwin":
-    #         command = 'echo "{}" | pbcopy'.format(value.strip())
-    #     case other:
-    #         raise ValueError("cannot copy to clipboard on platform {}".format(other))
-    # os.system(command)
+    try:
+        pyperclip.copy(value)
+    except pyperclip.PyperclipException as e:
+        print("copy to clipboard failed: {}".format(e))
