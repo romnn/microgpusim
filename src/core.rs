@@ -1,10 +1,7 @@
 use super::{
-    address, barrier, cache, config, func_unit as fu,
-    instruction::WarpInstruction,
-    interconn as ic,
-    kernel::{Kernel, KernelTrait},
-    mcu, mem_fetch, opcodes, operand_collector as opcoll, register_set, scheduler, scoreboard,
-    warp,
+    address, barrier, cache, config, func_unit as fu, instruction::WarpInstruction,
+    interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes, operand_collector as opcoll,
+    register_set, scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
 
@@ -448,7 +445,7 @@ pub struct Core<I> {
     pub stats: Arc<Mutex<stats::PerKernel>>,
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<dyn mcu::MemoryController>,
-    pub current_kernel: Mutex<Option<Arc<dyn KernelTrait>>>,
+    pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
     pub current_kernel_max_blocks: usize,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
@@ -913,7 +910,7 @@ where
     }
 
     // #[inline]
-    pub fn can_issue_block(&self, kernel: &dyn KernelTrait) -> bool {
+    pub fn can_issue_block(&self, kernel: &dyn Kernel) -> bool {
         let max_blocks = self.config.max_blocks(kernel).unwrap();
         if self.config.concurrent_kernel_sm {
             if max_blocks < 1 {
@@ -963,7 +960,7 @@ where
     }
 
     #[tracing::instrument(name = "core_issue_block")]
-    pub fn issue_block(&mut self, kernel: &Arc<dyn KernelTrait>, cycle: u64) {
+    pub fn issue_block(&mut self, kernel: &Arc<dyn Kernel>, cycle: u64) {
         log::debug!("core {:?}: issue block", self.id());
         if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
@@ -1212,7 +1209,7 @@ where
     fn register_thread_in_block_exited(
         &mut self,
         block_hw_id: usize,
-        kernel: &Option<Arc<dyn KernelTrait>>,
+        kernel: &Option<Arc<dyn Kernel>>,
     ) {
         let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
         debug_assert!(block_hw_id < self.block_status.len());
@@ -1804,7 +1801,7 @@ where
     // #[inline]
     fn init_warps_from_traces(
         &mut self,
-        kernel: &Arc<dyn KernelTrait>,
+        kernel: &Arc<dyn Kernel>,
         start_warp: usize,
         end_warp: usize,
     ) {
@@ -1838,7 +1835,7 @@ where
         start_thread: usize,
         end_thread: usize,
         block_id: u64,
-        kernel: &Arc<dyn KernelTrait>,
+        kernel: &Arc<dyn Kernel>,
     ) {
         // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;

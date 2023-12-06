@@ -1,6 +1,6 @@
 use crate::{
     address, barrier, config,
-    kernel::{Kernel, KernelTrait},
+    kernel::Kernel,
     mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{pascal, ArchOp, Op, Opcode},
@@ -240,7 +240,7 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
 
 impl WarpInstruction {
     pub fn from_trace(
-        kernel: &dyn KernelTrait,
+        kernel: &dyn Kernel,
         trace: &trace_model::MemAccessTraceEntry,
         config: &config::GPU,
     ) -> Self {

@@ -52,7 +52,7 @@ use allocation::{Allocation, Allocations};
 use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
-use kernel::{Kernel, KernelTrait};
+use kernel::Kernel;
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
@@ -315,10 +315,10 @@ pub struct MockSimulator<I> {
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     // we could remove the arcs on running and executed if we change to self: Arc<Self>
-    pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<dyn KernelTrait>)>>>>,
+    pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<dyn Kernel>)>>>>,
     // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
-    executed_kernels: Arc<Mutex<HashMap<u64, Arc<dyn KernelTrait>>>>,
-    pub current_kernel: Mutex<Option<Arc<dyn KernelTrait>>>,
+    executed_kernels: Arc<Mutex<HashMap<u64, Arc<dyn Kernel>>>>,
+    pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
     pub clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
@@ -333,7 +333,7 @@ pub struct MockSimulator<I> {
     traces_dir: Option<PathBuf>,
     commands: Vec<Command>,
     command_idx: usize,
-    kernels: VecDeque<Arc<dyn KernelTrait>>,
+    kernels: VecDeque<Arc<dyn Kernel>>,
     kernel_window_size: usize,
     busy_streams: VecDeque<u64>,
     cycle_limit: Option<u64>,
@@ -438,7 +438,7 @@ where
 
         // todo: make this a hashset?
         let busy_streams: VecDeque<u64> = VecDeque::new();
-        let mut kernels: VecDeque<Arc<dyn KernelTrait>> = VecDeque::new();
+        let mut kernels: VecDeque<Arc<dyn Kernel>> = VecDeque::new();
         kernels.reserve_exact(window_size);
 
         let cycle_limit: Option<u64> = std::env::var("CYCLES")
@@ -497,7 +497,7 @@ where
     ///
     /// Todo: used hack to allow selecting the kernel from the shader core,
     /// but we could maybe refactor
-    pub fn select_kernel(&self) -> Option<Arc<dyn KernelTrait>> {
+    pub fn select_kernel(&self) -> Option<Arc<dyn Kernel>> {
         let mut last_issued_kernel = self.last_issued_kernel.lock();
         let mut executed_kernels = self.executed_kernels.try_lock();
         let running_kernels = self.running_kernels.try_read();
@@ -611,7 +611,7 @@ where
         })
     }
 
-    pub fn launch(&self, kernel: Arc<dyn KernelTrait>, cycle: u64) -> eyre::Result<()> {
+    pub fn launch(&self, kernel: Arc<dyn Kernel>, cycle: u64) -> eyre::Result<()> {
         // kernel.set_launched();
         // println!("launch kernel {} in cycle {}", kernel.id(), cycle);
         let threads_per_block = kernel.config().threads_per_block();
@@ -1667,8 +1667,10 @@ where
                     self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
                 }
                 Command::KernelLaunch(launch) => {
-                    let mut kernel =
-                        Kernel::from_trace(launch.clone(), self.traces_dir.as_ref().unwrap());
+                    let mut kernel = kernel::trace::KernelTrace::new(
+                        launch.clone(),
+                        self.traces_dir.as_ref().unwrap(),
+                    );
                     kernel.memory_only = self.config.memory_only;
                     // let num_running_kernels = self
                     //     .running_kernels
@@ -1729,7 +1731,7 @@ where
     /// Launch all kernels within window that are on a stream that isn't already running
     pub fn launch_kernels(&mut self, cycle: u64) {
         log::trace!("launching kernels");
-        let mut launch_queue: Vec<Arc<dyn KernelTrait>> = Vec::new();
+        let mut launch_queue: Vec<Arc<dyn Kernel>> = Vec::new();
         for kernel in &self.kernels {
             let stream_busy = self
                 .busy_streams
@@ -1925,10 +1927,10 @@ where
         Ok(())
     }
 
-    fn finished_kernel(&mut self) -> Option<Arc<dyn KernelTrait>> {
+    fn finished_kernel(&mut self) -> Option<Arc<dyn Kernel>> {
         // check running kernels
         let mut running_kernels = self.running_kernels.try_write().clone();
-        let finished_kernel: Option<&mut Option<(_, Arc<dyn KernelTrait>)>> =
+        let finished_kernel: Option<&mut Option<(_, Arc<dyn Kernel>)>> =
             running_kernels.iter_mut().find(|kernel| match kernel {
                 // TODO: could also check here if !self.active()
                 Some((_, k)) => {
@@ -1958,7 +1960,7 @@ where
         // }
     }
 
-    fn cleanup_finished_kernel(&mut self, kernel: &dyn KernelTrait, cycle: u64) {
+    fn cleanup_finished_kernel(&mut self, kernel: &dyn Kernel, cycle: u64) {
         // panic!("cleanup finished kernel {}", kernel.name());
         self.kernels.retain(|k| k.id() != kernel.id());
         self.busy_streams

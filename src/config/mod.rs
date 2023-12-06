@@ -2,10 +2,7 @@ pub mod accelsim;
 pub mod gtx1080;
 
 use crate::{
-    address, cache,
-    core::PipelineStage,
-    kernel::{Kernel, KernelTrait},
-    mcu, mem_sub_partition, mshr, opcodes,
+    address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
 };
 use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
@@ -710,7 +707,7 @@ impl GPU {
         mem_id + self.num_simt_clusters
     }
 
-    pub fn threads_per_block_padded(&self, kernel: &dyn KernelTrait) -> usize {
+    pub fn threads_per_block_padded(&self, kernel: &dyn Kernel) -> usize {
         let threads_per_block = kernel.config().threads_per_block();
         pad_to_multiple(threads_per_block, self.warp_size)
     }
@@ -725,7 +722,7 @@ impl GPU {
     ///
     /// Depends on the following constraints:
     /// -
-    pub fn max_blocks(&self, kernel: &dyn KernelTrait) -> eyre::Result<usize> {
+    pub fn max_blocks(&self, kernel: &dyn Kernel) -> eyre::Result<usize> {
         let threads_per_block = kernel.config().threads_per_block();
         let threads_per_block = pad_to_multiple(threads_per_block, self.warp_size);
         // limit by n_threads/shader

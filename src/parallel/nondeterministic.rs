@@ -3,7 +3,7 @@
 use crate::ic::ToyInterconnect;
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
-    config, core, engine::cycle::Component, ic, kernel::KernelTrait, mem_fetch, mem_sub_partition,
+    config, core, engine::cycle::Component, ic, kernel::Kernel, mem_fetch, mem_sub_partition,
     MockSimulator,
 };
 use color_eyre::eyre;
@@ -70,8 +70,8 @@ fn new_serial_cycle<I>(
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
     last_issued_kernel: &Arc<Mutex<usize>>,
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
-    running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<dyn KernelTrait>)>>>>,
-    executed_kernels: &Arc<Mutex<HashMap<u64, Arc<dyn KernelTrait>>>>,
+    running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<dyn Kernel>)>>>>,
+    executed_kernels: &Arc<Mutex<HashMap<u64, Arc<dyn Kernel>>>>,
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
     mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
     interconn: &Arc<I>,
