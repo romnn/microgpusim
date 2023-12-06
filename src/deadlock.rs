@@ -46,7 +46,7 @@ where
         let mut state = State::new(total_cores, num_partitions, num_sub_partitions);
 
         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-            let cluster = cluster.try_read();
+            // let cluster = cluster.try_read();
             for (core_id, core) in cluster.cores.iter().enumerate() {
                 let core = core.try_read();
                 let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;

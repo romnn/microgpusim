@@ -54,7 +54,7 @@ where
                 Arc::new(RwLock::new(core))
             })
             .collect();
-        let mut cluster = Self {
+        let cluster = Self {
             cluster_id,
             warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
@@ -69,7 +69,7 @@ where
         cluster
     }
 
-    fn reinit(&mut self) {
+    fn reinit(&self) {
         for core in &self.cores {
             core.write()
                 .reinit(0, self.config.max_threads_per_core, true);
@@ -192,17 +192,6 @@ where
             core.write().cache_invalidate();
         }
     }
-
-    // pub fn cycle(&mut self) {
-    //     log::debug!("cluster {} cycle {}", self.cluster_id, self.cycle.get());
-    //     for core_id in &self.core_sim_order {
-    //         self.cores[*core_id]lock().cycle();
-    //     }
-    //
-    //     if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-    //         self.core_sim_order.rotate_left(1);
-    //     }
-    // }
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
     pub fn issue_block_to_core(&self, sim: &MockSimulator<I>, cycle: u64) -> usize {

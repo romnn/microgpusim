@@ -232,7 +232,7 @@ where
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
     for cluster in &sim.clusters {
-        for core in &cluster.read().cores {
+        for core in &cluster.cores {
             core.write().fetch_return_callback = Some(fetch_return_callback.clone());
             core.write().load_store_unit.lock().l1_access_callback =
                 Some(l1_access_callback.clone());

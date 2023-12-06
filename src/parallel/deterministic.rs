@@ -24,7 +24,8 @@ where
             let cores: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
-                .map(|cluster| cluster.try_read().cores.clone())
+                // .map(|cluster| cluster.try_read().cores.clone())
+                .map(|cluster| cluster.cores.clone())
                 .collect();
 
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
@@ -64,7 +65,8 @@ where
                             .all(|(_, k)| k.no_more_blocks_to_run());
 
                         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-                            let cores_completed = cluster.try_read().not_completed() == 0;
+                            // let cores_completed = cluster.try_read().not_completed() == 0;
+                            let cores_completed = cluster.not_completed() == 0;
                             let cluster_active = !(cores_completed && kernels_completed);
                             active_clusters[cluster_id] = cluster_active;
 
@@ -86,8 +88,7 @@ where
                         if !active {
                             continue;
                         }
-                        let cluster = self.clusters[cluster_id].try_read();
-
+                        let cluster = &self.clusters[cluster_id];
                         let mut core_sim_order = cluster.core_sim_order.try_lock();
                         for core_id in &*core_sim_order {
                             let core = cluster.cores[*core_id].try_read();
@@ -116,7 +117,7 @@ where
                     let mut all_threads_complete = true;
                     if self.config.flush_l1_cache {
                         for cluster in &mut self.clusters {
-                            let cluster = cluster.try_read();
+                            // let cluster = cluster.try_read();
                             if cluster.not_completed() == 0 {
                                 cluster.cache_invalidate();
                             } else {
@@ -128,7 +129,7 @@ where
                     if self.config.flush_l2_cache {
                         if !self.config.flush_l1_cache {
                             for cluster in &mut self.clusters {
-                                let cluster = cluster.try_read();
+                                // let cluster = cluster.try_read();
                                 if cluster.not_completed() > 0 {
                                     all_threads_complete = false;
                                     break;

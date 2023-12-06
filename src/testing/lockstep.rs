@@ -49,7 +49,7 @@ fn gather_simulation_state(
     box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock();
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-        let cluster = cluster.try_read();
+        // let cluster = cluster.try_read();
         for (core_id, core) in cluster.cores.iter().enumerate() {
             let core = core.try_read();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;

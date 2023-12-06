@@ -21,7 +21,8 @@ fn interleaved_serial_cycle<I, C>(
     sim_orders: &Arc<Vec<Arc<Mutex<VecDeque<usize>>>>>,
     mem_ports: &Arc<Vec<Vec<Arc<Mutex<crate::core::CoreMemoryConnection<C>>>>>>,
     interconn: &Arc<I>,
-    clusters: &Vec<Arc<RwLock<crate::Cluster<I>>>>,
+    // clusters: &Vec<Arc<RwLock<crate::Cluster<I>>>>,
+    clusters: &Vec<Arc<crate::Cluster<I>>>,
     config: &config::GPU,
 ) where
     C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
@@ -75,7 +76,8 @@ fn new_serial_cycle<I>(
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
     mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
     interconn: &Arc<I>,
-    clusters: &Arc<Vec<Arc<RwLock<crate::Cluster<I>>>>>,
+    // clusters: &Arc<Vec<Arc<RwLock<crate::Cluster<I>>>>>,
+    clusters: &Arc<Vec<Arc<crate::Cluster<I>>>>,
     cores: &Arc<Vec<Vec<Arc<RwLock<crate::Core<I>>>>>>,
     last_cluster_issue: &Arc<Mutex<usize>>,
     config: &config::GPU,
@@ -84,7 +86,7 @@ fn new_serial_cycle<I>(
 {
     // it could happen that two serial cycles overlap when using spawn fifo, so we need
     for cluster in clusters.iter() {
-        crate::timeit!("serial::interconn", cluster.read().interconn_cycle(cycle));
+        crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
     }
 
     for (i, mem_sub) in mem_sub_partitions.iter().enumerate() {
@@ -194,14 +196,15 @@ where
             let sim_orders: Vec<Arc<_>> = self
                 .clusters
                 .iter()
-                .map(|cluster| Arc::clone(&cluster.try_read().core_sim_order))
+                .map(|cluster| Arc::clone(&cluster.core_sim_order))
+                // .map(|cluster| Arc::clone(&cluster.try_read().core_sim_order))
                 .collect();
             let mem_ports: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
                 .map(|cluster| {
                     cluster
-                        .try_read()
+                        // .try_read()
                         .cores
                         .iter()
                         .map(|core| Arc::clone(&core.try_read().mem_port))
@@ -211,21 +214,24 @@ where
             let cores: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
-                .map(|cluster| cluster.try_read().cores.clone())
+                // .map(|cluster| cluster.try_read().cores.clone())
+                .map(|cluster| cluster.cores.clone())
                 .collect();
 
             let last_cycle: Arc<Mutex<Vec<Vec<u64>>>> = Arc::new(Mutex::new(
                 self.clusters
                     .iter()
                     .map(|cluster| {
-                        let num_cores = cluster.try_read().cores.len();
+                        // let num_cores = cluster.try_read().cores.len();
+                        let num_cores = cluster.cores.len();
                         vec![0; num_cores]
                     })
                     .collect(),
             ));
 
             let num_clusters = self.clusters.len();
-            let num_cores_per_cluster = self.clusters[0].try_read().cores.len();
+            // let num_cores_per_cluster = self.clusters[0].try_read().cores.len();
+            let num_cores_per_cluster = self.clusters[0].cores.len();
             let shape = (run_ahead, num_clusters, num_cores_per_cluster);
             let progress = Array3::<Option<bool>>::from_elem(shape, None);
 
@@ -727,7 +733,7 @@ where
     pub fn serial_cycle(&mut self, cycle: u64) {
         for cluster in &self.clusters {
             // Receive memory responses addressed to each cluster and forward to cores
-            crate::timeit!("serial::interconn", cluster.read().interconn_cycle(cycle));
+            crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
         }
 
         // send memory responses from memory sub partitions to the requestor clusters via
