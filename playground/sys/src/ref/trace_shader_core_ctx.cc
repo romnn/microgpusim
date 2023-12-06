@@ -967,7 +967,7 @@ void trace_shader_core_ctx::decode() {
 
     if (!get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
       // debug: print all valid instructions in this warp
-      // m_warp[warp_id]->print_trace_instructions(false, logger);
+      m_warp[warp_id]->print_trace_instructions(false, logger);
     }
 
     const warp_inst_t *pI1 = get_next_inst(warp_id, pc);

@@ -75,10 +75,10 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
     - benchmarks using shared mem: babelstream, transpose
 
-  - check if non-interleave nondeterministic is deterministic
+  - DONE: check if non-interleave nondeterministic is deterministic
 
-    - add repetitions=2 to parallel gpucachesim
-    - the gains are so low we should just remove it
+    - DONE: add repetitions=2 to parallel gpucachesim
+    - DONE: the gains are so low we should just remove it
 
   - always perform l2 mem copy, but set skip l2 flag if above threshold
 

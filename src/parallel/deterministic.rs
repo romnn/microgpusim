@@ -52,7 +52,7 @@ where
                         break;
                     }
 
-                    self.serial_cycle(cycle);
+                    crate::timeit!("serial::cycle", self.serial_cycle(cycle));
 
                     // run cores in any order
                     rayon::scope(|core_scope| {
@@ -75,7 +75,7 @@ where
                             for core in cores[cluster_id].iter().cloned() {
                                 let core: Arc<RwLock<_>> = core;
                                 core_scope.spawn(move |_| {
-                                    core.write().cycle(cycle);
+                                    crate::timeit!("core::cycle", core.write().cycle(cycle));
                                 });
                             }
                         }
@@ -168,7 +168,7 @@ where
                 }
 
                 if let Some(kernel) = finished_kernel {
-                    self.cleanup_finished_kernel(&kernel, cycle);
+                    self.cleanup_finished_kernel(&*kernel, cycle);
                 }
 
                 log::trace!(

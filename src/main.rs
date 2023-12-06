@@ -1,5 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre;
+use itertools::Itertools;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -30,13 +31,12 @@ struct Options {
     pub parallel: bool,
 
     /// Use non-deterministic simulation
-    #[arg(long = "non-deterministic")]
+    #[arg(long = "nondeterministic")]
     pub non_deterministic: Option<usize>,
 
-    /// Interleave serial part for non-deterministic simulation
-    #[arg(long = "interleave-serial")]
-    pub interleave_serial: Option<bool>,
-
+    // /// Interleave serial part for non-deterministic simulation
+    // #[arg(long = "interleave-serial")]
+    // pub interleave_serial: Option<bool>,
     #[clap(long = "cores-per-cluster", help = "cores per cluster")]
     pub cores_per_cluster: Option<usize>,
 
@@ -94,19 +94,13 @@ fn main() -> eyre::Result<()> {
         .to_lowercase()
         == "yes";
 
-    let parallelization = match (
-        options.parallel,
-        (options.non_deterministic, options.interleave_serial),
-    ) {
+    let parallelization = match (options.parallel, options.non_deterministic) {
         (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(feature = "parallel")]
-        (true, (None, _)) => gpucachesim::config::Parallelization::Deterministic,
+        (true, None) => gpucachesim::config::Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (true, (Some(run_ahead), interleave)) => {
-            gpucachesim::config::Parallelization::Nondeterministic {
-                run_ahead,
-                interleave: interleave.unwrap_or(true),
-            }
+        (true, Some(run_ahead)) => {
+            gpucachesim::config::Parallelization::Nondeterministic { run_ahead }
         }
         #[cfg(not(feature = "parallel"))]
         _ => eyre::bail!(
@@ -134,6 +128,12 @@ fn main() -> eyre::Result<()> {
         simulation_threads: options.num_threads,
         ..gpucachesim::config::GPU::default()
     };
+    if let Some(accelsim_compat_mode) = options.accelsim_compat_mode {
+        config.fill_l2_on_memcopy &= !accelsim_compat_mode;
+        config.perfect_inst_const_cache |= accelsim_compat_mode;
+        config.accelsim_compat = accelsim_compat_mode;
+        config.memory_only &= !accelsim_compat_mode;
+    }
     if let Some(num_simt_clusters) = options.num_clusters {
         config.num_simt_clusters = num_simt_clusters;
     }
@@ -152,9 +152,6 @@ fn main() -> eyre::Result<()> {
     if let Some(flush_l2) = options.flush_l2 {
         config.flush_l2_cache = flush_l2;
     }
-    if let Some(accelsim_compat_mode) = options.accelsim_compat_mode {
-        config.accelsim_compat = accelsim_compat_mode;
-    }
     if let Some(memory_only) = options.memory_only {
         config.memory_only = memory_only;
     }
@@ -165,6 +162,8 @@ fn main() -> eyre::Result<()> {
     dbg!(&config.num_simt_clusters);
     dbg!(&config.num_cores_per_simt_cluster);
     dbg!(&config.simulate_clock_domains);
+    dbg!(&config.perfect_inst_const_cache);
+    dbg!(&config.fill_l2_on_memcopy);
 
     let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
     let stats = sim.stats();
@@ -225,6 +224,38 @@ fn main() -> eyre::Result<()> {
             &l2d_stats.num_global_reads(),
         );
     }
-    eprintln!("completed in {:?}", start.elapsed());
+    eprintln!("TIMINGS:");
+    let timings: Vec<_> = gpucachesim::TIMINGS
+        .lock()
+        .clone()
+        .into_iter()
+        .sorted_by_key(|(label, _)| label.to_string())
+        .collect();
+
+    let total_time = start.elapsed();
+    let norm_time = if gpucachesim::config::Parallelization::Serial != parallelization {
+        timings
+            .iter()
+            .map(|(_, dur)| dur.total())
+            .sum::<std::time::Duration>()
+        // .max()
+        // .copied()
+        // .unwrap_or(std::time::Duration::ZERO)
+    } else {
+        total_time
+    };
+    for (label, value) in timings {
+        let mean = value.mean();
+        let total = value.total();
+        let percent = total.as_secs_f64() / norm_time.as_secs_f64();
+        eprintln!(
+            "\t{:<35} {: >15} ({: >4.2}% total: {: >15})",
+            label,
+            format!("{:?}", mean),
+            percent * 100.0,
+            format!("{:?}", total),
+        );
+    }
+    eprintln!("completed in {:?}", total_time);
     Ok(())
 }

@@ -227,7 +227,7 @@ accelsim_bridge::accelsim_bridge(accelsim_config config,
 
   // init trace parser
   tracer = new trace_parser(tconfig.get_traces_filename(),
-                            !accelsim_compat_mode, stats_out);
+                            !accelsim_compat_mode, logger, stats_out);
 
   // parse trace config
   tconfig.parse_config();
@@ -316,7 +316,7 @@ void accelsim_bridge::process_commands() {
       // unsupported commands will fail the simulation
       assert(0 && "undefined command");
     }
-    m_gpgpu_sim->gpu_sim_cycle++;
+    // m_gpgpu_sim->gpu_sim_cycle++;
   }
   m_gpgpu_sim->logger->info("allocations: {}", m_gpgpu_sim->m_allocations);
 }
@@ -369,7 +369,6 @@ void accelsim_bridge::cycle() {
 }
 
 void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
-  logger->debug("cleanup finished kernel with id={}", finished_kernel_uid);
   if (finished_kernel_uid || limit_reached() || !active()) {
     trace_kernel_info_t *k = NULL;
     for (unsigned j = 0; j < kernels_info.size(); j++) {
@@ -399,6 +398,8 @@ void accelsim_bridge::cleanup_finished_kernel(unsigned finished_kernel_uid) {
     m_gpgpu_sim->update_stats();
     m_gpgpu_context->print_simulation_time(stats_out);
   }
+  logger->info("finished kernel with id={} in {} cycles", finished_kernel_uid,
+               m_gpgpu_sim->gpu_sim_cycle);
 }
 
 void accelsim_bridge::run_to_completion() {
@@ -411,10 +412,19 @@ void accelsim_bridge::run_to_completion() {
 
     unsigned finished_kernel_uid = 0;
     do {
-      if (!active()) break;
-
       unsigned tot_cycle =
           m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle;
+
+      logger->info("cycle {} active={}", tot_cycle, active());
+
+      for (auto &k : m_gpgpu_sim->m_running_kernels) {
+        if (k != NULL) {
+          logger->info("kernel {} cores running={}", k->name(),
+                       k->m_num_cores_running);
+        }
+      }
+
+      if (!active()) break;
 
       if (log_after_cycle > 0 && tot_cycle >= log_after_cycle) {
         fmt::println("initializing logging after cycle {}", tot_cycle);
@@ -428,6 +438,8 @@ void accelsim_bridge::run_to_completion() {
       if (finished_kernel_uid) break;
     } while (true);
 
+    logger->debug("checking for finished kernel in cycle {}",
+                  m_gpgpu_sim->gpu_tot_sim_cycle + m_gpgpu_sim->gpu_sim_cycle);
     cleanup_finished_kernel(finished_kernel_uid);
 
     if (m_gpgpu_sim->cycle_insn_cta_max_hit()) {

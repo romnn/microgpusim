@@ -1,6 +1,6 @@
 use crate::{
     address, barrier, config,
-    kernel::Kernel,
+    kernel::{Kernel, KernelTrait},
     mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{pascal, ArchOp, Op, Opcode},
@@ -240,7 +240,7 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
 
 impl WarpInstruction {
     pub fn from_trace(
-        kernel: &Kernel,
+        kernel: &dyn KernelTrait,
         trace: &trace_model::MemAccessTraceEntry,
         config: &config::GPU,
     ) -> Self {
@@ -256,7 +256,7 @@ impl WarpInstruction {
         debug_assert!(!opcode_tokens.is_empty());
         let opcode1 = opcode_tokens[0];
 
-        let Some(&opcode) = kernel.opcodes.get(opcode1) else {
+        let Some(&opcode) = kernel.opcode(opcode1) else {
             panic!("undefined opcode {opcode1}");
         };
 
@@ -400,7 +400,7 @@ impl WarpInstruction {
                     local_mem_base_addr,
                     local_mem_addr_limit,
                     ..
-                } = kernel.config;
+                } = kernel.config().clone();
                 if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
                     // shmem and local addresses are not set
                     // assume all the mem reqs are shared by default

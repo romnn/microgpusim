@@ -1,7 +1,10 @@
 use super::{
-    address, barrier, cache, config, func_unit as fu, instruction::WarpInstruction,
-    interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes, operand_collector as opcoll,
-    register_set, scheduler, scoreboard, warp,
+    address, barrier, cache, config, func_unit as fu,
+    instruction::WarpInstruction,
+    interconn as ic,
+    kernel::{Kernel, KernelTrait},
+    mcu, mem_fetch, opcodes, operand_collector as opcoll, register_set, scheduler, scoreboard,
+    warp,
 };
 use crate::sync::{Mutex, RwLock};
 
@@ -89,6 +92,7 @@ where
         cycle: u64,
     ) -> eyre::Result<()> {
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
+        let pipeline_stage_copy = pipeline_stage.clone();
         let free = if self.config.sub_core_model {
             pipeline_stage.get_free_sub_core_mut(scheduler_id)
         } else {
@@ -109,7 +113,8 @@ where
             scheduler_id,
             stage,
             reg_idx,
-            crate::Optional(pipe_reg.as_ref()),
+            pipeline_stage_copy,
+            // crate::Optional(pipe_reg.as_ref()),
         );
 
         // this sets all the info for the warp instruction in pipe reg
@@ -435,15 +440,15 @@ where
 /// SIMT Core.
 #[derive()]
 pub struct Core<I> {
-    pub last_cycle: u64,
-    pub last_active_cycle: u64,
+    // pub last_cycle: u64,
+    // pub last_active_cycle: u64,
     pub core_id: usize,
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<dyn mcu::MemoryController>,
-    pub current_kernel: Mutex<Option<Arc<Kernel>>>,
+    pub current_kernel: Mutex<Option<Arc<dyn KernelTrait>>>,
     pub current_kernel_max_blocks: usize,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
@@ -721,8 +726,6 @@ where
         );
 
         Self {
-            last_cycle: 0,
-            last_active_cycle: 0,
             core_id,
             cluster_id,
             warp_instruction_unique_uid,
@@ -910,7 +913,7 @@ where
     }
 
     // #[inline]
-    pub fn can_issue_block(&self, kernel: &Kernel) -> bool {
+    pub fn can_issue_block(&self, kernel: &dyn KernelTrait) -> bool {
         let max_blocks = self.config.max_blocks(kernel).unwrap();
         if self.config.concurrent_kernel_sm {
             if max_blocks < 1 {
@@ -960,7 +963,7 @@ where
     }
 
     #[tracing::instrument(name = "core_issue_block")]
-    pub fn issue_block(&mut self, kernel: &Arc<Kernel>, cycle: u64) {
+    pub fn issue_block(&mut self, kernel: &Arc<dyn KernelTrait>, cycle: u64) {
         log::debug!("core {:?}: issue block", self.id());
         if self.config.concurrent_kernel_sm {
             // let occupied = self.occupy_resource_for_block(&*kernel, true);
@@ -969,11 +972,9 @@ where
         } else {
             // calculate the max cta count and cta size for local memory address mapping
             // self.max_blocks_per_sm = self.config.max_blocks(kernel).unwrap();
-            self.current_kernel_max_blocks = self.config.max_blocks(kernel).unwrap();
-            self.thread_block_size = self.config.threads_per_block_padded(kernel);
+            self.current_kernel_max_blocks = self.config.max_blocks(&**kernel).unwrap();
+            self.thread_block_size = self.config.threads_per_block_padded(&**kernel);
         }
-
-        // kernel.inc_running();
 
         // find a free block context
         let max_blocks_per_core = if self.config.concurrent_kernel_sm {
@@ -1003,8 +1004,8 @@ where
         };
 
         // determine hardware threads and warps that will be used for this block
-        let thread_block_size = kernel.threads_per_block();
-        let padded_thread_block_size = self.config.threads_per_block_padded(kernel);
+        let thread_block_size = kernel.config().threads_per_block();
+        let padded_thread_block_size = self.config.threads_per_block_padded(&**kernel);
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
@@ -1034,7 +1035,7 @@ where
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
         let mut warps = WarpMask::ZERO;
-        let block = kernel.current_block().expect("kernel has current block");
+        let block = kernel.next_block().expect("kernel has current block");
         log::debug!(
             "core {:?}: issue block {} from kernel {}",
             self.id(),
@@ -1069,6 +1070,8 @@ where
 
             warps.set(warp_id, true);
         }
+
+        kernel.increment_running_blocks();
 
         self.block_status[free_block_hw_id] = num_threads_in_block;
         log::debug!(
@@ -1209,7 +1212,7 @@ where
     fn register_thread_in_block_exited(
         &mut self,
         block_hw_id: usize,
-        kernel: &Option<Arc<Kernel>>,
+        kernel: &Option<Arc<dyn KernelTrait>>,
     ) {
         let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
         debug_assert!(block_hw_id < self.block_status.len());
@@ -1225,22 +1228,22 @@ where
             self.num_active_blocks -= 1;
             if self.num_active_blocks == 0 {
                 // Shader can only be empty when no more cta are dispatched
-                if kernel.as_ref().map(|k| k.config.id)
-                    != current_kernel.as_ref().map(|k| k.config.id)
-                {
+                if kernel.as_ref().map(|k| k.id()) != current_kernel.as_ref().map(|k| k.id()) {
                     // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
                 }
                 *current_kernel = None;
             }
             //
             // self.release_shader_resource_1block(cta_num, kernel);
-            //   kernel->dec_running();
             if let Some(kernel) = kernel {
+                kernel.decrement_running_blocks();
                 if kernel.no_more_blocks_to_run()
                     && !kernel.running()
-                    && current_kernel.as_ref().map(|k| k.config.id) == Some(kernel.config.id)
+                    && current_kernel.as_ref().map(|k| k.id()) == Some(kernel.id())
                 {
+                    log::info!("kernel {} ({}) completed", kernel.name(), kernel.id());
                     *current_kernel = None;
+                    // set done here
                 }
             }
         }
@@ -1481,7 +1484,7 @@ where
                             )
                         };
 
-                        log::warn!("L1I access({}) -> {:?}", fetch, status);
+                        // log::warn!("L1I access({}) -> {:?}", fetch, status);
 
                         self.last_warp_fetched = Some(warp_id);
 
@@ -1531,7 +1534,7 @@ where
         let mut warp = warp.try_lock();
         debug_assert_eq!(warp.warp_id, warp_id);
 
-        let _already_issued_trace_pc = warp.trace_pc;
+        let already_issued_trace_pc = warp.trace_pc;
         let instr1 = warp.next_trace_inst().cloned();
         let instr2 = if instr1.is_some() {
             warp.next_trace_inst().cloned()
@@ -1541,7 +1544,7 @@ where
 
         // debug: print all instructions in this warp
         assert_eq!(warp.warp_id, warp_id);
-        // print_trace_instructions(&warp, already_issued_trace_pc);
+        print_trace_instructions(&warp, already_issued_trace_pc);
         drop(warp);
 
         if let Some(instr1) = instr1 {
@@ -1799,7 +1802,12 @@ where
 
     #[tracing::instrument(name = "core_init_warps_from_traces")]
     // #[inline]
-    fn init_warps_from_traces(&mut self, kernel: &Arc<Kernel>, start_warp: usize, end_warp: usize) {
+    fn init_warps_from_traces(
+        &mut self,
+        kernel: &Arc<dyn KernelTrait>,
+        start_warp: usize,
+        end_warp: usize,
+    ) {
         debug_assert!(!self.warps.is_empty());
         let selected_warps = &mut self.warps[start_warp..end_warp];
         for warp in &mut *selected_warps {
@@ -1830,7 +1838,7 @@ where
         start_thread: usize,
         end_thread: usize,
         block_id: u64,
-        kernel: &Arc<Kernel>,
+        kernel: &Arc<dyn KernelTrait>,
     ) {
         // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;
@@ -1898,17 +1906,17 @@ where
             self.load_store_unit.lock().response_fifo.len()
         );
 
-        // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
-        // FIXME: this is likely implemented wrong - causing a invalidations every cycle
-        let need_l1_flush = {
-            let mut need_l1_flush_lock = self.need_l1_flush.lock();
-            let need_l1_flush = *need_l1_flush_lock;
-            *need_l1_flush_lock = false;
-            need_l1_flush
-        };
-        if need_l1_flush {
-            self.cache_invalidate();
-        }
+        // // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
+        // // FIXME: this is likely implemented wrong - causing a invalidations every cycle
+        // let need_l1_flush = {
+        //     let mut need_l1_flush_lock = self.need_l1_flush.lock();
+        //     let need_l1_flush = *need_l1_flush_lock;
+        //     *need_l1_flush_lock = false;
+        //     need_l1_flush
+        // };
+        // if need_l1_flush {
+        //     self.cache_invalidate();
+        // }
 
         for (target, fetch, time) in self.please_fill.lock().drain(..) {
             if let Some(fetch_return_cb) = &self.fetch_return_callback {
@@ -1936,20 +1944,20 @@ where
         // m_stats->shader_cycles[m_sid]++;
         // "writeback"
         // self.writeback(cycle);
-        crate::timeit!("writeback", self.writeback(cycle));
+        crate::timeit!("core::writeback", self.writeback(cycle));
         // this made it already double the time per core cycle
-        crate::timeit!("execute", self.execute(cycle));
+        crate::timeit!("core::execute", self.execute(cycle));
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(
-                "operand collector",
+                "core::operand collector",
                 self.operand_collector.try_lock().step()
             );
         }
 
-        crate::timeit!("issue", self.issue(cycle));
+        crate::timeit!("core::issue", self.issue(cycle));
         for _i in 0..self.config.inst_fetch_throughput {
-            crate::timeit!("decode", self.decode(cycle));
-            crate::timeit!("fetch", self.fetch(cycle));
+            crate::timeit!("core::decode", self.decode(cycle));
+            crate::timeit!("core::fetch", self.fetch(cycle));
         }
     }
 }

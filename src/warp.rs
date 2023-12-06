@@ -1,5 +1,8 @@
 use crate::sync::{Arc, Mutex};
-use crate::{instruction::WarpInstruction, kernel::Kernel};
+use crate::{
+    instruction::WarpInstruction,
+    kernel::{Kernel, KernelTrait},
+};
 use std::collections::VecDeque;
 pub use trace_model::{active_mask::Inner as ActiveMaskInner, ActiveMask, WARP_SIZE};
 
@@ -10,7 +13,7 @@ pub struct Warp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
-    pub kernel: Option<Arc<Kernel>>,
+    pub kernel: Option<Arc<dyn KernelTrait>>,
     pub trace_pc: usize,
     pub active_mask: ActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
@@ -72,7 +75,7 @@ impl Warp {
         warp_id: usize,
         dynamic_warp_id: usize,
         active_mask: ActiveMask,
-        kernel: Arc<Kernel>,
+        kernel: Arc<dyn KernelTrait>,
     ) {
         self.block_id = block_id;
         self.warp_id = warp_id;

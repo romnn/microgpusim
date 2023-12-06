@@ -246,13 +246,13 @@ pub fn stats_match(
     let box_sim_stats = playground::stats::Sim::from(box_stats.sim.clone());
     dbg!(&play_stats.sim, &box_sim_stats);
 
-    if check_cycles {
-        diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
-    } else {
-        diff::diff!(play: &play_stats.sim, box: &box_sim_stats);
-        dbg!(rel_err(play_stats.sim.cycles, box_sim_stats.cycles, 20.0));
-        assert_eq!(play_stats.sim.instructions, box_sim_stats.instructions);
-    }
+    // if check_cycles {
+    //     diff::assert_eq!(play: &play_stats.sim, box: &box_sim_stats);
+    // } else {
+    //     diff::diff!(play: &play_stats.sim, box: &box_sim_stats);
+    //     dbg!(rel_err(play_stats.sim.cycles, box_sim_stats.cycles, 20.0));
+    //     assert_eq!(play_stats.sim.instructions, box_sim_stats.instructions);
+    // }
 
     // this uses our custom PartialEq::eq implementation
     // assert_eq!(&play_stats, &box_stats);

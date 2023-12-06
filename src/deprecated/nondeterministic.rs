@@ -1417,7 +1417,7 @@ where
 
                     // could enforce round robin here
 
-                    crate::timeit!("SERIAL CYCLE", self.serial_cycle(cycle + i as u64));
+                    crate::timeit!("serial::total", self.serial_cycle(cycle + i as u64));
 
                     // issue new blocks
                     // let start = Instant::now();

@@ -112,6 +112,8 @@ impl From<AccessStat> for stats::cache::AccessStat {
 /// counted as a `HIT_RESERVED` in the caches.
 // #[inline]
 pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
+    // return access;
+    // probe is at sector granularity while access is at line granularity?
     match probe {
         RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
             RequestStatus::HIT_RESERVED

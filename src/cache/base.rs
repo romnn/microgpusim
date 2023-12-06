@@ -51,8 +51,6 @@ pub struct Base<B, CC, S> {
     pub miss_queue: VecDeque<mem_fetch::MemFetch>,
     pub miss_queue_status: mem_fetch::Status,
     pub mshrs: mshr::Table<mem_fetch::MemFetch>,
-    // pub tag_array: tag_array::TagArray<cache::block::Line, CC>,
-    // pub tag_array: tag_array::TagArray<cache::block::sector::Block<SECTOR_CHUNK_SIZE>, CC>,
     pub tag_array: tag_array::TagArray<B, CC>,
     // pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     pending: HashMap<FetchKey, PendingRequest>,
@@ -69,7 +67,6 @@ pub struct Builder<CC, S> {
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
     pub accelsim_compat: bool,
-    // block: std::marker::PhantomData<B>,
 }
 
 impl<CC, S> Builder<CC, S>
@@ -148,12 +145,12 @@ where
 
         assert_eq!(unused_addr, fetch.addr());
 
-        if self.name.to_lowercase().contains("readonly") {
-            log::warn!(
-                "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, fetch addr={}, block={}, mshr_addr={})",
-                &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), unused_addr, fetch.addr(), block_addr, mshr_addr, 
-            );
-        }
+        // if self.name.to_lowercase().contains("readonly") {
+        //     log::warn!(
+        //         "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, fetch addr={}, block={}, mshr_addr={})",
+        //         &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), unused_addr, fetch.addr(), block_addr, mshr_addr,
+        //     );
+        // }
         log::debug!(
             "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, fetch addr={}, block={}, mshr_addr={})",
             &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), unused_addr, fetch.addr(), block_addr, mshr_addr, 
@@ -183,7 +180,6 @@ where
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
@@ -196,7 +192,6 @@ where
                     fetch.access.num_transactions()
                 },
             );
-            // }
 
             should_miss = true;
         } else if !mshr_hit && !mshr_full && !self.miss_queue_full() {
@@ -212,16 +207,11 @@ where
             let is_sector_cache = self.cache_config.mshr_kind == mshr::Kind::SECTOR_ASSOC;
 
             let key = FetchKey {
-                // addr: fetch.addr(),
                 addr: mshr_addr,
                 access_kind: fetch.access_kind(),
-                // kind: fetch.kind,
                 is_write: fetch.is_write(),
             };
             self.pending.insert(
-                // fetch.addr(),
-                // fetch.clone(),
-                // mshr_addr,
                 key,
                 PendingRequest {
                     valid: true,
@@ -265,7 +255,6 @@ where
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL)
             };
 
-            // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
@@ -278,7 +267,6 @@ where
                     fetch.access.num_transactions()
                 },
             );
-            // }
         } else {
             panic!(
                 "mshr_hit={} mshr_full={} miss_queue_full={}",

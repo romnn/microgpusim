@@ -76,10 +76,16 @@ fn main() -> eyre::Result<()> {
             cores_per_cluster.to_string(),
         ]);
     }
-
+    if let Some(fill_l2) = accelsim_options.fill_l2 {
+        args.extend([
+            "-gpgpu_perf_sim_memcpy".to_string(),
+            (fill_l2 as i32).to_string(),
+        ]);
+    }
     dbg!(&args);
 
     let accelsim_compat_mode = options.accelsim_compat.unwrap_or(false);
+    dbg!(&accelsim_compat_mode);
     let config = playground::Config {
         accelsim_compat_mode,
         ..playground::Config::default()

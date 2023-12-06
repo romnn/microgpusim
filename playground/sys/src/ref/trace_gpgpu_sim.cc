@@ -1170,7 +1170,8 @@ trace_kernel_info_t *trace_gpgpu_sim::select_kernel() {
         "select kernel: => running_kernels[{}] no more blocks to run={} {}/{} "
         "kernel "
         "block latency={} launch uid={}",
-        m_last_issued_kernel, k->no_more_ctas_to_run(), k->get_next_cta_id(),
+        m_last_issued_kernel, k->no_more_ctas_to_run(), k->get_cta_dim(),
+        // k->get_next_cta_id(),
         k->get_grid_dim(),
         // return (m_next_cta.x >= m_grid_dim.x || m_next_cta.y >= m_grid_dim.y
         // ||
@@ -1289,6 +1290,8 @@ std::string trace_gpgpu_sim::executed_kernel_info_string() {
 
 void trace_gpgpu_sim::set_kernel_done(trace_kernel_info_t *kernel) {
   unsigned uid = kernel->get_uid();
+  logger->info("kernel {} ({}) completed", kernel->name(), uid);
+
   m_finished_kernel.push_back(uid);
   std::vector<trace_kernel_info_t *>::iterator k;
   for (k = m_running_kernels.begin(); k != m_running_kernels.end(); k++) {

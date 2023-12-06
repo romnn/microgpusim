@@ -52,7 +52,7 @@ use allocation::{Allocation, Allocations};
 use cluster::Cluster;
 use engine::cycle::Component;
 use interconn as ic;
-use kernel::Kernel;
+use kernel::{Kernel, KernelTrait};
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
@@ -218,7 +218,7 @@ where
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct TotalDuration {
     count: u128,
     dur: std::time::Duration,
@@ -315,10 +315,10 @@ pub struct MockSimulator<I> {
     mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit>>>,
     mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition>>>,
     // we could remove the arcs on running and executed if we change to self: Arc<Self>
-    pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<kernel::Kernel>)>>>>,
+    pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<dyn KernelTrait>)>>>>,
     // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
-    executed_kernels: Arc<Mutex<HashMap<u64, Arc<kernel::Kernel>>>>,
-    pub current_kernel: Mutex<Option<Arc<kernel::Kernel>>>,
+    executed_kernels: Arc<Mutex<HashMap<u64, Arc<dyn KernelTrait>>>>,
+    pub current_kernel: Mutex<Option<Arc<dyn KernelTrait>>>,
     pub clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
@@ -333,7 +333,7 @@ pub struct MockSimulator<I> {
     traces_dir: Option<PathBuf>,
     commands: Vec<Command>,
     command_idx: usize,
-    kernels: VecDeque<Arc<kernel::Kernel>>,
+    kernels: VecDeque<Arc<dyn KernelTrait>>,
     kernel_window_size: usize,
     busy_streams: VecDeque<u64>,
     cycle_limit: Option<u64>,
@@ -438,7 +438,7 @@ where
 
         // todo: make this a hashset?
         let busy_streams: VecDeque<u64> = VecDeque::new();
-        let mut kernels: VecDeque<Arc<kernel::Kernel>> = VecDeque::new();
+        let mut kernels: VecDeque<Arc<dyn KernelTrait>> = VecDeque::new();
         kernels.reserve_exact(window_size);
 
         let cycle_limit: Option<u64> = std::env::var("CYCLES")
@@ -497,7 +497,7 @@ where
     ///
     /// Todo: used hack to allow selecting the kernel from the shader core,
     /// but we could maybe refactor
-    pub fn select_kernel(&self) -> Option<Arc<Kernel>> {
+    pub fn select_kernel(&self) -> Option<Arc<dyn KernelTrait>> {
         let mut last_issued_kernel = self.last_issued_kernel.lock();
         let mut executed_kernels = self.executed_kernels.try_lock();
         let running_kernels = self.running_kernels.try_read();
@@ -510,9 +510,10 @@ where
 
         if let Some((launch_latency, ref last_kernel)) = running_kernels[*last_issued_kernel] {
             log::trace!(
-            "select kernel: => running_kernels[{}] no more blocks to run={} {:?}/{} kernel block latency={} launch uid={}",
-            last_issued_kernel, last_kernel.no_more_blocks_to_run(), last_kernel.current_block(),
-            last_kernel.config.grid,
+            "select kernel: => running_kernels[{}] no more blocks to run={} {} kernel block latency={} launch uid={}",
+            last_issued_kernel,
+            last_kernel.no_more_blocks_to_run(),
+            last_kernel.next_block().map(|block| format!("{}/{}", block, last_kernel.config().grid)).as_deref().unwrap_or(""),
             launch_latency, last_kernel.id());
         }
 
@@ -537,9 +538,11 @@ where
             let idx = (n + *last_issued_kernel + 1) % max_concurrent;
             if let Some((launch_latency, ref kernel)) = running_kernels[idx] {
                 log::trace!(
-                  "select kernel: runing_kernels[{}] more blocks left={}, kernel block latency={}",
-                  idx, kernel.no_more_blocks_to_run(),
-                  launch_latency);
+                  "select kernel: running_kernels[{}] more blocks left={}, kernel block latency={}",
+                  idx,
+                  !kernel.no_more_blocks_to_run(),
+                  launch_latency,
+                );
             }
 
             match running_kernels[idx] {
@@ -608,10 +611,10 @@ where
         })
     }
 
-    pub fn launch(&self, kernel: Arc<Kernel>, cycle: u64) -> eyre::Result<()> {
+    pub fn launch(&self, kernel: Arc<dyn KernelTrait>, cycle: u64) -> eyre::Result<()> {
         // kernel.set_launched();
         // println!("launch kernel {} in cycle {}", kernel.id(), cycle);
-        let threads_per_block = kernel.threads_per_block();
+        let threads_per_block = kernel.config().threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
             log::error!("kernel block size is too large");
@@ -626,12 +629,13 @@ where
             .find(|slot| slot.is_none() || slot.as_ref().map_or(false, |(_, k)| k.done()))
             .ok_or(eyre::eyre!("no free slot for kernel"))?;
 
-        *kernel.start_time.lock() = Some(std::time::Instant::now());
-        *kernel.start_cycle.lock() = Some(cycle);
+        kernel.set_started(cycle);
+        // *kernel.start_time.lock() = Some(std::time::Instant::now());
+        // *kernel.start_cycle.lock() = Some(cycle);
 
         *self.current_kernel.lock() = Some(Arc::clone(&kernel));
         let launch_latency = self.config.kernel_launch_latency
-            + kernel.num_blocks() * self.config.block_launch_latency;
+            + kernel.config().num_blocks() * self.config.block_launch_latency;
         *free_slot = Some((launch_latency, kernel));
         Ok(())
     }
@@ -712,7 +716,7 @@ where
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
             for cluster in &self.clusters {
-                cluster.try_write().interconn_cycle(cycle);
+                cluster.try_read().interconn_cycle(cycle);
             }
             #[cfg(feature = "timings")]
             TIMINGS
@@ -804,7 +808,7 @@ where
             #[cfg(feature = "timings")]
             TIMINGS
                 .lock()
-                .entry("cycle::subs")
+                .entry("cycle::subpartitions")
                 .or_default()
                 .add(start.elapsed());
         }
@@ -927,7 +931,7 @@ where
                 let core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in &*core_sim_order {
                     let mut core = cluster.cores[*core_id].write();
-                    crate::timeit!("serial core cycle", core.cycle(cycle));
+                    crate::timeit!("core::cycle", core.cycle(cycle));
                 }
                 // active_sms += cluster.num_active_sms();
             }
@@ -1009,7 +1013,12 @@ where
                 .or_default()
                 .add(start.elapsed());
 
-            crate::timeit!(self.issue_block_to_core(cycle));
+            cycle += 1;
+
+            crate::timeit!(
+                "cycle::issue_block_to_core",
+                self.issue_block_to_core(cycle)
+            );
 
             // if false {
             //     let state = crate::DebugState {
@@ -1095,9 +1104,9 @@ where
                 .entry("cycle::total")
                 .or_default()
                 .add(start_total.elapsed());
-
-            cycle += 1;
         }
+
+        // cycle += 1;
 
         // self.debug_non_exit();
         cycle
@@ -1323,15 +1332,17 @@ where
                     // let should_prefetch = allocation_id == 3;
                     // let should_prefetch = allocation_id != 3;
 
-                    println!(
-                        "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
-                        human_bytes::human_bytes(num_bytes as f64),
-                        human_bytes::human_bytes(l2_cache_size_bytes as f64),
-                        percent,
-                        self.config.l2_prefetch_percent,
-                        allocation_id,
-                        should_prefetch,
-                    );
+                    if num_bytes > 64 {
+                        println!(
+                            "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
+                            human_bytes::human_bytes(num_bytes as f64),
+                            human_bytes::human_bytes(l2_cache_size_bytes as f64),
+                            percent,
+                            self.config.l2_prefetch_percent,
+                            allocation_id,
+                            should_prefetch,
+                        );
+                    }
 
                     let output_memcopy_l2_cache_state = std::env::var("OUTPUT_L2_CACHE_STATE")
                         .as_deref()
@@ -1528,7 +1539,6 @@ where
         }
 
         let copy_duration = cycle - copy_start_cycle;
-        println!("l2 memcopy took {copy_duration} cycles");
         log::debug!("l2 memcopy took {copy_duration} cycles");
         cycle
     }
@@ -1560,8 +1570,8 @@ where
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
             if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
                 let kernel_info = stats::KernelInfo {
-                    name: kernel.config.unmangled_name.clone(),
-                    mangled_name: kernel.config.mangled_name.clone(),
+                    name: kernel.config().unmangled_name.clone(),
+                    mangled_name: kernel.config().mangled_name.clone(),
                     launch_id: kernel_launch_id,
                 };
                 kernel_stats.sim.kernel_name = kernel_info.name.clone();
@@ -1647,7 +1657,7 @@ where
                         *num_bytes,
                         allocation_name.clone(),
                         cycle,
-                    )
+                    );
                 }
                 Command::MemAlloc(trace_model::command::MemAlloc {
                     allocation_name,
@@ -1700,7 +1710,7 @@ where
                     }
                 }
             }
-            cycle += 1;
+            // cycle += 1;
             self.command_idx += 1;
         }
         let allocations = self.allocations.read();
@@ -1719,20 +1729,19 @@ where
     /// Launch all kernels within window that are on a stream that isn't already running
     pub fn launch_kernels(&mut self, cycle: u64) {
         log::trace!("launching kernels");
-        let mut launch_queue: Vec<Arc<Kernel>> = Vec::new();
+        let mut launch_queue: Vec<Arc<dyn KernelTrait>> = Vec::new();
         for kernel in &self.kernels {
             let stream_busy = self
                 .busy_streams
                 .iter()
-                .any(|stream_id| *stream_id == kernel.config.stream_id);
+                .any(|stream_id| *stream_id == kernel.config().stream_id);
             if !stream_busy && self.can_start_kernel() && !kernel.launched() {
-                self.busy_streams.push_back(kernel.config.stream_id);
+                self.busy_streams.push_back(kernel.config().stream_id);
                 launch_queue.push(kernel.clone());
             }
         }
 
         for kernel in launch_queue {
-            log::warn!("launching kernel {}", kernel);
             log::info!("launching kernel {}", kernel);
             let up_to_kernel: Option<u64> = std::env::var("UP_TO_KERNEL")
                 .ok()
@@ -1740,10 +1749,7 @@ where
                 .transpose()
                 .unwrap();
             if let Some(up_to_kernel) = up_to_kernel {
-                assert!(
-                    kernel.config.id <= up_to_kernel,
-                    "launching kernel {kernel}"
-                );
+                assert!(kernel.id() <= up_to_kernel, "launching kernel {kernel}");
             }
             self.launch(kernel, cycle).unwrap();
         }
@@ -1773,11 +1779,8 @@ where
                 self.run_to_completion_parallel_deterministic()?;
             }
             #[cfg(feature = "parallel")]
-            config::Parallelization::Nondeterministic {
-                run_ahead,
-                interleave,
-            } => {
-                self.run_to_completion_parallel_nondeterministic(run_ahead, interleave)?;
+            config::Parallelization::Nondeterministic { run_ahead } => {
+                self.run_to_completion_parallel_nondeterministic(run_ahead)?;
             }
         }
         Ok(())
@@ -1787,6 +1790,7 @@ where
     pub fn run_to_completion(&mut self) -> eyre::Result<()> {
         let mut cycle: u64 = 0;
         let mut last_state_change: Option<(deadlock::State, u64)> = None;
+        TIMINGS.lock().clear();
 
         let log_every: u64 = std::env::var("LOG_EVERY")
             .ok()
@@ -1814,11 +1818,21 @@ where
                     last_time = std::time::Instant::now()
                 }
 
-                if self.reached_limit(cycle) || !self.active() {
+                log::info!("cycle {} active={}", cycle, &self.active());
+
+                // dbg!(&self.active());
+                // dbg!(&self.reached_limit(cycle));
+                // dbg!(&self.commands_left());
+                // dbg!(&self.kernels_left());
+
+                if self.reached_limit(cycle) {
+                    // || !self.active() {
                     break;
                 }
 
+                let old_cycle = cycle;
                 cycle = self.cycle(cycle);
+                assert!(cycle > old_cycle);
 
                 if !self.active() {
                     finished_kernel = self.finished_kernel();
@@ -1842,6 +1856,7 @@ where
 
                 // collect state
                 if self.config.deadlock_check {
+                    todo!("deadlock check");
                     let state = self.gather_state();
                     if let Some((_last_state, _update_cycle)) = &last_state_change {
                         // log::info!(
@@ -1887,8 +1902,10 @@ where
                 }
             }
 
+            log::debug!("checking for finished kernel in cycle {}", cycle);
+
             if let Some(kernel) = finished_kernel {
-                self.cleanup_finished_kernel(&kernel, cycle);
+                self.cleanup_finished_kernel(&*kernel, cycle);
             }
 
             log::trace!(
@@ -1897,10 +1914,7 @@ where
                 self.kernels_left()
             );
         }
-        {
-            self.stats.lock().no_kernel.sim.cycles = cycle;
-            // self.stats.lock().no_kernel.sim.cycles += cycle - before_cycle;
-        }
+        self.stats.lock().no_kernel.sim.cycles = cycle;
 
         if let Some(log_after_cycle) = self.log_after_cycle {
             if log_after_cycle >= cycle {
@@ -1911,13 +1925,22 @@ where
         Ok(())
     }
 
-    fn finished_kernel(&mut self) -> Option<Arc<Kernel>> {
+    fn finished_kernel(&mut self) -> Option<Arc<dyn KernelTrait>> {
         // check running kernels
         let mut running_kernels = self.running_kernels.try_write().clone();
-        let finished_kernel: Option<&mut Option<(_, Arc<Kernel>)>> =
+        let finished_kernel: Option<&mut Option<(_, Arc<dyn KernelTrait>)>> =
             running_kernels.iter_mut().find(|kernel| match kernel {
                 // TODO: could also check here if !self.active()
-                Some((_, k)) if k.no_more_blocks_to_run() && !k.running() && k.launched() => true,
+                Some((_, k)) => {
+                    dbg!(
+                        &self.active(),
+                        &k.no_more_blocks_to_run(),
+                        &k.running(),
+                        &k.num_running_blocks(),
+                        &k.launched()
+                    );
+                    k.no_more_blocks_to_run() && !k.running() && k.launched()
+                }
                 _ => false,
             });
         // running_kernels.iter_mut().find_map(|kernel| match kernel {
@@ -1935,25 +1958,29 @@ where
         // }
     }
 
-    fn cleanup_finished_kernel(&mut self, kernel: &Kernel, cycle: u64) {
-        self.kernels.retain(|k| k.config.id != kernel.config.id);
+    fn cleanup_finished_kernel(&mut self, kernel: &dyn KernelTrait, cycle: u64) {
+        // panic!("cleanup finished kernel {}", kernel.name());
+        self.kernels.retain(|k| k.id() != kernel.id());
         self.busy_streams
-            .retain(|stream| *stream != kernel.config.stream_id);
+            .retain(|stream| *stream != kernel.config().stream_id);
 
-        let completion_time = std::time::Instant::now();
-        *kernel.completed_time.lock() = Some(completion_time);
-        *kernel.completed_cycle.lock() = Some(cycle);
+        kernel.set_completed(cycle);
+        // let completion_time = std::time::Instant::now();
+        // *kernel.completed_time.lock() = Some(completion_time);
+        // *kernel.completed_cycle.lock() = Some(cycle);
 
         let mut stats = self.stats.lock();
         let kernel_stats = stats.get_mut(Some(kernel.id() as usize));
 
         kernel_stats.sim.is_release_build = !is_debug();
-        let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
+        // let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
+        let elapsed_cycles = kernel.elapsed_cycles().unwrap_or(0);
         kernel_stats.sim.cycles = elapsed_cycles;
-        let elapsed = kernel
-            .start_time
-            .lock()
-            .map(|start_time| completion_time.duration_since(start_time));
+        let elapsed = kernel.elapsed_time();
+        // let elapsed = kernel
+        //     .start_time
+        //     .lock()
+        //     .map(|start_time| completion_time.duration_since(start_time));
 
         let elapsed_millis = elapsed
             .as_ref()

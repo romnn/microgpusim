@@ -442,7 +442,10 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         Arc::get_mut(l1_cache).unwrap().l1_latency = l1_cache.l1_latency + l1_cache.l1_hit_latency;
     }
     crate::init_deadlock_detector();
-    let mut box_sim = crate::config::GTX1080::new(Arc::new(box_config));
+
+    let box_config = Arc::new(box_config);
+    let mut box_sim = crate::config::GTX1080::new(box_config);
+    assert!(!box_sim.config.is_parallel_simulation());
 
     box_sim.add_commands(&box_commands_path, box_traces_dir)?;
 
@@ -489,7 +492,9 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let mut last_valid_box_sim_state = None;
     let mut last_valid_play_sim_state = None;
 
-    let mut cycle = 0;
+    // let mut cycle = 0;
+    let mut box_cycle = 0;
+    let mut play_cycle = 0;
 
     let use_full_diff = std::env::var("FULL_DIFF")
         .unwrap_or_default()
@@ -510,7 +515,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         .map(str::parse)
         .transpose()?;
 
-    let should_compare_states = !box_sim.config.is_parallel_simulation() || check_every.is_some();
+    // let should_compare_states = !box_sim.config.is_parallel_simulation() || check_every.is_some();
+    // let should_compare_states = check_every.is_some();
 
     let check_every = check_every.unwrap_or(200);
     assert!(check_every >= 1);
@@ -548,49 +554,49 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         play_sim.launch_kernels();
         play_time_other += start.elapsed();
 
-        let _ = box_sim.process_commands(cycle);
-        box_sim.launch_kernels(cycle);
+        box_cycle = box_sim.process_commands(box_cycle);
+        box_sim.launch_kernels(box_cycle);
 
         // check that memcopy commands were handled correctly
-        if false && should_compare_states {
-            start = Instant::now();
-            let (box_sim_state, play_sim_state) =
-                gather_simulation_state(&mut box_sim, &mut play_sim);
-            gather_state_time += start.elapsed();
-
-            // start = Instant::now();
-            // gather_box_simulation_state(&mut box_sim, &mut box_sim_state, trace_provider);
-            // box_sim_state = gather_box_simulation_state(
-            //     num_clusters,
-            //     cores_per_cluster,
-            //     num_partitions,
-            //     num_sub_partitions,
-            //     &mut box_sim,
-            //     trace_provider,
-            // );
-            // gather_box_state_time += start.elapsed();
-            // gather_state_time += start.elapsed();
-
-            // start = Instant::now();
-            // gather_play_simulation_state(&mut play_sim, &mut play_sim_state, trace_provider);
-            // play_sim_state = gather_play_simulation_state(
-            //     num_clusters,
-            //     cores_per_cluster,
-            //     num_partitions,
-            //     num_sub_partitions,
-            //     &mut play_sim,
-            //     trace_provider,
-            // );
-            // gather_play_state_time += start.elapsed();
-            // gather_state_time += start.elapsed();
-
-            if use_full_diff {
-                full_diff::assert_eq!(&box_sim_state, &play_sim_state);
-            } else {
-                // we do fail here
-                diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
-            }
-        }
+        // if false && should_compare_states {
+        //     start = Instant::now();
+        //     let (box_sim_state, play_sim_state) =
+        //         gather_simulation_state(&mut box_sim, &mut play_sim);
+        //     gather_state_time += start.elapsed();
+        //
+        //     // start = Instant::now();
+        //     // gather_box_simulation_state(&mut box_sim, &mut box_sim_state, trace_provider);
+        //     // box_sim_state = gather_box_simulation_state(
+        //     //     num_clusters,
+        //     //     cores_per_cluster,
+        //     //     num_partitions,
+        //     //     num_sub_partitions,
+        //     //     &mut box_sim,
+        //     //     trace_provider,
+        //     // );
+        //     // gather_box_state_time += start.elapsed();
+        //     // gather_state_time += start.elapsed();
+        //
+        //     // start = Instant::now();
+        //     // gather_play_simulation_state(&mut play_sim, &mut play_sim_state, trace_provider);
+        //     // play_sim_state = gather_play_simulation_state(
+        //     //     num_clusters,
+        //     //     cores_per_cluster,
+        //     //     num_partitions,
+        //     //     num_sub_partitions,
+        //     //     &mut play_sim,
+        //     //     trace_provider,
+        //     // );
+        //     // gather_play_state_time += start.elapsed();
+        //     // gather_state_time += start.elapsed();
+        //
+        //     if use_full_diff {
+        //         full_diff::assert_eq!(&box_sim_state, &play_sim_state);
+        //     } else {
+        //         // we do fail here
+        //         diff::assert_eq!(box: &box_sim_state, play: &play_sim_state);
+        //     }
+        // }
 
         // start = Instant::now();
         // box_sim.process_commands();
@@ -608,11 +614,18 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             play_time_cycle += start.elapsed();
 
             start = Instant::now();
-            box_sim.cycle(cycle);
+            box_cycle = box_sim.cycle(box_cycle);
             box_time_cycle += start.elapsed();
 
-            let should_check = cycle >= check_after && cycle % check_every == 0;
-            if should_compare_states && should_check {
+            play_cycle = play_sim.get_cycle();
+
+            assert_eq!(box_cycle, play_cycle);
+            // let cycle = box_cycle;
+
+            // let should_check = cycle >= check_after && cycle % check_every == 0;
+            let should_check = box_cycle >= check_after && box_cycle % check_every == 0;
+            // if should_compare_states && should_check {
+            if should_check {
                 start = Instant::now();
                 let (box_sim_state, play_sim_state) =
                     gather_simulation_state(&mut box_sim, &mut play_sim);
@@ -709,7 +722,10 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                     //     dbg!(sub_id, box_icnt_l2_queue);
                     // }
                 }
-                println!("checking for diff after cycle {cycle}");
+
+                println!(
+                    "checking for diff after cycle {box_cycle} (box cycle={box_cycle}, play cycle={play_cycle})",
+                );
 
                 if use_full_diff {
                     full_diff::assert_eq!(&box_sim_state, &play_sim_state);
@@ -838,7 +854,8 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             //     box_sim.launch_kernels(cycle);
             // }
 
-            cycle = play_sim.get_cycle();
+            // cycle = play_sim.get_cycle();
+
             // if let Some(box_sim.current_kernel.lock())
             // box_sim
             //     .stats
@@ -849,7 +866,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             // box_sim.set_cycle(cycle);
 
             if let Some(kernel) = box_sim.finished_kernel() {
-                box_sim.cleanup_finished_kernel(&kernel, cycle);
+                box_sim.cleanup_finished_kernel(&*kernel, box_cycle);
             }
             box_time_other += start.elapsed();
 
@@ -888,9 +905,9 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     //     .map(|kernel_stats| &kernel_stats.sim)
     //     .collect::<Vec<_>>());
 
-    let play_cycle = cycle;
-    #[allow(unused_mut)]
-    let mut box_cycle = cycle;
+    // let play_cycle = cycle;
+    // #[allow(unused_mut)]
+    // let mut box_cycle = cycle;
 
     // if box_sim.parallel_simulation {
     //     // allow parallel simulation to complete
@@ -923,8 +940,10 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         );
     }
 
+    let cycle = box_cycle;
     let num_checks = u32::try_from(cycle.saturating_sub(check_after) / check_every).unwrap();
-    if !box_sim.config.is_parallel_simulation() && num_checks > 0 {
+    // if !box_sim.config.is_parallel_simulation() && num_checks > 0 {
+    if num_checks > 0 {
         let gather_box_state_time = gather_box_state_time / num_checks;
         let gather_play_state_time = gather_play_state_time / num_checks;
         let gather_state_time = gather_state_time / num_checks;
@@ -935,11 +954,14 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         dbg!(gather_state_time);
     }
 
-    dbg!(&cycle);
-    if box_sim.config.is_parallel_simulation() {
-        dbg!(&play_cycle);
-        dbg!(&box_cycle);
-    }
+    dbg!(&play_cycle);
+    dbg!(&box_cycle);
+    // dbg!(&cycle);
+
+    // if box_sim.config.is_parallel_simulation() {
+    //     dbg!(&play_cycle);
+    //     dbg!(&box_cycle);
+    // }
 
     let play_stats = play_sim.stats();
 
@@ -967,10 +989,13 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     // dbg!(&box_dur);
 
     // allow 5% difference
-    let max_rel_err = if allow_rel_err { Some(0.05) } else { None };
+    // let max_rel_err = if allow_rel_err { Some(0.05) } else { None };
     // allow absolute difference of 10
-    let abs_threshold = if allow_rel_err { Some(10.0) } else { None };
-    asserts::stats_match(play_stats, box_stats, max_rel_err, abs_threshold, true);
+    // let abs_threshold = if allow_rel_err { Some(10.0) } else { None };
+    // asserts::stats_match(play_stats, box_stats, max_rel_err, abs_threshold, true);
+
+    diff::assert_eq!(play: &play_cycle, box: &box_cycle);
+    asserts::stats_match(play_stats, box_stats, None, None, false);
 
     Ok(())
 }
@@ -1060,6 +1085,7 @@ lockstep_checks! {
 
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),
+    babelstream_10240_test: ("babelstream", { "size": 10240 }),
 
     // extra tests for large input sizes
     // vectoradd_32_500000_test: ("vectorAdd", {

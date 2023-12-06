@@ -127,7 +127,7 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         debug_assert!(!fetch.is_write());
         let block_addr = cache_controller.block_addr(addr);
 
-        log::warn!(
+        log::debug!(
             "{}::readonly_cache::access({fetch}, warp = {}, size = {}, block = {block_addr}, time = {time}))",
             self.inner.name,
             fetch.warp_id,
@@ -153,7 +153,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         match probe {
             None => {
                 let mut stats = self.inner.stats.lock();
-                // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
                 let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                 kernel_stats.inc(
                     fetch.allocation_id(),
@@ -163,7 +162,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                     ),
                     1,
                 );
-                // }
             }
             Some((_, cache::RequestStatus::HIT)) => {
                 // update LRU state
@@ -176,7 +174,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                     access_status = cache::RequestStatus::RESERVATION_FAIL;
 
                     let mut stats = self.inner.stats.lock();
-                    // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
                     let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
@@ -186,7 +183,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                         ),
                         1,
                     );
-                    // }
                 } else {
                     let (should_miss, _evicted) = self.inner.send_read_request(
                         addr,
@@ -207,16 +203,15 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
             }
         }
 
-        // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        let access_stat = cache::select_status(probe_status, access_status);
         kernel_stats.inc(
             fetch.allocation_id(),
             fetch.access_kind(),
-            cache::AccessStat::Status(cache::select_status(probe_status, access_status)),
+            cache::AccessStat::Status(access_stat),
             1,
         );
-        // }
         access_status
     }
 

@@ -126,6 +126,10 @@ impl AccessStatus {
         matches!(self.stat(), AccessStat::Status(RequestStatus::HIT_RESERVED))
     }
 
+    pub fn is_sector_miss(&self) -> bool {
+        matches!(self.stat(), AccessStat::Status(RequestStatus::SECTOR_MISS))
+    }
+
     pub fn is_miss(&self) -> bool {
         matches!(
             self.stat(),
@@ -406,6 +410,16 @@ impl Cache {
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .filter(|((_, access), _)| access.is_pending_hit())
+    }
+
+    #[must_use]
+    pub fn sector_misses(
+        &self,
+    ) -> impl Iterator<Item = ((Option<usize>, AccessStatus), usize)> + '_ {
+        self.inner
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .filter(|((_, access), _)| access.is_sector_miss())
     }
 
     #[must_use]

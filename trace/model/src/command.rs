@@ -65,6 +65,22 @@ impl std::fmt::Display for KernelLaunch {
     }
 }
 
+impl KernelLaunch {
+    pub fn threads_per_block(&self) -> usize {
+        let block = &self.block;
+        block.x as usize * block.y as usize * block.z as usize
+    }
+
+    pub fn num_blocks(&self) -> usize {
+        let grid = &self.grid;
+        grid.x as usize * grid.y as usize * grid.z as usize
+    }
+
+    pub fn name(&self) -> &str {
+        &self.unmangled_name
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MemcpyHtoD {
     pub allocation_name: Option<String>,

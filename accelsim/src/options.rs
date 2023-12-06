@@ -47,6 +47,9 @@ pub struct Options {
 
     #[clap(long = "num-clusters", help = "number of clusters")]
     pub num_clusters: Option<usize>,
+
+    #[clap(long = "fill-l2", help = "fill l2 cache on CUDA memcopies")]
+    pub fill_l2: Option<bool>,
 }
 
 #[derive(Parser, Debug, Default)]

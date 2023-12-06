@@ -1,4 +1,5 @@
 #include "trace_parser.hpp"
+#include "warp_instr.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -219,9 +220,16 @@ void trace_parser::get_next_threadblock_traces(
         inst_count = 0;
       } else {
         assert(start_of_tb_stream_found);
+
         threadblock_traces[warp_id]
             ->at(inst_count)
             .parse_from_string(line, trace_version, enable_lineinfo);
+
+        logger->trace("block ({},{},{}): adding {} to warp {}", block_id_x,
+                      block_id_y, block_id_z, line,
+                      // warp_instr_ptr(static_cast<inst_trace_t *>(
+                      //     &threadblock_traces[warp_id]->at(inst_count))),
+                      warp_id);
         inst_count++;
       }
     }

@@ -55,14 +55,16 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
         #[cfg(feature = "parallel")]
         (Some("deterministic"), _) => Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (Some("nondeterministic"), run_ahead) => Parallelization::Nondeterministic {
-            run_ahead: run_ahead.unwrap_or(10),
-            interleave: false,
-        },
-        (Some("nondeterministic_interleave"), run_ahead) => Parallelization::Nondeterministic {
-            run_ahead: run_ahead.unwrap_or(10),
-            interleave: true,
-        },
+        (Some("nondeterministic" | "nondeterministic_interleave"), run_ahead) => {
+            Parallelization::Nondeterministic {
+                run_ahead: run_ahead.unwrap_or(10),
+                // interleave: false,
+            }
+        }
+        // (Some("nondeterministic_interleave"), run_ahead) => Parallelization::Nondeterministic {
+        //     run_ahead: run_ahead.unwrap_or(10),
+        //     interleave: true,
+        // },
         (Some(other), _) => panic!("unknown parallelization mode: {other}"),
         #[cfg(not(feature = "parallel"))]
         _ => {

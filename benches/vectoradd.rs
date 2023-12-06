@@ -19,10 +19,7 @@ enum Command {
     Playground,
     Serial,
     Deterministic,
-    Nondeterministic {
-        run_ahead: Option<usize>,
-        interleaved: Option<bool>,
-    },
+    Nondeterministic { run_ahead: Option<usize> },
 }
 
 #[derive(Debug, Parser)]
@@ -275,11 +272,6 @@ fn main() -> eyre::Result<()> {
             Command::Deterministic,
             Command::Nondeterministic {
                 run_ahead: Some(10),
-                interleaved: Some(false),
-            },
-            Command::Nondeterministic {
-                run_ahead: Some(10),
-                interleaved: Some(true),
             },
         ]);
 
@@ -354,22 +346,18 @@ fn main() -> eyre::Result<()> {
                     );
                 }
             }
-            Command::Nondeterministic {
-                run_ahead,
-                interleaved,
-            } => {
+            Command::Nondeterministic { run_ahead } => {
                 let start = Instant::now();
                 let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
                 let stats = run_box(
                     black_box(&bench_config),
                     Parallelization::Nondeterministic {
                         run_ahead: run_ahead.unwrap_or(5),
-                        interleave: interleaved.unwrap_or(false),
                     },
                     options.threads,
                 )?;
                 let box_dur = start.elapsed();
-                println!("box[nondeterministic][run_ahead={run_ahead:?}][interleave={interleaved:?}] took: {box_dur:?}");
+                println!("box[nondeterministic][run_ahead={run_ahead:?}] took: {box_dur:?}");
                 if let Some(baseline) = box_baseline {
                     println!(
                         "speedup is: {:.2}x",

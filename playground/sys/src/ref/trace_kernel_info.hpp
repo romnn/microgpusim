@@ -116,9 +116,9 @@ class trace_kernel_info_t {
   dim3 m_next_cta;
   dim3 m_next_tid;
 
+ public:
   unsigned m_num_cores_running;
 
- public:
   void print_parent_info();
   bool is_finished();
   bool children_all_finished();

@@ -18,7 +18,8 @@ pub struct Cluster<I> {
 
     pub core_sim_order: Arc<Mutex<VecDeque<usize>>>,
     pub block_issue_next_core: Mutex<usize>,
-    pub response_fifo: VecDeque<mem_fetch::MemFetch>,
+    // pub response_fifo: VecDeque<mem_fetch::MemFetch>,
+    pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
 }
 
 impl<I> Cluster<I>
@@ -62,7 +63,7 @@ where
             cores,
             core_sim_order: Arc::new(Mutex::new(core_sim_order)),
             block_issue_next_core: Mutex::new(block_issue_next_core),
-            response_fifo: VecDeque::new(),
+            response_fifo: RwLock::new(VecDeque::new()),
         };
         cluster.reinit();
         cluster
@@ -90,7 +91,8 @@ where
     }
 
     #[tracing::instrument]
-    pub fn interconn_cycle(&mut self, cycle: u64) {
+    pub fn interconn_cycle(&self, cycle: u64) {
+        let mut response_fifo = self.response_fifo.write();
         use mem_fetch::access::Kind as AccessKind;
 
         log::debug!(
@@ -99,7 +101,7 @@ where
                 "cycle {:02} cluster {}: interconn cycle (response fifo={:?})",
                 cycle,
                 self.cluster_id,
-                self.response_fifo
+                response_fifo
                     .iter()
                     .map(std::string::ToString::to_string)
                     .collect::<Vec<_>>(),
@@ -108,7 +110,7 @@ where
         );
 
         // Handle received package
-        if let Some(fetch) = self.response_fifo.front() {
+        if let Some(fetch) = response_fifo.front() {
             let core_id = self
                 .config
                 .global_core_id_to_core_id(fetch.core_id.unwrap());
@@ -131,14 +133,14 @@ where
                     if core.fetch_unit_response_buffer_full() {
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     } else {
-                        let fetch = self.response_fifo.pop_front().unwrap();
+                        let fetch = response_fifo.pop_front().unwrap();
                         log::debug!("accepted instr access fetch {}", fetch);
                         core.accept_fetch_response(fetch, cycle);
                     }
                 }
                 _ if !core.ldst_unit_response_buffer_full() => {
                     // Forward load store unit response to core
-                    let fetch = self.response_fifo.pop_front().unwrap();
+                    let fetch = response_fifo.pop_front().unwrap();
                     log::debug!("accepted ldst unit fetch {}", fetch);
                     // m_memory_stats->memlatstat_read_done(mf);
                     core.accept_ldst_unit_response(fetch, cycle);
@@ -150,10 +152,10 @@ where
         }
 
         let eject_buffer_size = self.config.num_cluster_ejection_buffer_size;
-        if self.response_fifo.len() >= eject_buffer_size {
+        if response_fifo.len() >= eject_buffer_size {
             log::debug!(
                 "skip: ejection buffer full ({}/{})",
-                self.response_fifo.len(),
+                response_fifo.len(),
                 eject_buffer_size
             );
             return;
@@ -176,7 +178,7 @@ where
         debug_assert_eq!(fetch.cluster_id, Some(self.cluster_id));
 
         fetch.status = mem_fetch::Status::IN_CLUSTER_TO_SHADER_QUEUE;
-        self.response_fifo.push_back(fetch);
+        response_fifo.push_back(fetch);
     }
 
     pub fn cache_flush(&self) {
@@ -246,10 +248,10 @@ where
                     core_id,
                     kernel,
                     !kernel.no_more_blocks_to_run(),
-                    core.can_issue_block(&kernel),
+                    core.can_issue_block(&*kernel),
                 );
 
-                let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel);
+                let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel);
                 drop(core);
                 if can_issue {
                     let mut core = self.cores[core_id].write();

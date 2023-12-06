@@ -84,8 +84,8 @@ void scheduler_unit::cycle() {
     assert(next_warp->instruction_count() > 0);
     if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
       logger->debug(
-          "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id {}, "
-          "dynamic_warp_id {}, trace_pc = {}, pc={}, ibuffer=[{}, {}], {} "
+          "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, "
+          "dynamic_warp_id={}, trace_pc = {}, pc={}, ibuffer=[{}, {}], {} "
           "instructions)",
           m_shader->get_tpc(), m_shader->get_sid(), m_id,
           next_warp->get_warp_id(), next_warp->get_dynamic_warp_id(),

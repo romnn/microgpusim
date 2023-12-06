@@ -3,7 +3,8 @@
 use crate::ic::ToyInterconnect;
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
-    config, core, engine::cycle::Component, ic, mem_fetch, mem_sub_partition, MockSimulator,
+    config, core, engine::cycle::Component, ic, kernel::KernelTrait, mem_fetch, mem_sub_partition,
+    MockSimulator,
 };
 use color_eyre::eyre;
 use ndarray::prelude::*;
@@ -69,8 +70,8 @@ fn new_serial_cycle<I>(
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
     last_issued_kernel: &Arc<Mutex<usize>>,
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
-    running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<crate::Kernel>)>>>>,
-    executed_kernels: &Arc<Mutex<HashMap<u64, Arc<crate::Kernel>>>>,
+    running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<dyn KernelTrait>)>>>>,
+    executed_kernels: &Arc<Mutex<HashMap<u64, Arc<dyn KernelTrait>>>>,
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
     mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
     interconn: &Arc<I>,
@@ -83,7 +84,7 @@ fn new_serial_cycle<I>(
 {
     // it could happen that two serial cycles overlap when using spawn fifo, so we need
     for cluster in clusters.iter() {
-        cluster.write().interconn_cycle(cycle);
+        crate::timeit!("serial::interconn", cluster.read().interconn_cycle(cycle));
     }
 
     for (i, mem_sub) in mem_sub_partitions.iter().enumerate() {
@@ -114,7 +115,7 @@ fn new_serial_cycle<I>(
     }
 
     for (_i, unit) in mem_partition_units.iter().enumerate() {
-        unit.try_write().simple_dram_cycle(cycle);
+        crate::timeit!("serial::dram", unit.try_write().simple_dram_cycle(cycle));
     }
 
     for (i, mem_sub) in mem_sub_partitions.iter().enumerate() {
@@ -156,249 +157,8 @@ fn new_serial_cycle<I>(
         }
         // we borrow all of sub here, which is a problem for the cyclic reference in l2
         // interface
-        mem_sub.cycle(cycle);
+        crate::timeit!("serial::subpartitions", mem_sub.cycle(cycle));
     }
-
-    // if false {
-    //     log::debug!("===> issue block to core");
-    //     let mut last_cluster_issue = last_cluster_issue.try_lock();
-    //     let last_issued = *last_cluster_issue;
-    //     let num_clusters = config.num_simt_clusters;
-    //     let need_issue = need_issue_lock.read();
-    //
-    //     let mut issued = Vec::new();
-    //
-    //     for cluster_id in 0..num_clusters {
-    //         let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
-    //         let num_cores = need_issue[cluster_id].len();
-    //
-    //         log::debug!(
-    //             "cluster {}: issue block to core for {} cores",
-    //             cluster_id,
-    //             num_cores
-    //         );
-    //         let mut num_blocks_issued = 0;
-    //
-    //         let mut block_issue_next_core = block_issue_next_core[cluster_id].try_lock();
-    //
-    //         for core_id in 0..num_cores {
-    //             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
-    //             let (want_more_blocks, should_select_new_kernel) = need_issue[cluster_id][core_id];
-    //
-    //             if !(want_more_blocks || should_select_new_kernel) {
-    //                 continue;
-    //             }
-    //
-    //             let mut core = cores[cluster_id][core_id].write();
-    //             let mut current_kernel = core.current_kernel.lock().clone();
-    //
-    //             if should_select_new_kernel {
-    //                 current_kernel = (|| {
-    //                     let mut last_issued_kernel = last_issued_kernel.lock();
-    //                     let mut executed_kernels = executed_kernels.lock();
-    //                     let running_kernels = running_kernels.read();
-    //
-    //                     // issue same kernel again
-    //                     match running_kernels[*last_issued_kernel] {
-    //                         Some((launch_latency, ref last_kernel))
-    //                             if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-    //                         {
-    //                             let launch_id = last_kernel.id();
-    //                             executed_kernels
-    //                                 .entry(launch_id)
-    //                                 .or_insert(Arc::clone(last_kernel));
-    //                             return Some(last_kernel.clone());
-    //                         }
-    //                         _ => {}
-    //                     };
-    //
-    //                     // issue new kernel
-    //                     let num_kernels = running_kernels.len();
-    //                     let max_concurrent = config.max_concurrent_kernels;
-    //                     for n in 0..num_kernels {
-    //                         let idx = (n + *last_issued_kernel + 1) % max_concurrent;
-    //                         match running_kernels[idx] {
-    //                             Some((launch_latency, ref kernel))
-    //                                 if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-    //                             {
-    //                                 *last_issued_kernel = idx;
-    //                                 let launch_id = kernel.id();
-    //                                 assert!(!executed_kernels.contains_key(&launch_id));
-    //                                 executed_kernels.insert(launch_id, Arc::clone(&kernel));
-    //                                 return Some(Arc::clone(&kernel));
-    //                             }
-    //                             _ => {}
-    //                         }
-    //                     }
-    //                     None
-    //                 })();
-    //             };
-    //
-    //             if let Some(kernel) = current_kernel {
-    //                 log::debug!(
-    //                     "core {}-{}: selected kernel {} more blocks={} can issue={}",
-    //                     cluster_id,
-    //                     core_id,
-    //                     kernel,
-    //                     !kernel.no_more_blocks_to_run(),
-    //                     core.can_issue_block(&kernel),
-    //                 );
-    //
-    //                 let can_issue =
-    //                     !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel);
-    //                 // drop(core);
-    //                 if can_issue {
-    //                     core.issue_block(&kernel, cycle);
-    //                     num_blocks_issued += 1;
-    //                     issued.push((cluster_id, core_id));
-    //                     *block_issue_next_core = core_id;
-    //                     break;
-    //                 }
-    //             } else {
-    //                 log::debug!("core {}-{}: selected kernel NULL", cluster_id, core.core_id);
-    //             }
-    //         }
-    //
-    //         log::trace!(
-    //             "cluster[{}] issued {} blocks",
-    //             cluster_id,
-    //             num_blocks_issued
-    //         );
-    //
-    //         if num_blocks_issued > 0 {
-    //             *last_cluster_issue = cluster_id;
-    //         }
-    //     }
-    //
-    //     drop(need_issue);
-    //
-    //     for (cluster_id, core_id) in issued {
-    //         let mut need_issue = need_issue_lock.write();
-    //         need_issue[cluster_id][core_id] = (false, false);
-    //     }
-    // }
-
-    // if false {
-    //     log::debug!("===> issue block to core");
-    //     let mut last_cluster_issue = last_cluster_issue.try_lock();
-    //     let last_issued = *last_cluster_issue;
-    //     let num_clusters = config.num_simt_clusters;
-    //     for cluster_id in 0..num_clusters {
-    //         // debug_assert_eq!(
-    //         //     cluster_idx,
-    //         //     self.clusters[cluster_idx].try_read().cluster_id
-    //         // );
-    //         let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
-    //         let cluster = clusters[cluster_id].read();
-    //         // dbg!((idx, cluster.num_active_sms()));
-    //         // let num_blocks_issued = cluster.issue_block_to_core(self, cycle);
-    //         // let num_cores = cluster.cores.len();
-    //         let num_cores = cores[cluster_id].len();
-    //
-    //         log::debug!(
-    //             "cluster {}: issue block to core for {} cores",
-    //             cluster_id,
-    //             num_cores
-    //         );
-    //         let mut num_blocks_issued = 0;
-    //
-    //         let mut block_issue_next_core = cluster.block_issue_next_core.try_lock();
-    //
-    //         for core_id in 0..num_cores {
-    //             let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
-    //             let core = cores[cluster_id][core_id].read();
-    //
-    //             let mut current_kernel = core.current_kernel.try_lock().clone();
-    //             let should_select_new_kernel = if let Some(ref current) = current_kernel {
-    //                 // if no more blocks left, get new kernel once current block completes
-    //                 current.no_more_blocks_to_run() && core.not_completed() == 0
-    //             } else {
-    //                 // core was not assigned a kernel yet
-    //                 true
-    //             };
-    //
-    //             if should_select_new_kernel {
-    //                 current_kernel = (|| {
-    //                     let mut last_issued_kernel = last_issued_kernel.lock();
-    //                     let mut executed_kernels = executed_kernels.try_lock();
-    //                     let running_kernels = running_kernels.try_read();
-    //
-    //                     // issue same kernel again
-    //                     match running_kernels[*last_issued_kernel] {
-    //                         // && !kernel.kernel_TB_latency)
-    //                         Some((launch_latency, ref last_kernel))
-    //                             if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-    //                         {
-    //                             let launch_id = last_kernel.id();
-    //                             executed_kernels
-    //                                 .entry(launch_id)
-    //                                 // .or_insert(last_kernel.name().to_string());
-    //                                 .or_insert(Arc::clone(&last_kernel));
-    //                             return Some(Arc::clone(&last_kernel));
-    //                         }
-    //                         _ => {}
-    //                     };
-    //
-    //                     // issue new kernel
-    //                     let num_kernels = running_kernels.len();
-    //                     let max_concurrent = config.max_concurrent_kernels;
-    //                     for n in 0..num_kernels {
-    //                         let idx = (n + *last_issued_kernel + 1) % max_concurrent;
-    //                         match running_kernels[idx] {
-    //                             Some((launch_latency, ref kernel))
-    //                                 if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-    //                             {
-    //                                 *last_issued_kernel = idx;
-    //                                 let launch_id = kernel.id();
-    //                                 assert!(!executed_kernels.contains_key(&launch_id));
-    //                                 executed_kernels.insert(launch_id, Arc::clone(&kernel));
-    //                                 // executed_kernels.insert(launch_id, kernel.name().to_string());
-    //                                 return Some(Arc::clone(&kernel));
-    //                             }
-    //                             _ => {}
-    //                         }
-    //                     }
-    //                     None
-    //                 })();
-    //             };
-    //
-    //             if let Some(kernel) = current_kernel {
-    //                 log::debug!(
-    //                     "core {}-{}: selected kernel {} more blocks={} can issue={}",
-    //                     cluster_id,
-    //                     core_id,
-    //                     kernel,
-    //                     !kernel.no_more_blocks_to_run(),
-    //                     core.can_issue_block(&kernel),
-    //                 );
-    //
-    //                 let can_issue =
-    //                     !kernel.no_more_blocks_to_run() && core.can_issue_block(&kernel);
-    //                 drop(core);
-    //                 if can_issue {
-    //                     let mut core = cores[cluster_id][core_id].write();
-    //                     // println!("PARALLEL issue to {:?}", core.id());
-    //                     core.issue_block(&kernel, cycle);
-    //                     num_blocks_issued += 1;
-    //                     *block_issue_next_core = core_id;
-    //                     break;
-    //                 }
-    //             } else {
-    //                 log::debug!("core {}-{}: selected kernel NULL", cluster_id, core.core_id);
-    //             }
-    //         }
-    //
-    //         log::trace!(
-    //             "cluster[{}] issued {} blocks",
-    //             cluster_id,
-    //             num_blocks_issued
-    //         );
-    //
-    //         if num_blocks_issued > 0 {
-    //             *last_cluster_issue = cluster_id;
-    //         }
-    //     }
-    // }
 }
 
 impl<I> MockSimulator<I>
@@ -409,26 +169,26 @@ where
     pub fn run_to_completion_parallel_nondeterministic(
         &mut self,
         mut run_ahead: usize,
-        mut interleave_serial: bool,
     ) -> eyre::Result<()> {
         run_ahead = run_ahead.max(1);
 
-        interleave_serial |= std::env::var("INTERLEAVE")
-            .unwrap_or_default()
-            .to_lowercase()
-            == "yes";
+        let interleave_serial = true;
+        // interleave_serial |= std::env::var("INTERLEAVE")
+        //     .unwrap_or_default()
+        //     .to_lowercase()
+        //     == "yes";
 
         let num_threads = super::get_num_threads()?
             .or(self.config.simulation_threads)
             .unwrap_or_else(num_cpus::get_physical);
 
         super::rayon_pool(num_threads)?.install(|| {
-            println!("nondeterministic [{run_ahead} run ahead] using RAYON");
+            println!("nondeterministic interleaved [{run_ahead} run ahead] using RAYON");
             println!(
                 "\t => launching {num_threads} worker threads for {} cores",
                 self.config.total_cores()
             );
-            println!("\t => interleave serial={interleave_serial}");
+            // println!("\t => interleave serial={interleave_serial}");
             println!("");
 
             let sim_orders: Vec<Arc<_>> = self
@@ -572,14 +332,10 @@ where
                                                 !(kernels_completed && core.not_completed() == 0);
 
                                             if core_active {
-                                                core.cycle(cycle + i as u64);
-                                                core.last_cycle =
-                                                    core.last_cycle.max(cycle + i as u64);
-                                                core.last_active_cycle =
-                                                    core.last_active_cycle.max(cycle + i as u64);
-                                            } else {
-                                                core.last_cycle =
-                                                    core.last_cycle.max(cycle + i as u64);
+                                                crate::timeit!(
+                                                    "core::cycle",
+                                                    core.cycle(cycle + i as u64)
+                                                );
                                             }
 
                                             drop(core);
@@ -643,18 +399,22 @@ where
                                                 };
 
                                                 for (i, active_clusters) in ready_serial_i {
-                                                    interleaved_serial_cycle(
-                                                        cycle + i as u64,
-                                                        &active_clusters,
-                                                        &cores,
-                                                        &sim_orders,
-                                                        &mem_ports,
-                                                        &interconn,
-                                                        &clusters,
-                                                        &config,
-                                                    );
                                                     crate::timeit!(
-                                                        "SERIAL PART",
+                                                        "serial::postcore",
+                                                        interleaved_serial_cycle(
+                                                            cycle + i as u64,
+                                                            &active_clusters,
+                                                            &cores,
+                                                            &sim_orders,
+                                                            &mem_ports,
+                                                            &interconn,
+                                                            &clusters,
+                                                            &config,
+                                                        )
+                                                    );
+                                                    // if (cycle + i as u64) % 4 == 0 {
+                                                    crate::timeit!(
+                                                        "serial::cycle",
                                                         new_serial_cycle(
                                                             cycle + i as u64,
                                                             &stats,
@@ -672,6 +432,7 @@ where
                                                             &config,
                                                         )
                                                     );
+                                                    // }
                                                 }
 
                                                 drop(guard);
@@ -683,83 +444,254 @@ where
                         });
                         // all run_ahead cycles completed
                         progress.lock().fill(None);
-                        crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
+                        crate::timeit!("cycle::issue_blocks", self.issue_block_to_core(cycle));
                     }
 
                     if !interleave_serial {
-                        for i in 0..run_ahead {
-                            // run cores in any order
-                            rayon::scope(|core_scope| {
-                                for cluster_arc in &self.clusters {
-                                    let cluster = cluster_arc.try_read();
-                                    let kernels_completed = self
-                                        .running_kernels
-                                        .try_read()
-                                        .iter()
-                                        .filter_map(std::option::Option::as_ref)
-                                        .all(|(_, k)| k.no_more_blocks_to_run());
-
-                                    let cores_completed = cluster.not_completed() == 0;
-                                    active_clusters[cluster.cluster_id] =
-                                        !(cores_completed && kernels_completed);
-
-                                    if cores_completed && kernels_completed {
-                                        continue;
-                                    }
-                                    for core in cluster.cores.iter().cloned() {
-                                        core_scope.spawn(move |_| {
+                        rayon::scope_fifo(|wave| {
+                            for i in 0..run_ahead {
+                                for (cluster_id, _cluster_arc) in
+                                    clusters.iter().cloned().enumerate()
+                                {
+                                    for (core_id, core) in
+                                        cores[cluster_id].iter().cloned().enumerate()
+                                    {
+                                        let running_kernels = Arc::clone(&self.running_kernels);
+                                        wave.spawn_fifo(move |_| {
                                             let mut core = core.write();
-                                            core.cycle(cycle + i as u64);
+
+                                            // let kernels_completed = running_kernels
+                                            //     .try_read()
+                                            //     .iter()
+                                            //     .filter_map(Option::as_ref)
+                                            //     .all(|(_, k)| k.no_more_blocks_to_run());
+                                            //
+                                            // // let core_active = core.not_completed() != 0;
+                                            // let core_active =
+                                            //     !(kernels_completed && core.not_completed() == 0);
+                                            //
+                                            // if core_active {
+                                            //     core.cycle(cycle + i as u64);
+                                            //     core.last_cycle =
+                                            //         core.last_cycle.max(cycle + i as u64);
+                                            //     core.last_active_cycle =
+                                            //         core.last_active_cycle.max(cycle + i as u64);
+                                            // } else {
+                                            //     core.last_cycle =
+                                            //         core.last_cycle.max(cycle + i as u64);
+                                            // }
+                                            // if core_active {
+                                            //     core.cycle(cycle + i as u64);
+                                            // }
+                                            crate::timeit!(
+                                                "core::cycle",
+                                                core.cycle(cycle + i as u64)
+                                            );
                                         });
                                     }
                                 }
-                            });
 
-                            // push memory request packets generated by cores to the interconnection network.
-                            for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-                                let cluster = cluster.try_read();
-                                assert_eq!(cluster.cluster_id, cluster_id);
-
-                                let mut core_sim_order = cluster.core_sim_order.try_lock();
-                                for core_id in &*core_sim_order {
-                                    let core = cluster.cores[*core_id].try_read();
-                                    // was_updated |= core.last_active_cycle >= (cycle + i as u64);
-
-                                    let mut port = core.mem_port.lock();
-                                    if !active_clusters[cluster_id] {
-                                        assert!(port.buffer.is_empty());
-                                    }
-                                    for ic::Packet {
-                                        data: (dest, fetch, size),
-                                        time,
-                                    } in port.buffer.drain(..)
-                                    {
-                                        self.interconn.push(
-                                            cluster_id,
-                                            dest,
-                                            ic::Packet { data: fetch, time },
-                                            size,
-                                        );
-                                    }
-                                }
-
-                                if active_clusters[cluster_id] {
-                                    if use_round_robin {
-                                        core_sim_order.rotate_left(1);
-                                    }
-                                } else {
-                                    // println!(
-                                    //     "cluster {} not updated in cycle {}",
-                                    //     cluster.cluster_id,
-                                    //     cycle + i as u64
-                                    // );
-                                }
+                                // let progress = Arc::clone(&progress);
+                                //
+                                // let sim_orders = Arc::clone(&sim_orders);
+                                // let mem_ports = Arc::clone(&mem_ports);
+                                // let cores = Arc::clone(&cores);
+                                //
+                                // let interconn = Arc::clone(&self.interconn);
+                                // let clusters = Arc::clone(&clusters);
+                                //
+                                // let stats = Arc::clone(&self.stats);
+                                // let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
+                                // let mem_partition_units = Arc::clone(&mem_partition_units);
+                                // let config = Arc::clone(&self.config);
+                                //
+                                // let executed_kernels = Arc::clone(&self.executed_kernels);
+                                // let running_kernels = Arc::clone(&self.running_kernels);
+                                //
+                                // let last_cluster_issue = Arc::clone(&self.last_cluster_issue);
+                                // let last_issued_kernel = Arc::clone(&last_issued_kernel);
+                                // let block_issue_next_core = Arc::clone(&block_issue_next_core);
+                                // let need_issue = Arc::clone(&need_issue);
+                                // let issue_guard = Arc::clone(&issue_guard);
+                                // let serial_lock = Arc::clone(&serial_lock);
+                                //
+                                // let active_clusters = vec![true; self.config.num_simt_clusters];
+                                //
+                                // wave.spawn_fifo(move |_| {
+                                //     let guard = serial_lock.lock();
+                                //     crate::timeit!(
+                                //         "serial::postcore",
+                                //         interleaved_serial_cycle(
+                                //             cycle + i as u64,
+                                //             &active_clusters,
+                                //             &cores,
+                                //             &sim_orders,
+                                //             &mem_ports,
+                                //             &interconn,
+                                //             &clusters,
+                                //             &config,
+                                //         )
+                                //     );
+                                // });
                             }
+                        });
 
-                            // after cores complete, run serial cycle
-                            self.serial_cycle(cycle + i as u64);
+                        let progress = Arc::clone(&progress);
+
+                        let sim_orders = Arc::clone(&sim_orders);
+                        let mem_ports = Arc::clone(&mem_ports);
+                        let cores = Arc::clone(&cores);
+
+                        let interconn = Arc::clone(&self.interconn);
+                        let clusters = Arc::clone(&clusters);
+
+                        let stats = Arc::clone(&self.stats);
+                        let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
+                        let mem_partition_units = Arc::clone(&mem_partition_units);
+                        let config = Arc::clone(&self.config);
+
+                        let executed_kernels = Arc::clone(&self.executed_kernels);
+                        let running_kernels = Arc::clone(&self.running_kernels);
+
+                        let last_cluster_issue = Arc::clone(&self.last_cluster_issue);
+                        let last_issued_kernel = Arc::clone(&last_issued_kernel);
+                        let block_issue_next_core = Arc::clone(&block_issue_next_core);
+                        let need_issue = Arc::clone(&need_issue);
+                        let issue_guard = Arc::clone(&issue_guard);
+                        let serial_lock = Arc::clone(&serial_lock);
+
+                        let active_clusters = vec![true; self.config.num_simt_clusters];
+                        //
+                        // wave.spawn_fifo(move |_| {
+                        //     let guard = serial_lock.lock();
+                        //     crate::timeit!(
+                        //         "serial::postcore",
+                        //         interleaved_serial_cycle(
+                        //             cycle + i as u64,
+                        //             &active_clusters,
+                        //             &cores,
+                        //             &sim_orders,
+                        //             &mem_ports,
+                        //             &interconn,
+                        //             &clusters,
+                        //             &config,
+                        //         )
+                        //     );
+                        //     if (cycle + i as u64) % 2 == 0 {
+                        for i in 0..run_ahead {
+                            crate::timeit!(
+                                "serial::postcore",
+                                interleaved_serial_cycle(
+                                    cycle + i as u64,
+                                    &active_clusters,
+                                    &cores,
+                                    &sim_orders,
+                                    &mem_ports,
+                                    &interconn,
+                                    &clusters,
+                                    &config,
+                                )
+                            );
+
+                            crate::timeit!(
+                                "serial::cycle",
+                                new_serial_cycle(
+                                    cycle + i as u64,
+                                    &stats,
+                                    &need_issue,
+                                    &last_issued_kernel,
+                                    &block_issue_next_core,
+                                    &running_kernels,
+                                    &executed_kernels,
+                                    &mem_sub_partitions,
+                                    &mem_partition_units,
+                                    &interconn,
+                                    &clusters,
+                                    &cores,
+                                    &last_cluster_issue,
+                                    &config,
+                                )
+                            );
+                            //         }
+                            //         drop(guard);
+                            //     });
+                            // }
+                            // });
+                            crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
                         }
-                        crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
+                        //     for i in 0..run_ahead {
+                        //         // run cores in any order
+                        //         rayon::scope(|core_scope| {
+                        //             for cluster_arc in &self.clusters {
+                        //                 let cluster = cluster_arc.try_read();
+                        //                 let kernels_completed = self
+                        //                     .running_kernels
+                        //                     .try_read()
+                        //                     .iter()
+                        //                     .filter_map(std::option::Option::as_ref)
+                        //                     .all(|(_, k)| k.no_more_blocks_to_run());
+                        //
+                        //                 let cores_completed = cluster.not_completed() == 0;
+                        //                 active_clusters[cluster.cluster_id] =
+                        //                     !(cores_completed && kernels_completed);
+                        //
+                        //                 if cores_completed && kernels_completed {
+                        //                     continue;
+                        //                 }
+                        //                 for core in cluster.cores.iter().cloned() {
+                        //                     core_scope.spawn(move |_| {
+                        //                         let mut core = core.write();
+                        //                         core.cycle(cycle + i as u64);
+                        //                     });
+                        //                 }
+                        //             }
+                        //         });
+                        //
+                        //         // push memory request packets generated by cores to the interconnection network.
+                        //         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+                        //             let cluster = cluster.try_read();
+                        //             assert_eq!(cluster.cluster_id, cluster_id);
+                        //
+                        //             let mut core_sim_order = cluster.core_sim_order.try_lock();
+                        //             for core_id in &*core_sim_order {
+                        //                 let core = cluster.cores[*core_id].try_read();
+                        //                 // was_updated |= core.last_active_cycle >= (cycle + i as u64);
+                        //
+                        //                 let mut port = core.mem_port.lock();
+                        //                 if !active_clusters[cluster_id] {
+                        //                     assert!(port.buffer.is_empty());
+                        //                 }
+                        //                 for ic::Packet {
+                        //                     data: (dest, fetch, size),
+                        //                     time,
+                        //                 } in port.buffer.drain(..)
+                        //                 {
+                        //                     self.interconn.push(
+                        //                         cluster_id,
+                        //                         dest,
+                        //                         ic::Packet { data: fetch, time },
+                        //                         size,
+                        //                     );
+                        //                 }
+                        //             }
+                        //
+                        //             if active_clusters[cluster_id] {
+                        //                 if use_round_robin {
+                        //                     core_sim_order.rotate_left(1);
+                        //                 }
+                        //             } else {
+                        //                 // println!(
+                        //                 //     "cluster {} not updated in cycle {}",
+                        //                 //     cluster.cluster_id,
+                        //                 //     cycle + i as u64
+                        //                 // );
+                        //             }
+                        //         }
+                        //
+                        //         // after cores complete, run serial cycle
+                        //         self.serial_cycle(cycle + i as u64);
+                        //     }
+                        //     crate::timeit!("issue blocks", self.issue_block_to_core(cycle));
                     }
 
                     cycle += run_ahead as u64;
@@ -775,7 +707,7 @@ where
                 }
 
                 if let Some(kernel) = finished_kernel {
-                    self.cleanup_finished_kernel(&kernel, cycle);
+                    self.cleanup_finished_kernel(&*kernel, cycle);
                 }
 
                 log::trace!(
@@ -795,7 +727,7 @@ where
     pub fn serial_cycle(&mut self, cycle: u64) {
         for cluster in &self.clusters {
             // Receive memory responses addressed to each cluster and forward to cores
-            cluster.write().interconn_cycle(cycle);
+            crate::timeit!("serial::interconn", cluster.read().interconn_cycle(cycle));
         }
 
         // send memory responses from memory sub partitions to the requestor clusters via
@@ -829,7 +761,7 @@ where
 
         // dram cycle
         for (_i, unit) in self.mem_partition_units.iter().enumerate() {
-            unit.try_write().simple_dram_cycle(cycle);
+            crate::timeit!("serial::dram", unit.try_write().simple_dram_cycle(cycle));
         }
 
         // receive requests sent to L2 from interconnect and push them to the
@@ -875,7 +807,7 @@ where
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2
             // interface
-            mem_sub.cycle(cycle);
+            crate::timeit!("serial::subpartitions", mem_sub.cycle(cycle));
         }
     }
 }

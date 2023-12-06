@@ -356,27 +356,6 @@ where
             );
 
             if line.tag() == tag {
-                // if (line->get_status(mask) == RESERVED) {
-                //     idx = index;
-                //     return HIT_RESERVED;
-                //   } else if (line->get_status(mask) == VALID) {
-                //     idx = index;
-                //     return HIT;
-                //   } else if (line->get_status(mask) == MODIFIED) {
-                //     if ((!is_write && line->is_readable(mask)) || is_write) {
-                //       idx = index;
-                //       return HIT;
-                //     } else {
-                //       idx = index;
-                //       return SECTOR_MISS;
-                //     }
-                //
-                //   } else if (line->is_valid_line() && line->get_status(mask) == INVALID) {
-                //     idx = index;
-                //     return SECTOR_MISS;
-                //   } else {
-                //     assert(line->get_status(mask) == INVALID);
-                //   }
                 match line.status(sector_mask.first_one().unwrap()) {
                     cache::block::Status::RESERVED => {
                         return Some((idx, cache::RequestStatus::HIT_RESERVED));

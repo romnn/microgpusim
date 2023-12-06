@@ -35,7 +35,7 @@ config:
   simulate:
     # No concurrency limit for now (until we implement multi-threading)
     concurrency: 1 # null
-    repetitions: 3
+    repetitions: 2
     # l2_prefill: true
     # this is added to all inputs
     inputs:
@@ -43,10 +43,10 @@ config:
         - serial
         - deterministic
         - nondeterministic
-        - nondeterministic_interleave
+        # - nondeterministic_interleave
       threads: [4, 8]
       run_ahead: [5, 10]
-      num_clusters: [28, 40]
+      num_clusters: [28, 56]
       cores_per_cluster: [1, 4, 8]
       memory_only: [false, true]
       exclude:

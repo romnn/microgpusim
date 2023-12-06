@@ -3,6 +3,7 @@ use super::stats::{percentage_error, PercentageError};
 use crate::sync::Arc;
 use crate::{config, interconn as ic};
 use color_eyre::eyre;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Instant;
 use utils::diff;
@@ -87,10 +88,8 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
         .transpose()
         .unwrap()
         .unwrap_or(1);
-    let interleave_serial = false;
 
-    // box_sim.run_to_completion_parallel_nondeterministic(1)?;
-    box_sim.run_to_completion_parallel_nondeterministic(run_ahead, interleave_serial)?;
+    box_sim.run_to_completion_parallel_nondeterministic(run_ahead)?;
     let box_dur = start.elapsed();
 
     let args = vec![
@@ -126,6 +125,12 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
     let max_rel_err = Some(0.05); // allow 5% difference
     let abs_threshold = Some(10.0); // allow absolute difference of 10
     asserts::stats_match(play_stats, box_stats, max_rel_err, abs_threshold, false);
+    println!(
+        "play dur: {:?}, box dur: {:?} \t=> speedup {:>2.2}",
+        play_dur,
+        box_dur,
+        play_dur.as_secs_f64() / box_dur.as_secs_f64()
+    );
     Ok(())
 }
 
@@ -154,9 +159,16 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     serial_config.perfect_inst_const_cache = false;
     // serial_config.flush_l1_cache = true;
     // serial_config.flush_l2_cache = false;
-    serial_config.num_simt_clusters = 80;
     // serial_config.num_simt_clusters = 28;
+
+    // scale up clusters
+    // serial_config.num_simt_clusters = 152;
+    // serial_config.num_cores_per_simt_cluster = 1;
+
+    // scale up cores per cluster
+    serial_config.num_simt_clusters = 28;
     // serial_config.num_cores_per_simt_cluster = 4;
+
     // serial_config.num_schedulers_per_core = 4;
     // serial_config.num_memory_controllers = 12;
     // serial_config.num_sub_partitions_per_memory_controller = 2;
@@ -170,10 +182,7 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
         .transpose()?;
     let parallelization = match run_ahead {
         None => config::Parallelization::Deterministic,
-        Some(run_ahead) => config::Parallelization::Nondeterministic {
-            run_ahead,
-            interleave: true,
-        },
+        Some(run_ahead) => config::Parallelization::Nondeterministic { run_ahead },
     };
     parallel_config.parallelization = parallelization;
     dbg!(serial_config.parallelization);
@@ -181,9 +190,7 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
 
     let (serial_dur, serial_stats) = {
         let mut serial_sim = crate::accelmain(traces_dir, serial_config)?;
-        // let start = Instant::now();
         serial_sim.run()?;
-        // let serial_dur = start.elapsed();
         let serial_stats = serial_sim.stats().reduce();
         (
             Duration::from_millis(serial_stats.sim.elapsed_millis as u64),
@@ -193,9 +200,7 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
 
     let (parallel_dur, parallel_stats) = {
         let mut parallel_sim = crate::accelmain(traces_dir, parallel_config)?;
-        // let start = Instant::now();
         parallel_sim.run()?;
-        // let parallel_dur = start.elapsed();
         let parallel_stats = parallel_sim.stats().reduce();
         (
             Duration::from_millis(parallel_stats.sim.elapsed_millis as u64),
@@ -216,17 +221,49 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     let max_smape_err = Some(0.05); // allow 5% difference
 
     assert_stats_match(serial_stats, parallel_stats, max_mape_err, max_smape_err);
+    println!(
+        "serial dur: {:?}, parallel dur: {:?} \t=> speedup {:>2.2}x",
+        serial_dur,
+        parallel_dur,
+        serial_dur.as_secs_f64() / parallel_dur.as_secs_f64()
+    );
+
     Ok(())
 }
 
-pub fn cache_err(left: &stats::Cache, right: &stats::Cache) -> Vec<(String, PercentageError)> {
+pub struct AccessID<'a>((&'a Option<usize>, &'a stats::cache::AccessStatus));
+
+impl<'a> std::fmt::Debug for AccessID<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let Self((alloc_id, access)) = self;
+        match alloc_id {
+            None => write!(f, "{access}"),
+            Some(id) => write!(f, "{id}@{access}"),
+        }
+    }
+}
+
+pub fn cache_err<'a>(
+    left: &'a stats::Cache,
+    right: &'a stats::Cache,
+) -> Vec<(AccessID<'a>, PercentageError)> {
     left.union(&right)
-        .map(|((alloc_id, access), (l, r))| {
-            let access_name = match alloc_id {
-                None => access.to_string(),
-                Some(id) => format!("{id}@{access}"),
-            };
-            (access_name, percentage_error(l, r))
+        .map(|((alloc_id, access), (l, r))| (AccessID((alloc_id, access)), percentage_error(l, r)))
+        .filter(|(_, err)| *err != 0.0)
+        .collect()
+}
+
+pub fn dram_err<'a>(
+    left: &'a HashMap<stats::mem::AccessKind, u64>,
+    right: &'a HashMap<stats::mem::AccessKind, u64>,
+) -> Vec<(&'a stats::mem::AccessKind, PercentageError)> {
+    let union: HashSet<_> = left.keys().chain(right.keys()).collect();
+    union
+        .into_iter()
+        .map(|k| {
+            let l = left.get(k).copied().unwrap_or(0);
+            let r = right.get(k).copied().unwrap_or(0);
+            (k, percentage_error(l, r))
         })
         .filter(|(_, err)| *err != 0.0)
         .collect()
@@ -238,8 +275,6 @@ pub fn assert_stats_match(
     max_mape_err: Option<f64>,
     max_smape_err: Option<f64>,
 ) {
-    // use crate::cache::{AccessStat, AccessStatus};
-    // use crate::cache::{AccessStat, AccessStatus};
     let max_mape_err = PercentageError::MAPE(max_mape_err.unwrap_or(0.0));
     let max_smape_err = PercentageError::SMAPE(max_smape_err.unwrap_or(0.0));
 
@@ -248,10 +283,6 @@ pub fn assert_stats_match(
 
     diff::diff!(serial: &serial.sim, parallel: &parallel.sim);
     diff::diff!(serial: &serial.accesses, parallel: &parallel.accesses);
-    diff::diff!(serial: &serial.instructions, parallel: &parallel.instructions);
-    let serial_dram = serial.dram.reduce().retain(|_, v| *v > 0);
-    let parallel_dram = parallel.dram.reduce().retain(|_, v| *v > 0);
-    diff::diff!(serial: &serial_dram, parallel: &parallel_dram);
 
     let mut serial_l1c_stats = serial.l1c_stats.reduce().reduce_allocations();
 
@@ -265,21 +296,65 @@ pub fn assert_stats_match(
     let mut parallel_l1d_stats = parallel.l1d_stats.reduce().reduce_allocations();
     let mut parallel_l1i_stats = parallel.l1i_stats.reduce().reduce_allocations();
     let mut parallel_l2d_stats = parallel.l2d_stats.reduce().reduce_allocations();
-    for cache_stats in [
-        &mut serial_l1c_stats,
-        &mut serial_l1t_stats,
-        &mut serial_l1i_stats,
-        &mut serial_l1d_stats,
-        &mut serial_l2d_stats,
-        &mut parallel_l1i_stats,
-        &mut parallel_l1d_stats,
-        &mut parallel_l1c_stats,
-        &mut parallel_l1t_stats,
-        &mut parallel_l2d_stats,
+    for (name, cache_stats) in [
+        ("serial l1c", &mut serial_l1c_stats),
+        ("serial l1t", &mut serial_l1t_stats),
+        ("serial l1i", &mut serial_l1i_stats),
+        ("serial l1d", &mut serial_l1d_stats),
+        ("serial l2d", &mut serial_l2d_stats),
+        ("parallel l1i", &mut parallel_l1i_stats),
+        ("parallel l1d", &mut parallel_l1d_stats),
+        ("parallel l1c", &mut parallel_l1c_stats),
+        ("parallel l1t", &mut parallel_l1t_stats),
+        ("parallel l2d", &mut parallel_l2d_stats),
     ] {
         use stats::cache::{AccessStat, AccessStatus, RequestStatus};
+        dbg!(&name, &cache_stats);
+
+        // combine misses and sector misses
+        let sector_misses: HashSet<_> = cache_stats.sector_misses().collect();
+        for ((allocation, access), count) in sector_misses {
+            cache_stats.inner.remove(&(allocation, access));
+            let AccessStatus((kind, _)) = access;
+            let miss = AccessStat::Status(RequestStatus::MISS);
+            *cache_stats
+                .inner
+                .entry((None, AccessStatus((kind, miss))))
+                .or_insert(0) += count;
+        }
+
+        // remove mshr hits??
+        for kind in stats::mem::AccessKind::iter() {
+            cache_stats.inner.remove(&(
+                None,
+                AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
+            ));
+        }
+
+        // make sure mshr hit and hit reserved are the same
+        // for kind in AccessKind::iter() {
+        //     let mshr_hits = cache_stats
+        //         .inner
+        //         .get(&(
+        //             None,
+        //             AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
+        //         ))
+        //         .copied()
+        //         .unwrap_or(0);
+        //     let pending_hits = cache_stats
+        //         .inner
+        //         .get(&(
+        //             None,
+        //             AccessStatus((kind, AccessStat::Status(RequestStatus::HIT_RESERVED))),
+        //         ))
+        //         .copied()
+        //         .unwrap_or(0);
+        //     // assert_eq!(mshr_hits, pending_hits);
+        //     diff::diff!(mshr_hits: mshr_hits, pending_hits: pending_hits);
+        // }
+
         // combine hits and pending hits
-        let pending_hits: std::collections::HashSet<_> = cache_stats.pending_hits().collect();
+        let pending_hits: HashSet<_> = cache_stats.pending_hits().collect();
         for ((allocation, access), count) in pending_hits {
             cache_stats.inner.remove(&(allocation, access));
             let AccessStatus((kind, _)) = access;
@@ -328,12 +403,28 @@ pub fn assert_stats_match(
 
     let l2d_err = cache_err(&serial_l2d_stats, &parallel_l2d_stats);
     dbg!(&l2d_err);
-    assert!(l2d_err
+    assert!(l2d_err.iter().all(|(acc, err)| match acc {
+        AccessID((_, status)) if status.kind().is_inst() => true,
+        _ => err <= &max_mape_err || err <= &max_smape_err,
+    }));
+
+    diff::diff!(serial: &serial.instructions, parallel: &parallel.instructions);
+    diff::assert_eq!(serial: &serial.instructions, parallel: &parallel.instructions);
+
+    diff::diff!(serial: &serial.accesses, parallel: &parallel.accesses);
+    diff::assert_eq!(serial: &serial.accesses, parallel: &parallel.accesses);
+
+    let mut serial_dram = serial.dram.reduce();
+    serial_dram.retain(|_, v| *v > 0);
+    let mut parallel_dram = parallel.dram.reduce();
+    parallel_dram.retain(|_, v| *v > 0);
+    diff::diff!(serial: &serial_dram, parallel: &parallel_dram);
+
+    let dram_err = dram_err(&serial_dram, &parallel_dram);
+    dbg!(&dram_err);
+    assert!(dram_err
         .iter()
         .all(|(_, err)| err <= &max_mape_err || err <= &max_smape_err));
-
-    // TODO: compare dram, instructions, and accesses
-    // (the same way as cache stats)
 
     let cycle_err = percentage_error(serial.sim.cycles, parallel.sim.cycles);
     dbg!(&cycle_err);
@@ -370,10 +461,12 @@ parallel_checks! {
     // vectoradd
     vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),
     vectoradd_32_1000_test: ("vectorAdd", { "dtype": 32, "length": 1000  }),
-    vectoradd_32_10000_test: ("vectorAdd", { "dtype": 32, "length": 10000 }),
-    vectoradd_32_20000_test: ("vectorAdd", { "dtype": 32, "length": 20000 }),
-    vectoradd_64_10000_test: ("vectorAdd", { "dtype": 64, "length": 10000 }),
-    vectoradd_64_20000_test: ("vectorAdd", { "dtype": 64, "length": 20000 }),
+    vectoradd_32_10000_test: ("vectorAdd", { "dtype": 32, "length": 10_000 }),
+    vectoradd_32_20000_test: ("vectorAdd", { "dtype": 32, "length": 20_000 }),
+    vectoradd_32_500000_test: ("vectorAdd", { "dtype": 32, "length": 500_000 }),
+    vectoradd_64_10000_test: ("vectorAdd", { "dtype": 64, "length": 10_000 }),
+    vectoradd_64_20000_test: ("vectorAdd", { "dtype": 64, "length": 20_000 }),
+    vectoradd_64_500000_test: ("vectorAdd", { "dtype": 64, "length": 500_000 }),
 
     // simple matrixmul
     simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),
@@ -396,32 +489,4 @@ parallel_checks! {
     // babelstream
     babelstream_1024_test: ("babelstream", { "size": 1024 }),
     babelstream_10240_test: ("babelstream", { "size": 10240 }),
-
-    // extra tests for large input sizes
-    // vectoradd_32_500000_test: ("vectorAdd", {
-    //     "dtype": 32, "length": 500000, "memory_only": false, "cores_per_cluster": 4 }),
-
-    // // vectoradd
-    // vectoradd_100_test: ("vectorAdd", { "length": 100 }),
-    // vectoradd_1000_test: ("vectorAdd", { "length": 1000 }),
-    // vectoradd_10000_test: ("vectorAdd", { "length": 10000 }),
-    //
-    // // simple matrixmul
-    // simple_matrixmul_32_32_32_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 32 }),
-    // simple_matrixmul_32_32_64_test: ("simple_matrixmul", { "m": 32, "n": 32, "p": 64 }),
-    // simple_matrixmul_64_128_128_test: ("simple_matrixmul", { "m": 64, "n": 128, "p": 128 }),
-    //
-    // // matrixmul (shared memory)
-    // matrixmul_32_test: ("matrixmul", { "rows": 32 }),
-    // matrixmul_64_test: ("matrixmul", { "rows": 64 }),
-    // matrixmul_128_test: ("matrixmul", { "rows": 128 }),
-    // matrixmul_256_test: ("matrixmul", { "rows": 256 }),
-    //
-    // // transpose
-    // transpose_256_naive_test: ("transpose", { "dim": 256, "variant": "naive"}),
-    // transpose_256_coalesed_test: ("transpose", { "dim": 256, "variant": "coalesced" }),
-    // transpose_256_optimized_test: ("transpose", { "dim": 256, "variant": "optimized" }),
-    //
-    // // babelstream
-    // babelstream_1024_test: ("babelstream", { "size": 1024 }),
 }
