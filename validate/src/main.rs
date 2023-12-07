@@ -10,6 +10,7 @@ use console::{style, Style};
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use std::io::Write;
+use std::time::Duration;
 
 use indicatif::ProgressBar;
 use std::path::PathBuf;
@@ -85,8 +86,6 @@ async fn run_make(
     }
     Ok(start.elapsed())
 }
-
-use std::time::Duration;
 
 async fn run_benchmark(
     command: &Command,

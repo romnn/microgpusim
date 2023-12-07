@@ -1,7 +1,8 @@
 use super::mem::AccessKind;
+use indexmap::IndexMap;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BankAccessesCsvRow {
@@ -88,7 +89,7 @@ impl DRAM {
     }
 
     #[must_use]
-    pub fn reduce(&self) -> HashMap<AccessKind, u64> {
+    pub fn reduce(&self) -> IndexMap<AccessKind, u64> {
         AccessKind::iter()
             .map(|access_kind| {
                 (
@@ -98,6 +99,7 @@ impl DRAM {
                         .sum(),
                 )
             })
+            .sorted_by_key(|(key, _)| key.clone())
             .collect()
     }
 

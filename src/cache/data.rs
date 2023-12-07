@@ -834,7 +834,11 @@ where
 
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(kernel_launch_id);
-        let access_stat = cache::select_status(probe_status, access_status);
+        let access_stat = if self.inner.cache_config.accelsim_compat {
+            cache::select_status_accelsim_compat(probe_status, access_status)
+        } else {
+            cache::select_status(probe_status, access_status)
+        };
         kernel_stats.inc(
             allocation_id,
             access_kind,

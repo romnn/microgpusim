@@ -306,6 +306,18 @@ impl Cache {
         }
     }
 
+    pub fn get(
+        &self,
+        alloc_id: Option<usize>,
+        kind: impl Into<AccessKind>,
+        status: impl Into<AccessStat>,
+    ) -> Option<usize> {
+        let kind = kind.into();
+        let status = status.into();
+        let access_stat = AccessStatus((kind, status));
+        self.inner.get(&(alloc_id, access_stat)).copied()
+    }
+
     #[must_use]
     pub fn union<'a>(
         &'a self,
@@ -355,6 +367,26 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn count_accesses_of_kind(&self, kind: AccessKind) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.kind() == &kind)
+            .filter(|((_, access), _)| {
+                matches!(
+                    access.stat(),
+                    AccessStat::Status(
+                        RequestStatus::HIT
+                            | RequestStatus::MISS
+                            | RequestStatus::SECTOR_MISS
+                            | RequestStatus::HIT_RESERVED
+                    )
+                )
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
     pub fn count_accesses(&self, access: &AccessStatus) -> usize {
         self.inner
             .iter()
@@ -362,6 +394,30 @@ impl Cache {
             .map(|(_, count)| count)
             .sum()
     }
+
+    // #[must_use]
+    // pub fn num_accesses(&self) -> usize {
+    //     self.inner
+    //         .iter()
+    //         .filter(|((_, access), _)| {
+    //             matches!(
+    //                 access.stat(),
+    //
+    //         })
+    //         .filter(|((_, access), _)| {
+    //             matches!(
+    //                 access.stat(),
+    //                 AccessStat::Status(
+    //                     RequestStatus::HIT
+    //                         | RequestStatus::MISS
+    //                         | RequestStatus::SECTOR_MISS
+    //                         | RequestStatus::HIT_RESERVED
+    //                 )
+    //             )
+    //         })
+    //         .map(|(_, count)| count)
+    //         .sum()
+    // }
 
     #[must_use]
     pub fn num_accesses(&self) -> usize {

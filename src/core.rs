@@ -1813,7 +1813,11 @@ where
             warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
-        let have_block = kernel.next_threadblock_traces(selected_warps, &self.config);
+
+        let have_block = crate::timeit!(
+            "core::read_trace",
+            kernel.next_threadblock_traces(selected_warps, &self.config)
+        );
         if have_block {
             let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(Some(kernel.id() as usize));

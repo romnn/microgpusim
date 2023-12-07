@@ -319,7 +319,6 @@ pub struct MockSimulator<I> {
     // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
     executed_kernels: Arc<Mutex<HashMap<u64, Arc<dyn Kernel>>>>,
     pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
-    // pub clusters: Vec<Arc<RwLock<Cluster<I>>>>,
     pub clusters: Vec<Arc<Cluster<I>>>,
     #[allow(dead_code)]
     warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
@@ -422,7 +421,6 @@ where
                     &(Arc::clone(&mem_controller) as Arc<dyn mcu::MemoryController>),
                 );
                 Arc::new(cluster)
-                // Arc::new(RwLock::new(cluster))
             })
             .collect();
 
@@ -587,7 +585,6 @@ where
         // dbg!(self.more_blocks_to_run());
 
         for cluster in &self.clusters {
-            // if cluster.try_read().not_completed() > 0 {
             if cluster.not_completed() > 0 {
                 return true;
             }
@@ -652,7 +649,6 @@ where
         let num_clusters = self.config.num_simt_clusters;
         for cluster_id in 0..num_clusters {
             let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
-            // let cluster = self.clusters[cluster_id].read();
             let cluster = &self.clusters[cluster_id];
             debug_assert_eq!(cluster_id, cluster.cluster_id);
             let num_blocks_issued = cluster.issue_block_to_core(self, cycle);
@@ -720,7 +716,6 @@ where
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
             for cluster in &self.clusters {
-                // cluster.try_read().interconn_cycle(cycle);
                 cluster.interconn_cycle(cycle);
             }
             #[cfg(feature = "timings")]
@@ -918,7 +913,6 @@ where
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
             for (cluster_id, cluster) in self.clusters.iter().enumerate() {
                 log::debug!("cluster {} cycle {}", cluster_id, cycle);
-                // let cluster = cluster.try_read();
                 let cores_completed = cluster.not_completed() == 0;
                 let kernels_completed = self
                     .running_kernels
@@ -948,7 +942,6 @@ where
                     if active_clusters[cluster_id] {
                         continue;
                     }
-                    // let cluster = cluster.try_read();
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for core_id in &*core_sim_order {
                         let core = cluster.cores[*core_id].try_read();
@@ -959,7 +952,6 @@ where
             }
 
             for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-                // let cluster = cluster.try_read();
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in &*core_sim_order {
                     let core = cluster.cores[*core_id].try_read();
@@ -1030,14 +1022,14 @@ where
             //         core_orders_per_cluster: self
             //             .clusters
             //             .iter()
-            //             .map(|cluster| cluster.read().core_sim_order.lock().clone())
+            //             .map(|cluster| cluster.core_sim_order.lock().clone())
             //             .collect(),
             //         last_cluster_issue: *self.last_cluster_issue.lock(),
             //         last_issued_kernel: *self.last_issued_kernel.lock(),
             //         block_issue_next_core_per_cluster: self
             //             .clusters
             //             .iter()
-            //             .map(|cluster| *cluster.read().block_issue_next_core.lock())
+            //             .map(|cluster| *cluster.block_issue_next_core.lock())
             //             .collect(),
             //     };
             //     self.states.push((cycle, state));
@@ -1054,7 +1046,6 @@ where
             if self.config.flush_l1_cache {
                 log::debug!("flushing l1 caches");
                 for cluster in &mut self.clusters {
-                    // let cluster_id = cluster.try_read().cluster_id;
                     let cluster_id = cluster.cluster_id;
                     let cluster_not_completed = cluster.not_completed();
                     log::trace!(
@@ -1064,7 +1055,6 @@ where
                     );
                     if cluster_not_completed == 0 {
                         cluster.cache_invalidate();
-                        // cluster.try_write().cache_invalidate();
                     } else {
                         not_completed += cluster_not_completed;
                         all_threads_complete = false;
@@ -1080,7 +1070,6 @@ where
             if self.config.flush_l2_cache {
                 if !self.config.flush_l1_cache {
                     for cluster in &mut self.clusters {
-                        // if cluster.try_read().not_completed() > 0 {
                         if cluster.not_completed() > 0 {
                             all_threads_complete = false;
                             break;
@@ -1127,13 +1116,12 @@ where
             "all clusters completed: {}",
             self.clusters
                 .iter()
-                .any(|cluster| cluster.not_completed() > 0) // .any(|cluster| cluster.try_read().not_completed() > 0)
+                .any(|cluster| cluster.not_completed() > 0)
         );
         for core in self
             .clusters
             .iter()
             .flat_map(|cluster| cluster.cores.clone())
-        // .flat_map(|cluster| cluster.try_read().cores.clone())
         {
             let core = core.try_read();
             let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
@@ -1146,7 +1134,7 @@ where
         // dbg!(self
         //     .clusters
         //     .iter()
-        //     .flat_map(|cluster| cluster.try_read().cores.clone())
+        //     .flat_map(|cluster| cluster.cores.clone())
         //     .map(|core| core.try_read().block_status)
         //     // .sorted_by_key(|(block_hw_id, _)| block_hw_id)
         //     .collect::<Vec<_>>());
@@ -1618,7 +1606,6 @@ where
             .clusters
             .iter()
             .flat_map(|cluster| cluster.cores.clone());
-        // .flat_map(|cluster| cluster.read().cores.clone());
         for core in cores {
             let core = core.try_read();
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
@@ -1662,11 +1649,14 @@ where
                     dest_device_addr,
                     num_bytes,
                 }) => {
-                    cycle = self.memcopy_to_gpu(
-                        *dest_device_addr,
-                        *num_bytes,
-                        allocation_name.clone(),
-                        cycle,
+                    cycle = crate::timeit!(
+                        "cycle::memcopy",
+                        self.memcopy_to_gpu(
+                            *dest_device_addr,
+                            *num_bytes,
+                            allocation_name.clone(),
+                            cycle,
+                        )
                     );
                 }
                 Command::MemAlloc(trace_model::command::MemAlloc {
@@ -1818,11 +1808,13 @@ where
             cycle = self.process_commands(cycle);
             self.launch_kernels(cycle);
 
+            let start_cycle = cycle;
+
             let mut finished_kernel = None;
             loop {
                 log::info!("======== cycle {cycle} ========");
                 log::info!("");
-                if cycle % log_every == 0 && cycle > 0 {
+                if (cycle - start_cycle) % log_every == 0 && (cycle - start_cycle) > 0 {
                     eprintln!(
                         "cycle {cycle:<10} ({:>8.4} cycle/sec)",
                         log_every as f64 / last_time.elapsed().as_secs_f64()

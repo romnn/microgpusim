@@ -300,6 +300,29 @@ DONE:
 
 - TODO:
 
+  - core locks for:
+
+    - (easy)
+      - cache_flush
+      - cache_invalidate
+    - (hard)
+
+      - register_thread_in_block_exited
+      - reinit
+      - issue_block
+      - fetch
+      - decode
+      - issue
+      - writeback
+      - execute
+      - find_available_hw_thread_id
+      - init_warps_from_traces
+      - init_warps
+      - cycle
+
+    - conclusion: core should really use &mut self - it is not shared
+    - however we should find the functions that lock the kernel just to read
+
   - write a direct connection interconn trait that replaces the fifos etc.
   - check statistical error for non deterministic version
   - refactor interconn to couple has buffer and push using a single explicit lock
