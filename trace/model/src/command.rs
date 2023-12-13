@@ -102,6 +102,7 @@ impl std::fmt::Display for MemcpyHtoD {
 pub struct MemAlloc {
     pub allocation_name: Option<String>,
     pub device_ptr: u64,
+    pub fill_l2: bool,
     pub num_bytes: u64,
 }
 

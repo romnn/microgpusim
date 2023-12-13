@@ -1,7 +1,8 @@
-use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
+    alloc,
     model::{Dim, MemorySpace},
-    DevicePtr, Kernel, ThreadBlock, ThreadIndex,
+    tracegen::{TraceGenerator, Tracer},
+    Kernel, ThreadBlock, ThreadIndex,
 };
 use num_traits::{Float, NumCast, Zero};
 use rand::{
@@ -15,9 +16,9 @@ pub const BLOCK_DIM: usize = 32;
 
 #[derive(Debug)]
 struct SimpleMatrixmul<'a, T> {
-    dev_a: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_b: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+    dev_a: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_b: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
     m: usize,
     n: usize,
     p: usize,
@@ -122,13 +123,34 @@ where
 
     // allocate memory for each vector on simulated GPU device
     let dev_a = tracer
-        .allocate(matrix_a, MemorySpace::Global, Some("a"))
+        .allocate(
+            matrix_a,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("a".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
     let dev_b = tracer
-        .allocate(matrix_b, MemorySpace::Global, Some("b"))
+        .allocate(
+            matrix_b,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("b".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     println!("({m} x {n}) x ({n} x {p}) = ({m} x {p})");

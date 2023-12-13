@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use trace_model::ToBitString;
 
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bytes(pub usize);
@@ -183,6 +184,9 @@ where
     );
 
     let mut sim_config = config::gtx1080::build_config(&config::Input::default())?;
+    sim_config.parallelization = config::Parallelization::Deterministic;
+    sim_config.fill_l2_on_memcopy = true;
+    // sim_config.parallelization = config::Parallelization::Serial;
     if false {
         sim_config.data_cache_l1 = Some(Arc::new(gpucachesim::config::L1DCache {
             // l1_latency: 1,
@@ -325,14 +329,33 @@ where
         pub latency: u64,
     }
 
-    let accesses: Vec<_> = Arc::into_inner(accesses).unwrap().into_inner().unwrap();
+    let accesses: Vec<_> = Arc::into_inner(accesses)
+        .unwrap()
+        .into_inner()
+        .unwrap()
+        .into_iter()
+        .filter(|(fetch, _)| fetch.access_kind().is_global())
+        .collect();
+    // for (k, (fetch, latency)) in accesses.iter().enumerate() {
+    //     eprintln!(
+    //         "access {:<3}: {:<40} rel addr={:<4} ({:<4}, {:<4}, {:<4}) bytes={} latency={}",
+    //         k,
+    //         fetch.to_string(),
+    //         fetch.relative_byte_addr(),
+    //         fetch.relative_addr().unwrap(),
+    //         fetch.byte_addr(),
+    //         fetch.addr(),
+    //         fetch.access.byte_mask[..128].to_bit_string(),
+    //         style(latency).yellow()
+    //     );
+    // }
+
     // for (fetch, latency) in &accesses {
     //     eprintln!("latency={:<4} fetch={}", latency, fetch);
     // }
     let post_warmup_index = warmup_iterations * iter_size;
     let valid_accesses = &accesses[post_warmup_index..post_warmup_index + iter_size];
     for (k, (fetch, latency)) in valid_accesses.iter().enumerate() {
-        use trace_model::ToBitString;
         if gpucachesim::DEBUG_PRINT {
             eprintln!(
                 "access {:<3}: {:<40} rel addr={:<4} ({:<4}, {:<4}, {:<4}) bytes={} latency={}",

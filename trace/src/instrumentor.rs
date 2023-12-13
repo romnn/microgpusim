@@ -442,6 +442,7 @@ impl<'c> Instrumentor<'c> {
                     .push(trace_model::Command::MemAlloc(
                         trace_model::command::MemAlloc {
                             allocation_name: None,
+                            fill_l2: false,
                             device_ptr,
                             num_bytes,
                         },

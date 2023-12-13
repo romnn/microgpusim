@@ -1,6 +1,7 @@
 use color_eyre::eyre;
-use gpucachesim::exec::model::{Dim, MemorySpace};
 use gpucachesim::exec::{
+    alloc,
+    model::{Dim, MemorySpace},
     tracegen::{TraceGenerator, Tracer},
     Kernel,
 };
@@ -13,13 +14,13 @@ pub const BLOCK_ROWS: u32 = 16;
 
 pub mod naive {
     use super::{BLOCK_ROWS, TILE_DIM};
-    use gpucachesim::exec::{DevicePtr, Kernel, ThreadBlock, ThreadIndex};
+    use gpucachesim::exec::{alloc, Kernel, ThreadBlock, ThreadIndex};
     use tokio::sync::Mutex;
 
     #[derive(Debug)]
     pub struct Transpose<'a, T> {
-        pub dev_mat: Mutex<DevicePtr<&'a Vec<T>>>,
-        pub dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+        pub dev_mat: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+        pub dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
         pub rows: usize,
         pub cols: usize,
     }
@@ -64,18 +65,18 @@ pub mod naive {
 
 pub mod coalesced {
     use super::{BLOCK_ROWS, TILE_DIM};
-    use gpucachesim::exec::{DevicePtr, Kernel, ThreadBlock, ThreadIndex};
+    use gpucachesim::exec::{alloc, Kernel, ThreadBlock, ThreadIndex};
     use tokio::sync::Mutex;
 
     #[derive(Debug)]
     pub struct Transpose<'a, T> {
-        pub dev_mat: Mutex<DevicePtr<&'a Vec<T>>>,
-        pub dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+        pub dev_mat: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+        pub dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
         pub rows: usize,
         pub cols: usize,
 
         /// Shared memory array used to store the tiles
-        pub shared_mem_tiles: Mutex<DevicePtr<Vec<T>>>,
+        pub shared_mem_tiles: Mutex<alloc::DevicePtr<Vec<T>>>,
     }
 
     #[async_trait::async_trait]
@@ -144,18 +145,18 @@ pub mod coalesced {
 
 pub mod optimized {
     use super::{BLOCK_ROWS, TILE_DIM};
-    use gpucachesim::exec::{DevicePtr, Kernel, ThreadBlock, ThreadIndex};
+    use gpucachesim::exec::{alloc, Kernel, ThreadBlock, ThreadIndex};
     use tokio::sync::Mutex;
 
     #[derive(Debug)]
     pub struct Transpose<'a, T> {
-        pub dev_mat: Mutex<DevicePtr<&'a Vec<T>>>,
-        pub dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+        pub dev_mat: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+        pub dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
         pub rows: usize,
         pub cols: usize,
 
         /// Shared memory array used to store the tiles
-        pub shared_mem_tiles: Mutex<DevicePtr<Vec<T>>>,
+        pub shared_mem_tiles: Mutex<alloc::DevicePtr<Vec<T>>>,
     }
 
     #[async_trait::async_trait]
@@ -304,10 +305,24 @@ where
 
     // allocate memory for each vector on simulated GPU device
     let dev_mat = tracer
-        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .allocate(
+            mat,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("matrix".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     let mut kernel: naive::Transpose<T> = naive::Transpose {
@@ -343,10 +358,24 @@ where
 
     // allocate memory for each vector on simulated GPU device
     let dev_mat = tracer
-        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .allocate(
+            mat,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("matrix".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     // shared memory
@@ -354,8 +383,11 @@ where
     let shared_mem_tiles = tracer
         .allocate(
             shared_mem_tiles,
-            MemorySpace::Shared,
-            Some("shared_mem_tiles"),
+            Some(alloc::Options {
+                mem_space: MemorySpace::Shared,
+                name: Some("shared_mem_tiles".to_string()),
+                ..alloc::Options::default()
+            }),
         )
         .await;
 
@@ -394,10 +426,24 @@ where
 
     // allocate memory for each vector on simulated GPU device
     let dev_mat = tracer
-        .allocate(mat, MemorySpace::Global, Some("matrix"))
+        .allocate(
+            mat,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("matrix".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     // shared memory
@@ -405,8 +451,11 @@ where
     let shared_mem_tiles = tracer
         .allocate(
             shared_mem_tiles,
-            MemorySpace::Shared,
-            Some("shared_mem_tiles"),
+            Some(alloc::Options {
+                mem_space: MemorySpace::Shared,
+                name: Some("shared_mem_tiles".to_string()),
+                ..alloc::Options::default()
+            }),
         )
         .await;
 

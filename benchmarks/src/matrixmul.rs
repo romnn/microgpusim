@@ -1,7 +1,8 @@
-use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
 use gpucachesim::exec::{
+    alloc,
     model::{Dim, MemorySpace},
-    DevicePtr, Kernel, ThreadBlock, ThreadIndex,
+    tracegen::{TraceGenerator, Tracer},
+    Kernel, ThreadBlock, ThreadIndex,
 };
 use num_traits::{Float, Zero};
 use rand::{
@@ -16,14 +17,14 @@ pub const BLOCK_SIZE: usize = 4;
 
 #[derive(Debug)]
 struct Matrixmul<'a, T> {
-    dev_a: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_b: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+    dev_a: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_b: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
     num_rows: usize,
     /// Shared memory array used to store the sub-matrix of A
-    shared_mem_a: Mutex<DevicePtr<Vec<T>>>,
+    shared_mem_a: Mutex<alloc::DevicePtr<Vec<T>>>,
     /// Shared memory array used to store the sub-matrix of B
-    shared_mem_b: Mutex<DevicePtr<Vec<T>>>,
+    shared_mem_b: Mutex<alloc::DevicePtr<Vec<T>>>,
 }
 
 #[async_trait::async_trait]
@@ -179,21 +180,60 @@ where
     let _n = a.len();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(a, MemorySpace::Global, Some("a")).await;
-    let dev_b = tracer.allocate(b, MemorySpace::Global, Some("b")).await;
+    let dev_a = tracer
+        .allocate(
+            a,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("a".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
+        .await;
+    let dev_b = tracer
+        .allocate(
+            b,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("b".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
+        .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     // shared memory
     let shared_mem_a = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
     let shared_mem_a = tracer
-        .allocate(shared_mem_a, MemorySpace::Shared, Some("shared_a"))
+        .allocate(
+            shared_mem_a,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Shared,
+                name: Some("shared_a".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     let shared_mem_b = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
     let shared_mem_b = tracer
-        .allocate(shared_mem_b, MemorySpace::Shared, Some("shared_b"))
+        .allocate(
+            shared_mem_b,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Shared,
+                name: Some("shared_b".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     // number of thread blocks in grid
