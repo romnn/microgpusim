@@ -137,7 +137,7 @@ NON_NUMERIC_COLS = {
         "kernel_function_signature": "first",
         "kernel_name": "first",
         "kernel_name_mangled": "first",
-        # "input_id": "first",
+        "input_id": "first",
         # "input_memory_only": "first",
         # "input_mode": "first",
         # makes no sense to aggregate
