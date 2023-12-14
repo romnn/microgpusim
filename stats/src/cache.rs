@@ -271,27 +271,33 @@ impl std::fmt::Debug for Cache {
             .iter()
             .filter(|(_, &count)| count > 0)
             // .map(|((access_kind, access_stat), count)| {
-            .map(|((alloc_id, access), count)| {
-                // let key = match access_stat {
-                //     AccessStat::Status(status) => {
-                //         format!("{access_kind:?}[{status:?}]")
-                //     }
-                //     AccessStat::ReservationFailure(failure) => {
-                //         format!("{access_kind:?}[{failure:?}]")
-                //     }
-                // };
-                let key = match alloc_id {
-                    None => access.to_string(),
-                    Some(id) => format!("{id}@{access}"),
-                };
-                (key, count)
-            })
+            // .map(|((alloc_id, access), count)| {
+            //     // let key = match access_stat {
+            //     //     AccessStat::Status(status) => {
+            //     //         format!("{access_kind:?}[{status:?}]")
+            //     //     }
+            //     //     AccessStat::ReservationFailure(failure) => {
+            //     //         format!("{access_kind:?}[{failure:?}]")
+            //     //     }
+            //     // };
+            //     // let key = match alloc_id {
+            //     //     None => access.to_string(),
+            //     //     Some(id) => (,
+            //     // };
+            //     ((alloc_id, access), count)
+            // })
             .collect();
-        accesses.sort_by_key(|(key, _)| key.clone());
+        accesses.sort_by_key(|(&key, _)| key.clone());
 
         let mut out = f.debug_struct("CacheStats");
-        for (access, count) in accesses {
-            out.field(&access, count);
+        for ((id, access), count) in accesses {
+            out.field(
+                &match id {
+                    Some(id) => format!("{id}@{access}"),
+                    None => access.to_string(),
+                },
+                count,
+            );
         }
         out.finish_non_exhaustive()
     }

@@ -7,11 +7,13 @@ use color_eyre::{eyre, Help};
 pub use gpucachesim::config::{self, Parallelization};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use utils::fs::create_dirs;
 
 #[allow(clippy::module_name_repetitions)]
-pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080, RunError> {
+pub fn simulate_bench_config(
+    bench: &BenchmarkConfig,
+) -> Result<(config::GTX1080, Duration), RunError> {
     let TargetBenchmarkConfig::Simulate { ref traces_dir, l2_prefill, .. } = bench.target_config else {
         unreachable!();
     };
@@ -64,7 +66,7 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
         )
     };
     sim.add_commands(commands_path, traces_dir)?;
-    sim.run()?;
+    let dur = sim.run()?;
 
     let stats = sim.stats();
     // let mut wip_stats = gpucachesim::WIP_STATS.lock();
@@ -112,18 +114,53 @@ pub fn simulate_bench_config(bench: &BenchmarkConfig) -> Result<config::GTX1080,
 
     // *wip_stats = gpucachesim::WIPStats::default();
 
-    Ok(sim)
+    Ok((sim, dur))
 }
 
-pub fn process_stats(
-    stats: &[stats::Stats],
-    _dur: &std::time::Duration,
+pub fn process_stats<'a>(
+    // stats: impl IntoIterator<Item = &'a stats::Stats>,
+    stats: &'a [stats::Stats],
     stats_dir: &Path,
     repetition: usize,
     full: bool,
 ) -> Result<(), RunError> {
     create_dirs(stats_dir).map_err(eyre::Report::from)?;
     crate::stats::write_stats_as_csv(stats_dir, stats, repetition, full)?;
+
+    #[cfg(feature = "timings")]
+    {
+        use itertools::Itertools;
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        struct CsvRow {
+            name: String,
+            count: u128,
+            total: f64,
+        }
+
+        let timings_path = stats_dir.join(format!("timings.{repetition}.csv"));
+        // dbg!(&timings_path);
+        let writer = utils::fs::open_writable(timings_path).map_err(eyre::Report::from)?;
+        let mut csv_writer = csv::WriterBuilder::new()
+            .flexible(false)
+            .from_writer(writer);
+
+        let timings = gpucachesim::TIMINGS
+            .lock()
+            .clone()
+            .into_iter()
+            .sorted_by_key(|(label, _)| label.to_string());
+
+        for (label, dur) in timings {
+            csv_writer
+                .serialize(CsvRow {
+                    name: label.to_string(),
+                    total: dur.total().as_secs_f64(),
+                    count: dur.count(),
+                })
+                .map_err(eyre::Report::from)?;
+        }
+    }
+
     Ok(())
 }
 
@@ -151,17 +188,42 @@ pub async fn simulate(
     for repetition in 0..bench.common.repetitions {
         let bench = bench.clone();
         let (sim, dur) = tokio::task::spawn_blocking(move || {
-            let start = Instant::now();
-            let stats = simulate_bench_config(&bench)?;
-            Ok::<_, eyre::Report>((stats, start.elapsed()))
+            let (stats, dur) = simulate_bench_config(&bench)?;
+            Ok::<_, eyre::Report>((stats, dur))
         })
         .await
         .map_err(eyre::Report::from)??;
 
         total_dur += dur;
-        let stats = sim.stats();
+        let mut stats = sim.stats();
+
+        // let total_kernel_millis = stats
+        //     .inner
+        //     .iter()
+        //     .map(|per_kernel| per_kernel.sim.elapsed_millis)
+        //     .sum::<u128>();
+        // let total_kernel_duration = Duration::from_millis(total_kernel_millis as u64);
+        // stats.no_kernel.sim.elapsed_millis = dur.saturating_sub(total_kernel_duration).as_millis();
+
+        // assert_eq!(total_kernel_stats.sim.elapsed_millis, total_kernel_millis);
+
+        let total_kernel_stats = stats.clone().reduce();
+        stats.no_kernel.sim.elapsed_millis = dur
+            .as_millis()
+            .saturating_sub(total_kernel_stats.sim.elapsed_millis);
+
+        // dbg!(Duration::from_millis(
+        //     total_kernel_stats.sim.elapsed_millis as u64
+        // ));
+        dbg!(dur);
+
         let full = false;
-        process_stats(stats.as_ref(), &dur, stats_dir, repetition, full)?;
+        let stats: Vec<_> = stats
+            .inner
+            .into_iter()
+            .chain(std::iter::once(stats.no_kernel))
+            .collect();
+        process_stats(&stats, stats_dir, repetition, full)?;
     }
     Ok(total_dur)
 }
@@ -298,17 +360,38 @@ pub mod exec {
                 ..bench.clone()
             };
             let (sim, dur) = tokio::task::spawn_blocking(move || {
-                let start = std::time::Instant::now();
-                let stats = super::simulate_bench_config(&bench)?;
-                Ok::<_, eyre::Report>((stats, start.elapsed()))
+                let (stats, dur) = super::simulate_bench_config(&bench)?;
+                Ok::<_, eyre::Report>((stats, dur))
             })
             .await
             .map_err(eyre::Report::from)??;
 
             total_dur += dur;
-            let stats = sim.stats();
+            let mut stats = sim.stats();
+            // let total_kernel_millis = stats
+            //     .inner
+            //     .iter()
+            //     .map(|per_kernel| per_kernel.sim.elapsed_millis)
+            //     .sum::<u128>();
+            // let total_kernel_duration = Duration::from_millis(total_kernel_millis as u64);
+            // stats.no_kernel.sim.elapsed_millis =
+            //     dur.saturating_sub(total_kernel_duration).as_millis();
+            //
+            // let total_kernel_stats = stats.clone().reduce();
+            // assert_eq!(total_kernel_stats.sim.elapsed_millis, total_kernel_millis);
+
+            let total_kernel_stats = stats.clone().reduce();
+            stats.no_kernel.sim.elapsed_millis = dur
+                .as_millis()
+                .saturating_sub(total_kernel_stats.sim.elapsed_millis);
+
             let full = false;
-            super::process_stats(stats.as_ref(), &dur, &stats_dir, repetition, full)?;
+            let stats: Vec<_> = stats
+                .inner
+                .into_iter()
+                .chain(std::iter::once(stats.no_kernel))
+                .collect();
+            super::process_stats(&stats, &stats_dir, repetition, full)?;
         }
         Ok(total_dur)
     }

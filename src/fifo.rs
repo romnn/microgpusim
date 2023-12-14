@@ -1,19 +1,6 @@
 use crate::interconn as ic;
 use std::collections::VecDeque;
 
-// pub trait Queue<T>:
-//     std::iter::IntoIterator<Item = T> + Send + Sync + std::fmt::Display + 'static
-// {
-//     fn new<S: ToString>(name: S, min_size: Option<usize>, max_size: Option<usize>) -> Self;
-//     fn enqueue(&mut self, value: T);
-//     fn dequeue(&mut self) -> Option<T>;
-//     fn first(&self) -> Option<&T>;
-//     fn full(&self) -> bool;
-//     fn len(&self) -> usize;
-//     fn is_empty(&self) -> bool;
-//     fn can_fit(&self, n: usize) -> bool;
-// }
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Fifo<T> {
     inner: VecDeque<T>,
@@ -57,11 +44,6 @@ impl<T> Fifo<T> {
         self.inner.iter()
     }
 }
-
-// impl<T> Queue<T> for Fifo<T>
-// where
-//     T: Send + Sync + std::fmt::Display + 'static,
-// {
 
 impl<T> Fifo<T> {
     #[must_use]
@@ -113,9 +95,7 @@ impl<T> Fifo<T> {
 
     #[must_use]
     pub fn can_fit(&self, n: usize) -> bool {
-        // m_max_len && m_length + size - 1 >= m_max_len
         match self.max_size {
-            // Some(max) => self.inner.len() + n - 1 < max,
             Some(max) => self.inner.len() + n <= max,
             None => true,
         }

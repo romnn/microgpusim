@@ -158,6 +158,7 @@ pub async fn simulate(
 
         total_dur += dur;
         let mut converted_stats: stats::Stats = stats.into();
+
         converted_stats.sim.elapsed_millis = dur.as_millis();
         converted_stats.sim.is_release_build = playground::is_debug();
 
@@ -167,13 +168,7 @@ pub async fn simulate(
 
         super::accelsim::process_stats(log.into_bytes(), &dur, stats_dir, repetition)?;
         let full = false;
-        super::simulate::process_stats(
-            &per_kernel_stats,
-            &dur,
-            detailed_stats_dir,
-            repetition,
-            full,
-        )?;
+        super::simulate::process_stats(&per_kernel_stats, detailed_stats_dir, repetition, full)?;
     }
     Ok(total_dur)
 }

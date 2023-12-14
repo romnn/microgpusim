@@ -32,7 +32,16 @@ pub mod parking_lot {
         // #[inline]
         pub fn try_lock(&self) -> parking_lot::MutexGuard<T> {
             // self.0.lock()
-            self.0.try_lock().unwrap()
+
+            // todo: rename sector_chunk_size to num_sectors
+            match self.0.try_lock() {
+                Err(err) => {
+                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
+                    panic!("{}", err);
+                }
+                Ok(guard) => guard,
+            }
+            // self.0.try_lock().unwrap()
         }
     }
 
@@ -64,7 +73,14 @@ pub mod parking_lot {
         // #[inline]
         pub fn try_lock(&self) -> parking_lot::FairMutexGuard<T> {
             // self.0.lock()
-            self.0.try_lock().unwrap()
+            // self.0.try_lock().unwrap()
+            match self.0.try_lock() {
+                Err(err) => {
+                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
+                    panic!("{}", err);
+                }
+                Ok(guard) => guard,
+            }
         }
     }
 
@@ -141,7 +157,14 @@ pub mod default {
 
         // #[inline]
         pub fn try_lock(&self) -> std::sync::MutexGuard<T> {
-            self.0.try_lock().unwrap()
+            // self.0.try_lock().unwrap()
+            match self.0.try_lock() {
+                Err(err) => {
+                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
+                    panic!("{}", err);
+                }
+                Ok(guard) => guard,
+            }
             // self.0.lock().unwrap()
         }
     }
@@ -173,7 +196,14 @@ pub mod default {
 
         // #[inline]
         pub fn try_read(&self) -> std::sync::RwLockReadGuard<T> {
-            self.0.try_read().unwrap()
+            // self.0.try_read().unwrap()
+            match self.0.try_read() {
+                Err(err) => {
+                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
+                    panic!("{}", err);
+                }
+                Ok(guard) => guard,
+            }
             // self.0.read().unwrap()
         }
 
@@ -184,7 +214,14 @@ pub mod default {
 
         // #[inline]
         pub fn try_write(&self) -> std::sync::RwLockWriteGuard<T> {
-            self.0.try_write().unwrap()
+            // self.0.try_write().unwrap()
+            match self.0.try_write() {
+                Err(err) => {
+                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
+                    panic!("{}", err);
+                }
+                Ok(guard) => guard,
+            }
             // self.0.write().unwrap()
         }
     }

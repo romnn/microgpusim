@@ -1,7 +1,8 @@
 use super::{
     address,
     instruction::{MemorySpace, WarpInstruction},
-    mcu, mem_sub_partition,
+    mcu,
+    mem_sub_partition::{MAX_MEMORY_ACCESS_SIZE, NUM_SECTORS, SECTOR_SIZE},
 };
 use bitvec::BitArr;
 use once_cell::sync::Lazy;
@@ -15,8 +16,8 @@ pub const WRITE_PACKET_SIZE: u8 = 8;
 
 pub const WRITE_MASK_SIZE: u8 = 8;
 
-pub type ByteMask = BitArr!(for mem_sub_partition::MAX_MEMORY_ACCESS_SIZE as usize);
-pub type SectorMask = BitArr!(for mem_sub_partition::SECTOR_CHUNK_SIZE as usize, in u8);
+pub type ByteMask = BitArr!(for MAX_MEMORY_ACCESS_SIZE as usize);
+pub type SectorMask = BitArr!(for NUM_SECTORS as usize, in u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Kind {
@@ -59,6 +60,7 @@ pub enum Status {
 }
 
 pub mod access {
+    use crate::mem_sub_partition::NUM_SECTORS;
     use serde::{Deserialize, Serialize};
     use trace_model::ToBitString;
 
@@ -139,6 +141,12 @@ pub mod access {
     }
 
     impl Kind {
+        #[must_use]
+        // #[inline]
+        pub fn is_inst(&self) -> bool {
+            *self == Kind::INST_ACC_R
+        }
+
         #[must_use]
         // #[inline]
         pub fn is_global(&self) -> bool {
@@ -294,7 +302,7 @@ pub mod access {
         // #[inline]
         #[must_use]
         pub fn num_transactions(&self) -> usize {
-            let transaction_size = crate::WARP_SIZE / crate::mem_sub_partition::SECTOR_CHUNK_SIZE;
+            let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
             (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
         }
 
@@ -569,8 +577,8 @@ impl MemFetch {
     #[must_use]
     pub fn byte_addr(&self) -> address {
         let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
-        // self.addr() * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
-        self.addr() + (requested_byte % mem_sub_partition::SECTOR_SIZE as u64)
+        // self.addr() * NUM_SECTORS as u64 + requested_byte
+        self.addr() + (requested_byte % SECTOR_SIZE as u64)
     }
 
     /// Get the relative address of this fetch at byte-granularity.
@@ -578,8 +586,8 @@ impl MemFetch {
     pub fn relative_byte_addr(&self) -> address {
         let requested_byte = self.access.byte_mask.first_one().unwrap_or(0) as u64;
         let relative_addr = self.relative_addr().unwrap_or(self.addr());
-        // relative_addr * mem_sub_partition::SECTOR_CHUNK_SIZE as u64 + requested_byte
-        relative_addr + (requested_byte % mem_sub_partition::SECTOR_SIZE as u64)
+        // relative_addr * NUM_SECTORS as u64 + requested_byte
+        relative_addr + (requested_byte % SECTOR_SIZE as u64)
     }
 
     #[must_use]

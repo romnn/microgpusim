@@ -7,6 +7,7 @@ where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
 {
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
+        crate::TIMINGS.lock().clear();
         let mut cycle: u64 = 0;
 
         let num_threads = super::get_num_threads()?
@@ -14,12 +15,12 @@ where
             .unwrap_or_else(num_cpus::get_physical);
 
         super::rayon_pool(num_threads)?.install(|| {
-            println!("parallel (deterministic)");
-            println!(
+            eprintln!("parallel (deterministic)");
+            eprintln!(
                 "\t => launching {num_threads} worker threads for {} cores",
                 self.config.total_cores()
             );
-            println!();
+            eprintln!();
 
             let cores: Vec<Vec<Arc<_>>> = self
                 .clusters

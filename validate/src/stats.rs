@@ -84,9 +84,10 @@ where
 }
 
 // #[inline]
-pub fn write_stats_as_csv(
+pub fn write_stats_as_csv<'a>(
     stats_dir: impl AsRef<Path>,
-    stats: &[stats::Stats],
+    // stats: impl IntoIterator<Item = &'a stats::Stats>,
+    stats: &'a [stats::Stats],
     repetition: usize,
     full: bool,
 ) -> eyre::Result<()> {
@@ -94,14 +95,14 @@ pub fn write_stats_as_csv(
     // sim stats
     write_csv_rows(
         open_writable(sim_stats_path(stats_dir, repetition))?,
-        stats.iter().map(|kernel_stats| &kernel_stats.sim),
+        stats.into_iter().map(|kernel_stats| &kernel_stats.sim),
     )?;
 
     // dram stats
     write_csv_rows(
         open_writable(dram_bank_stats_path(stats_dir, repetition))?,
         stats
-            .iter()
+            .into_iter()
             .enumerate()
             .flat_map(|(_kernel_launch_id, kernel_stats)| {
                 kernel_stats.dram.bank_accesses_csv(full).into_iter()
@@ -112,7 +113,7 @@ pub fn write_stats_as_csv(
     write_csv_rows(
         open_writable(access_stats_path(stats_dir, repetition))?,
         stats
-            .iter()
+            .into_iter()
             .enumerate()
             .flat_map(|(_kernel_launch_id, kernel_stats)| {
                 kernel_stats.accesses.clone().into_csv_rows(full)
@@ -123,7 +124,7 @@ pub fn write_stats_as_csv(
     write_csv_rows(
         open_writable(instruction_stats_path(stats_dir, repetition))?,
         stats
-            .iter()
+            .into_iter()
             .map(|stats| &stats.instructions)
             .cloned()
             .enumerate()
@@ -136,23 +137,23 @@ pub fn write_stats_as_csv(
     let cache_stats: Vec<(Cache, Vec<&stats::cache::PerCache>)> = vec![
         (
             Cache::L1I,
-            stats.iter().map(|stats| &stats.l1i_stats).collect(),
+            stats.into_iter().map(|stats| &stats.l1i_stats).collect(),
         ),
         (
             Cache::L1D,
-            stats.iter().map(|stats| &stats.l1d_stats).collect(),
+            stats.into_iter().map(|stats| &stats.l1d_stats).collect(),
         ),
         (
             Cache::L1T,
-            stats.iter().map(|stats| &stats.l1t_stats).collect(),
+            stats.into_iter().map(|stats| &stats.l1t_stats).collect(),
         ),
         (
             Cache::L1C,
-            stats.iter().map(|stats| &stats.l1c_stats).collect(),
+            stats.into_iter().map(|stats| &stats.l1c_stats).collect(),
         ),
         (
             Cache::L2D,
-            stats.iter().map(|stats| &stats.l2d_stats).collect(),
+            stats.into_iter().map(|stats| &stats.l2d_stats).collect(),
         ),
     ];
 

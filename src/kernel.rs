@@ -165,15 +165,15 @@ pub mod trace {
         }
 
         fn increment_running_blocks(&self) {
-            *self.running_blocks.try_write() += 1;
+            *self.running_blocks.write() += 1;
         }
 
         fn decrement_running_blocks(&self) {
-            *self.running_blocks.try_write() -= 1;
+            *self.running_blocks.write() -= 1;
         }
 
         fn num_running_blocks(&self) -> usize {
-            *self.running_blocks.try_read()
+            *self.running_blocks.read()
         }
 
         // #[inline]

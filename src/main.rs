@@ -175,6 +175,12 @@ fn main() -> eyre::Result<()> {
 
     eprintln!("STATS:\n");
     eprintln!("SIM[no-kernel]: {:#?}", &stats.no_kernel.sim);
+    eprintln!("L1I[no-kernel]: {:#?}", &stats.no_kernel.l1i_stats.reduce());
+    eprintln!("L1D[no-kernel]: {:#?}", &stats.no_kernel.l1d_stats.reduce());
+    eprintln!("L2D[no-kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
+    eprintln!("DRAM[no-kernel]: {:#?}", &stats.no_kernel.dram.reduce());
+    eprintln!("ACCESSES[no-kernel]: {:#?}", &stats.no_kernel.accesses,);
+
     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
         eprintln!(
             "\n ===== kernel launch {kernel_launch_id:<3}: {}  =====\n",

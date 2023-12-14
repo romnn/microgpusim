@@ -200,22 +200,20 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     dbg!(parallel_config.parallelization);
 
     let (parallel_dur, parallel_stats) = {
+        let start = Instant::now();
         let parallel_sim = crate::accelmain(traces_dir, parallel_config)?;
         let parallel_stats = parallel_sim.stats().reduce();
-        (
-            Duration::from_millis(parallel_stats.sim.elapsed_millis as u64),
-            parallel_stats,
-        )
+        let _kernel_dur = Duration::from_millis(parallel_stats.sim.elapsed_millis as u64);
+        (start.elapsed(), parallel_stats)
     };
     dbg!(&parallel_dur);
 
     let (serial_dur, serial_stats) = {
+        let start = Instant::now();
         let serial_sim = crate::accelmain(traces_dir, serial_config)?;
         let serial_stats = serial_sim.stats().reduce();
-        (
-            Duration::from_millis(serial_stats.sim.elapsed_millis as u64),
-            serial_stats,
-        )
+        let _kernel_dur = Duration::from_millis(serial_stats.sim.elapsed_millis as u64);
+        (start.elapsed(), serial_stats)
     };
     dbg!(&serial_dur);
 

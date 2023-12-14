@@ -132,7 +132,7 @@ fn new_serial_cycle<I>(
         // same as full with parameter overload
         if mem_sub
             .interconn_to_l2_queue
-            .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+            .can_fit(mem_sub_partition::NUM_SECTORS as usize)
         {
             if let Some(packet) = interconn.pop(device) {
                 log::debug!(
@@ -170,6 +170,8 @@ where
         &mut self,
         mut run_ahead: usize,
     ) -> eyre::Result<()> {
+        crate::TIMINGS.lock().clear();
+
         run_ahead = run_ahead.max(1);
 
         let interleave_serial = true;
@@ -790,7 +792,7 @@ where
 
             if mem_sub
                 .interconn_to_l2_queue
-                .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+                .can_fit(mem_sub_partition::NUM_SECTORS as usize)
             {
                 if let Some(packet) = self.interconn.pop(device) {
                     log::debug!(

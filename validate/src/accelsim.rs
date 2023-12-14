@@ -208,6 +208,6 @@ pub fn process_stats(
     // converted_stats.sim.elapsed_millis = dur.as_millis();
 
     let full = false;
-    crate::stats::write_stats_as_csv(stats_dir, per_kernel_stats.as_ref(), repetition, full)?;
+    crate::stats::write_stats_as_csv(stats_dir, &per_kernel_stats.inner, repetition, full)?;
     Ok(())
 }

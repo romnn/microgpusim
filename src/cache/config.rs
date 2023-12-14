@@ -69,6 +69,9 @@ pub struct Config {
     pub num_sets: usize,
 
     /// Cache atom size.
+    ///
+    /// If the cache is sectored, the atom size is sector size,
+    /// otherwise the atom size is equal to the cache line size.
     pub atom_size: u32,
 
     /// Cache miss queue size.

@@ -6,10 +6,10 @@ use trace_model::ToBitString;
 
 pub const MAX_MEMORY_ACCESS_SIZE: u32 = 128;
 
-/// four sectors
-pub const SECTOR_CHUNK_SIZE: usize = 4;
+/// A 128KB cache line is broken down into four 32B sectors.
+pub const NUM_SECTORS: usize = 4;
 
-/// Sector size is 32 bytes width
+/// Sector size is 32 bytes.
 pub const SECTOR_SIZE: u32 = 32;
 
 // pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
@@ -31,17 +31,10 @@ pub struct MemorySubPartition {
 
     pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
+    num_pending_requests: usize,
     request_tracker: HashSet<mem_fetch::MemFetch>,
-    // This is a cycle offset that has to be applied to the l2 accesses to account
-    // for the cudamemcpy read/writes. We want GPGPU-Sim to only count cycles for
-    // kernel execution but we want cudamemcpy to go through the L2. Everytime an
-    // access is made from cudamemcpy this counter is incremented, and when the l2
-    // is accessed (in both cudamemcpyies and otherwise) this value is added to
-    // the gpgpu-sim cycle counters.
-    // memcpy_cycle_offset: u64,
 }
 
-// impl<Q> std::fmt::Debug for MemorySubPartition<Q> {
 impl std::fmt::Debug for MemorySubPartition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemorySubPartition").finish()
@@ -82,10 +75,6 @@ impl MemorySubPartition {
         let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             match &config.data_cache_l2 {
                 Some(l2_config) => {
-                    // let l2_mem_port = Arc::new(ic::L2Interface {
-                    //     l2_to_dram_queue: Arc::clone(&l2_to_dram_queue),
-                    // });
-
                     let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                     let mut data_l2 = cache::DataL2::new(
                         format!("mem-sub-{}-{}", id, style("L2-CACHE").blue()),
@@ -110,13 +99,13 @@ impl MemorySubPartition {
             mem_controller,
             stats,
             l2_cache,
-            // memcpy_cycle_offset: 0,
             interconn_to_l2_queue,
             l2_to_dram_queue,
             dram_to_l2_queue,
             l2_to_interconn_queue,
             rop_queue: VecDeque::new(),
             request_tracker: HashSet::new(),
+            num_pending_requests: 0,
         }
     }
 
@@ -136,7 +125,7 @@ impl MemorySubPartition {
     fn breakdown_request_to_sector_requests(
         &self,
         fetch: mem_fetch::MemFetch,
-        sector_requests: &mut [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE],
+        sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
     ) {
         log::trace!(
             "breakdown to sector requests for {fetch} with data size {} sector mask={}",
@@ -182,7 +171,7 @@ impl MemorySubPartition {
             }
         }
 
-        let num_sectors = SECTOR_CHUNK_SIZE as usize;
+        let num_sectors = NUM_SECTORS as usize;
         let sector_size = SECTOR_SIZE as usize;
 
         if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
@@ -190,7 +179,6 @@ impl MemorySubPartition {
         } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
             // break down every sector
             let mut byte_mask = mem_fetch::ByteMask::ZERO;
-            // todo: rename sector_chunk_size to num_sectors
             for sector in 0..num_sectors {
                 byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
                 let sector_fetch = SectorFetch {
@@ -262,8 +250,8 @@ impl MemorySubPartition {
     }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
-        let mut sector_requests: [Option<mem_fetch::MemFetch>; SECTOR_CHUNK_SIZE] =
-            [(); SECTOR_CHUNK_SIZE].map(|_| None);
+        let mut sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
+            [(); NUM_SECTORS].map(|_| None);
 
         // let l2_config = self.config.data_cache_l2.as_ref().unwrap();
         if self.config.accelsim_compat {
@@ -314,6 +302,7 @@ impl MemorySubPartition {
             .filter_map(|x: Option<mem_fetch::MemFetch>| x)
         {
             self.request_tracker.insert(fetch.clone());
+            self.num_pending_requests += 1;
             assert!(!self.interconn_to_l2_queue.full());
             fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
 
@@ -333,6 +322,7 @@ impl MemorySubPartition {
     #[must_use]
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
+        // self.num_pending_requests > 0
     }
 
     pub fn flush_l2(&mut self) -> Option<usize> {
@@ -350,6 +340,7 @@ impl MemorySubPartition {
 
         let fetch = self.l2_to_interconn_queue.dequeue()?.into_inner();
         self.request_tracker.remove(&fetch);
+        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
         if fetch.is_atomic() {
             unimplemented!("atomic memory operation");
         }
@@ -369,6 +360,7 @@ impl MemorySubPartition {
         {
             let fetch = self.l2_to_interconn_queue.dequeue().unwrap();
             self.request_tracker.remove(&fetch);
+            self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
             return None;
         }
 
@@ -376,6 +368,7 @@ impl MemorySubPartition {
     }
 
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
+        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
         self.request_tracker.remove(fetch);
     }
 
@@ -448,6 +441,7 @@ impl MemorySubPartition {
                         });
                         todo!("fetch on write: l2 to icnt queue");
                     }
+                    self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
                     self.request_tracker.remove(&fetch);
                 }
             }
@@ -529,6 +523,9 @@ impl MemorySubPartition {
                                     assert!(!read_sent);
                                     if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
                                         self.request_tracker.remove(&fetch);
+
+                                        self.num_pending_requests =
+                                            self.num_pending_requests.saturating_sub(1);
                                     } else {
                                         fetch.set_reply();
                                         fetch.set_status(
@@ -553,6 +550,8 @@ impl MemorySubPartition {
                                 {
                                     if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
                                         self.request_tracker.remove(&fetch);
+                                        self.num_pending_requests =
+                                            self.num_pending_requests.saturating_sub(1);
                                     } else {
                                         fetch.set_reply();
                                         fetch.set_status(

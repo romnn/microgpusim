@@ -236,6 +236,11 @@ impl TotalDuration {
     }
 
     #[must_use]
+    pub fn count(&self) -> u128 {
+        self.count
+    }
+
+    #[must_use]
     pub fn mean(&self) -> std::time::Duration {
         let nanos = u64::try_from(self.dur.as_nanos() / self.count).unwrap();
         std::time::Duration::from_nanos(nanos)
@@ -847,13 +852,13 @@ where
                 //
                 // Note:This needs to be called in DRAM clock domain if there
                 // is no L2 cache in the system In the worst case, we may need
-                // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
+                // to push NUM_SECTORS requests, so ensure you have enough
                 // buffer for them
                 let device = self.config.mem_id_to_device_id(i);
 
                 if mem_sub
                     .interconn_to_l2_queue
-                    .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+                    .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
                     if let Some(packet) = self.interconn.pop(device) {
                         log::debug!(
@@ -1308,6 +1313,7 @@ where
                 }
             } else {
                 if let Some(ref l2_cache) = self.config.data_cache_l2 {
+                    let start = std::time::Instant::now();
                     let l2_cache_size_bytes =
                         self.mem_sub_partitions.len() * l2_cache.inner.total_bytes();
                     let percent = (num_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
@@ -1330,7 +1336,7 @@ where
                     // let should_prefetch = allocation_id != 3;
 
                     if num_bytes > 64 {
-                        println!(
+                        eprintln!(
                             "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
                             human_bytes::human_bytes(num_bytes as f64),
                             human_bytes::human_bytes(l2_cache_size_bytes as f64),
@@ -1374,6 +1380,10 @@ where
                         )
                         .unwrap();
                         print_cache(self);
+                    }
+
+                    if should_prefetch && num_bytes > 64 {
+                        eprintln!("memcopy completed in {:?}", start.elapsed());
                     }
 
                     // if allocation_id == 2 {
@@ -1458,17 +1468,17 @@ where
 
             for (sub_id, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                 let mut mem_sub = mem_sub.try_lock();
-                let device = self.config.mem_id_to_device_id(sub_id);
+                let mem_sub_device = self.config.mem_id_to_device_id(sub_id);
 
                 if mem_sub
                     .interconn_to_l2_queue
-                    .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+                    .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
-                    if let Some(packet) = self.interconn.pop(device) {
+                    if let Some(packet) = self.interconn.pop(mem_sub_device) {
                         mem_sub.push(packet.data, cycle);
                     }
                 } else {
-                    log::trace!("SKIP sub partition {sub_id} ({device}): DRAM full stall");
+                    log::trace!("SKIP sub partition {sub_id} ({mem_sub_device}): DRAM full stall");
                 }
                 mem_sub.cycle(cycle);
             }
@@ -1564,6 +1574,9 @@ where
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats: stats::PerKernel = self.stats.lock().clone();
 
+        let is_release_build = !is_debug();
+        stats.no_kernel.sim.is_release_build = is_release_build;
+
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
             if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
                 let kernel_info = stats::KernelInfo {
@@ -1574,7 +1587,7 @@ where
                 kernel_stats.sim.kernel_name = kernel_info.name.clone();
                 kernel_stats.sim.kernel_name_mangled = kernel_info.mangled_name.clone();
                 kernel_stats.sim.kernel_launch_id = kernel_info.launch_id;
-                kernel_stats.sim.is_release_build = !is_debug();
+                kernel_stats.sim.is_release_build = is_release_build;
 
                 kernel_stats.dram.kernel_info = kernel_info.clone();
                 kernel_stats.accesses.kernel_info = kernel_info.clone();
@@ -1662,9 +1675,25 @@ where
                 Command::MemAlloc(trace_model::command::MemAlloc {
                     allocation_name,
                     device_ptr,
+                    fill_l2,
                     num_bytes,
                 }) => {
-                    self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
+                    let fill_l2 = *fill_l2;
+                    let device_ptr = *device_ptr;
+                    let num_bytes = *num_bytes;
+                    let allocation_name = allocation_name.clone();
+                    self.gpu_mem_alloc(device_ptr, num_bytes, allocation_name.clone(), cycle);
+                    if fill_l2 {
+                        cycle = crate::timeit!(
+                            "cycle::memcopy",
+                            self.memcopy_to_gpu(
+                                device_ptr,
+                                num_bytes,
+                                allocation_name.clone(),
+                                cycle,
+                            )
+                        );
+                    }
                 }
                 Command::KernelLaunch(launch) => {
                     let mut kernel = kernel::trace::KernelTrace::new(
@@ -1679,7 +1708,7 @@ where
                     //     .map(Option::as_ref)
                     //     .filter(Option::is_some)
                     //     .count();
-                    println!("kernel launch {}: {:#?}", launch.id, &launch);
+                    eprintln!("kernel launch {}: {:#?}", launch.id, &launch);
                     let num_launched_kernels = self.executed_kernels.lock().len();
 
                     match std::env::var("KERNEL_LIMIT")
@@ -1769,9 +1798,11 @@ where
         !self.kernels.is_empty()
     }
 
-    pub fn run(&mut self) -> eyre::Result<()> {
+    pub fn run(&mut self) -> eyre::Result<std::time::Duration> {
+        let start = std::time::Instant::now();
         dbg!(&self.config.parallelization);
         dbg!(&self.config.fill_l2_on_memcopy);
+        TIMINGS.lock().clear();
         match self.config.parallelization {
             config::Parallelization::Serial => {
                 self.run_to_completion()?;
@@ -1785,7 +1816,7 @@ where
                 self.run_to_completion_parallel_nondeterministic(run_ahead)?;
             }
         }
-        Ok(())
+        Ok(start.elapsed())
     }
 
     #[tracing::instrument]
