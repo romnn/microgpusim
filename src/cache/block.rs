@@ -298,7 +298,7 @@ impl Block for Line {
     #[must_use]
     fn modified_size(&self) -> u32 {
         // cache line size
-        mem_sub_partition::SECTOR_CHUNK_SIZE as u32 * mem_sub_partition::SECTOR_SIZE
+        mem_sub_partition::NUM_SECTORS as u32 * mem_sub_partition::SECTOR_SIZE
     }
 
     // #[inline]

@@ -2,6 +2,23 @@ use super::kernel::ThreadIndex;
 use super::{model, tracegen};
 use std::sync::Arc;
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Options {
+    pub mem_space: model::MemorySpace,
+    pub name: Option<String>,
+    pub fill_l2: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            mem_space: model::MemorySpace::Global,
+            name: None,
+            fill_l2: true,
+        }
+    }
+}
+
 pub trait Allocatable {
     fn length(&self) -> usize;
     fn stride(&self) -> usize;

@@ -271,27 +271,33 @@ impl std::fmt::Debug for Cache {
             .iter()
             .filter(|(_, &count)| count > 0)
             // .map(|((access_kind, access_stat), count)| {
-            .map(|((alloc_id, access), count)| {
-                // let key = match access_stat {
-                //     AccessStat::Status(status) => {
-                //         format!("{access_kind:?}[{status:?}]")
-                //     }
-                //     AccessStat::ReservationFailure(failure) => {
-                //         format!("{access_kind:?}[{failure:?}]")
-                //     }
-                // };
-                let key = match alloc_id {
-                    None => access.to_string(),
-                    Some(id) => format!("{id}@{access}"),
-                };
-                (key, count)
-            })
+            // .map(|((alloc_id, access), count)| {
+            //     // let key = match access_stat {
+            //     //     AccessStat::Status(status) => {
+            //     //         format!("{access_kind:?}[{status:?}]")
+            //     //     }
+            //     //     AccessStat::ReservationFailure(failure) => {
+            //     //         format!("{access_kind:?}[{failure:?}]")
+            //     //     }
+            //     // };
+            //     // let key = match alloc_id {
+            //     //     None => access.to_string(),
+            //     //     Some(id) => (,
+            //     // };
+            //     ((alloc_id, access), count)
+            // })
             .collect();
-        accesses.sort_by_key(|(key, _)| key.clone());
+        accesses.sort_by_key(|(&key, _)| key.clone());
 
         let mut out = f.debug_struct("CacheStats");
-        for (access, count) in accesses {
-            out.field(&access, count);
+        for ((id, access), count) in accesses {
+            out.field(
+                &match id {
+                    Some(id) => format!("{id}@{access}"),
+                    None => access.to_string(),
+                },
+                count,
+            );
         }
         out.finish_non_exhaustive()
     }
@@ -304,6 +310,18 @@ impl Cache {
             inner,
             ..Self::default()
         }
+    }
+
+    pub fn get(
+        &self,
+        alloc_id: Option<usize>,
+        kind: impl Into<AccessKind>,
+        status: impl Into<AccessStat>,
+    ) -> Option<usize> {
+        let kind = kind.into();
+        let status = status.into();
+        let access_stat = AccessStatus((kind, status));
+        self.inner.get(&(alloc_id, access_stat)).copied()
     }
 
     #[must_use]
@@ -355,6 +373,26 @@ impl Cache {
     }
 
     #[must_use]
+    pub fn count_accesses_of_kind(&self, kind: AccessKind) -> usize {
+        self.inner
+            .iter()
+            .filter(|((_, access), _)| access.kind() == &kind)
+            .filter(|((_, access), _)| {
+                matches!(
+                    access.stat(),
+                    AccessStat::Status(
+                        RequestStatus::HIT
+                            | RequestStatus::MISS
+                            | RequestStatus::SECTOR_MISS
+                            | RequestStatus::HIT_RESERVED
+                    )
+                )
+            })
+            .map(|(_, count)| count)
+            .sum()
+    }
+
+    #[must_use]
     pub fn count_accesses(&self, access: &AccessStatus) -> usize {
         self.inner
             .iter()
@@ -362,6 +400,30 @@ impl Cache {
             .map(|(_, count)| count)
             .sum()
     }
+
+    // #[must_use]
+    // pub fn num_accesses(&self) -> usize {
+    //     self.inner
+    //         .iter()
+    //         .filter(|((_, access), _)| {
+    //             matches!(
+    //                 access.stat(),
+    //
+    //         })
+    //         .filter(|((_, access), _)| {
+    //             matches!(
+    //                 access.stat(),
+    //                 AccessStat::Status(
+    //                     RequestStatus::HIT
+    //                         | RequestStatus::MISS
+    //                         | RequestStatus::SECTOR_MISS
+    //                         | RequestStatus::HIT_RESERVED
+    //                 )
+    //             )
+    //         })
+    //         .map(|(_, count)| count)
+    //         .sum()
+    // }
 
     #[must_use]
     pub fn num_accesses(&self) -> usize {

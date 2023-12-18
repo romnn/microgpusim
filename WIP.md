@@ -65,7 +65,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - add flags to measure how long core cycle takes of total execution time when running serial
+  - rename exec-impl to exec-derive
 
   - parallel plot / results: do not count the small inputs where serial is faster than parallel
 
@@ -74,11 +74,6 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
   - transpose: why is there no dram write hit rate?
 
     - benchmarks using shared mem: babelstream, transpose
-
-  - DONE: check if non-interleave nondeterministic is deterministic
-
-    - DONE: add repetitions=2 to parallel gpucachesim
-    - DONE: the gains are so low we should just remove it
 
   - always perform l2 mem copy, but set skip l2 flag if above threshold
 
@@ -94,7 +89,6 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
   - add averaged section for each parallel table and then a final overall table separately
 
   - overall correlation plots revamped
-  - rerun all the benchmarks for parallel table
 
   - make the basic plots look good for pascal pchase and write it down
   - run the same for older fermi or maxwell gpu on das5 and write it down
@@ -107,6 +101,14 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
+
+  - DONE: read traces using producer-consumer approach
+  - DONE: rerun all the benchmarks for parallel table
+  - DONE: add flags to measure how long core cycle takes of total execution time when running serial
+  - DONE: check if non-interleave nondeterministic is deterministic
+
+    - DONE: add repetitions=2 to parallel gpucachesim
+    - DONE: the gains are so low we should just remove it
 
   - DONE: parallel test: test parallel vs serial version of gpucachesim, not playground
   - DONE: rerun transpose profile
@@ -300,6 +302,29 @@ DONE:
 
 - TODO:
 
+  - core locks for:
+
+    - (easy)
+      - cache_flush
+      - cache_invalidate
+    - (hard)
+
+      - register_thread_in_block_exited
+      - reinit
+      - issue_block
+      - fetch
+      - decode
+      - issue
+      - writeback
+      - execute
+      - find_available_hw_thread_id
+      - init_warps_from_traces
+      - init_warps
+      - cycle
+
+    - conclusion: core should really use &mut self - it is not shared
+    - however we should find the functions that lock the kernel just to read
+
   - write a direct connection interconn trait that replaces the fifos etc.
   - check statistical error for non deterministic version
   - refactor interconn to couple has buffer and push using a single explicit lock
@@ -318,8 +343,6 @@ DONE:
     - asynchronously push into file (unordered)
 
   - refactor
-
-    - look into: // TODO HOTFIX: workaround
 
     - factor into multiple files
     - join core and inner core
@@ -346,8 +369,8 @@ DONE:
 
   - allow basic configurations for the playground bridge
 
-  - FIX: add l2 set index back in
-
+  - DONE: add l2 set index back in: required for distributing to sub partitions
+  - DONE: look into: // TODO HOTFIX: workaround
   - DONE: move functional units into package
   - DONE: try using native threads and barriers for core simulation
   - DONE: pipelined simd function unit should not implement simd function unit

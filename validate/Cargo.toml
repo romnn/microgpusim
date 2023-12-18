@@ -7,6 +7,7 @@ publish = false
 [features]
 default = ["remote", "parallel", "cuda"]
 cuda = ["dep:rustacuda", "dep:cuda-driver-sys"]
+timings = ["gpucachesim/timings"]
 parallel = ["gpucachesim/parallel"]
 remote = ["dep:remote"]
 

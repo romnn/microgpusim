@@ -1,13 +1,13 @@
 use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
-use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
+use gpucachesim::exec::{alloc, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
 use num_traits::{Float, Zero};
 
 use tokio::sync::Mutex;
 
 struct VecAdd<'a, T> {
-    dev_a: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_b: Mutex<DevicePtr<&'a Vec<T>>>,
-    dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+    dev_a: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_b: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
+    dev_result: Mutex<alloc::DevicePtr<&'a mut Vec<T>>>,
     n: usize,
 }
 
@@ -84,10 +84,35 @@ where
     let n = a.len();
 
     // allocate memory for each vector on simulated GPU device
-    let dev_a = tracer.allocate(a, MemorySpace::Global, Some("a")).await;
-    let dev_b = tracer.allocate(b, MemorySpace::Global, Some("b")).await;
+    let dev_a = tracer
+        .allocate(
+            a,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("a".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
+        .await;
+    let dev_b = tracer
+        .allocate(
+            b,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("b".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
+        .await;
     let dev_result = tracer
-        .allocate(result, MemorySpace::Global, Some("result"))
+        .allocate(
+            result,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("result".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     // number of thread blocks in grid

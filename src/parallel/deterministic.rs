@@ -7,6 +7,7 @@ where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
 {
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
+        crate::TIMINGS.lock().clear();
         let mut cycle: u64 = 0;
 
         let num_threads = super::get_num_threads()?
@@ -14,17 +15,16 @@ where
             .unwrap_or_else(num_cpus::get_physical);
 
         super::rayon_pool(num_threads)?.install(|| {
-            println!("parallel (deterministic)");
-            println!(
+            eprintln!("parallel (deterministic)");
+            eprintln!(
                 "\t => launching {num_threads} worker threads for {} cores",
                 self.config.total_cores()
             );
-            println!();
+            eprintln!();
 
             let cores: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
-                // .map(|cluster| cluster.try_read().cores.clone())
                 .map(|cluster| cluster.cores.clone())
                 .collect();
 
@@ -49,7 +49,8 @@ where
                         last_time = std::time::Instant::now()
                     }
 
-                    if self.reached_limit(cycle) || !self.active() {
+                    // if self.reached_limit(cycle) || !self.active() {
+                    if self.reached_limit(cycle) {
                         break;
                     }
 
@@ -65,7 +66,6 @@ where
                             .all(|(_, k)| k.no_more_blocks_to_run());
 
                         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-                            // let cores_completed = cluster.try_read().not_completed() == 0;
                             let cores_completed = cluster.not_completed() == 0;
                             let cluster_active = !(cores_completed && kernels_completed);
                             active_clusters[cluster_id] = cluster_active;
@@ -117,7 +117,6 @@ where
                     let mut all_threads_complete = true;
                     if self.config.flush_l1_cache {
                         for cluster in &mut self.clusters {
-                            // let cluster = cluster.try_read();
                             if cluster.not_completed() == 0 {
                                 cluster.cache_invalidate();
                             } else {
@@ -129,7 +128,6 @@ where
                     if self.config.flush_l2_cache {
                         if !self.config.flush_l1_cache {
                             for cluster in &mut self.clusters {
-                                // let cluster = cluster.try_read();
                                 if cluster.not_completed() > 0 {
                                     all_threads_complete = false;
                                     break;
@@ -180,6 +178,14 @@ where
             }
             Ok::<_, eyre::Report>(())
         })?;
+
+        self.stats.lock().no_kernel.sim.cycles = cycle;
+        if let Some(log_after_cycle) = self.log_after_cycle {
+            if log_after_cycle >= cycle {
+                eprintln!("WARNING: log after {log_after_cycle} cycles but simulation ended after {cycle} cycles");
+            }
+        }
+
         log::info!("exit after {cycle} cycles");
         Ok(())
     }

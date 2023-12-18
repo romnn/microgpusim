@@ -114,6 +114,7 @@ fn get_box_allocations(commands: &[trace_model::Command]) -> eyre::Result<Alloca
             allocation_name,
             device_ptr,
             num_bytes,
+            ..
         }) = cmd
         {
             let alloc_range = *device_ptr..(*device_ptr + num_bytes);

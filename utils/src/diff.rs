@@ -482,6 +482,7 @@ pub use assert_eq;
 #[macro_export]
 macro_rules! __diff {
     (
+        // $msg:expr,
         $left_label:expr,
         $left:expr,
         $right_label:expr,
@@ -513,7 +514,7 @@ macro_rules! __diff {
                     left_label.as_str(),
                     right_label.as_str(),
                 );
-                println!("{}", diff);
+                diff.to_string()
             }
         }
     }};
@@ -529,7 +530,9 @@ macro_rules! diff {
     ) => {{
         let left_label = stringify!($left_label);
         let right_label = stringify!($right_label);
-        $crate::__diff!(left_label, $left, right_label, $right);
+        // let label = format_args!("{}: ", format_args!($($arg)*));
+        let diff = $crate::__diff!(left_label, $left, right_label, $right);
+        println!("{}", diff);
     }};
     (
         $left_label:expr,
@@ -537,8 +540,52 @@ macro_rules! diff {
         $right_label:expr,
         $right:expr $(,)?
     ) => {{
-        $crate::__diff!($left_label, $left, $right_label, $right);
+        let diff = $crate::__diff!($left_label, $left, $right_label, $right);
+        println!("{}", diff);
     }};
+    (
+        $left_label:ident:
+        $left:expr,
+        $right_label:ident:
+        $right:expr,
+        $($arg:tt)*
+    ) => {{
+        let left_label = stringify!($left_label);
+        let right_label = stringify!($right_label);
+        // let label = format_args!("{}: ", format_args!($($arg)*));
+        let label = format_args!($($arg)*);
+        let diff = $crate::__diff!(left_label, $left, right_label, $right);
+        println!("{}: {}", label, diff);
+    }};
+    (
+        $left_label:expr,
+        $left:expr,
+        $right_label:expr,
+        $right:expr,
+        $($arg:tt)*
+    ) => {{
+        let label = format_args!($($arg)*);
+        let diff = $crate::__diff!($left_label, $left, $right_label, $right);
+        println!("{}: {}", label, diff);
+    }};
+    // (
+    //     $left_label:ident:
+    //     $left:expr,
+    //     $right_label:ident:
+    //     $right:expr $(,)?
+    // ) => {{
+    //     let left_label = stringify!($left_label);
+    //     let right_label = stringify!($right_label);
+    //     $crate::__diff!(None, left_label, $left, right_label, $right);
+    // }};
+    // (
+    //     $left_label:expr,
+    //     $left:expr,
+    //     $right_label:expr,
+    //     $right:expr $(,)?
+    // ) => {{
+    //     $crate::__diff!(None, $left_label, $left, $right_label, $right);
+    // }};
 }
 
 pub use diff;

@@ -16,6 +16,7 @@ ndarray = { version = "0", features = ["serde"] }
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 strum = { version = "0", features = ["derive"] }
+itertools = "0"
 
 utils = { path = "../utils" }
 

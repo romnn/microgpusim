@@ -47,7 +47,8 @@ config:
       threads: [4, 8]
       run_ahead: [5, 10]
       num_clusters: [28, 56]
-      cores_per_cluster: [1, 4, 8]
+      # cores_per_cluster: [1, 4, 8]
+      cores_per_cluster: [1, 8]
       memory_only: [false, true]
       exclude:
         - mode: serial
@@ -56,9 +57,9 @@ config:
           run_ahead: 10
         - mode: deterministic
           run_ahead: 10
-        - num_clusters: 40
-          cores_per_cluster: 4
-        - num_clusters: 40
+        - num_clusters: 56
+          cores_per_cluster: 8
+        - num_clusters: 56
           cores_per_cluster: 8
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
@@ -107,8 +108,8 @@ benchmarks:
       n: [32, 64, 128]
       p: [32, 64, 128]
       include:
-        - { m: 512, n: 32, p: 512, dtype: 32 } # included because of size (parallel speedup)
-        - { m: 128, n: 512, p: 128, dtype: 32 } # included because large n leading to lower L1 hit rate
+        - {m: 512, n: 32, p: 512, dtype: 32} # included because of size (parallel speedup)
+        - {m: 128, n: 512, p: 128, dtype: 32,} # included because large n leading to lower L1 hit rate
         # - { m: 32, n: 1024, p: 32, dtype: 32 }
       #   - { m: 32, n: 2048, p: 32, dtype: 32 }
       #   - { m: 32, n: 4096, p: 32, dtype: 32 }

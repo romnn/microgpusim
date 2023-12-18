@@ -21,7 +21,6 @@ fn interleaved_serial_cycle<I, C>(
     sim_orders: &Arc<Vec<Arc<Mutex<VecDeque<usize>>>>>,
     mem_ports: &Arc<Vec<Vec<Arc<Mutex<crate::core::CoreMemoryConnection<C>>>>>>,
     interconn: &Arc<I>,
-    // clusters: &Vec<Arc<RwLock<crate::Cluster<I>>>>,
     clusters: &Vec<Arc<crate::Cluster<I>>>,
     config: &config::GPU,
 ) where
@@ -76,7 +75,6 @@ fn new_serial_cycle<I>(
     mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
     mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
     interconn: &Arc<I>,
-    // clusters: &Arc<Vec<Arc<RwLock<crate::Cluster<I>>>>>,
     clusters: &Arc<Vec<Arc<crate::Cluster<I>>>>,
     cores: &Arc<Vec<Vec<Arc<RwLock<crate::Core<I>>>>>>,
     last_cluster_issue: &Arc<Mutex<usize>>,
@@ -134,7 +132,7 @@ fn new_serial_cycle<I>(
         // same as full with parameter overload
         if mem_sub
             .interconn_to_l2_queue
-            .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+            .can_fit(mem_sub_partition::NUM_SECTORS as usize)
         {
             if let Some(packet) = interconn.pop(device) {
                 log::debug!(
@@ -172,6 +170,8 @@ where
         &mut self,
         mut run_ahead: usize,
     ) -> eyre::Result<()> {
+        crate::TIMINGS.lock().clear();
+
         run_ahead = run_ahead.max(1);
 
         let interleave_serial = true;
@@ -197,14 +197,12 @@ where
                 .clusters
                 .iter()
                 .map(|cluster| Arc::clone(&cluster.core_sim_order))
-                // .map(|cluster| Arc::clone(&cluster.try_read().core_sim_order))
                 .collect();
             let mem_ports: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
                 .map(|cluster| {
                     cluster
-                        // .try_read()
                         .cores
                         .iter()
                         .map(|core| Arc::clone(&core.try_read().mem_port))
@@ -214,7 +212,6 @@ where
             let cores: Vec<Vec<Arc<_>>> = self
                 .clusters
                 .iter()
-                // .map(|cluster| cluster.try_read().cores.clone())
                 .map(|cluster| cluster.cores.clone())
                 .collect();
 
@@ -222,7 +219,6 @@ where
                 self.clusters
                     .iter()
                     .map(|cluster| {
-                        // let num_cores = cluster.try_read().cores.len();
                         let num_cores = cluster.cores.len();
                         vec![0; num_cores]
                     })
@@ -230,7 +226,6 @@ where
             ));
 
             let num_clusters = self.clusters.len();
-            // let num_cores_per_cluster = self.clusters[0].try_read().cores.len();
             let num_cores_per_cluster = self.clusters[0].cores.len();
             let shape = (run_ahead, num_clusters, num_cores_per_cluster);
             let progress = Array3::<Option<bool>>::from_elem(shape, None);
@@ -271,11 +266,13 @@ where
                 cycle = self.process_commands(cycle);
                 self.launch_kernels(cycle);
 
+                let start_cycle = cycle;
+
                 let mut finished_kernel = None;
                 loop {
                     log::info!("======== cycle {cycle} ========");
                     log::info!("");
-                    if cycle % log_every == 0 && cycle > 0 {
+                    if (cycle - start_cycle) % log_every == 0 && (cycle - start_cycle) > 0 {
                         eprintln!(
                             "cycle {cycle:<10} ({:>8.4} cycle/sec)",
                             log_every as f64 / last_time.elapsed().as_secs_f64()
@@ -283,7 +280,8 @@ where
                         last_time = std::time::Instant::now()
                     }
 
-                    if self.reached_limit(cycle) || !self.active() {
+                    // if self.reached_limit(cycle) || !self.active() {
+                    if self.reached_limit(cycle) {
                         break;
                     }
 
@@ -723,6 +721,14 @@ where
                 );
             }
 
+            self.stats.lock().no_kernel.sim.cycles = cycle;
+
+            if let Some(log_after_cycle) = self.log_after_cycle {
+                if log_after_cycle >= cycle {
+                    eprintln!("WARNING: log after {log_after_cycle} cycles but simulation ended after {cycle} cycles");
+                }
+            }
+
             log::info!("exit after {cycle} cycles");
             dbg!(&cycle);
             Ok::<_, eyre::Report>(())
@@ -786,7 +792,7 @@ where
 
             if mem_sub
                 .interconn_to_l2_queue
-                .can_fit(mem_sub_partition::SECTOR_CHUNK_SIZE as usize)
+                .can_fit(mem_sub_partition::NUM_SECTORS as usize)
             {
                 if let Some(packet) = self.interconn.pop(device) {
                     log::debug!(

@@ -1,5 +1,5 @@
 use super::{address, cache, mem_fetch};
-use crate::{config, mem_sub_partition::SECTOR_CHUNK_SIZE};
+use crate::{config, mem_sub_partition::NUM_SECTORS};
 use color_eyre::eyre;
 
 use std::collections::HashMap;
@@ -222,7 +222,7 @@ where
         let mut flushed = 0;
         for line in &mut self.lines {
             if line.is_modified() {
-                for sector in 0..SECTOR_CHUNK_SIZE {
+                for sector in 0..NUM_SECTORS {
                     // let mut sector_mask = mem_fetch::SectorMask::ZERO;
                     // sector_mask.set(i as usize, true);
                     line.set_status(cache::block::Status::INVALID, sector);
@@ -239,7 +239,7 @@ where
         log::trace!("tag_array::invalidate()");
         eprintln!("tag_array::invalidate()");
         for line in &mut self.lines {
-            for sector in 0..SECTOR_CHUNK_SIZE {
+            for sector in 0..NUM_SECTORS {
                 // let mut sector_mask = mem_fetch::SectorMask::ZERO;
                 // sector_mask.set(i as usize, true);
                 line.set_status(cache::block::Status::INVALID, sector);
@@ -552,7 +552,7 @@ where
         }
 
         for (line_id, line) in self.lines.iter().enumerate() {
-            for sector in 0..SECTOR_CHUNK_SIZE {
+            for sector in 0..NUM_SECTORS {
                 let row = CsvRow {
                     line_id,
                     sector,

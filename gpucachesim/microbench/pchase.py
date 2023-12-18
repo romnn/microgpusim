@@ -453,7 +453,7 @@ def pchase(
     if isinstance(log_every, int):
         env.update({"LOG_EVERY": str(log_every)})
 
-    if gpu is None:
+    if sim or (gpu is None):
         if executable is None:
             executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
         elif not os.path.isabs(executable):
@@ -788,7 +788,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     match (gpu, mem.lower()):
         case (_, "l2"):
             stride_bytes = 128
-            step_size_bytes = 256 * KB
+            step_size_bytes = 128 * KB
         case (_, "l1data"):
             stride_bytes = 128
             step_size_bytes = 4 * KB
@@ -798,6 +798,15 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     start_cache_size_bytes = step_size_bytes
     end_cache_size_bytes = int(
         utils.round_down_to_multiple_of(1.5 * known_l2_cache_size_bytes, stride_bytes)
+    )
+
+    print(
+        "range: {:>10} to {:<10} step size={} steps={}".format(
+            humanize.naturalsize(start_cache_size_bytes, binary=True),
+            humanize.naturalsize(end_cache_size_bytes, binary=True),
+            step_size_bytes,
+            (end_cache_size_bytes - start_cache_size_bytes) / step_size_bytes,
+        )
     )
 
     assert start_cache_size_bytes % stride_bytes == 0
@@ -909,7 +918,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(0.7 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
@@ -968,7 +977,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     # min_x = utils.round_down_to_multiple_of(plot_df["n"].min(), 128)
     # max_x = utils.round_up_to_multiple_of(plot_df["n"].max(), 128)
 
-    num_ticks = 16
+    num_ticks = 10
     tick_step_size_bytes = utils.round_up_to_next_power_of_two(
         plot_df["n"].max() / num_ticks
     )
@@ -999,6 +1008,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
 
 
 def compute_rounds_old(df):
@@ -1484,6 +1494,7 @@ def find_cache_set_mapping_pchase(
     filename.parent.mkdir(parents=True, exist_ok=True)
     print("saved plot to {}".format(filename))
     fig.savefig(filename)
+    print("saved to ", filename)
 
     # remove first round of loading
     combined = combined[combined["k"] >= known_cache_size_bytes / stride_bytes]
@@ -1859,6 +1870,7 @@ def find_cache_set_mapping(
     if known_num_sets is None:
         known_num_sets = get_known_cache_num_sets(mem=mem, gpu=gpu)
 
+    sector_size_bytes = 32
     derived_num_ways = known_cache_size_bytes // (
         known_cache_line_bytes * known_num_sets
     )
@@ -2207,8 +2219,8 @@ def find_cache_set_mapping(
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
-    print("saved plot to {}".format(filename))
     fig.savefig(filename)
+    print("saved to ", filename)
 
     # return
 
@@ -2238,8 +2250,8 @@ def find_cache_set_mapping(
                 "overflow_{}".format(int(overflow_index))
             ).with_suffix(".pdf")
             filename.parent.mkdir(parents=True, exist_ok=True)
-            print("saved plot to {}".format(filename))
             fig.savefig(filename)
+            print("saved to ", filename)
 
     if False:
         # group by first miss in round 1 and 2
@@ -2290,6 +2302,7 @@ def find_cache_set_mapping(
         filename = PLOT_DIR / "set_freqs.pdf"
         filename.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(filename)
+        print("saved to ", filename)
 
         total_sets_df["prob"] = total_sets_df["count"] / len(total_sets_df)
         print(total_sets_df)
@@ -2382,181 +2395,236 @@ def find_cache_set_mapping(
             color("have {} set(s), try increasing N".format(len(total_sets)), fg="red")
         )
         return
-
+    
     num_sets = len(total_sets)
-    if num_sets > 1:
-        print(num_sets)
-        num_sets_log2 = int(np.log2(num_sets))
+    # ass
+    # if num_sets > 1:
+    print(num_sets)
+    num_sets_log2 = int(np.log2(num_sets))
+    print(
+        color(
+            "total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2),
+            fg="green" if num_sets == known_num_sets else "red",
+        )
+    )
+
+    total_sets = sorted(
+        [(list(s), occurences) for s, occurences in total_sets.items()]
+    )
+
+    for set_id, (set_addresses, occurences) in enumerate(total_sets):
+        combined.loc[combined["virt_addr"].isin(set_addresses), "set"] = set_id
+
+    expanded_sets = []
+    for set_id, (set_addresses, occurences) in enumerate(total_sets):
+        set_addresses = [addr - base_addr for addr in set_addresses]
         print(
-            color(
-                "total sets={:<2} ({:<2} bits)".format(num_sets, num_sets_log2),
-                fg="green" if num_sets == known_num_sets else "red",
+            "===> cache set {:>3}: {:>4} addresses ( observed {:>3}x )\n{}".format(
+                set_id, len(set_addresses), occurences, set_addresses
             )
         )
 
-        total_sets = sorted(
-            [(list(s), occurences) for s, occurences in total_sets.items()]
-        )
-
-        expanded_sets = []
-        for set_id, (set_addresses, occurences) in enumerate(total_sets):
-            set_addresses = [addr - base_addr for addr in set_addresses]
-            print(
-                "===> cache set {:>3}: {:>4} addresses ( observed {:>3}x )\n{}".format(
-                    set_id, len(set_addresses), occurences, set_addresses
-                )
+        found = False
+        for si in range(len(expanded_sets)):
+            intersection_size = len(
+                expanded_sets[si].intersection(set(set_addresses))
             )
+            union_size = len(expanded_sets[si].union(set(set_addresses)))
+            # intersects = intersection_size / union_size > 0.8
+            # intersects = len(set(set_addresses)) - intersection_size <= 4
+            intersects = (
+                union_size / intersection_size > 0.5
+                if intersection_size > 0
+                else False
+            )
+            if intersects:
+                expanded_sets[si] = expanded_sets[si].union(set(set_addresses))
+                found = True
+                break
+        if not found:
+            expanded_sets.append(set(set_addresses))
 
-            found = False
-            for si in range(len(expanded_sets)):
-                intersection_size = len(
-                    expanded_sets[si].intersection(set(set_addresses))
-                )
-                union_size = len(expanded_sets[si].union(set(set_addresses)))
-                # intersects = intersection_size / union_size > 0.8
-                # intersects = len(set(set_addresses)) - intersection_size <= 4
-                intersects = (
-                    union_size / intersection_size > 0.5
-                    if intersection_size > 0
-                    else False
-                )
-                if intersects:
-                    expanded_sets[si] = expanded_sets[si].union(set(set_addresses))
-                    found = True
-                    break
-            if not found:
-                expanded_sets.append(set(set_addresses))
+    print("expanded sets: {}".format(len(expanded_sets)))
+    expanded_sets = sorted([sorted(list(s)) for s in expanded_sets])
+    for si, s in enumerate(expanded_sets):
+        print("===> expanded set {}:\n{}".format(si, s))
 
-        print("expanded sets: {}".format(len(expanded_sets)))
-        expanded_sets = sorted([sorted(list(s)) for s in expanded_sets])
-        for si, s in enumerate(expanded_sets):
-            print("===> expanded set {}:\n{}".format(si, s))
+    largest_set = np.amax([len(s) for s, _ in total_sets])
+    print("largest set={}".format(largest_set))
 
-        largest_set = np.amax([len(s) for s, _ in total_sets])
-        print("largest set={}".format(largest_set))
+    # # print(combined["latency"].value_counts())
+    # # print(combined["hit_cluster"].unique())
+    # # min_latency = combined["latency"].min()
+    # # max_latency = combined["latency"].max()
+    #
+    # mean_cluster_latency = combined.groupby("hit_cluster")["latency"].mean()
+    # min_cluster_latency = combined.groupby("hit_cluster")["latency"].min()
+    # max_cluster_latency = combined.groupby("hit_cluster")["latency"].max()
+    # max_latency = mean_cluster_latency[1] + 100
+    # min_latency = np.max([0, mean_cluster_latency[0] - 100])
+    #
+    # ylabel = r"overflow index"
+    # xlabel = r"cache access process"
+    # fontsize = plot.FONT_SIZE_PT
+    # font_family = "Helvetica"
+    #
+    # plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
+    #
+    # fig = plt.figure(
+    #     figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+    #     layout="constrained",
+    # )
+    # ax = plt.axes()
+    #
+    # white = (255,255,255)
+    # orange = (255,140,0)
+    # red = (255,0,0)
+    #
+    # def rgb_to_vec(color: typing.Tuple[int, int, int], alpha:float = 1.0):
+    #     return np.array([color[0]/255.0, color[1]/255.0, color[2]/255.0, alpha])
+    #
+    # def gradient(start: typing.Tuple[int, int, int], end: typing.Tuple[int, int, int], n=256):
+    #     vals = np.ones((n, 4))
+    #     vals[:, 0] = np.linspace(start[0]/255.0, end[0]/255.0, n)
+    #     vals[:, 1] = np.linspace(start[1]/255.0, end[1]/255.0, n)
+    #     vals[:, 2] = np.linspace(start[2]/255.0, end[2]/255.0,  n)
+    #     return ListedColormap(vals)
+    #
+    # white_to_orange = gradient(start=white, end=orange)
+    # orange_to_red = gradient(start=orange, end=red)
+    #
+    # latency_range = max_latency - min_latency
+    # mean_hit_cluster_latency = mean_cluster_latency[0]
+    # mean_miss_cluster_latency = mean_cluster_latency[1]
+    # assert min_latency <= mean_hit_cluster_latency <= mean_miss_cluster_latency <= max_latency
+    #
+    # tol = 0.2
+    # start = min_latency
+    # hit_end = min_cluster_latency[1] - tol * abs(min_cluster_latency[1] - max_cluster_latency[0])
+    # # hit_end = mean_hit_cluster_latency + tol * (mean_miss_cluster_latency - mean_hit_cluster_latency)
+    # # miss_end = mean_miss_cluster_latency + tol * (max_latency - mean_miss_cluster_latency)
+    # miss_end = np.min([mean_cluster_latency[1] + 100, max_latency])
+    # end = miss_end
+    #
+    # points = [start, hit_end, miss_end, end]
+    # widths = [points[i+1] - points[i] for i in range(len(points) - 1)]
+    #
+    # assert np.sum(widths) == latency_range
+    #
+    # latency_cmap = np.vstack([
+    #     np.repeat(rgb_to_vec(white).reshape(1, 4), repeats=int(np.round(widths[0])), axis=0),
+    #     white_to_orange(np.linspace(0, 1, int(np.round(0.5 * widths[1])))),
+    #     orange_to_red(np.linspace(0, 1, int(np.round(0.5 * widths[1])))),
+    #     np.repeat(rgb_to_vec(red).reshape(1, 4), repeats=int(np.round(widths[2])), axis=0),
+    # ])
+    #
+    # assert np.allclose(len(latency_cmap), int(np.round(latency_range)), atol=2)
+    # latency_cmap = ListedColormap(latency_cmap)
+    #
+    # if False:
+    #     # c = ax.pcolormesh(x, y, z, cmap='RdBu', vmin=z_min, vmax=z_max)
+    #     c = ax.pcolormesh(latencies, cmap='RdBu')
+    #     # ax.set_title('pcolormesh')
+    #     # set the limits of the plot to the limits of the data
+    #     # ax.axis([x.min(), x.max(), y.min(), y.max()])
+    #     fig.colorbar(c, ax=ax)
+    # else:
+    #     c = plt.imshow(latencies, cmap=latency_cmap, vmin=min_latency, vmax=max_latency,
+    #                    interpolation='nearest',
+    #                    origin='upper',
+    #                    aspect='auto',
+    #                    # aspect="equal",
+    #     )
+    #     fig.colorbar(c, ax=ax)
+    #
+    # if False:
+    #     # plot all hit locations
+    #     print(all_hits_indices)
+    #     print(len(all_hits_indices))
+    #     for hit_index in all_hits_indices:
+    #         ax.axvline(
+    #             x=hit_index,
+    #             color="black", # plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
+    #             linestyle="-",
+    #             linewidth=1,
+    #             # label=r"L1 hit",
+    #         )
+    #
+    # ax.set_ylabel(ylabel)
+    # ax.set_xlabel(xlabel)
+    # # xticks = np.arange(min_x, max_x, step=256 * KB)
+    # # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    # # ax.set_xticks(xticks, xticklabels, rotation=45)
+    # # ax.set_xlim(min_x, max_x)
+    # # ax.set_ylim(0, 100.0)
+    # # ax.legend()
 
-        # # print(combined["latency"].value_counts())
-        # # print(combined["hit_cluster"].unique())
-        # # min_latency = combined["latency"].min()
-        # # max_latency = combined["latency"].max()
-        #
-        # mean_cluster_latency = combined.groupby("hit_cluster")["latency"].mean()
-        # min_cluster_latency = combined.groupby("hit_cluster")["latency"].min()
-        # max_cluster_latency = combined.groupby("hit_cluster")["latency"].max()
-        # max_latency = mean_cluster_latency[1] + 100
-        # min_latency = np.max([0, mean_cluster_latency[0] - 100])
-        #
-        # ylabel = r"overflow index"
-        # xlabel = r"cache access process"
-        # fontsize = plot.FONT_SIZE_PT
-        # font_family = "Helvetica"
-        #
-        # plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
-        #
-        # fig = plt.figure(
-        #     figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
-        #     layout="constrained",
-        # )
-        # ax = plt.axes()
-        #
-        # white = (255,255,255)
-        # orange = (255,140,0)
-        # red = (255,0,0)
-        #
-        # def rgb_to_vec(color: typing.Tuple[int, int, int], alpha:float = 1.0):
-        #     return np.array([color[0]/255.0, color[1]/255.0, color[2]/255.0, alpha])
-        #
-        # def gradient(start: typing.Tuple[int, int, int], end: typing.Tuple[int, int, int], n=256):
-        #     vals = np.ones((n, 4))
-        #     vals[:, 0] = np.linspace(start[0]/255.0, end[0]/255.0, n)
-        #     vals[:, 1] = np.linspace(start[1]/255.0, end[1]/255.0, n)
-        #     vals[:, 2] = np.linspace(start[2]/255.0, end[2]/255.0,  n)
-        #     return ListedColormap(vals)
-        #
-        # white_to_orange = gradient(start=white, end=orange)
-        # orange_to_red = gradient(start=orange, end=red)
-        #
-        # latency_range = max_latency - min_latency
-        # mean_hit_cluster_latency = mean_cluster_latency[0]
-        # mean_miss_cluster_latency = mean_cluster_latency[1]
-        # assert min_latency <= mean_hit_cluster_latency <= mean_miss_cluster_latency <= max_latency
-        #
-        # tol = 0.2
-        # start = min_latency
-        # hit_end = min_cluster_latency[1] - tol * abs(min_cluster_latency[1] - max_cluster_latency[0])
-        # # hit_end = mean_hit_cluster_latency + tol * (mean_miss_cluster_latency - mean_hit_cluster_latency)
-        # # miss_end = mean_miss_cluster_latency + tol * (max_latency - mean_miss_cluster_latency)
-        # miss_end = np.min([mean_cluster_latency[1] + 100, max_latency])
-        # end = miss_end
-        #
-        # points = [start, hit_end, miss_end, end]
-        # widths = [points[i+1] - points[i] for i in range(len(points) - 1)]
-        #
-        # assert np.sum(widths) == latency_range
-        #
-        # latency_cmap = np.vstack([
-        #     np.repeat(rgb_to_vec(white).reshape(1, 4), repeats=int(np.round(widths[0])), axis=0),
-        #     white_to_orange(np.linspace(0, 1, int(np.round(0.5 * widths[1])))),
-        #     orange_to_red(np.linspace(0, 1, int(np.round(0.5 * widths[1])))),
-        #     np.repeat(rgb_to_vec(red).reshape(1, 4), repeats=int(np.round(widths[2])), axis=0),
-        # ])
-        #
-        # assert np.allclose(len(latency_cmap), int(np.round(latency_range)), atol=2)
-        # latency_cmap = ListedColormap(latency_cmap)
-        #
-        # if False:
-        #     # c = ax.pcolormesh(x, y, z, cmap='RdBu', vmin=z_min, vmax=z_max)
-        #     c = ax.pcolormesh(latencies, cmap='RdBu')
-        #     # ax.set_title('pcolormesh')
-        #     # set the limits of the plot to the limits of the data
-        #     # ax.axis([x.min(), x.max(), y.min(), y.max()])
-        #     fig.colorbar(c, ax=ax)
-        # else:
-        #     c = plt.imshow(latencies, cmap=latency_cmap, vmin=min_latency, vmax=max_latency,
-        #                    interpolation='nearest',
-        #                    origin='upper',
-        #                    aspect='auto',
-        #                    # aspect="equal",
-        #     )
-        #     fig.colorbar(c, ax=ax)
-        #
-        # if False:
-        #     # plot all hit locations
-        #     print(all_hits_indices)
-        #     print(len(all_hits_indices))
-        #     for hit_index in all_hits_indices:
-        #         ax.axvline(
-        #             x=hit_index,
-        #             color="black", # plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
-        #             linestyle="-",
-        #             linewidth=1,
-        #             # label=r"L1 hit",
-        #         )
-        #
-        # ax.set_ylabel(ylabel)
-        # ax.set_xlabel(xlabel)
-        # # xticks = np.arange(min_x, max_x, step=256 * KB)
-        # # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
-        # # ax.set_xticks(xticks, xticklabels, rotation=45)
-        # # ax.set_xlim(min_x, max_x)
-        # # ax.set_ylim(0, 100.0)
-        # # ax.legend()
+    # data = np.array([
+    #     np.pad(s, pad_width=(largest_set - len(s), 0), mode='constant', constant_values=0)
+    #     for s, _ in total_sets
+    # ])
+    # print(data.shape)
+    #
+    # diffs = []
+    # for s1, _ in total_sets:
+    #     for s2, _ in total_sets:
+    #         union = np.union1d(s1, s2)
+    #         intersection = np.intersect1d(s1, s2)
+    #         diffs.append(len(union) - len(intersection))
+    #
+    # diffs = np.array(diffs)
+    # print("pairwise diff: min={} max={} mean={}".format(np.amin(diffs), np.amax(diffs), np.mean(diffs)))
 
-        # data = np.array([
-        #     np.pad(s, pad_width=(largest_set - len(s), 0), mode='constant', constant_values=0)
-        #     for s, _ in total_sets
-        # ])
-        # print(data.shape)
-        #
-        # diffs = []
-        # for s1, _ in total_sets:
-        #     for s2, _ in total_sets:
-        #         union = np.union1d(s1, s2)
-        #         intersection = np.intersect1d(s1, s2)
-        #         diffs.append(len(union) - len(intersection))
-        #
-        # diffs = np.array(diffs)
-        # print("pairwise diff: min={} max={} mean={}".format(np.amin(diffs), np.amax(diffs), np.mean(diffs)))
+
+    # build line table
+    derived_total_cache_lines = known_cache_size_bytes / stride_bytes
+    derived_cache_lines_per_set = int(derived_total_cache_lines // known_num_sets)
+    line_table = pd.DataFrame(
+        np.zeros(shape=(int(derived_cache_lines_per_set), int(known_num_sets))),
+        columns=[f"set {set+1}" for set in range(known_num_sets)],
+    )
+
+    combined = compute_cache_lines(
+        combined,
+        cache_size_bytes=known_cache_size_bytes,
+        sector_size_bytes=sector_size_bytes,
+        cache_line_bytes=known_cache_line_bytes,
+    )
+    # print(combined["cache_line"].unique())
+    # print(combined["set"].unique())
+    # return
+
+    # cache_line_set_mapping = pd.DataFrame(
+    #     np.array(combined["cache_line"].unique()), columns=["cache_line"]
+    # )
+    # # cache_line_set_mapping = combined["cache_line"].unique().to_frame()
+    # # print(cache_line_set_mapping)
+    # cache_line_set_mapping["mapped_set"] = np.nan
+    # cache_line_set_mapping = cache_line_set_mapping.sort_values("cache_line")
+    # cache_line_set_mapping = cache_line_set_mapping.reset_index()
+
+    for set_id, set_df in combined.groupby("set"):
+        cache_lines = set_df["cache_line"]
+        # cache_lines //= known_cache_line_bytes / sector_size_bytes
+        # cache_lines = cache_lines[cache_lines < derived_num_ways]
+
+        # cache_lines = sorted(cache_lines.unique().tolist())
+        print("=== {:<2} === [{: >4}]".format(int(set_id), len(cache_lines)))
+        print(sorted(cache_lines.astype(int).unique().tolist()))
+        # for line in cache_lines.astype(int):
+        #     # way = ((line -1) // 4) % derived_num_ways
+        #     way = line % derived_num_ways
+        #     # print(way, int(mapped_set))
+        #     # line_table.iloc[way, int(mapped_set) - 1] = line
+
+        valid = min(len(cache_lines), derived_cache_lines_per_set)
+        line_table.iloc[0:valid, int(set_id) - 1] = cache_lines.ravel()[:valid]
+
+    print(
+        "CACHE GEOMETRY {} LINE TABLE {} x {} (way x set) for virtual base addr {:02X} ({})".format(
+        humanize.naturalsize(known_cache_line_bytes, binary=True),
+        derived_num_ways, num_sets, base_addr, base_addr))
+    print(line_table)
 
     return
 
@@ -4529,7 +4597,12 @@ def find_cache_sets(
     if gpu == remote.DAS6_GPU.A4000:
         stride_bytes = known_cache_line_bytes
         step_size_bytes = known_cache_line_bytes
-        predicted_num_sets = 32
+        predicted_num_sets = 0
+        start_cache_size_bytes = known_cache_size_bytes - 64 * known_cache_line_bytes
+        end_cache_size_bytes = (
+            known_cache_size_bytes + 256 * known_cache_line_bytes
+        )
+        repetitions = 1
 
     match mem.lower():
         case "l1readonly":
@@ -4666,7 +4739,7 @@ def find_cache_sets(
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(0.7 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
@@ -4675,30 +4748,17 @@ def find_cache_sets(
     # max_x = utils.round_up_to_multiple_of(plot_df["n"].max(), known_cache_line_bytes)
     # print(min_x, max_x)
 
-    num_ticks = 6
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
-    tick_step_size_bytes = utils.round_up_to_next_power_of_two(
-        (max_x - min_x) / num_ticks
-    )
-
-    xticks = np.arange(
-        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
-        max_x,
-        step=tick_step_size_bytes,
-    )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
-    print(xticklabels)
-
     cache_line_boundaries = np.arange(min_x, max_x, step=known_cache_line_bytes)
 
-    for i, cache_line_boundary in enumerate(cache_line_boundaries):
-        ax.axvline(
-            x=cache_line_boundary,
-            color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
-            linestyle="--",
-            label="cache line boundary" if i == 0 else None,
-        )
+    # for i, cache_line_boundary in enumerate(cache_line_boundaries):
+    #     ax.axvline(
+    #         x=cache_line_boundary,
+    #         color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
+    #         linestyle="--",
+    #         label="cache line boundary" if i == 0 else None,
+    #     )
 
     marker_size = 12
     ax.scatter(
@@ -4722,31 +4782,48 @@ def find_cache_sets(
         zorder=1,
     )
 
-    for set_idx in range(derived_num_sets):
-        x = known_cache_size_bytes + (set_idx + 0.5) * known_cache_line_bytes
-        set_mask = (
-            (plot_df["n"] % known_cache_size_bytes) // known_cache_line_bytes
-        ) == set_idx
-        y = plot_df.loc[set_mask, "hit_cluster_agg_miss_rate"].mean() * 100
+    if predicted_num_sets > 0:
+        for set_idx in range(derived_num_sets):
+            x = known_cache_size_bytes + (set_idx + 0.5) * known_cache_line_bytes
+            set_mask = (
+                (plot_df["n"] % known_cache_size_bytes) // known_cache_line_bytes
+            ) == set_idx
+            y = plot_df.loc[set_mask, "hit_cluster_agg_miss_rate"].mean() * 100
 
-        label = r"$S_{{{}}}$".format(set_idx)
-        plt.text(x, 0.9 * y, label, ha="center", va="top")
+            label = r"$S_{{{}}}$".format(set_idx)
+            plt.text(x, 0.9 * y, label, ha="center", va="top")
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
 
     # xticks = np.arange(known_cache_size_bytes, max_x, step=256)
     # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
-    ax.set_xticks(xticks, xticklabels)
+
+    num_ticks = 6
+    tick_step_size_bytes = utils.round_up_to_next_power_of_two(
+        (max_x - min_x) / num_ticks
+    )
+
+    xticks = np.arange(
+        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
+        max_x,
+        step=tick_step_size_bytes,
+    )
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    print(xticklabels)
+    ax.set_xticks(xticks, xticklabels, rotation=30)
     ax.set_xlim(min_x, max_x)
 
     ylim = plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0 + 10.0
     ax.set_ylim(0, np.clip(ylim, 10.0, 110.0))
 
-    ax.legend(loc="upper left")
+    default_legend(ax, stride_bytes=stride_bytes, repetitions=repetitions)
+    # ax.legend(loc="upper left")
+
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
 
 
 @main.command()
@@ -4837,27 +4914,35 @@ def find_cache_line_size(
             step_size_bytes = 32
             stride_bytes = 32
 
-            # start_size_bytes = 3 * MB
-            start_size_bytes = 4 * MB
+            start_size_bytes = 3 * MB
+            # start_size_bytes = 4 * MB
             predicted_num_lines = 2
             end_size_bytes = (
                 start_size_bytes + (predicted_num_lines) * predicted_cache_line_bytes
             )
+            end_size_bytes = 4 * MB
             # predicted_num_lines = 12
             repetitions = 10
 
         case (remote.DAS6_GPU.A4000, "l1data"):
             # start_size_bytes = known_cache_size_bytes - 2 * predicted_cache_line_bytes
-            start_size_bytes = 16 * KB
-            predicted_num_lines = 20
+            # start_size_bytes = 16 * KB
+            start_size_bytes = 8 * KB
+            end_size_bytes = 32 * KB
+            # predicted_num_lines = 20
             # start_size_bytes = 4 * KB
             # end_size_bytes = 16 * KB
-            end_size_bytes = (
-                start_size_bytes
-                + (2 + predicted_num_lines) * predicted_cache_line_bytes
-            )
+            # end_size_bytes = (
+            #     start_size_bytes
+            #     + (2 + predicted_num_lines) * predicted_cache_line_bytes
+            # )
             # predicted_num_lines = 12
             # repetitions = 100
+            stride_bytes = 64
+            stride_bytes = 32
+            step_size_bytes = stride_bytes
+            # repetitions = 1
+            repetitions = 4
         case (remote.DAS5_GPU.TITANXPASCAL, "l2"):
             step_size_bytes = 32
             stride_bytes = 32
@@ -4891,8 +4976,8 @@ def find_cache_line_size(
         )
     )
 
-    assert step_size_bytes % stride_bytes == 0
     assert start_size_bytes % stride_bytes == 0
+    assert end_size_bytes % stride_bytes == 0
     assert step_size_bytes % stride_bytes == 0
 
     cache_file = get_cache_file(prefix="cache_line_size", mem=mem, sim=sim, gpu=gpu)
@@ -4952,8 +5037,8 @@ def find_cache_line_size(
     # combined = combined[combined["round"].isin(full_rounds)]
     # # combined = combined[combined["round"].isin([0, 1])]
 
-    print(combined.head(n=20))
-    return
+    # print(combined.head(n=20))
+    # return
 
     hit_cluster = 1 if mem == "l2" else 0
 
@@ -5011,43 +5096,33 @@ def find_cache_line_size(
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(0.7 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
 
-    num_ticks = 6
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
-    tick_step_size_bytes = utils.round_up_to_next_power_of_two(
-        (max_x - min_x) / num_ticks
-    )
 
-    xticks = np.arange(
-        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
-        max_x,
-        step=tick_step_size_bytes,
-    )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
-    print(xticklabels)
-
+    
     cache_line_boundaries = np.arange(
         utils.round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes),
         utils.round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes),
         step=predicted_cache_line_bytes,
     )
 
-    for i, cache_line_boundary in enumerate(cache_line_boundaries):
-        ax.axvline(
-            x=cache_line_boundary,
-            # color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
-            color="black",
-            alpha=0.2,
-            # linestyle="--",
-            linestyle="-",
-            zorder=2,
-            label="cache line boundary" if i == 0 else None,
-        )
+    if len(cache_line_boundaries) <= 16:
+        for i, cache_line_boundary in enumerate(cache_line_boundaries):
+            ax.axvline(
+                x=cache_line_boundary,
+                # color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
+                color="black",
+                alpha=0.2,
+                # linestyle="--",
+                linestyle="-",
+                zorder=2,
+                label="cache line boundary" if i == 0 else None,
+            )
 
     ax.grid(
         True,
@@ -5089,7 +5164,20 @@ def find_cache_line_size(
     yticks, yticklabels = get_yticks_percent(ymax, num_ticks=5)
     ax.set_yticks(yticks, yticklabels)
 
-    ax.set_xticks(xticks, xticklabels)
+    num_ticks = 6
+    tick_step_size_bytes = utils.round_up_to_next_power_of_two(
+        (max_x - min_x) / num_ticks
+    )
+
+    xticks = np.arange(
+        utils.round_down_to_multiple_of(min_x, tick_step_size_bytes),
+        max_x,
+        step=tick_step_size_bytes,
+    )
+    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    print(xticklabels)
+
+    ax.set_xticks(xticks, xticklabels, rotation=30)
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 1.05 * ymax)
     # ax.set_ylim(0, np.clip(plot_df["miss_rate"].max() * 2 * 100.0, 10.0, 100.0) + 10.0)
@@ -5114,6 +5202,7 @@ def find_cache_line_size(
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
 
 
 def default_legend(ax, stride_bytes=None, repetitions=None, **kwargs):
@@ -5255,8 +5344,9 @@ def latency_n_graph(
         known_cache_size_bytes + (known_cache_sets + 2) * known_cache_line_bytes
     )
 
-    assert step_size_bytes % stride_bytes == 0
     assert start_size_bytes % stride_bytes == 0
+    assert end_size_bytes % stride_bytes == 0
+    assert step_size_bytes % stride_bytes == 0
 
     cache_file = get_cache_file(prefix="latency_n_graph", mem=mem, sim=sim, gpu=gpu)
     if cached and cache_file.is_file():
@@ -5403,6 +5493,7 @@ def latency_n_graph(
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
 
 
 CLUSTERS = ["L1_HIT", "L2_HIT", "L2_MISS", "TLB_MISS"]
@@ -5461,7 +5552,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     print(dict(zip(CLUSTERS, latency_centroids)))
     # print(latency_hist_df)
 
-    ylabel = "count"
+    ylabel = "number of accesses"
     xlabel = "latency (cycles)"
     fontsize = plot.FONT_SIZE_PT
     font_family = "Helvetica"
@@ -5469,7 +5560,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(0.7 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
@@ -5483,7 +5574,8 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         label=get_label(sim=sim, gpu=gpu),
     )
     for label, centroid in zip(
-        ["L1 Hit", "L2 Hit", "L2 Miss", "TLB Miss"], latency_centroids
+        # ["L1 Hit", "L2 Hit", "L2 Miss", "TLB Miss"], latency_centroids
+        ["L1 Hit", "L2 Hit", "L2 Miss"], latency_centroids[:3]
     ):
         centroid_bins = latency_hist_df["bin_start"] <= centroid + 2 * bin_size
         centroid_bins &= centroid - 2 * bin_size <= latency_hist_df["bin_end"]
@@ -5497,73 +5589,160 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.set_ylim(0, latency_hist_df["count"].max() * 1.5)
-    ax.legend()
+    default_legend(ax)
+    # ax.legend()
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
     plt.close(fig)
 
-    # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
-    size_bytes = 10 * MB
-    stride_bytes = 4
-    assert size_bytes % stride_bytes == 0
+    for config in [
+        # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
+        dict(
+            mem="l2", size_bytes = 10 * MB, stride_bytes = 4,
+            step_size_bytes=1, repetitions=1 if sim else 500,
+        ),
+        dict(
+            mem="l1data", size_bytes = 1 * KB, stride_bytes = 4,
+            step_size_bytes=1, repetitions=1 if sim else 500,
+        ),
+    ]: 
+        assert int(config["size_bytes"]) % int(config["stride_bytes"]) == 0
 
-    l2_latency_process, stderr = pchase(
-        mem="l2",
-        start_size_bytes=size_bytes,
-        end_size_bytes=size_bytes,
-        step_size_bytes=1,
-        stride_bytes=stride_bytes,
-        warmup=0,
-        repetitions=10,
-        max_rounds=None,
-        iter_size=64 * 4,
-        sim=sim,
-        gpu=gpu,
-        force=True,
-    )
-    print(stderr)
-    l2_latency_process = l2_latency_process.drop(columns=["r"])
-    l2_latency_process = (
-        l2_latency_process.groupby(["n", "k", "index", "virt_addr"])
-        .median()
-        .reset_index()
-    )
-    print(l2_latency_process)
+        match gpu:
+            # case remote.DAS6_GPU.A4000:
+            #     iter_size=4 * 64
+            case _:
+                iter_size=1 * 64
 
-    ylabel = "latency"
-    xlabel = "k"
+        latency_process, stderr = pchase(
+            mem=config["mem"],
+            start_size_bytes=int(config["size_bytes"]),
+            end_size_bytes=int(config["size_bytes"]),
+            step_size_bytes=int(config["step_size_bytes"]),
+            stride_bytes=int(config["stride_bytes"]),
+            warmup=0,
+            repetitions=int(config["repetitions"]),
+            max_rounds=None,
+            iter_size=iter_size,
+            sim=sim,
+            gpu=gpu,
+            force=True,
+        )
+        print(stderr)
+        latency_process = latency_process.drop(columns=["r"])
+        latency_process = (
+            latency_process.groupby(["n", "k", "index", "virt_addr"])
+            .median()
+            .reset_index()
+        )
+        print(latency_process)
 
-    fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
-        layout="constrained",
-    )
-    ax = plt.axes()
+        _, latency_centroids = predict_is_hit(
+            latency_process["latency"].abs().to_numpy().reshape(-1, 1),
+            num_clusters=4,
+        )
+        
+        match config["mem"].lower():
+            case "l2":
+                ylabel = "L2"
+            case "l1data":
+                ylabel = "L1"
+            case _:
+                raise ValueError("bad memory {}".format(mem))
 
-    marker_size = 12
-    ax.scatter(
-        l2_latency_process["k"],
-        l2_latency_process["latency"],
-        marker_size,
-        color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
-        marker="x",
-        label=get_label(sim=sim, gpu=gpu),
-    )
+        ylabel += " latency (cycles)"
+        xlabel = r"$k$"
+        
+        fig = plt.figure(
+            figsize=(0.8 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+            layout="constrained",
+        )
+        ax = plt.axes()
 
-    ax.grid(
-        True,
-        axis="both",
-        linestyle="-",
-        linewidth=1,
-        color="black",
-        alpha=0.1,
-        zorder=1,
-    )
-    ax.set_yscale("log", base=2)
+        marker_size = 12
+        ax.scatter(
+            latency_process["k"],
+            latency_process["latency"],
+            marker_size,
+            color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
+            marker="x",
+            label=get_label(sim=sim, gpu=gpu),
+        )
 
-    filename = filename.with_stem(filename.stem + "-l2-process")
-    fig.savefig(filename)
-    plt.close(fig)
+        ax.grid(
+            True,
+            axis="both",
+            linestyle="-",
+            linewidth=1,
+            color="black",
+            alpha=0.1,
+            zorder=1,
+        )
+        ymax = latency_process["latency"].max()
+        ax.set_ylim(0, 1.1 * ymax)
+
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel)
+
+        num_ticks = 5
+        tick_step_size = int(np.amax([
+            10.0, utils.round_down_to_multiple_of(np.floor(ymax / num_ticks), 50)
+        ]))
+        yticks = list(np.arange(0, ymax, tick_step_size))
+
+        print("before sort", latency_centroids)
+        latency_centroids = (sorted(
+            list(latency_centroids),
+            key=lambda c: ((latency_process["latency"] - c).abs() < 10).sum(),
+            reverse=True,
+        ))
+        bin_size = 75
+        print("after sort", latency_centroids)
+        latency_centroid_bins = set([
+            utils.round_down_to_multiple_of(c, bin_size) for c in latency_centroids
+        ])
+        print("bins", latency_centroid_bins)
+        unique_latency_centroids = []
+        for c in latency_centroids:
+            bin = utils.round_down_to_multiple_of(c, bin_size)
+            if bin in latency_centroid_bins:
+                unique_latency_centroids.append(c)
+                latency_centroid_bins.remove(bin)
+        # latency_centroids = [
+        #     latency_centroids[c] for c in range(len(latency_centroids))
+        #     if latency_centroids[c]
+        # ]
+        unique_latency_centroids = sorted(unique_latency_centroids)
+        print("unique centroids", unique_latency_centroids)
+
+        # remove overlapping ticks
+        yticks = [
+            tick for tick in yticks
+            if not any([np.abs(tick - c) < bin_size for c in unique_latency_centroids])
+        ]
+        yticks = sorted(yticks + unique_latency_centroids)
+        yticks = np.array(yticks, dtype=int)
+        print("yticks", yticks)
+        ax.set_yticks(yticks)
+
+        default_legend(ax,
+                       stride_bytes=config["stride_bytes"],
+                       repetitions=config["repetitions"])
+        # ax.set_yscale("log", base=2)
+
+        cache_file = get_cache_file(
+            prefix="latency_distribution",
+            mem=config["mem"],
+            sim=sim,
+            gpu=gpu,
+        )
+        filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+        filename = filename.with_stem(filename.stem + "-process")
+        fig.savefig(filename)
+        print("saved to ", filename)
+        plt.close(fig)
 
 
 def get_cache_file(
@@ -5573,8 +5752,9 @@ def get_cache_file(
     if gpu is None:
         cache_file_name = "{}-{}-{}".format(prefix, mem, kind)
     else:
-        cache_file_name = "{}/{}-{}-{}".format(
-            str(gpu.value).replace(" ", "-"), prefix, mem, kind
+        gpu_name = str(gpu.value).replace(" ", "-")
+        cache_file_name = "{}/{}-{}-{}-{}".format(
+            gpu_name, gpu_name, prefix, mem, kind
         )
     if isinstance(compute_capability, int):
         cache_file_name += "-cc{}".format(compute_capability)
@@ -5650,7 +5830,7 @@ def find_cache_size(
         end_size_bytes
         or (
             utils.round_up_to_multiple_of(
-                2 * predicted_cache_size_bytes, multiple_of=step_size_bytes
+                1.5 * predicted_cache_size_bytes, multiple_of=step_size_bytes
             )
         )
     )
@@ -5658,12 +5838,17 @@ def find_cache_size(
     match (gpu, mem.lower()):
         case (remote.DAS6_GPU.A4000, "l1data"):
             # stride_bytes = 128
+            assert predicted_cache_size_bytes == 19 * KB
             end_size_bytes = 128 * KB
+        case (remote.DAS5_GPU.GTX980, "l2"):
+            assert predicted_cache_size_bytes == 2 * MB
+            end_size_bytes = 4 * MB
 
     start_size_bytes = max(0, start_size_bytes)
     end_size_bytes = max(0, end_size_bytes)
 
     assert start_size_bytes % stride_bytes == 0
+    assert end_size_bytes % stride_bytes == 0
     assert step_size_bytes % stride_bytes == 0
 
     print(
@@ -5760,7 +5945,7 @@ def find_cache_size(
     plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
     fig = plt.figure(
-        figsize=(0.5 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
+        figsize=(0.7 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
         layout="constrained",
     )
     ax = plt.axes()
@@ -5831,6 +6016,7 @@ def find_cache_size(
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
+    print("saved to ", filename)
 
 
 @main.command()

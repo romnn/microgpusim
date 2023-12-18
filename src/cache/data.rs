@@ -1,7 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
     address, cache, config, interconn as ic, mcu, mem_fetch,
-    mem_sub_partition::{SECTOR_CHUNK_SIZE, SECTOR_SIZE},
+    mem_sub_partition::{NUM_SECTORS, SECTOR_SIZE},
     mshr::MSHR,
     tag_array,
 };
@@ -34,7 +34,7 @@ pub struct Builder<MC, CC, S> {
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
 pub struct Data<MC, CC, S> {
-    pub inner: cache::base::Base<cache::block::sector::Block<SECTOR_CHUNK_SIZE>, CC, S>,
+    pub inner: cache::base::Base<cache::block::sector::Block<NUM_SECTORS>, CC, S>,
 
     /// Memory controller
     pub mem_controller: MC,
@@ -185,7 +185,7 @@ where
 
     fn update_readable(&mut self, fetch: &mem_fetch::MemFetch, cache_index: usize) {
         let block = self.inner.tag_array.get_block_mut(cache_index);
-        for sector in 0..SECTOR_CHUNK_SIZE as usize {
+        for sector in 0..NUM_SECTORS as usize {
             let sector_mask = &fetch.access.sector_mask;
             if sector_mask[sector] {
                 let dirty_byte_mask = &block.dirty_byte_mask();
@@ -790,8 +790,6 @@ where
         events: &mut Vec<cache::Event>,
         time: u64,
     ) -> cache::RequestStatus {
-        use trace_model::ToBitString;
-
         let super::base::Base {
             ref cache_controller,
             ref cache_config,
@@ -799,7 +797,7 @@ where
         } = self.inner;
 
         debug_assert_eq!(&fetch.access.addr, &addr);
-        debug_assert!(fetch.data_size() <= cache_config.atom_size);
+        debug_assert!(fetch.access_kind().is_inst() || fetch.data_size() <= cache_config.atom_size);
 
         let is_write = fetch.is_write();
         let access_kind = fetch.access_kind();
@@ -834,7 +832,11 @@ where
 
         let mut stats = self.inner.stats.lock();
         let kernel_stats = stats.get_mut(kernel_launch_id);
-        let access_stat = cache::select_status(probe_status, access_status);
+        let access_stat = if self.inner.cache_config.accelsim_compat {
+            cache::select_status_accelsim_compat(probe_status, access_status)
+        } else {
+            cache::select_status(probe_status, access_status)
+        };
         kernel_stats.inc(
             allocation_id,
             access_kind,
@@ -853,6 +855,7 @@ where
                     cache::RequestStatus::RESERVATION_FAIL,
                 )
         {
+            use trace_model::ToBitString;
             let addr = fetch.relative_byte_addr();
             eprintln!(
                 "{:>40}: cycle={:<5} fetch {:<40} inst={:<20} addr={:<5} ({:<4}) size={:<2} sector={} probe status={:<10?} access status={:<10?}",

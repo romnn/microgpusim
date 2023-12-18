@@ -21,7 +21,7 @@ import sys
 import itertools
 
 import gpucachesim.cmd as cmd_utils
-from gpucachesim.benchmarks import REPO_ROOT_DIR
+from gpucachesim import REPO_ROOT_DIR
 
 sys.path.insert(0, str(REPO_ROOT_DIR / "CuAssembler"))
 import CuAsm as asm

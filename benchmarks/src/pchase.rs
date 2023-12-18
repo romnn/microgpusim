@@ -1,7 +1,10 @@
 #![allow(warnings)]
 
-use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
-use gpucachesim::exec::{DevicePtr, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
+use gpucachesim::exec::{
+    alloc,
+    tracegen::{TraceGenerator, Tracer},
+    Kernel, MemorySpace, ThreadBlock, ThreadIndex,
+};
 // use num_traits::{Float, Zero};
 
 use tokio::sync::Mutex;
@@ -19,7 +22,7 @@ pub enum Memory {
 
 /// Fine-grain p-chase kernel.
 pub struct FineGrainPChase<'a> {
-    dev_array: Mutex<DevicePtr<&'a mut Vec<u32>>>,
+    dev_array: Mutex<alloc::DevicePtr<&'a mut Vec<u32>>>,
     size: usize,
     stride: usize,
     warmup_iterations: usize,
@@ -92,7 +95,14 @@ pub async fn pchase(
 
     // allocate memory for each vector on simulated GPU device
     let mut dev_array = tracer
-        .allocate(&mut array, MemorySpace::Global, Some("array"))
+        .allocate(
+            &mut array,
+            Some(alloc::Options {
+                mem_space: MemorySpace::Global,
+                name: Some("array".to_string()),
+                ..alloc::Options::default()
+            }),
+        )
         .await;
 
     if memory == Memory::L2 {

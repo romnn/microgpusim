@@ -111,13 +111,24 @@ impl From<AccessStat> for stats::cache::AccessStat {
 /// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
 /// counted as a `HIT_RESERVED` in the caches.
 // #[inline]
-pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
+pub fn select_status_accelsim_compat(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
     // return access;
     // probe is at sector granularity while access is at line granularity?
     match probe {
         RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
             RequestStatus::HIT_RESERVED
         }
+        RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => RequestStatus::SECTOR_MISS,
+        _ => access,
+    }
+}
+
+pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
+    // probe is at sector granularity while access is at line granularity?
+    match probe {
+        // RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
+        //     RequestStatus::HIT_RESERVED
+        // }
         RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => RequestStatus::SECTOR_MISS,
         _ => access,
     }

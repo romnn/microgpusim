@@ -1,4 +1,4 @@
-use super::alloc::{Allocatable, DevicePtr};
+use super::alloc::{self, Allocatable, DevicePtr};
 use super::cfg::{self, UniqueGraph};
 use super::kernel::{Kernel, ThreadBlock, ThreadIndex};
 use super::model::{self, MemInstruction, ThreadInstruction};
@@ -51,15 +51,16 @@ pub trait TraceGenerator {
         <K as Kernel>::Error: Send;
 
     /// Allocate a variable.
-    async fn allocate<T, S>(
+    async fn allocate<T>(
         self: &Arc<Self>,
         value: T,
-        mem_space: model::MemorySpace,
-        name: Option<S>,
+        options: Option<alloc::Options>,
+        // mem_space: model::MemorySpace,
+        // name: Option<S>,
     ) -> DevicePtr<T>
     where
-        T: Allocatable + Send,
-        S: ToString + Send;
+        T: Allocatable + Send;
+    // S: ToString + Send;
 
     /// Get commands
     async fn commands<'a>(self: &'a Arc<Self>) -> Vec<trace_model::Command>;
@@ -332,19 +333,18 @@ pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
 impl TraceGenerator for Tracer {
     type Error = TraceError;
 
-    async fn allocate<T, S>(
+    async fn allocate<T>(
         self: &Arc<Self>,
         value: T,
-        mem_space: model::MemorySpace,
-        name: Option<S>,
+        options: Option<alloc::Options>,
     ) -> DevicePtr<T>
     where
         T: Allocatable + Send,
-        S: ToString + Send,
     {
+        let options = options.unwrap_or_default();
         let mut offsets_lock = self.offsets.lock().await;
-        let offset = &mut offsets_lock[mem_space as usize];
-        let base_addr = mem_space.base_addr();
+        let offset = &mut offsets_lock[options.mem_space as usize];
+        let base_addr = options.mem_space.base_addr();
         let addr = next_multiple(*offset, 512);
         // cudaDeviceProp::textureAlignment is either 256 or 512, we choose 512
         let num_bytes = value.size() as u64;
@@ -355,15 +355,16 @@ impl TraceGenerator for Tracer {
             .unwrap()
             .push(trace_model::command::Command::MemAlloc(
                 trace_model::command::MemAlloc {
-                    allocation_name: name.as_ref().map(ToString::to_string),
+                    allocation_name: options.name,
                     device_ptr: base_addr + addr,
+                    fill_l2: options.fill_l2,
                     num_bytes,
                 },
             ));
 
         DevicePtr {
             inner: value,
-            mem_space,
+            mem_space: options.mem_space,
             memory: self.clone(),
             offset: base_addr + addr,
             bypass_l1: false,
@@ -826,7 +827,7 @@ pub mod fmt {
 mod tests {
     use super::fmt::{self, SimplifiedTraceInstruction};
     use super::util::mem_inst;
-    use super::{DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
+    use super::{alloc, DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
     use crate::model::MemorySpace;
     use color_eyre::eyre;
     use num_traits::Float;
@@ -1378,13 +1379,34 @@ mod tests {
         }
 
         let dev_a = tracer
-            .allocate(&mut a, MemorySpace::Global, Some("a"))
+            .allocate(
+                &mut a,
+                Some(alloc::Options {
+                    mem_space: MemorySpace::Global,
+                    name: Some("a".to_string()),
+                    ..alloc::Options::default()
+                }),
+            )
             .await;
         let dev_b = tracer
-            .allocate(&mut b, MemorySpace::Global, Some("b"))
+            .allocate(
+                &mut b,
+                Some(alloc::Options {
+                    mem_space: MemorySpace::Global,
+                    name: Some("b".to_string()),
+                    ..alloc::Options::default()
+                }),
+            )
             .await;
         let dev_result = tracer
-            .allocate(&mut result, MemorySpace::Global, Some("result"))
+            .allocate(
+                &mut result,
+                Some(alloc::Options {
+                    mem_space: MemorySpace::Global,
+                    name: Some("result".to_string()),
+                    ..alloc::Options::default()
+                }),
+            )
             .await;
 
         let mut kernel: VecAdd<f32> = VecAdd {

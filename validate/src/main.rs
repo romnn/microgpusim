@@ -10,6 +10,7 @@ use console::{style, Style};
 use futures::stream::{self, StreamExt};
 use itertools::Itertools;
 use std::io::Write;
+use std::time::Duration;
 
 use indicatif::ProgressBar;
 use std::path::PathBuf;
@@ -86,8 +87,6 @@ async fn run_make(
     Ok(start.elapsed())
 }
 
-use std::time::Duration;
-
 async fn run_benchmark(
     command: &Command,
     bench: BenchmarkConfig,
@@ -98,8 +97,11 @@ async fn run_benchmark(
     match command {
         Command::All(ref _opts) => unreachable!(),
         Command::Expand(ref _opts) => {
-            // println!("{:#?}", &bench);
-            Ok(Duration::ZERO)
+            println!("{}", &bench.uid);
+            // println!("{:#?}", &bench.uid);
+            let dur = Duration::from_millis(100);
+            tokio::time::sleep(dur).await;
+            Ok(dur)
         }
         Command::Profile(ref opts) => {
             validate::profile::profile(&bench, options, opts, bar).await
@@ -133,21 +135,22 @@ async fn run_benchmark(
             run_make(&bench, options, bar).await
             // Ok(())
         }
-        Command::Run(ref opts) => unreachable!(),
+        Command::Run(ref _opts) => unreachable!(),
         // run_custom_bench(&bench, options, opts, bar).await
         // Ok(())
         // }
     }
 }
 
+#[allow(dead_code)]
 async fn run_custom_bench(
-    bench: &BenchmarkConfig,
-    options: &Options,
-    run_options: &options::Run,
+    _bench: &BenchmarkConfig,
+    _options: &Options,
+    _run_options: &options::Run,
     _bar: &indicatif::ProgressBar,
 ) -> Result<Duration, validate::RunError> {
     let start = Instant::now();
-    dbg!(run_options);
+    // dbg!(run_options);
     // if let Command::Build(_) = options.command {
     //     if !options.force && bench.executable.is_file() {
     //         return Err(validate::RunError::Skipped);
@@ -213,7 +216,7 @@ fn print_benchmark_result(
     command: &Command,
     bench_config: &BenchmarkConfig,
     result: Result<&Duration, &Error>,
-    approx_elapsed: std::time::Duration,
+    approx_elapsed: Duration,
     bar: &ProgressBar,
     _options: &Options,
 ) {
@@ -323,6 +326,7 @@ fn print_benchmark_result(
         _ => {
             let benchmark_config_id =
                 format!("{}@{:<3}", &bench_config.name, bench_config.input_idx);
+            // dbg!(&benchmark_config_id);
             // bar.println(format!(
             //     "{} {:<20} [ {} ][ {} {} ] {}",
             //     op,
@@ -383,7 +387,7 @@ fn compute_per_command_bench_configs<'a>(
     commands: &[Command],
     options: &'a Options,
 ) -> eyre::Result<Vec<(Command, Vec<&'a BenchmarkConfig>)>> {
-    dbg!(&options.query);
+    // dbg!(&options.query);
     let queries: Vec<validate::benchmark::Input> = options
         .query
         .iter()
@@ -628,7 +632,14 @@ async fn main() -> eyre::Result<()> {
     if options.no_progress {
         bar.set_draw_target(indicatif::ProgressDrawTarget::hidden());
     }
-    bar.enable_steady_tick(std::time::Duration::from_secs_f64(1.0 / 100.0));
+    match options.command {
+        Command::Expand(_) => {
+            // manually draw
+        }
+        _ => {
+            bar.enable_steady_tick(Duration::from_secs_f64(1.0 / 100.0));
+        }
+    }
     bar.set_style(progress::Style::default().into());
 
     let should_exit = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -687,7 +698,7 @@ async fn main() -> eyre::Result<()> {
     }
     // do not finish the bar if a stage failed
     if results.len() == num_bench_configs {
-        bar.finish();
+        // bar.finish();
     }
 
     let _ = utils::fs::rchmod_writable(&materialized.config.results_dir);

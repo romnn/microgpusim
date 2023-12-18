@@ -1,5 +1,6 @@
 import click
 import yaml
+import copy
 import typing
 import numpy as np
 import pandas as pd
@@ -30,6 +31,7 @@ from gpucachesim.benchmarks import (
     Target,
     Benchmarks,
     GPUConfig,
+    DEFAULT_BENCH_FILE,
 )
 
 
@@ -87,10 +89,10 @@ def aggregate_benchmark_results(
     print(kernels)
 
     # only keep gold gpucachesim and other targets
-    no_kernel = selected_df["kernel_name"].isna() ^ (selected_df["kernel_name"] == "")
+    no_kernel = selected_df["kernel_name"].isna() | (selected_df["kernel_name"] == "")
     valid_kernel = selected_df["kernel_name"].isin(kernels)
     selected_df = selected_df[
-        (gold_gpucachesim ^ non_gpucachesim) & (valid_kernel ^ no_kernel)
+        (gold_gpucachesim | non_gpucachesim) & (valid_kernel | no_kernel)
     ]
 
     if isinstance(targets, list):
@@ -139,10 +141,20 @@ def aggregate_benchmark_results(
     return per_config
 
 
+
 def sum_per_config_kernel_metrics(df):
-    input_cols = benchmarks.ALL_BENCHMARK_INPUT_COLS
+    input_cols = copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS)
     input_cols = sorted(list([col for col in input_cols if col in df]))
-    group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + ["input_id", "run"]
+    # we group by target and benchmark
+    group_cols = copy.deepcopy(benchmarks.BENCH_TARGET_INDEX_COLS)
+    # we group by the input id and each run, such that we can compute mean and stddev
+    # because we aggregate statistics for each run 
+    group_cols += ["input_id", "run"]
+    # instead of grouping by kernel launch id, we group by kernel name
+    # this aggregates statistics for repeated launches of the same kernel
+    # also, it does not average statistics when the kernel name is nan
+    group_cols += ["kernel_name", "kernel_name_mangled"]
+    
     # pprint(group_cols)
     # pprint(benchmarks.NON_NUMERIC_COLS)
     # pprint(sorted(list(set(df.columns) - set(benchmarks.NON_NUMERIC_COLS))))
@@ -188,52 +200,62 @@ class ParallelTableRow(typing.NamedTuple):
 
 def build_parallel_table_rows(
     df: pd.DataFrame,
-    num_benchmarks,
-    all_benchmarks,
+    # num_benchmarks,
+    num_bench_configs,
+    # all_benchmarks,
     thousands_round_to=1,
     variable_precision=True,
 ) -> typing.Sequence[ParallelTableRow]:
-    interleave_n = list(itertools.product([False, True], [5, 10]))
+    # interleave_n = list(itertools.product([False, True], [5, 10]))
+    run_ahead_values = [5, 10]
     table_rows: typing.Sequence[ParallelTableRow] = []
+
+    assert num_bench_configs > 0
+    multiple_bench_configs = num_bench_configs > 1
 
     for threads in [4, 8]:
         threads_mask = df["input_threads_parallel"] == threads
         det_mask = df["input_mode_parallel"] == "deterministic"
-        nondet_no_interleave_mask = df["input_mode_parallel"] == "nondeterministic"
-        nondet_interleave_mask = (
-            df["input_mode_parallel"] == "nondeterministic_interleave"
-        )
+        nondet_mask = df["input_mode_parallel"] == "nondeterministic"
+        # nondet_no_interleave_mask = df["input_mode_parallel"] == "nondeterministic"
+        # nondet_interleave_mask = (
+        #     df["input_mode_parallel"] == "nondeterministic_interleave"
+        # )
         # print([m.sum() for m in [
         #     mask, threads_mask, det_mask, nondet_no_interleave_mask, nondet_interleave_mask
         # ]])
 
         det = df[threads_mask & det_mask]
-        if False:
-            print(
-                det[
-                    # bench_input_cols
-                    +[
-                        "input_threads_parallel",
-                        "exec_time_sec_parallel",
-                        "input_id_parallel",
-                        "input_id_serial",
-                        # "dram_reads_serial",
-                        # "dram_reads_parallel",
-                        # "dram_reads_rel_err",
-                        "dram_writes_serial",
-                        "dram_writes_parallel",
-                        "dram_writes_rel_err",
-                    ]
-                    + different_cols(det)
-                ]
-            )
+        # if False:
+        #     print(
+        #         det[
+        #             # bench_input_cols
+        #             +[
+        #                 "input_threads_parallel",
+        #                 "exec_time_sec_parallel",
+        #                 "input_id_parallel",
+        #                 "input_id_serial",
+        #                 # "dram_reads_serial",
+        #                 # "dram_reads_parallel",
+        #                 # "dram_reads_rel_err",
+        #                 "dram_writes_serial",
+        #                 "dram_writes_parallel",
+        #                 "dram_writes_rel_err",
+        #             ]
+        #             + different_cols(det)
+        #         ]
+        #     )
         print("===")
-        nondet_no_interleave = df[threads_mask & nondet_no_interleave_mask]
-        nondet_interleave = df[threads_mask & nondet_interleave_mask]
+        all_nondet = df[threads_mask & nondet_mask]
+        # nondet_no_interleave = df[threads_mask & nondet_no_interleave_mask]
+        # nondet_interleave = df[threads_mask & nondet_interleave_mask]
 
-        assert len(det) == num_benchmarks
-        assert len(nondet_no_interleave) == 2 * num_benchmarks
-        assert len(nondet_interleave) == 2 * num_benchmarks
+        print("num benchmark configs={}".format(num_bench_configs))
+        # print(det)
+        assert len(det) == num_bench_configs
+        assert len(all_nondet) == len(run_ahead_values) * num_bench_configs
+        # assert len(nondet_no_interleave) == 2 * num_bench_configs
+        # assert len(nondet_interleave) == 2 * num_bench_configs
         # assert (
         #     len(
         #         df[[
@@ -246,18 +268,39 @@ def build_parallel_table_rows(
         # )
 
         # exec time (speedup)
-        serial_exec_time = df.loc[threads_mask, "exec_time_sec_serial"].values[0]
-        det_exec_time = det["exec_time_sec_parallel"].values[0]
-        det_speedup = det["exec_time_sec_speedup"].values[0]
-        nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        serial_exec_time = df.loc[threads_mask, "exec_time_sec_serial"].mean()
+        det_exec_time = det["exec_time_sec_parallel"].mean()
+        det_speedup = det["exec_time_sec_speedup"].mean()
+        if multiple_bench_configs:
+            preview_cols = list(
+                benchmarks.BENCH_TARGET_INDEX_COLS
+                + benchmarks.INDEX_COLS
+                + [c for c in benchmarks.SIMULATE_INPUT_COLS]
+                + [c + "_parallel" for c in benchmarks.SIMULATE_INPUT_COLS]
+                + list(benchmarks.ALL_BENCHMARK_INPUT_COLS))
+            preview_cols = [col for col in preview_cols if col in df]
 
-            nondet_exec_time = nondet["exec_time_sec_parallel"].values[0]
-            nondet_speedup = nondet["exec_time_sec_speedup"].values[0]
-            if all_benchmarks:
+            print("det shape", det.shape)
+            print("det", det[preview_cols][:8].T)
+
+            # make sure we aggregate a single functional config only
+            assert det["input_cores_per_cluster"].nunique() == 1
+            assert det["input_num_clusters"].nunique() == 1
+            assert det["input_memory_only"].nunique() == 1
+
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            # print("run ahead={}".format(run_ahead))
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # print(nondet.T)
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
+
+            nondet_exec_time = nondet["exec_time_sec_parallel"].mean()
+            nondet_speedup = nondet["exec_time_sec_speedup"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         nondet_speedup,
@@ -288,10 +331,10 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (serial_exec_time, "${:>3.1f}s$".format(serial_exec_time))
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 det_speedup,
                 "${}x$".format(
@@ -321,18 +364,20 @@ def build_parallel_table_rows(
         )
 
         # cycles (rel err)
-        serial_cycles = int(df.loc[threads_mask, "cycles_serial"].values[0])
-        det_cycles = int(det["cycles_parallel"].values[0])
-        det_rel_err = det["cycles_rel_err"].values[0]
+        serial_cycles = int(df.loc[threads_mask, "cycles_serial"].mean())
+        det_cycles = int(det["cycles_parallel"].mean())
+        det_rel_err = det["cycles_mape"].mean()
         nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
 
-            nondet_cycles = int(nondet["cycles_parallel"].values[0])
-            nondet_rel_err = nondet["cycles_rel_err"].values[0]
-            if all_benchmarks:
+            nondet_cycles = int(nondet["cycles_parallel"].mean())
+            nondet_rel_err = nondet["cycles_mape"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         nondet_rel_err,
@@ -366,7 +411,7 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (
                 serial_cycles,
                 "${}$".format(
@@ -378,7 +423,7 @@ def build_parallel_table_rows(
                 ),
             )
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 100.0 * det_rel_err,
                 "${}\\%$".format(
@@ -416,22 +461,24 @@ def build_parallel_table_rows(
         )
 
         # l1 data hit rate (rel err)
-        serial_l1_hit_rate = df.loc[threads_mask, "l1_hit_rate_serial"].values[0]
-        det_l1_hit_rate = det["l1_hit_rate_parallel"].values[0]
-        det_rel_err = det["l1_hit_rate_rel_err"].values[0]
+        serial_l1_hit_rate = df.loc[threads_mask, "l1_hit_rate_serial"].mean()
+        det_l1_hit_rate = det["l1_hit_rate_parallel"].mean()
+        det_rel_err = det["l1_hit_rate_mae"].mean()
         nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
 
-            nondet_l1_hit_rate = nondet["l1_hit_rate_parallel"].values[0]
-            nondet_rel_err = nondet["l1_hit_rate_rel_err"].values[0]
-            if all_benchmarks:
+            nondet_l1_hit_rate = nondet["l1_hit_rate_parallel"].mean()
+            nondet_rel_err = nondet["l1_hit_rate_mae"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         100.0 * nondet_rel_err,
-                        "{}\\%$".format(
+                        "${}\\%$".format(
                             plot.round_to_precision(
                                 100.0 * nondet_rel_err,
                                 round_to=1,
@@ -461,13 +508,13 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (
                 100.0 * serial_l1_hit_rate,
                 "${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
             )
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 100.0 * det_rel_err,
                 "${}\\%$".format(
@@ -506,18 +553,20 @@ def build_parallel_table_rows(
         )
 
         # l2 data hit rate (rel err)
-        serial_l2_hit_rate = df.loc[threads_mask, "l2_hit_rate_serial"].values[0]
-        det_l2_hit_rate = det["l2_hit_rate_parallel"].values[0]
-        det_rel_err = det["l2_hit_rate_rel_err"].values[0]
+        serial_l2_hit_rate = df.loc[threads_mask, "l2_hit_rate_serial"].mean()
+        det_l2_hit_rate = det["l2_hit_rate_parallel"].mean()
+        det_rel_err = det["l2_hit_rate_mae"].mean()
         nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
 
-            nondet_l2_hit_rate = nondet["l2_hit_rate_parallel"].values[0]
-            nondet_rel_err = nondet["l2_hit_rate_rel_err"].values[0]
-            if all_benchmarks:
+            nondet_l2_hit_rate = nondet["l2_hit_rate_parallel"].mean()
+            nondet_rel_err = nondet["l2_hit_rate_mae"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         100.0 * nondet_rel_err,
@@ -551,7 +600,7 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (
                 100.0 * serial_l2_hit_rate,
                 "${}\\%$".format(
@@ -563,7 +612,7 @@ def build_parallel_table_rows(
                 ),
             )
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 100.0 * det_rel_err,
                 "${}\\%$".format(
@@ -601,18 +650,20 @@ def build_parallel_table_rows(
         )
 
         # dram reads (rel err)
-        serial_dram_reads = int(df.loc[threads_mask, "dram_reads_serial"].values[0])
-        det_dram_reads = int(det["dram_reads_parallel"].values[0])
-        det_rel_err = det["dram_reads_rel_err"].values[0]
+        serial_dram_reads = int(df.loc[threads_mask, "dram_reads_serial"].mean())
+        det_dram_reads = int(det["dram_reads_parallel"].mean())
+        det_rel_err = det["dram_reads_smape"].mean()
         nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
 
-            nondet_dram_reads = int(nondet["dram_reads_parallel"].values[0])
-            nondet_rel_err = nondet["dram_reads_rel_err"].values[0]
-            if all_benchmarks:
+            nondet_dram_reads = int(nondet["dram_reads_parallel"].mean())
+            nondet_rel_err = nondet["dram_reads_smape"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         nondet_rel_err,
@@ -646,7 +697,7 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (
                 serial_dram_reads,
                 "${}$".format(
@@ -658,7 +709,7 @@ def build_parallel_table_rows(
                 ),
             )
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 100.0 * det_rel_err,
                 "${}\\%$".format(
@@ -697,18 +748,20 @@ def build_parallel_table_rows(
         )
 
         # dram writes (rel err)
-        serial_dram_writes = int(df.loc[threads_mask, "dram_writes_serial"].values[0])
-        det_dram_writes = int(det["dram_writes_parallel"].values[0])
-        det_rel_err = det["dram_writes_rel_err"].values[0]
+        serial_dram_writes = int(df.loc[threads_mask, "dram_writes_serial"].mean())
+        det_dram_writes = int(det["dram_writes_parallel"].mean())
+        det_rel_err = det["dram_writes_smape"].mean()
         nondet_values = []
-        for interleave, n in interleave_n:
-            nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = nondet[nondet["input_run_ahead_parallel"] == n]
-            assert len(nondet) == 1
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            assert len(nondet) == num_bench_configs
 
-            nondet_dram_writes = int(nondet["dram_writes_parallel"].values[0])
-            nondet_rel_err = nondet["dram_writes_rel_err"].values[0]
-            if all_benchmarks:
+            nondet_dram_writes = int(nondet["dram_writes_parallel"].mean())
+            nondet_rel_err = nondet["dram_writes_smape"].mean()
+            if multiple_bench_configs:
                 nondet_values.append(
                     (
                         100.0 * nondet_rel_err,
@@ -742,7 +795,7 @@ def build_parallel_table_rows(
 
         serial_value = (
             None
-            if all_benchmarks
+            if multiple_bench_configs
             else (
                 serial_dram_writes,
                 "${}$".format(
@@ -754,7 +807,7 @@ def build_parallel_table_rows(
                 ),
             )
         )
-        if all_benchmarks:
+        if multiple_bench_configs:
             det_value = (
                 100.0 * det_rel_err,
                 "${}\\%$".format(
@@ -951,10 +1004,10 @@ class TargetDataframes(typing.NamedTuple):
 def aggregate_mean_input_config_stats(
     df: pd.DataFrame, per_kernel=True
 ) -> pd.DataFrame:
-    bench_input_cols = list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
-    input_cols = benchmarks.SIMULATE_INPUT_COLS
+    bench_input_cols = copy.deepcopy(list(benchmarks.ALL_BENCHMARK_INPUT_COLS))
+    input_cols = copy.deepcopy(benchmarks.SIMULATE_INPUT_COLS)
     input_config_group_cols = (
-        ["target", "benchmark"] + input_cols + bench_input_cols + ["input_id"]
+        benchmarks.BENCH_TARGET_INDEX_COLS + input_cols + bench_input_cols + ["input_id"]
     )
     input_config_group_cols = [col for col in input_config_group_cols if col in df]
 
@@ -1075,10 +1128,10 @@ def split_into_target_dfs(df, per_kernel=True) -> TargetDataframes:
 
 
 def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
-    bench_input_cols = list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+    bench_input_cols = copy.deepcopy(list(benchmarks.ALL_BENCHMARK_INPUT_COLS))
     # note, we do NOT group by SIMULATE_EXECUTION_CONFIG_COLS or SIMULATE_INPUT_COLS.
     # this means we do NOT group on input_mode, input_run_ahead, or input_threads
-    functinoal_input_cols = benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+    functinoal_input_cols = copy.deepcopy(benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS)
     input_config_group_cols = (
         ["target", "benchmark"] + functinoal_input_cols + bench_input_cols
     )
@@ -1094,8 +1147,8 @@ def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
 
 @main.command()
 # @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "bench_name_arg", help="Benchmark name")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
@@ -1348,7 +1401,7 @@ class ErrorMetric(enum.Enum):
     MAPE = "MAPE"
     MAE = "MAE"
     Correlation = "Corr."
-    RelErr = "Rel err."
+    # RelErr = "Rel err."
 
     # MAPE = ("mape", "MAPE")
     # Correlation = ("corr", "Corr.")
@@ -1743,17 +1796,17 @@ def result_table(bench_name_arg, path, nsight, verbose):
                         error_values = pd.DataFrame(error_values)
                         error_values = error_values.mean(axis=1)
 
-                    case ErrorMetric.RelErr:
-                        error_values = []
-                        for suffix in sim_targets.keys():
-                            true_values=bench_df[metric_col]
-                            values=bench_df[metric_col + suffix]
-                            error = rel_err(true_values=true_values, values=values) 
-                            bench_df[metric_col + "_" + error_metric.name.lower() + suffix] = error
-                            error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values = error_values.mean(axis=1)
-                        # error_values *= 100.0
+                    # case ErrorMetric.RelErr:
+                    #     error_values = []
+                    #     for suffix in sim_targets.keys():
+                    #         true_values=bench_df[metric_col]
+                    #         values=bench_df[metric_col + suffix]
+                    #         error = rel_err(true_values=true_values, values=values) 
+                    #         bench_df[metric_col + "_" + error_metric.name.lower() + suffix] = error
+                    #         error_values.append(error)
+                    #     error_values = pd.DataFrame(error_values)
+                    #     error_values = error_values.mean(axis=1)
+                    #     # error_values *= 100.0
 
                     case ErrorMetric.MAE:
                         error_values = []
@@ -2045,38 +2098,33 @@ def parallel_table(bench_name_arg, path, nsight):
     profiler = "nsight" if nsight else "nvprof"
     all_benchmarks = bench_name_arg is None
     selected_df = load_stats(bench_name=bench_name_arg, profiler=profiler, path=path)
+    selected_df = selected_df.fillna({
+        **{col: 0.0 for col in selected_df.columns},
+        **{"kernel_name_mangled": np.nan, "kernel_name": np.nan},
+    })
     print(selected_df[["target", "run"]].drop_duplicates())
-    num_benchmarks = len(selected_df["benchmark"].unique().tolist())
-
-    bench_cols = ["target", "benchmark"]
-    bench_input_cols = (
-        [] if all_benchmarks else benchmarks.BENCHMARK_INPUT_COLS[bench_name_arg]
-    )
-    input_cols = benchmarks.SIMULATE_INPUT_COLS
 
     selected_df = selected_df[
         selected_df["target"] == Target.Simulate.value]
     selected_df = sum_per_config_kernel_metrics(selected_df)
+    # assert 210.0 in selected_df["input_id"].values
 
+    num_benchmarks = len(selected_df["benchmark"].unique().tolist())
+
+    all_input_cols = copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+    all_input_cols = sorted(list([col for col in all_input_cols if col in selected_df]))
+
+    bench_cols = ["target", "benchmark"]
+    bench_input_cols = (
+        [] if all_benchmarks else copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[bench_name_arg])
+    )
+    # input_cols = copy.deepcopy(benchmarks.SIMULATE_INPUT_COLS)
+
+    
     # get serial
     serial = selected_df[selected_df["input_mode"] == "serial"].copy()
+    # assert 210.0 in serial["input_id"].values
 
-    # we are joining all parallel configs with their serial variant
-    # however, we do not assume equal number of repetitions necessarily,
-    # hence we compute the mean.
-    # Note that repetitions also only have a very minimal influence on serial execution time,
-    # since serial execution is deterministic
-    group_cols = bench_cols + ["kernel_launch_id"] + input_cols + bench_input_cols
-
-    aggregations = {
-        **{c: "mean" for c in sorted(serial.columns)},
-        **{c: "first" for c in serial.columns if c.startswith("input_")},
-        **benchmarks.NON_NUMERIC_COLS,
-    }
-    aggregations = {
-        col: agg for col, agg in aggregations.items()
-        if col in serial and not col in group_cols
-    }
     metric_cols = set(serial.columns)
     metric_cols -= set([
         c for c in serial.columns if c.startswith("input_")])
@@ -2084,27 +2132,52 @@ def parallel_table(bench_name_arg, path, nsight):
     metric_cols -= set(["exec_time_sec", "run"])
     metric_cols = list(metric_cols)
     # pprint(metric_cols)
-    # print(serial[["cycles", "kernel_launch_id", "stream_id", "run"]])
-    unique_values = serial.fillna(0.0).groupby("input_id")[metric_cols].nunique()
+    # print(serial.loc[
+    #     serial["input_id"] == 0,
+    #     # ["cycles", "kernel_launch_id", "stream_id", "run"],
+    #     ["target", "benchmark", "input_id", "kernel_name_mangled", "kernel_name", "run"]
+    #     + metric_cols,
+    # ].T)
+    deterministic_group_cols = [
+        "target", "benchmark", "input_id", "kernel_name_mangled", "kernel_name"]
+    metric_cols = [col for col in metric_cols if col not in deterministic_group_cols]
+    unique_simulation_metrics = serial.groupby(
+            deterministic_group_cols, dropna=False)[metric_cols].nunique()
+    # print(unique_values)
+    # raise ValueError
+
     # print(serial.groupby("input_id", dropna=False)[metric_cols ].nunique())
     # print(unique_values)
-    # pprint(serial.columns[(serial != 1).any()].tolist())
+    # pprint(unique_values.columns[(unique_values != 1).any()].tolist())
     # print((unique_values == 1).all(axis=0))
     # print(serial[["input_id", "kernel_launch_id", "run", "l2_miss_rate", "l2_write_hit_rate", "l2_write_miss_rate", "l1_local_hit_rate"]])
-    # pprint(serial[unique_values != 1])
+    # print(serial[unique_values != 1])
     # print((unique_values == 1).all(axis=1))
     # serial.loc[serial.index].eq(ts, axis=0).idxmax(axis=1)
-    assert (unique_values == 1).all(axis=1).all()
+    assert (unique_simulation_metrics == 1).all(axis=1).all()
 
-    mean_serial = serial.groupby(group_cols).agg(aggregations).reset_index()
+    # we are joining all parallel configs with their serial variant
+    # however, we do not assume equal number of repetitions necessarily,
+    # hence we compute the mean.
+    # Note that repetitions also only have a very minimal influence on serial execution time,
+    # since serial execution is deterministic
+    # group_cols = bench_cols + ["kernel_launch_id"] + input_cols + bench_input_cols
 
-    preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
+    # aggregations = {
+    #     **{c: "mean" for c in sorted(serial.columns)},
+    #     **{c: "first" for c in serial.columns if c.startswith("input_")},
+    #     **benchmarks.NON_NUMERIC_COLS,
+    # }
+    # aggregations = {
+    #     col: agg for col, agg in aggregations.items()
+    #     if col in serial and not col in group_cols
+    # }
 
-    serial = mean_serial
+    # serial = serial.groupby(group_cols).agg(aggregations).reset_index()
     parallel = selected_df[~selected_df["input_mode"].isin([np.nan, "serial"])]
     assert "total_cores" in serial
     assert "total_cores" in parallel
-    assert parallel["run"].isna().sum() == 0
+    # assert parallel["run"].isna().sum() == 0
 
     # cols = ["dram_writes", "l1_accesses"]
     # print(serial[(serial["benchmark"] == "transpose") & (serial["input_variant"] == "naive") & (serial["input_dim"] == 512)][benchmarks.INDEX_COLS + benchmarks.SIMULATE_INPUT_COLS + cols])
@@ -2125,24 +2198,29 @@ def parallel_table(bench_name_arg, path, nsight):
 
     print("serial input ids", serial_input_ids)
     print("parallel input ids", parallel_input_ids)
-    print(serial.loc[
-        serial["input_id"] == 0,
-        ["target", "input_id", "benchmark"],
-    ])
-    print(parallel.loc[
-        parallel["input_id"] == 0,
-        ["target", "input_id", "benchmark"],
-    ])
+    # print(serial.loc[
+    #     serial["input_id"] == 0,
+    #     ["target", "input_id", "benchmark"],
+    # ])
+    # print(parallel.loc[
+    #     parallel["input_id"] == 0,
+    #     ["target", "input_id", "benchmark"],
+    # ])
 
     deterministic = parallel[parallel["input_mode"] == "deterministic"]
-    unique_values = deterministic.fillna(0.0).groupby("input_id")[metric_cols].nunique()
-    assert (unique_values == 1).all(axis=1).all()
+    unique_simulation_metrics = deterministic.groupby(
+        deterministic_group_cols, dropna=False)[metric_cols].nunique()
+    assert (unique_simulation_metrics == 1).all(axis=1).all()
 
     # non deterministic without interleaving is also deterministic actually
     nondeterministic = parallel[parallel["input_mode"] == "nondeterministic"]
-    unique_values = nondeterministic.fillna(0.0).groupby("input_id")[metric_cols].nunique()
+    unique_simulation_metrics = nondeterministic.groupby(
+            deterministic_group_cols, dropna=False)[metric_cols].nunique()
     assert len(nondeterministic) > 0
-    assert (unique_values == 1).all(axis=1).all()
+
+    # print(unique_simulation_metrics[unique_simulation_metrics.columns[
+    #     (unique_simulation_metrics!= 1).any()]])
+    # assert (unique_simulation_metrics == 1).all(axis=1).all()
 
     input_id_partitoning = set(serial["input_id"].unique()).intersection(
         set(parallel["input_id"].unique())
@@ -2174,12 +2252,35 @@ def parallel_table(bench_name_arg, path, nsight):
         assert len(input_id_partitoning) == 0
 
     # join based on input_cols, NOT based on mode
+    join_cols = sorted(
+        bench_cols
+        + ["kernel_name", "kernel_launch_id", "run"]
+        + bench_input_cols
+        + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+       )
+    pprint(join_cols)
+
+    serial_indices = serial[["kernel_name", "kernel_launch_id", "run"]].drop_duplicates(ignore_index=True)
+    parallel_indices = parallel[["kernel_name", "kernel_launch_id", "run"]].drop_duplicates(ignore_index=True)
+    print(serial_indices)
+    print(parallel_indices)
+    # print(serial_indices.iloc[0])
+    # print(serial_indices.iloc[4])
+    # assert serial_indices.iloc[0]["kernel_name"] == serial_indices.iloc[4]["kernel_name"]
+    # a = serial_indices.iloc[0]["kernel_name_mangled"]
+    # b = serial_indices.iloc[4]["kernel_name_mangled"]
+    # print(list(a))
+    # print(list(b))
+    # assert list(a) == list(b)
+    #
+    # assert serial_indices.iloc[0]["kernel_name_mangled"] == serial_indices.iloc[4]["kernel_name_mangled"]
+    # assert serial_indices.iloc[0]["kernel_launch_id"] == serial_indices.iloc[4]["kernel_launch_id"]
+    # assert serial_indices.iloc[0]["run"] == serial_indices.iloc[4]["run"]
+    # assert (serial_indices.iloc[0] == serial_indices.iloc[4]).all()
+
     joined = parallel.merge(
         serial,
-        on=bench_cols
-        + ["kernel_launch_id"]
-        + bench_input_cols
-        + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS,
+        on=join_cols,
         how="left",
         suffixes=("_parallel", "_serial"),
     )
@@ -2192,41 +2293,44 @@ def parallel_table(bench_name_arg, path, nsight):
     assert "mean_blocks_per_sm_parallel" in joined
     assert "total_cores_parallel" in joined
     assert "cores_per_cluster_parallel" in joined
+    assert set(joined["input_id_serial"].values) == set(serial["input_id"].values)
+    # assert 210.0 in joined["input_id_serial"].values
 
     if len(joined) == 0:
         raise ValueError("joined parallel and serial dataframe is empty")
 
-    PREVIEW_COLS = sorted(
-        list(
-            bench_cols
-            + ["kernel_launch_id"]
-            + bench_input_cols
-            + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
-            + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
-            + [c + "_parallel" for c in preview_metric_cols]
-            + [c + "_serial" for c in preview_metric_cols]
-            + ["input_id_serial", "input_id_parallel"]
-        )
+    preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
+    preview_cols = list(bench_cols 
+        + ["kernel_name", "kernel_launch_id", "run"]
+        + ["input_id_serial", "input_id_parallel"]
+        + bench_input_cols
+        # + [c for c in benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS]
+        + [c + "_serial" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+        + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+        + sorted(
+            [c + "_serial" for c in preview_metric_cols]
+            + [c + "_parallel" for c in preview_metric_cols])
     )
+    # print(joined[preview_cols][:4].T)
 
-    if True:
-        print(joined.loc[0:3, PREVIEW_COLS].T)
+    # if True:
+    #     print(joined.loc[0:3, PREVIEW_COLS].T)
 
     # cols = ["dram_writes", "l1_accesses"]
     # joined_tmp = joined.reset_index()
     # print(joined_tmp[(joined_tmp["benchmark"] == "transpose") & (joined_tmp["input_variant"] == "naive") & (joined_tmp["input_dim"] == 512)][bench_cols + ["kernel_launch_id"] + [c + "_serial" for c in cols] + [c + "_parallel" for c in cols]])
 
-    print(
-        joined[
-            [
-                "benchmark",
-                "input_mode_parallel",
-                "input_threads_parallel",
-                "input_run_ahead_parallel",
-            ]
-            # ["benchmark"] + bench_input_cols + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
-        ].drop_duplicates()
-    )
+    # print(
+    #     joined[
+    #         [
+    #             "benchmark",
+    #             "input_mode_parallel",
+    #             "input_threads_parallel",
+    #             "input_run_ahead_parallel",
+    #         ]
+    #         # ["benchmark"] + bench_input_cols + [c + "_parallel" for c in SIMULATE_EXECUTION_CONFIG_COLS]
+    #     ].drop_duplicates()
+    # )
 
     group_cols = sorted(
         bench_cols
@@ -2236,7 +2340,8 @@ def parallel_table(bench_name_arg, path, nsight):
         + [col + "_serial" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
     )
     aggregations = {
-        **{c: "sum" for c in sorted(joined.columns)},
+        **{c: "mean" for c in sorted(joined.columns)},
+        **{c: agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
         **{c + "_parallel": agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
         **{c + "_serial": agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
     }
@@ -2244,10 +2349,8 @@ def parallel_table(bench_name_arg, path, nsight):
         col: agg for col, agg in aggregations.items()
         if col in joined and not col in group_cols
     }
-    # aggregations = {col: agg for col, agg in aggregations.items() if col in joined}
-    # aggregations = {
-    #     col: agg for col, agg in aggregations.items() if col not in group_cols
-    # }
+    # pprint(aggregations)
+    pprint(group_cols)
 
     if set(joined.columns.tolist()) - set(group_cols) != set(aggregations.keys()):
         pprint(
@@ -2257,79 +2360,119 @@ def parallel_table(bench_name_arg, path, nsight):
         )
         raise ValueError
 
-    print(joined.shape)
-    grouped = joined.groupby(group_cols, dropna=False)
+
+    # remove non kernel stats
+    def add_no_kernel_exec_time(df):
+        # print(df[preview_cols].T)
+        assert len(df) >= 2, "have no kernel row and at least one kernel for the config"
+        valid_kernels = ~df["kernel_name"].isna()
+        no_kernel = df[~valid_kernels]
+        assert len(no_kernel) == 1
+        # no_kernel = no_kernel[0]
+        # print(no_kernel["exec_time_sec_serial"])
+        # print(no_kernel["exec_time_sec_parallel"])
+        num_valid_kernels = valid_kernels.sum()
+        assert num_valid_kernels >= 1
+        # print("num valid kernels", num_valid_kernels)
+        serial_delta = float(no_kernel["exec_time_sec_serial"].iloc[0]) / num_valid_kernels
+        parallel_delta = float(no_kernel["exec_time_sec_parallel"].iloc[0]) / num_valid_kernels
+        # print("serial delta", serial_delta)
+        # print("parallel delta", parallel_delta)
+        df.loc[valid_kernels, "exec_time_sec_serial"] += serial_delta
+        df.loc[valid_kernels, "exec_time_sec_parallel"] += parallel_delta
+        return df
+
+    joined = joined.groupby(
+        group_cols + ["run"], dropna=False).apply(
+            add_no_kernel_exec_time).reset_index(drop=True)
+    # print(joined[preview_cols][:4].T)
+    # return
+
+    grouped = joined[~joined["kernel_name"].isna()].groupby(group_cols, dropna=False)
+
+    # this is just for checking things
+    def _inspect(df):
+        assert len(df["input_id_serial"].unique()) == 1
+        # print("num runs", len(df["run"].unique()))
+        # print("num serial runs", len(df["run_serial"].unique()))
+        # print("num parallel runs", len(df["run_parallel"].unique()))
+        # if df["input_rows"].values[0] != 512:
+        #     return
+
+        # print(
+        #     df.reset_index()[
+        #         bench_cols
+        #         + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+        #         + ["total_cores_parallel"]
+        #         # + ["input_variant"]
+        #         + ["input_rows"]
+        #         + ["l1_hit_rate_serial", "l1_hit_rate_parallel"]
+        #     ]
+        # )
+        # print(
+        #     rel_err(
+        #         true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]
+        #     )
+        # )
+        pass
+
+    grouped.apply(_inspect)
+
     aggregated = grouped.agg(aggregations, squeeze=False)
+    # assert 210.0 in aggregated["input_id_serial"].values
 
     # speedup
-    aggregated["exec_time_sec_speedup"] = grouped.apply(
-        lambda df: speedup(
-            baseline=df["exec_time_sec_serial"], values=df["exec_time_sec_parallel"]
-        ).mean()
-    )
+    def compute_speedup(df):
+        # only count speedup for large enough inputs
+        exec_time_sec_serial = df["exec_time_sec_serial"]
+        exec_time_sec_parallel = df[[
+            "exec_time_sec_serial", "exec_time_sec_parallel"]].min(axis=1)
+        return speedup(
+            baseline=exec_time_sec_serial, values=exec_time_sec_parallel).mean()
+    aggregated["exec_time_sec_speedup"] = grouped.apply(compute_speedup)
+
     # cycles error
-    aggregated["cycles_rel_err"] = grouped.apply(
-        lambda df: rel_err(
+    aggregated["cycles_mape"] = grouped.apply(
+        lambda df: mape(
             true_values=df["cycles_serial"], values=df["cycles_parallel"]
         ).mean()
     )
-    aggregated["cycles_rmse"] = grouped.apply(
-        lambda df: rmse(
-            true_values=df["cycles_serial"], values=df["cycles_parallel"]
-        ).mean()
-    )
-    aggregated["cycles_mae"] = grouped.apply(
-        lambda df: abs_err(
-            true_values=df["cycles_serial"], values=df["cycles_parallel"]
-        ).mean()
-    )
+    # aggregated["cycles_rmse"] = grouped.apply(
+    #     lambda df: rmse(
+    #         true_values=df["cycles_serial"], values=df["cycles_parallel"]
+    #     ).mean()
+    # )
+    # aggregated["cycles_mae"] = grouped.apply(
+    #     lambda df: abs_err(
+    #         true_values=df["cycles_serial"], values=df["cycles_parallel"]
+    #     ).mean()
+    # )
     # l1 hit rate error
-    aggregated["l1_hit_rate_rel_err"] = grouped.apply(
-        lambda df: rel_err(
+    aggregated["l1_hit_rate_mae"] = grouped.apply(
+        lambda df: abs_err(
             true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]
         ).mean()
     )
-    # l2 hit rate error
-    aggregated["l2_hit_rate_rel_err"] = grouped.apply(
-        lambda df: rel_err(
+    # # l2 hit rate error
+    aggregated["l2_hit_rate_mae"] = grouped.apply(
+        lambda df: abs_err(
             true_values=df["l2_hit_rate_serial"], values=df["l2_hit_rate_parallel"]
         ).mean()
     )
     # dram reads error
-    aggregated["dram_reads_rel_err"] = grouped.apply(
-        lambda df: rel_err(
+    aggregated["dram_reads_smape"] = grouped.apply(
+        lambda df: smape(
             true_values=df["dram_reads_serial"], values=df["dram_reads_parallel"]
-        ).mean()
+        ) # .mean()
     )
     # dram writes error
-    aggregated["dram_writes_rel_err"] = grouped.apply(
-        lambda df: rel_err(
+    aggregated["dram_writes_smape"] = grouped.apply(
+        lambda df: smape(
             true_values=df["dram_writes_serial"], values=df["dram_writes_parallel"]
-        ).mean()
+        ) # .mean()
     )
 
-    def _inspect(df):
-        # if df["input_rows"].values[0] != 512:
-        #     return
-
-        print(
-            df.reset_index()[
-                bench_cols
-                + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
-                + ["total_cores_parallel"]
-                # + ["input_variant"]
-                + ["input_rows"]
-                + ["l1_hit_rate_serial", "l1_hit_rate_parallel"]
-            ]
-        )
-        print(
-            rel_err(
-                true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]
-            )
-        )
-
-    # grouped.apply(_inspect)
-
+    
     # print(aggregated.reset_index()[[
     #     "target",
     #     "benchmark",
@@ -2345,27 +2488,82 @@ def parallel_table(bench_name_arg, path, nsight):
     # return
 
     aggregated = aggregated.reset_index()
-    print(aggregated.shape)
+    # print(aggregated.shape)
+    # print(
+    #     aggregated.reset_index()
+    #     .loc[
+    #         0:4,
+    #         PREVIEW_COLS
+    #         + bench_input_cols
+    #         + ["cycles_mape", "exec_time_sec_speedup"],
+    #     ]
+    #     .T.drop_duplicates()
+    # )
+
+    # print(
+    #     aggregated.loc[
+    #         (aggregated["input_mode_parallel"] == "deterministic")
+    #         & (aggregated["input_threads_parallel"] == 4),
+    #         PREVIEW_COLS + ["cycles_mape", "exec_time_sec_speedup"],
+    #     ].T.drop_duplicates()
+    # )
+
+    # assert "input_id_parallel" in aggregated
+    # print(selected_df.loc[
+    #     selected_df["input_id"] == 210.0, 
+    #     bench_cols
+    #         + ["kernel_name", "kernel_launch_id", "run"]
+    #         + bench_input_cols
+    #         + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+    #         + ["input_id"]
+    # ])
+
+    # serial_vectoradd_500k = aggregated["input_length"] == 500_000
+    # serial_vectoradd_500k &= aggregated["input_mode_serial"] == "serial"
+    # print(aggregated.loc[
+    #     serial_vectoradd_500k,
+    #     # PREVIEW_COLS,
+    #     bench_cols
+    #         + ["kernel_name", "kernel_launch_id", "run"]
+    #         + bench_input_cols
+    #         + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+    #         # + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+    #         # + [c + "_parallel" for c in preview_metric_cols]
+    #         # + [c + "_serial" for c in preview_metric_cols]
+    #         # + ["input_id_serial", "input_id_parallel"]
+    #         + ["input_id_serial", "input_id_parallel"]
+    #         # + bench_input_cols
+    #         # + [
+    #         #     "cycles_mape",
+    #         #     "dram_reads_smape",
+    #         #     "dram_writes_smape",
+    #         #     "exec_time_sec_speedup",
+    #         # ],
+    # ])
+
+    # print(sorted(aggregated.reset_index()["input_id_serial"].unique().tolist()))
+    # print(aggregated.loc[aggregated["input_id_serial"] == 210.0, :])
     print(
-        aggregated.reset_index()
+        aggregated
         .loc[
-            0:4,
-            PREVIEW_COLS
-            + bench_input_cols
-            + ["cycles_rel_err", "exec_time_sec_speedup"],
-        ]
-        .T.drop_duplicates()
+            # 500_000 vectoradd
+            aggregated["input_id_serial"] == 210.0,
+            # PREVIEW_COLS
+            # + bench_input_cols
+            preview_cols
+            + [
+                "cycles_mape",
+                "dram_reads_smape",
+                "dram_writes_smape",
+                "exec_time_sec_speedup",
+            ],
+        ][0:4].T.drop_duplicates()
     )
 
-    print(
-        aggregated.loc[
-            (aggregated["input_mode_parallel"] == "deterministic")
-            & (aggregated["input_threads_parallel"] == 4),
-            PREVIEW_COLS + ["cycles_rel_err", "exec_time_sec_speedup"],
-        ].T.drop_duplicates()
-    )
+    # return
+
     # print(aggregated.reset_index().loc[0:4,
-    #     ["cycles_rel_err", "cycles_serial", "cycles_parallel"]].T) #.drop_duplicates())
+    #     ["cycles_mape", "cycles_serial", "cycles_parallel"]].T) #.drop_duplicates())
 
     # build the table data
     functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
@@ -2429,7 +2627,7 @@ def parallel_table(bench_name_arg, path, nsight):
 
     def compute_label(bench_config, df):
         benchmark = df["benchmark"]
-        bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+        bench_input_cols = copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[benchmark])
         assert all([c in df for c in bench_input_cols])
 
         assert (df[["total_cores_parallel"]].values == df[["total_cores_serial"]].values).all()
@@ -2576,14 +2774,15 @@ def parallel_table(bench_name_arg, path, nsight):
 
             table += "%\n%\n"
             table += (
-                r"\rowcolor{gray!10} \multicolumn{8}{c}{\textbf{"
+                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
                 + label
                 + r"}} \\ \hline"
                 + "\n"
             )
 
+            num_bench_configs = num_benchmarks # todo
             table_rows: typing.Sequence[ParallelTableRow] = build_parallel_table_rows(
-                aggregated[mask], num_benchmarks=num_benchmarks, all_benchmarks=True
+                aggregated[mask], num_bench_configs=num_bench_configs, # all_benchmarks=True
             )
 
             # for threads in [4, 8]:
@@ -2600,7 +2799,7 @@ def parallel_table(bench_name_arg, path, nsight):
             #
             #     # det_preview = det[
             #     #     PREVIEW_COLS
-            #     #     + ["input_threads_parallel", "cycles_rel_err", "exec_time_sec_speedup"]
+            #     #     + ["input_threads_parallel", "cycles_mape", "exec_time_sec_speedup"]
             #     # ]
             #
             #     print("===")
@@ -2644,14 +2843,14 @@ def parallel_table(bench_name_arg, path, nsight):
             #     # cycles (rel err)
             #     serial_cycles = int(aggregated.loc[mask & threads_mask, "cycles_serial"].values[0])
             #     det_cycles = int(det["cycles_parallel"].values[0])
-            #     det_rel_err = det["cycles_rel_err"].values[0]
+            #     det_rel_err = det["cycles_mape"].values[0]
             #     nondet_values = []
             #     for interleave, n in interleave_n:
             #         nondet = nondet_interleave if interleave else nondet_no_interleave
             #         nondet = nondet[nondet["input_run_ahead_parallel"] == n]
             #
             #         nondet_cycles = int(nondet["cycles_parallel"].values[0])
-            #         nondet_rel_err = nondet["cycles_rel_err"].values[0]
+            #         nondet_rel_err = nondet["cycles_mape"].values[0]
             #         nondet_values.append(
             #             (nondet_cycles, "${} ({}\\%)$".format(
             #                 plot.human_format_thousands(nondet_cycles, round_to=thousands_round_to, variable_precision=variable_precision),
@@ -2721,14 +2920,14 @@ def parallel_table(bench_name_arg, path, nsight):
 
             table += "%\n%\n"
             table += (
-                r"\rowcolor{gray!10} \multicolumn{8}{c}{\textbf{"
+                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
                 + str(compute_label(bench_config, aggregated.loc[mask].iloc[0]))
                 + r"}} \\ \hline"
                 + "\n"
             )
 
             table_rows: typing.Sequence[ParallelTableRow] = build_parallel_table_rows(
-                aggregated[mask], num_benchmarks=num_benchmarks, all_benchmarks=False
+                aggregated[mask], num_bench_configs=1, # all_benchmarks=False
             )
             # table_rows: typing.Sequence[TableRow] = []
 
@@ -2824,14 +3023,14 @@ def parallel_table(bench_name_arg, path, nsight):
             #     # cycles (rel err)
             #     serial_cycles = int(aggregated.loc[mask & threads_mask, "cycles_serial"].values[0])
             #     det_cycles = int(det["cycles_parallel"].values[0])
-            #     det_rel_err = det["cycles_rel_err"].values[0]
+            #     det_rel_err = det["cycles_mape"].values[0]
             #     nondet_values = []
             #     for interleave, n in interleave_n:
             #         nondet = nondet_interleave if interleave else nondet_no_interleave
             #         nondet = nondet[nondet["input_run_ahead_parallel"] == n]
             #
             #         nondet_cycles = int(nondet["cycles_parallel"].values[0])
-            #         nondet_rel_err = nondet["cycles_rel_err"].values[0]
+            #         nondet_rel_err = nondet["cycles_mape"].values[0]
             #         nondet_values.append(
             #             (nondet_cycles, "${} ({}\\%)$".format(
             #                 plot.human_format_thousands(nondet_cycles, round_to=thousands_round_to, variable_precision=variable_precision),
@@ -3015,6 +3214,43 @@ def parallel_table(bench_name_arg, path, nsight):
                 print(row.metric, bold_values, row.values())
                 table += write_table_row(row, bold_values)
 
+
+        # add averaged row
+        for functional_config in functional_configs:
+            mask_cols = list(functional_config.keys())
+            mask_values = list(functional_config.values())
+            mask = (aggregated[mask_cols] == mask_values).all(axis=1)
+
+            label = "Average @ {} SM's".format(
+                int(aggregated.loc[mask, "total_cores_parallel"].values[0]),
+            )
+
+            table += "%\n%\n"
+            table += (
+                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
+                + label
+                + r"}} \\ \hline"
+                + "\n"
+            )
+
+
+            assert num_benchmarks == 1
+            # num_configs = len(functional_configs)
+            num_configs = len(aggregated.loc[mask, all_input_cols].drop_duplicates())
+            table_rows: typing.Sequence[ParallelTableRow] = build_parallel_table_rows(
+                aggregated[mask], num_bench_configs=num_configs, # all_benchmarks=True
+            )
+            table += "%\n%\n"
+
+            table_rows = sorted(table_rows, key=lambda row: (row.metric, row.threads))
+            for row in table_rows:
+                bold_values = []
+                if row.metric == r"exec\\time":
+                    bold_values = [np.amin(row.values())]
+                print(row.metric, bold_values, row.values())
+                table += write_table_row(row, bold_values)
+
+
     print(table)
     utils.copy_to_clipboard(table)
     print("copied table to clipboard")
@@ -3112,7 +3348,7 @@ def correlation_plots(path, bench_name_arg, nsight):
         for bench_name, bench_df in stats.groupby("benchmark"):
             print(bench_name)
 
-            bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[bench_name]
+            bench_input_cols = copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[bench_name])
             bench_df = bench_df.set_index(
                 ["target"] + benchmarks.SIMULATE_INPUT_COLS
             ).sort_index()
@@ -3520,24 +3756,51 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         )
     )
 
-    print(
-        selected_df[
-            [
-                "target",
-                "benchmark",
-                "input_id",
-                "kernel_name",
-                "run",
-                "num_clusters",
-                "input_mode",
-                "input_num_clusters",
-            ]
-        ].drop_duplicates()
-    )
+    if verbose:
+        print(
+            selected_df[
+                [
+                    "target",
+                    "benchmark",
+                    "input_id",
+                    "kernel_name",
+                    "run",
+                    "num_clusters",
+                    "input_mode",
+                    "input_num_clusters",
+                ]
+            ].drop_duplicates()
+        )
 
     stat_cols = stat_cols_for_profiler(profiler)
 
+    all_input_cols = copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+    all_input_cols = sorted(list([col for col in all_input_cols if col in selected_df]))
+
+    rows_per_config = selected_df.groupby(
+        ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled", "run"]
+        + benchmarks.SIMULATE_INPUT_COLS + all_input_cols,
+        as_index=False,
+        dropna=False,
+    ).size()
+    # print(rows_per_config)
+    # print(rows_per_config[rows_per_config["size"] > 1][:1].T)
+    assert (rows_per_config["size"] == 1).all(), "must have exactly one row per config/run"
+
+    # print(selected_df.loc[
+    #     (selected_df["input_id"] == 0) & (selected_df["target"] == Target.Simulate.value),
+    #     ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled", "run"]
+    #     + all_input_cols + benchmarks.SIMULATE_INPUT_COLS + ["l2_hit_rate"],
+    # ].T)
+
     per_config = aggregate_benchmark_results(selected_df, memory_only=mem_only)
+    per_config = per_config[~(per_config["kernel_name"].isna() & per_config["kernel_name_mangled"].isna())]
+    # per_config = per_config.reset_index()
+    # print(per_config.loc[
+    #     (per_config["input_id"] == 0) & (per_config["target"] == Target.Simulate.value),
+    #     ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled", "run"]
+    #     + all_input_cols + benchmarks.SIMULATE_INPUT_COLS + ["l2_hit_rate"],
+    # ].T)
 
     # make sure kernels per input have been summed but we keep repetitions (runs) for
     # computing statistical properties (e.g. stddev)
@@ -3554,12 +3817,16 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         ].drop_duplicates()
     ) == len(per_config)
 
-    all_input_cols = benchmarks.ALL_BENCHMARK_INPUT_COLS
+
     all_input_cols = sorted(list([col for col in all_input_cols if col in per_config]))
 
     # average pivot preview table over runs
     group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + all_input_cols
-    grouped = per_config.groupby(group_cols, dropna=False)
+    # print("all input cols", all_input_cols)
+    # print("BENCH_TARGET_INDEX_COLS", benchmarks.BENCH_TARGET_INDEX_COLS)
+    # pprint(group_cols)
+    # return
+    per_config_gouped = per_config.groupby(group_cols, dropna=False)
     aggregations = {
         **{c: "mean" for c in set(per_config.columns)},
         **benchmarks.NON_NUMERIC_COLS,
@@ -3569,7 +3836,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         for col, agg in aggregations.items()
         if col in per_config and not col in group_cols
     }
-    per_config_pivoted = grouped.agg(aggregations).reset_index()
+    per_config_pivoted = per_config_gouped.agg(aggregations).reset_index()
+    print(per_config_pivoted)
 
     per_config_pivoted = per_config_pivoted.pivot(
         index=["benchmark"] + all_input_cols,
@@ -3582,11 +3850,14 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     if not should_plot:
         return
 
+    # remove some stat_cols that should not be plotted
+    stat_cols = sorted(list(set(stat_cols) - set(["num_blocks", "input_id"])))
+
     def compute_label(df):
         assert isinstance(df, pd.Series)
 
         benchmark = df["benchmark"]
-        bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+        bench_input_cols = copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[benchmark])
         assert all([c in df for c in bench_input_cols])
 
         match benchmark.lower():
@@ -3594,7 +3865,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
                 label = "VectorAdd\n"
                 label += "f{:<2} {}".format(
                     int(df["input_dtype"]),
-                    int(df["input_length"]),
+                    plot.human_format_thousands(
+                        int(df["input_length"]), round_to=0, variable_precision=True),
                 )
             case "matrixmul":
                 label = "MatrixMul\n"
@@ -3681,13 +3953,14 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             zorder=1,
         )
 
-        bench_input_cols = benchmarks.BENCHMARK_INPUT_COLS[benchmark]
+        bench_input_cols = copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[benchmark])
         group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + bench_input_cols
 
         bench_input_values = per_config.loc[
             per_config["benchmark"] == benchmark, bench_input_cols
         ]
 
+        # filter benchmarks that should be plotted
         match benchmark:
             case "simple_matrixmul":
                 subset = pd.DataFrame.from_records(
@@ -3700,6 +3973,25 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
                         (512, 32, 512),
                     ],
                     columns=["input_m", "input_n", "input_p"],
+                )
+                bench_input_values = bench_input_values.merge(subset, how="inner")
+            case "vectorAdd":
+                subset = pd.DataFrame.from_records(
+                    [
+                        (32, 100),
+                        (32, 1000),
+                        # (32, 10_000),
+                        (32, 20_000),
+                        (32, 100_000),
+                        (32, 500_000),
+                        (64, 100),
+                        (64, 1000),
+                        # (64, 10_000),
+                        (64, 20_000),
+                        (64, 100_000),
+                        (64, 500_000),
+                    ],
+                    columns=["input_dtype", "input_length"],
                 )
                 bench_input_values = bench_input_values.merge(subset, how="inner")
 
@@ -3730,6 +4022,9 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
                     return
                 continue
 
+            if stat_col == "l2_hit_rate":
+                print(target_df[stat_col])
+
             target_df = target_df.groupby(group_cols, dropna=False)
 
             target_idx = targets.index(target)
@@ -3737,7 +4032,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
 
             target = target_df["target"].first().values[0]
             target_name = target_df["target_name"].first().values[0]
-
+            
             if verbose:
                 print(
                     "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
@@ -3794,8 +4089,11 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         # simulate_df = simulate_df.drop_duplicates().reset_index()
         assert len(simulate_df) > 0
 
-        labels = simulate_df["label"].values
-        num_blocks = simulate_df["num_blocks"].values
+        # these should be unique over runs (e.g. take first)
+        bar_group_cols = benchmarks.BENCH_TARGET_INDEX_COLS + ["input_id", "kernel_launch_id"]
+        labels = simulate_df.groupby(bar_group_cols)["label"].first().to_numpy()
+        num_blocks = simulate_df.groupby(bar_group_cols)["num_blocks"].max().to_numpy()
+        # num_blocks = simulate_df["num_blocks"].values
         # print(labels.tolist())
         assert len(labels) == len(num_blocks)
 
@@ -3841,6 +4139,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         xtick_values = np.arange(0, len(labels), dtype=np.float64)
         xtick_values *= group_width
         xtick_values += 0.5 * float((group_width - group_spacing))
+        # print("xvalues", xtick_values)
+        # print("xlables", xtick_labels)
         xmargin = 0.5 * group_spacing
         ax.set_xlim(-xmargin, len(xtick_labels) * group_width - xmargin)
 
@@ -4090,6 +4390,209 @@ def generate(
             print(color(f"saving to {stats_output_path}", fg="cyan"))
             stats_output_path.parent.mkdir(parents=True, exist_ok=True)
             all_stats.to_csv(stats_output_path, index=False)
+
+@main.command()
+@click.option("-p", "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
+@click.option("--baseline", type=bool, default=True, help="Baseline configurations")
+@click.option("--strict", type=bool, default=True, help="strict mode")
+def timing_table(path, bench_name_arg, baseline, strict):
+    print("loading", path)
+    b = Benchmarks(path)
+    benches = b.benchmarks[Target.Simulate.value]
+    # selected_df = load_stats(bench_name=bench_name_arg, profiler="nvprof", path=path)
+
+    if bench_name_arg is not None:
+        selected_benchmarks = [
+            bench_name for bench_name in benches.keys()
+            if bench_name.lower() == bench_name_arg.lower()
+        ]
+    else:
+        selected_benchmarks = list(benches.keys())
+
+    timings_dfs = []
+    # for bench_name, bench_configs in benches.items():
+    for bench_name in selected_benchmarks:
+        bench_configs = benches[bench_name]
+
+        def is_baseline(config):
+            return not baseline or all(
+                [
+                    config["values"].get("memory_only") in [False, None],
+                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("mode") in ["serial", None],
+                ]
+            )
+
+        baseline_bench_configs = [
+            config for config in bench_configs if is_baseline(config)]
+
+        for bench_config in baseline_bench_configs:
+            repetitions = int(bench_config["common"]["repetitions"])
+            target_config = bench_config["target_config"].value
+            stats_dir = Path(target_config["stats_dir"])
+            assert bench_config["values"]["mode"] == "serial"
+            for r in range(repetitions):
+                sim_df = pd.read_csv(
+                    stats_dir / f"stats.sim.{r}.csv",
+                    header=0,
+                )
+                sim_df["run"] = r
+                grouped_sim = sim_df.groupby(gpucachesim.stats.stats.INDEX_COLS, dropna=False)
+                
+                # timings_path = stats_dir / f"timings.{r}.csv"
+                timings_path = stats_dir / f"timings.csv"
+                # print(timings_path)
+                if not strict and not timings_path.is_file():
+                    continue
+
+                assert timings_path.is_file()
+
+                timing_df = pd.read_csv(timings_path, header=0)
+                timing_df["benchmark"] = bench_config["name"]
+                timing_df["input_id"] = bench_config["input_idx"]
+                timing_df["target"] = bench_config["target"]
+                timing_df["run"] = r
+                timing_df["exec_time_sec"] = grouped_sim["elapsed_millis"].sum().sum()
+                timing_df["exec_time_sec"] /= 1000.0
+
+                timings_dfs.append(timing_df)
+
+
+    timings_df = pd.concat(timings_dfs)
+    timings_df["max_total"] = timings_df.groupby(["target", "benchmark", "input_id", "run"])["total"].transform("max")
+    timings_df["exec_time_sec"] = timings_df["max_total"]
+    # timings_df["exec_time_sec"] = timings_df[["max_total", "exec_time_sec"]].max(axis=1)
+    timings_df["mean_sec"] = timings_df["total"] / timings_df["count"]
+    timings_df["mean_millis"] = timings_df["mean_sec"] * 1000.0
+    timings_df["share"] = timings_df["total"] / timings_df["exec_time_sec"]
+
+    print(timings_df.head(n=100))
+    averaged = timings_df.groupby("name")[
+        ["total", "share", "mean_millis"]
+    ].agg(["min","max","mean", "std"])
+    print("\n\n=== TOTAL")
+    pd.options.display.float_format = "{:.2f}".format
+    print(averaged["total"])
+    print("\n\n=== MEAN MILLIS")
+    pd.options.display.float_format = "{:.6f}".format
+    print(averaged["mean_millis"])
+    print("\n\n=== SHARE")
+    pd.options.display.float_format = "{:.2f}".format
+    print(averaged["share"])
+
+    total = averaged["share"]["mean"].T["cycle::total"]
+    summed = averaged["share"]["mean"].T[[
+        "cycle::core", "cycle::dram", "cycle::interconn",
+        "cycle::issue_block_to_core", "cycle::l2", "cycle::subpartitions",
+    ]]
+    print(total, summed.sum())
+    assert summed.sum() <= total
+
+    # issue blocks = cycle::issue_block_to_core
+    # cores = cycle::core
+    # dram = cycle::dram
+    # interconn = cycle::subpartitions, cycle::interconn
+    # cache cycle = cycle::l2
+
+    # timings_df["rel_err"] = timings_df["total"] / timings_df["exec_time_sec"]
+    # timings_df["abs_err"] = (timings_df["total"] - timings_df["exec_time_sec"]).abs()
+
+    valid_rel = (timings_df["total"] / timings_df["exec_time_sec"]) <= 1.2
+    valid_abs = (timings_df["total"] - timings_df["exec_time_sec"]).abs() <= 0.1
+    # print(timings_df[timings_df["total"] > timings_df["exec_time_sec"]])
+    # print(timings_df[~(valid_rel | valid_abs)])
+    assert (valid_rel | valid_abs).all()
+    return
+
+    table = r"\rowcolor{gray!10} Benchmark & Type & \multicolumn{2}{c}{Input parameters} \\ \hline"
+    table += "\n"
+
+    def get_name(bench_name):
+        match bench_name.lower():
+            case "simple_matrixmul":
+                return "Matrixmul (naive)"
+            case other:
+                return other.capitalize()
+
+    def get_kind(bench_name):
+        match bench_name.lower():
+            case "vectoradd":
+                return "MB"
+            case _:
+                return "MB"
+
+    # row_idx = 0
+    for bench_name, bench_configs in benches.items():
+
+        def is_baseline(config):
+            return not baseline or all(
+                [
+                    config["values"].get("memory_only") in [False, None],
+                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("mode") in ["serial", None],
+                ]
+            )
+
+        baseline_bench_configs = [config for config in bench_configs if is_baseline(config)]
+
+        print(bench_name)
+
+        bench_input_values = defaultdict(set)
+
+        for bench_config in baseline_bench_configs:
+            input_cols = BENCHMARK_INPUT_COLS[bench_name]
+            values = bench_config["values"]
+            inputs = {k: values[k.removeprefix("input_")] for k in input_cols}
+            for k, v in inputs.items():
+                bench_input_values[k].add(v)
+
+        for i, (k, input_values) in enumerate(bench_input_values.items()):
+            if i == 0:
+                table += r"\multirow[t]{" + str(len(bench_input_values)) + "}{*}{"
+                table += r"\shortstack[l]{" + get_name(bench_name) + "}}"
+                table += r" & \multirow[t]{" + str(len(bench_input_values)) + "}{*}{"
+                table += r"\shortstack[l]{" + get_kind(bench_name) + "}}"
+            else:
+                table += r" & & "
+
+            input_values = sorted([v for v in input_values])
+            key = " ".join([kk.strip() for kk in k.removeprefix("input_").split("_")])
+            table += r" & \textbf{" + str(key) + r"}"
+            table += r" & " + (", ".join([str(v) for v in input_values]))
+
+        table += r" \\ \hline" + "\n"
+
+        # num_rows = len(baseline_bench_configs)
+        # for input_idx, bench_config in enumerate(baseline_bench_configs):
+        #     input_cols = BENCHMARK_INPUT_COLS[bench_name]
+        #     if row_idx % 2 == 0:
+        #         table += r"\rowcolor{gray!10}"
+        #     if input_idx == 0:
+        #         table += r"\multirow[t]{" + str(num_rows) + r"}{*}{"
+        #         table += r"\shortstack[l]{" + get_name(bench_name) + r"}}"
+        #         table += r" & \multirow[t]{" + str(num_rows) + r"}{*}{"
+        #         table += r"\shortstack[l]{" + get_kind(bench_name) + "}}"
+        #     else:
+        #         table += " & "
+        #
+        #     values = bench_config["values"]
+        #     inputs = {k: values[k.removeprefix("input_")] for k in input_cols}
+        #     table += r" & "
+        #     for i, (k, v) in enumerate(inputs.items()):
+        #         if i > 0:
+        #             table += ", "
+        #         k = [kk.strip() for kk in k.removeprefix("input_").split("_")]
+        #         table += "{}={}".format(" ".join(k), v)
+        #     table += r" \\" + "\n"
+        #     row_idx += 1
+
+    print(table)
+    utils.copy_to_clipboard(table)
+    print("copied table to clipboard")
+
 
 
 if __name__ == "__main__":
