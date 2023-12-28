@@ -43,6 +43,7 @@ INDEX_COLS = [
     "run",
 ]
 
+
 ACCESS_STATUSES = [
     "HIT",
     "HIT_RESERVED",
@@ -63,6 +64,20 @@ SIMULATE_EXECUTION_CONFIG_COLS = [
     "input_run_ahead",
 ]
 SIMULATE_INPUT_COLS = SIMULATE_EXECUTION_CONFIG_COLS + SIMULATE_FUNCTIONAL_CONFIG_COLS
+
+
+BENCHMARK_INPUT_COL_LABELS = {
+    "benchmark": "Benchmark",
+    "input_dtype": "Data type",
+    "input_length": "Length",
+    "input_rows": "Number of rows",
+    "input_m": "m",
+    "input_n": "n",
+    "input_p": "p",
+    "input_dim": "Dimensions",
+    "input_variant": "Variant",
+    "input_size": "Size",
+}
 
 BENCHMARK_INPUT_COLS = {
     "vectorAdd": ["input_dtype", "input_length"],
@@ -110,6 +125,8 @@ STAT_COLS = [
 ]
 
 BENCH_TARGET_INDEX_COLS = ["target", "benchmark"]
+
+PREVIEW_COLS = list(BENCH_TARGET_INDEX_COLS + ["input_id"] + INDEX_COLS + SIMULATE_INPUT_COLS)
 
 RATE_COLUMNS = [
     "l2_hit_rate",

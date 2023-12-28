@@ -193,12 +193,15 @@ class PChaseConfig(typing.NamedTuple):
 
 
 def collect_full_latency_distribution(
-    sim, gpu=None, force=False, skip_l1=True, configs=None, verbose=False
+    sim, gpu=None, force=False, skip_l1=True, configs=None, verbose=False, repetitions=None
 ):
+    if repetitions is None:
+        repetitions = 1 if sim else 500
     if configs is None:
         configs = []
 
-        # include 64 l1 hit (size_bytes < l1 size)
+        # include 64 l1 hit
+        # (l1 enabled, size_bytes < l1 size)
         size_bytes = 256
         stride_bytes = 4
         assert size_bytes / stride_bytes <= 64
@@ -212,13 +215,14 @@ def collect_full_latency_distribution(
                 warmup=1,
                 iter_size=64,
                 max_rounds=None,
-                repetitions=1,
+                repetitions=repetitions,
                 sim=sim,
             )
         )
 
         if skip_l1:
-            # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
+            # include 64 l1 miss + l2 hit
+            # (l1 disabled, size_bytes < l2 size)
             size_bytes = 256
             stride_bytes = 4
             assert size_bytes / stride_bytes <= 64
@@ -230,14 +234,15 @@ def collect_full_latency_distribution(
                     step_size_bytes=1,
                     stride_bytes=stride_bytes,
                     warmup=1,
-                    repetitions=1,
+                    repetitions=repetitions,
                     max_rounds=None,
                     iter_size=64,
                     sim=sim,
                 )
             )
         else:
-            # include l1 miss + l2 hit (l1 size < size_bytes < l2 size)
+            # include l1 miss + l2 hit
+            # (l1 size < size_bytes < l2 size)
             size_bytes = 2 * get_known_cache_size_bytes(mem="l1data", gpu=gpu)
             stride_bytes = get_known_cache_line_bytes(mem="l1data", gpu=gpu)
             configs.append(
@@ -255,7 +260,8 @@ def collect_full_latency_distribution(
                 )
             )
 
-        # include 64 l1 miss + l2 miss (l2 size < size_bytes)
+        # include 64 l1 miss + l2 miss
+        # (l2 size < size_bytes)
         size_bytes = 2 * get_known_cache_size_bytes(mem="l2", gpu=gpu)
         stride_bytes = 128
         assert size_bytes / stride_bytes >= 64
@@ -267,7 +273,7 @@ def collect_full_latency_distribution(
                 step_size_bytes=1,
                 stride_bytes=stride_bytes,
                 warmup=0,
-                repetitions=1,
+                repetitions=repetitions,
                 iter_size=64,
                 max_rounds=None,
                 sim=sim,
@@ -1850,17 +1856,21 @@ def find_cache_set_mapping(
     unique = False
 
     if average is None:
-        average = gpu == None
+        average = True
+
+    match gpu:
+        case remote.DAS6_GPU.A4000:
+            average = False
 
     # if compute_capability == 86:
     #     if average is None:
     #         average = False
 
-    if gpu is not None and average:
+    if average:
         print(
-            "WARNING: averaging results for GPU {}, which might not have LRU access process".format(
-                gpu.value
-            )
+            color("WARNING: averaging results{}, which might not have LRU access process".format(
+                f" for GPU {gpu.value}" if gpu is not None else ""
+            ), fg="red")
         )
 
     if known_cache_size_bytes is None:
@@ -1869,6 +1879,9 @@ def find_cache_set_mapping(
         known_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
     if known_num_sets is None:
         known_num_sets = get_known_cache_num_sets(mem=mem, gpu=gpu)
+
+    if stride_bytes is None:
+        stride_bytes = known_cache_line_bytes
 
     sector_size_bytes = 32
     derived_num_ways = known_cache_size_bytes // (
@@ -1894,13 +1907,9 @@ def find_cache_set_mapping(
     #     known_cache_size_bytes
     #     == known_num_sets * derived_num_ways * known_cache_line_bytes
     # )
-
-    if stride_bytes is None:
-        stride_bytes = known_cache_line_bytes
-
-    if gpu == "A4000":
-        # stride_bytes = 32
-        pass
+    # if gpu == "A4000":
+    #     # stride_bytes = 32
+    #     pass
 
     print("warmups = {:<3}".format(warmup))
     print("repetitions = {:<3}".format(repetitions))
@@ -2326,14 +2335,14 @@ def find_cache_set_mapping(
             miss_rate = float(misses.sum()) / float(mask.sum()) * 100.0
             # print(combined.loc[misses,:].head(n=2*derived_num_ways))
 
-            if misses.sum() != derived_num_ways:
+            if int(np.ceil(misses.sum() / repetitions)) != int(derived_num_ways):
                 print(
                     color(
-                        "overflow index={:>5} % 128 = {:<3} miss rate={:<4.2f} has {:<2} misses (expected {} ways)".format(
+                        "overflow index={:>5} % 128 = {:<3} miss rate={:<4.2f} has {:2.2f} misses on average (expected {} ways)".format(
                             int(overflow_index),
                             int(overflow_index) % 128,
                             miss_rate,
-                            misses.sum(),
+                            misses.sum() / repetitions,
                             derived_num_ways,
                         ),
                         fg="red",
@@ -2444,6 +2453,7 @@ def find_cache_set_mapping(
         if not found:
             expanded_sets.append(set(set_addresses))
 
+    return
     print("expanded sets: {}".format(len(expanded_sets)))
     expanded_sets = sorted([sorted(list(s)) for s in expanded_sets])
     for si, s in enumerate(expanded_sets):
@@ -5205,7 +5215,12 @@ def find_cache_line_size(
     print("saved to ", filename)
 
 
-def default_legend(ax, stride_bytes=None, repetitions=None, **kwargs):
+def default_legend(ax,
+    stride_bytes=None,
+    size_bytes=None,
+    repetitions=None,
+    warmup=None,
+    **kwargs):
     default_params = dict(
         loc="lower center",
         bbox_to_anchor=(0.5, 1.0),
@@ -5223,10 +5238,16 @@ def default_legend(ax, stride_bytes=None, repetitions=None, **kwargs):
 
     # annotate
     text = ""
+    if size_bytes is not None:
+        text += "$N=${}\n".format(humanize.naturalsize(size_bytes, binary=True))
     if stride_bytes is not None:
         text += "$s=${}\n".format(humanize.naturalsize(stride_bytes, binary=True))
     if repetitions is not None:
-        text += "$r={}$\n".format(repetitions)
+        text += "$r={}$\n".format(plot.human_format_thousands(
+            repetitions, variable_precision=True))
+    if warmup is not None:
+        text += "$w={}$\n".format(plot.human_format_thousands(
+            warmup, variable_precision=True))
     if text != "":
         # ax.annotate(
         ax.text(
@@ -5601,11 +5622,15 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
         dict(
             mem="l2", size_bytes = 10 * MB, stride_bytes = 4,
-            step_size_bytes=1, repetitions=1 if sim else 500,
+            step_size_bytes=1,
+            warmup=0,
+            repetitions=1 if sim else 500,
         ),
         dict(
             mem="l1data", size_bytes = 1 * KB, stride_bytes = 4,
-            step_size_bytes=1, repetitions=1 if sim else 500,
+            step_size_bytes=1,
+            warmup=0,
+            repetitions=1 if sim else 500,
         ),
     ]: 
         assert int(config["size_bytes"]) % int(config["stride_bytes"]) == 0
@@ -5622,7 +5647,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             end_size_bytes=int(config["size_bytes"]),
             step_size_bytes=int(config["step_size_bytes"]),
             stride_bytes=int(config["stride_bytes"]),
-            warmup=0,
+            warmup=int(config["warmup"]),
             repetitions=int(config["repetitions"]),
             max_rounds=None,
             iter_size=iter_size,
@@ -5728,8 +5753,11 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         ax.set_yticks(yticks)
 
         default_legend(ax,
-                       stride_bytes=config["stride_bytes"],
-                       repetitions=config["repetitions"])
+            size_bytes=config["size_bytes"],
+            warmup=config["warmup"],
+            stride_bytes=config["stride_bytes"],
+            repetitions=config["repetitions"],
+        )
         # ax.set_yscale("log", base=2)
 
         cache_file = get_cache_file(
