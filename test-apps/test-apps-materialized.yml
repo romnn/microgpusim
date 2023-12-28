@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 12/12/2023 22:03:11
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 14/12/2023 21:50:02
 ##
 
 config:
@@ -81,7 +81,7 @@ config:
     l2_prefill: null
     inputs: {}
   accelsim_simulate:
-    repetitions: 1
+    repetitions: 2
     timeout: null
     concurrency: 1
     enabled: null
@@ -90603,7 +90603,7 @@ benchmarks:
       - '32'
       input_idx: 0
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90632,7 +90632,7 @@ benchmarks:
       - '32'
       input_idx: 1
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90661,7 +90661,7 @@ benchmarks:
       - '32'
       input_idx: 2
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90690,7 +90690,7 @@ benchmarks:
       - '32'
       input_idx: 3
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90719,7 +90719,7 @@ benchmarks:
       - '32'
       input_idx: 4
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90748,7 +90748,7 @@ benchmarks:
       - '32'
       input_idx: 5
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90777,7 +90777,7 @@ benchmarks:
       - '64'
       input_idx: 6
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90806,7 +90806,7 @@ benchmarks:
       - '64'
       input_idx: 7
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90835,7 +90835,7 @@ benchmarks:
       - '64'
       input_idx: 8
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90864,7 +90864,7 @@ benchmarks:
       - '64'
       input_idx: 9
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90893,7 +90893,7 @@ benchmarks:
       - '64'
       input_idx: 10
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90922,7 +90922,7 @@ benchmarks:
       - '64'
       input_idx: 11
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90956,7 +90956,7 @@ benchmarks:
       - '32'
       input_idx: 0
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -90989,7 +90989,7 @@ benchmarks:
       - '32'
       input_idx: 1
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91022,7 +91022,7 @@ benchmarks:
       - '32'
       input_idx: 2
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91055,7 +91055,7 @@ benchmarks:
       - '32'
       input_idx: 3
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91088,7 +91088,7 @@ benchmarks:
       - '32'
       input_idx: 4
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91121,7 +91121,7 @@ benchmarks:
       - '32'
       input_idx: 5
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91154,7 +91154,7 @@ benchmarks:
       - '32'
       input_idx: 6
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91187,7 +91187,7 @@ benchmarks:
       - '32'
       input_idx: 7
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91220,7 +91220,7 @@ benchmarks:
       - '32'
       input_idx: 8
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91253,7 +91253,7 @@ benchmarks:
       - '32'
       input_idx: 9
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91286,7 +91286,7 @@ benchmarks:
       - '32'
       input_idx: 10
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91319,7 +91319,7 @@ benchmarks:
       - '32'
       input_idx: 11
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91352,7 +91352,7 @@ benchmarks:
       - '32'
       input_idx: 12
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91385,7 +91385,7 @@ benchmarks:
       - '32'
       input_idx: 13
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91418,7 +91418,7 @@ benchmarks:
       - '32'
       input_idx: 14
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91451,7 +91451,7 @@ benchmarks:
       - '32'
       input_idx: 15
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91484,7 +91484,7 @@ benchmarks:
       - '32'
       input_idx: 16
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91517,7 +91517,7 @@ benchmarks:
       - '32'
       input_idx: 17
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91550,7 +91550,7 @@ benchmarks:
       - '32'
       input_idx: 18
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91583,7 +91583,7 @@ benchmarks:
       - '32'
       input_idx: 19
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91616,7 +91616,7 @@ benchmarks:
       - '32'
       input_idx: 20
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91649,7 +91649,7 @@ benchmarks:
       - '32'
       input_idx: 21
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91682,7 +91682,7 @@ benchmarks:
       - '32'
       input_idx: 22
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91715,7 +91715,7 @@ benchmarks:
       - '32'
       input_idx: 23
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91748,7 +91748,7 @@ benchmarks:
       - '32'
       input_idx: 24
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91781,7 +91781,7 @@ benchmarks:
       - '32'
       input_idx: 25
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91814,7 +91814,7 @@ benchmarks:
       - '32'
       input_idx: 26
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91847,7 +91847,7 @@ benchmarks:
       - '32'
       input_idx: 27
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91880,7 +91880,7 @@ benchmarks:
       - '32'
       input_idx: 28
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91910,7 +91910,7 @@ benchmarks:
       - '32'
       input_idx: 0
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91939,7 +91939,7 @@ benchmarks:
       - '32'
       input_idx: 1
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91968,7 +91968,7 @@ benchmarks:
       - '32'
       input_idx: 2
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -91997,7 +91997,7 @@ benchmarks:
       - '32'
       input_idx: 3
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92026,7 +92026,7 @@ benchmarks:
       - '32'
       input_idx: 4
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92059,7 +92059,7 @@ benchmarks:
       - -repeat=0
       input_idx: 0
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92091,7 +92091,7 @@ benchmarks:
       - -repeat=0
       input_idx: 1
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92123,7 +92123,7 @@ benchmarks:
       - -repeat=0
       input_idx: 2
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92155,7 +92155,7 @@ benchmarks:
       - -repeat=0
       input_idx: 3
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92187,7 +92187,7 @@ benchmarks:
       - -repeat=0
       input_idx: 4
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92219,7 +92219,7 @@ benchmarks:
       - -repeat=0
       input_idx: 5
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92250,7 +92250,7 @@ benchmarks:
       - '1'
       input_idx: 0
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92280,7 +92280,7 @@ benchmarks:
       - '1'
       input_idx: 1
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
@@ -92310,7 +92310,7 @@ benchmarks:
       - '1'
       input_idx: 2
       common:
-        repetitions: 1
+        repetitions: 2
         timeout: null
         concurrency: 1
         enabled: null
