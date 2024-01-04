@@ -1002,7 +1002,7 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     xticks = np.arange(
         np.max([min_x, tick_step_size_bytes]), max_x, step=tick_step_size_bytes
     )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
 
     ymax = plot_df["hit_cluster_agg_l2_hit_rate"].max() * 100.0
     ymax = np.clip(ymax * 1.5, 10.0, 100.0)
@@ -3260,14 +3260,20 @@ So the relationship stands like this:
 """
 
 
-def agg_miss_rate(hit_clusters, hit_cluster):
-    cluster_counts = hit_clusters.value_counts().reset_index()
+def agg_miss_rate(clusters, hit_cluster):
+    cluster_counts = clusters.value_counts().reset_index()
     num_misses = cluster_counts.loc[
         cluster_counts["hit_cluster"] > hit_cluster, "count"
     ].sum()
     total = cluster_counts["count"].sum()
     return num_misses / total
 
+def agg_misses(clusters, hit_cluster):
+    cluster_counts = clusters.value_counts().reset_index()
+    num_misses = cluster_counts.loc[
+        cluster_counts["hit_cluster"] > hit_cluster, "count"
+    ].sum()
+    return num_misses
 
 def agg_l1_hit_rate(hit_clusters):
     cluster_counts = hit_clusters.value_counts().reset_index()
@@ -3553,7 +3559,7 @@ def find_cache_sets(
         max_x,
         step=tick_step_size_bytes,
     )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
     print(xticklabels)
     ax.set_xticks(xticks, xticklabels, rotation=30)
     ax.set_xlim(min_x, max_x)
@@ -3561,7 +3567,12 @@ def find_cache_sets(
     ylim = plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0 + 10.0
     ax.set_ylim(0, np.clip(ylim, 10.0, 110.0))
 
-    default_legend(ax, stride_bytes=stride_bytes, repetitions=repetitions)
+    default_legend(
+        ax,
+        stride_bytes=stride_bytes,
+        step_size_bytes=step_size_bytes,
+        repetitions=repetitions,
+    )
     # ax.legend(loc="upper left")
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
@@ -3579,6 +3590,7 @@ def find_cache_sets(
 @click.option("--end", "end_size_bytes", type=int, help="end cache size in bytes")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
+@click.option("--abs", "absolute", type=bool, is_flag=True, help="absolute y axis")
 @click.option("--repetitions", "repetitions", type=int, help="number of repetitions")
 @click.option("--warmup", "warmup", type=int, help="number of warmup iterations")
 @click.option("--rounds", "rounds", type=int, default=1, help="number of rounds")
@@ -3592,6 +3604,7 @@ def find_cache_line_size(
     end_size_bytes,
     cached,
     sim,
+    absolute,
     repetitions,
     warmup,
     rounds,
@@ -3616,23 +3629,16 @@ def find_cache_line_size(
 
     known_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
     predicted_cache_line_bytes = get_known_cache_line_bytes(mem=mem, gpu=gpu)
+    predicted_cache_line_bytes = 32
     predicted_num_lines = get_known_cache_num_sets(mem=mem, gpu=gpu)
+    predicted_num_lines = 4 * 4
+    predicted_num_lines = 2
 
-    stride_bytes = 32
+    # stride_bytes = 32
+    # step_size_bytes = 32
 
-    match mem.lower():
-        case "l1readonly":
-            # stride_bytes = 8
-            pass
-
-    step_size_bytes = 32
-
-    # if mem == "l2":
-    #     step_size_bytes = 32
-    # elif mem == "l1data":
-    #     step_size_bytes = 32
-    # else:
-    #     raise NotImplementedError("mem {} not yet supported".format(mem))
+    stride_bytes = 4
+    step_size_bytes = 4
 
     print(
         "known cache size: {} bytes ({})".format(
@@ -3826,13 +3832,27 @@ def find_cache_line_size(
 
     plot_df = (
         combined.groupby("n")
-        .agg({"hit_cluster": partial(agg_miss_rate, hit_cluster=hit_cluster)})
+        .agg({
+            "hit_cluster": [
+                partial(agg_miss_rate, hit_cluster=hit_cluster),
+                partial(agg_misses, hit_cluster=hit_cluster),
+            ]
+        })
         .reset_index()
     )
-    plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
+
+    # hit_cluster_agg_misses
+    plot_df.columns = [
+        "_".join([col for col in cols if col != ""]) for cols in plot_df.columns
+    ]
+
+    # plot_df = plot_df.rename(columns={"hit_cluster": "miss_rate"})
     # print(plot_df)
 
-    ylabel = r"miss rate ($\%$)"
+    if absolute:
+        ylabel = r"number of cache misses"
+    else:
+        ylabel = r"miss rate ($\%$)"
     xlabel = r"$N$ (bytes)"
     fontsize = plot.FONT_SIZE_PT
     font_family = "Helvetica"
@@ -3856,6 +3876,9 @@ def find_cache_line_size(
 
     if len(cache_line_boundaries) <= 16:
         for i, cache_line_boundary in enumerate(cache_line_boundaries):
+            label = "{} boundary".format(
+                humanize.naturalsize(predicted_cache_line_bytes, binary=True)
+            )
             ax.axvline(
                 x=cache_line_boundary,
                 # color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
@@ -3864,7 +3887,7 @@ def find_cache_line_size(
                 # linestyle="--",
                 linestyle="-",
                 zorder=2,
-                label="cache line boundary" if i == 0 else None,
+                label=label if i == 0 else None,
             )
 
     ax.grid(
@@ -3879,9 +3902,10 @@ def find_cache_line_size(
     )
 
     marker_size = 12
+    y_data = plot_df["hit_cluster_agg_misses"] if absolute else plot_df["hit_cluster_agg_miss_rate"] * 100.0
     ax.scatter(
         plot_df["n"],
-        plot_df["miss_rate"] * 100.0,
+        y_data,
         marker_size,
         # linewidth=1.5,
         # linestyle='--',
@@ -3901,11 +3925,18 @@ def find_cache_line_size(
     #
     # yticks = np.arange(0.0, ymax + 1.0, step=step_size)
     # yticklabels = yticks.astype(int)
-    ymax = plot_df["miss_rate"].max() * 100.0
-    ymax = np.clip(ymax * 1.5, 10.0, 100.0)
-
-    yticks, yticklabels = get_yticks_percent(ymax, num_ticks=5)
-    ax.set_yticks(yticks, yticklabels)
+    ymax = y_data.max()
+    if not absolute:
+        if ymax >= 10.0:
+            ymax *= 1.5
+            # ymax = np.clip(ymax * 1.5, 0.0, 100.0)
+        ymax = np.clip(ymax, 0.0, 100.0)
+        yticks, yticklabels = get_yticks_percent(ymax, num_ticks=5)
+        ax.set_yticks(yticks, yticklabels)
+    else:
+        ymax *= 1.5
+        ax.set_yscale("log", base=10)
+        pass
 
     num_ticks = 6
     tick_step_size_bytes = utils.round_up_to_next_power_of_two(
@@ -3917,30 +3948,23 @@ def find_cache_line_size(
         max_x,
         step=tick_step_size_bytes,
     )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
+    print(xticks)
     print(xticklabels)
+    print("ymax", ymax)
 
     ax.set_xticks(xticks, xticklabels, rotation=30)
     ax.set_xlim(min_x, max_x)
-    ax.set_ylim(0, 1.05 * ymax)
-    # ax.set_ylim(0, np.clip(plot_df["miss_rate"].max() * 2 * 100.0, 10.0, 100.0) + 10.0)
+    if not absolute:
+        ax.set_ylim(0, 1.05 * ymax)
 
-    default_legend(ax, stride_bytes=stride_bytes, repetitions=repetitions)
-    # plt.plot([], [], " ", label="$s=${}".format(humanize.naturalsize(stride_bytes, binary=True)))
-    # plt.plot([], [], " ", label="$r={}$".format(repetitions))
-    # # ax.legend(loc="upper left")
-    # ax.legend(
-    #     loc='lower center',
-    #     bbox_to_anchor=(0.5, 1.0),
-    #     borderpad=0.1,
-    #     labelspacing=0.2,
-    #     columnspacing=0.2,
-    #     edgecolor="none",
-    #     frameon=False,
-    #     fancybox=False,
-    #     shadow=False,
-    #     ncols=2,
-    # )
+    default_legend(
+        ax,
+        stride_bytes=stride_bytes,
+        step_size_bytes=step_size_bytes,
+        warmup=warmup,
+        repetitions=repetitions,
+    )
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
@@ -3949,7 +3973,13 @@ def find_cache_line_size(
 
 
 def default_legend(
-    ax, stride_bytes=None, size_bytes=None, repetitions=None, warmup=None, **kwargs
+    ax,
+    stride_bytes=None,
+    step_size_bytes=None,
+    size_bytes=None,
+    repetitions=None,
+    warmup=None,
+    **kwargs,
 ):
     default_params = dict(
         loc="lower center",
@@ -3972,6 +4002,10 @@ def default_legend(
         text += "$N=${}\n".format(humanize.naturalsize(size_bytes, binary=True))
     if stride_bytes is not None:
         text += "$s=${}\n".format(humanize.naturalsize(stride_bytes, binary=True))
+    if step_size_bytes is not None:
+        text += r"$\delta=$" + "{}\n".format(
+            humanize.naturalsize(step_size_bytes, binary=True)
+        )
     if repetitions is not None:
         text += "$r={}$\n".format(
             plot.human_format_thousands(repetitions, variable_precision=True)
@@ -4210,7 +4244,7 @@ def latency_n_graph(
         max_x,
         step=tick_step_size_bytes,
     )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
     print(xticklabels)
 
     ylabel = r"mean latency"
@@ -4495,6 +4529,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         default_legend(
             ax,
             size_bytes=config["size_bytes"],
+            step_size_bytes=config["step_size_bytes"],
             warmup=config["warmup"],
             stride_bytes=config["stride_bytes"],
             repetitions=config["repetitions"],
@@ -4744,7 +4779,7 @@ def find_cache_size(
     xticks = np.arange(
         np.max([min_x, tick_step_size_bytes]), max_x, step=tick_step_size_bytes
     )
-    xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
+    xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
 
     yticks = np.arange(0.0, 100.0 + 1.0, step=25.0)
     yticklabels = yticks.astype(int)
@@ -4764,7 +4799,12 @@ def find_cache_size(
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 110.0)
 
-    default_legend(ax, stride_bytes=stride_bytes, repetitions=repetitions)
+    default_legend(
+        ax,
+        stride_bytes=stride_bytes,
+        step_size_bytes=step_size_bytes,
+        repetitions=repetitions,
+    )
     # plt.plot([], [], " ", label="$s=${}".format(humanize.naturalsize(stride_bytes, binary=True)))
     # plt.plot([], [], " ", label="$r={}$".format(repetitions))
     # ax.legend(
