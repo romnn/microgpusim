@@ -126,7 +126,9 @@ STAT_COLS = [
 
 BENCH_TARGET_INDEX_COLS = ["target", "benchmark"]
 
-PREVIEW_COLS = list(BENCH_TARGET_INDEX_COLS + ["input_id"] + INDEX_COLS + SIMULATE_INPUT_COLS)
+PREVIEW_COLS = list(
+    BENCH_TARGET_INDEX_COLS + ["input_id"] + INDEX_COLS + SIMULATE_INPUT_COLS
+)
 
 RATE_COLUMNS = [
     "l2_hit_rate",
@@ -336,10 +338,18 @@ def construct_playground_simulate_target_config(self, node):
 BenchmarkLoader.add_constructor("!Profile", construct_profile_target_config)
 BenchmarkLoader.add_constructor("!Trace", construct_trace_target_config)
 BenchmarkLoader.add_constructor("!Simulate", construct_simulate_target_config)
-BenchmarkLoader.add_constructor("!ExecDrivenSimulate", construct_exec_driven_simulate_target_config)
-BenchmarkLoader.add_constructor("!AccelsimSimulate", construct_accelsim_simulate_target_config)
-BenchmarkLoader.add_constructor("!AccelsimTrace", construct_accelsim_trace_target_config)
-BenchmarkLoader.add_constructor("!PlaygroundSimulate", construct_playground_simulate_target_config)
+BenchmarkLoader.add_constructor(
+    "!ExecDrivenSimulate", construct_exec_driven_simulate_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!AccelsimSimulate", construct_accelsim_simulate_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!AccelsimTrace", construct_accelsim_trace_target_config
+)
+BenchmarkLoader.add_constructor(
+    "!PlaygroundSimulate", construct_playground_simulate_target_config
+)
 
 
 class Benchmarks:
@@ -383,7 +393,9 @@ def main():
 
 
 @main.command()
-@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+@click.option(
+    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
+)
 @click.option("--baseline", type=bool, default=True, help="Baseline configurations")
 def table(path, baseline):
     print("loading", path)
@@ -414,13 +426,17 @@ def table(path, baseline):
             return not baseline or all(
                 [
                     config["values"].get("memory_only") in [False, None],
-                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
-                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("num_clusters")
+                    in [int(common.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster")
+                    in [int(common.BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
                 ]
             )
 
-        baseline_bench_configs = [config for config in bench_configs if is_baseline(config)]
+        baseline_bench_configs = [
+            config for config in bench_configs if is_baseline(config)
+        ]
 
         print(bench_name)
 
@@ -479,7 +495,9 @@ def table(path, baseline):
 
 
 @main.command()
-@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+@click.option(
+    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
+)
 def list(path):
     print("loading", path)
     b = Benchmarks(path)
@@ -489,7 +507,9 @@ def list(path):
 
 
 @main.command()
-@click.option("--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config")
+@click.option(
+    "--path", default=DEFAULT_BENCH_FILE, help="Path to materialized benchmark config"
+)
 def fix(path):
     print("loading", path)
     b = Benchmarks(path)
@@ -559,7 +579,9 @@ def fix(path):
             pass
 
         try:
-            if (result_dir / "Simulate").is_dir() and (result_dir / "simulate").is_dir():
+            if (result_dir / "Simulate").is_dir() and (
+                result_dir / "simulate"
+            ).is_dir():
                 # Simulate is newer
                 shutil.rmtree(result_dir / "simulate")
             os.rename(result_dir / "Simulate", result_dir / "simulate")

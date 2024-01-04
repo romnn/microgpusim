@@ -99,6 +99,7 @@ assoc           = 6
 -gpgpu_cache:dl2_texture_only 0 
 """
 
+
 @click.group()
 # @click.pass_context
 def main():
@@ -195,7 +196,13 @@ class PChaseConfig(typing.NamedTuple):
 
 
 def collect_full_latency_distribution(
-    sim, gpu=None, force=False, skip_l1=True, configs=None, verbose=False, repetitions=None
+    sim,
+    gpu=None,
+    force=False,
+    skip_l1=True,
+    configs=None,
+    verbose=False,
+    repetitions=None,
 ):
     if repetitions is None:
         repetitions = 1 if sim else 500
@@ -1011,7 +1018,12 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     ax.set_ylim(0, 1.05 * ymax)
 
     # ax.legend(loc="upper right" if predicted_l2_prefetch_percent < 0.75 else "lower left")
-    default_legend(ax, stride_bytes=stride_bytes, repetitions=repetitions)
+    default_legend(
+        ax,
+        stride_bytes=stride_bytes,
+        step_size_bytes=step_size_bytes,
+        repetitions=repetitions,
+    )
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
@@ -1863,9 +1875,12 @@ def find_cache_set_mapping(
 
     if average:
         print(
-            color("WARNING: averaging results{}, which might not have LRU access process".format(
-                f" for GPU {gpu.value}" if gpu is not None else ""
-            ), fg="red")
+            color(
+                "WARNING: averaging results{}, which might not have LRU access process".format(
+                    f" for GPU {gpu.value}" if gpu is not None else ""
+                ),
+                fg="red",
+            )
         )
 
     if known_cache_size_bytes is None:
@@ -2076,7 +2091,7 @@ def find_cache_set_mapping(
 
     col_miss_count = hit_clusters.sum(axis=0)
     assert col_miss_count.shape[0] == max_cols
-    
+
     fig = plot_access_process_latencies(
         combined,
         latencies,
@@ -2176,7 +2191,7 @@ def find_cache_set_mapping(
             color("have {} set(s), try increasing N".format(len(total_sets)), fg="red")
         )
         return
-    
+
     num_sets = len(total_sets)
     print(num_sets)
     num_sets_log2 = int(np.log2(num_sets))
@@ -2187,9 +2202,7 @@ def find_cache_set_mapping(
         )
     )
 
-    total_sets = sorted(
-        [(list(s), occurences) for s, occurences in total_sets.items()]
-    )
+    total_sets = sorted([(list(s), occurences) for s, occurences in total_sets.items()])
 
     for set_id, (set_addresses, occurences) in enumerate(total_sets):
         combined.loc[combined["virt_addr"].isin(set_addresses), "set"] = set_id
@@ -2205,16 +2218,12 @@ def find_cache_set_mapping(
 
         found = False
         for si in range(len(expanded_sets)):
-            intersection_size = len(
-                expanded_sets[si].intersection(set(set_addresses))
-            )
+            intersection_size = len(expanded_sets[si].intersection(set(set_addresses)))
             union_size = len(expanded_sets[si].union(set(set_addresses)))
             # intersects = intersection_size / union_size > 0.8
             # intersects = len(set(set_addresses)) - intersection_size <= 4
             intersects = (
-                union_size / intersection_size > 0.5
-                if intersection_size > 0
-                else False
+                union_size / intersection_size > 0.5 if intersection_size > 0 else False
             )
             if intersects:
                 expanded_sets[si] = expanded_sets[si].union(set(set_addresses))
@@ -2247,26 +2256,32 @@ def find_cache_set_mapping(
         sector_size_bytes=sector_size_bytes,
         cache_line_bytes=known_cache_line_bytes,
     )
-    
 
     for set_id, set_df in combined.groupby("set"):
         cache_lines = set_df["cache_line"]
         print("=== {:<2} === [{: >4}]".format(int(set_id), len(cache_lines)))
         print(sorted(cache_lines.astype(int).unique().tolist()))
         valid = min(len(cache_lines), derived_cache_lines_per_set)
-        line_table.iloc[0:valid, int(set_id) - 1] = cache_lines.ravel()[:valid].astype(int)
+        line_table.iloc[0:valid, int(set_id) - 1] = cache_lines.ravel()[:valid].astype(
+            int
+        )
 
     print(
         "CACHE GEOMETRY {} LINE TABLE {} x {} (way x set) for virtual base addr 0x{:012x} ({})".format(
-        humanize.naturalsize(known_cache_line_bytes, binary=True),
-        derived_num_ways, num_sets, base_addr, base_addr))
+            humanize.naturalsize(known_cache_line_bytes, binary=True),
+            derived_num_ways,
+            num_sets,
+            base_addr,
+            base_addr,
+        )
+    )
     assert line_table.shape == (derived_num_ways, num_sets)
     print(line_table)
 
     step_size = 16
     for i in range(int(derived_num_ways / step_size)):
-        print(i*step_size, (i+1)*step_size)
-        print(line_table.T.iloc[:,i*step_size:(i+1)*step_size])
+        print(i * step_size, (i + 1) * step_size)
+        print(line_table.T.iloc[:, i * step_size : (i + 1) * step_size])
 
     # return
 
@@ -2303,7 +2318,7 @@ def find_cache_set_mapping(
     num_bits = 64
     line_size_log2 = int(np.log2(known_cache_line_bytes))
 
-    def get_bit_mapping(bit: int, col = "set"):
+    def get_bit_mapping(bit: int, col="set"):
         return [
             (
                 int(addr),
@@ -2364,7 +2379,7 @@ def find_cache_set_mapping(
                             set_bit,
                             count_clauses(set_mapping_function),
                             count_symbols(set_mapping_function),
-                            set_mapping_function
+                            set_mapping_function,
                         ),
                         fg="green",
                     )
@@ -2372,8 +2387,11 @@ def find_cache_set_mapping(
                 found_mapping_functions[set_bit] = set_mapping_function
                 break
 
-    print("found {} valid set mapping functions in {:>6.3f}s".format(
-        len(found_mapping_functions), time.time() - start))
+    print(
+        "found {} valid set mapping functions in {:>6.3f}s".format(
+            len(found_mapping_functions), time.time() - start
+        )
+    )
     no_set_mapping_functions = [
         set_bit
         for set_bit in range(num_sets_log2)
@@ -2391,7 +2409,7 @@ def find_cache_set_mapping(
                 )
             )
         return
-    
+
 
 @main.command()
 @click.option(
@@ -3327,9 +3345,7 @@ def find_cache_sets(
         step_size_bytes = known_cache_line_bytes
         predicted_num_sets = 0
         start_cache_size_bytes = known_cache_size_bytes - 64 * known_cache_line_bytes
-        end_cache_size_bytes = (
-            known_cache_size_bytes + 256 * known_cache_line_bytes
-        )
+        end_cache_size_bytes = known_cache_size_bytes + 256 * known_cache_line_bytes
         repetitions = 1
 
     match mem.lower():
@@ -3832,7 +3848,6 @@ def find_cache_line_size(
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
 
-    
     cache_line_boundaries = np.arange(
         utils.round_down_to_multiple_of(plot_df["n"].min(), predicted_cache_line_bytes),
         utils.round_up_to_multiple_of(plot_df["n"].max(), predicted_cache_line_bytes),
@@ -3933,12 +3948,9 @@ def find_cache_line_size(
     print("saved to ", filename)
 
 
-def default_legend(ax,
-    stride_bytes=None,
-    size_bytes=None,
-    repetitions=None,
-    warmup=None,
-    **kwargs):
+def default_legend(
+    ax, stride_bytes=None, size_bytes=None, repetitions=None, warmup=None, **kwargs
+):
     default_params = dict(
         loc="lower center",
         bbox_to_anchor=(0.5, 1.0),
@@ -3961,11 +3973,13 @@ def default_legend(ax,
     if stride_bytes is not None:
         text += "$s=${}\n".format(humanize.naturalsize(stride_bytes, binary=True))
     if repetitions is not None:
-        text += "$r={}$\n".format(plot.human_format_thousands(
-            repetitions, variable_precision=True))
+        text += "$r={}$\n".format(
+            plot.human_format_thousands(repetitions, variable_precision=True)
+        )
     if warmup is not None:
-        text += "$w={}$\n".format(plot.human_format_thousands(
-            warmup, variable_precision=True))
+        text += "$w={}$\n".format(
+            plot.human_format_thousands(warmup, variable_precision=True)
+        )
     if text != "":
         # ax.annotate(
         ax.text(
@@ -4314,7 +4328,8 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     )
     for label, centroid in zip(
         # ["L1 Hit", "L2 Hit", "L2 Miss", "TLB Miss"], latency_centroids
-        ["L1 Hit", "L2 Hit", "L2 Miss"], latency_centroids[:3]
+        ["L1 Hit", "L2 Hit", "L2 Miss"],
+        latency_centroids[:3],
     ):
         centroid_bins = latency_hist_df["bin_start"] <= centroid + 2 * bin_size
         centroid_bins &= centroid - 2 * bin_size <= latency_hist_df["bin_end"]
@@ -4339,25 +4354,29 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     for config in [
         # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
         dict(
-            mem="l2", size_bytes = 10 * MB, stride_bytes = 4,
+            mem="l2",
+            size_bytes=10 * MB,
+            stride_bytes=4,
             step_size_bytes=1,
             warmup=0,
             repetitions=1 if sim else 500,
         ),
         dict(
-            mem="l1data", size_bytes = 1 * KB, stride_bytes = 4,
+            mem="l1data",
+            size_bytes=1 * KB,
+            stride_bytes=4,
             step_size_bytes=1,
             warmup=0,
             repetitions=1 if sim else 500,
         ),
-    ]: 
+    ]:
         assert int(config["size_bytes"]) % int(config["stride_bytes"]) == 0
 
         match gpu:
             # case remote.DAS6_GPU.A4000:
             #     iter_size=4 * 64
             case _:
-                iter_size=1 * 64
+                iter_size = 1 * 64
 
         latency_process, stderr = pchase(
             mem=config["mem"],
@@ -4386,7 +4405,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             latency_process["latency"].abs().to_numpy().reshape(-1, 1),
             num_clusters=4,
         )
-        
+
         match config["mem"].lower():
             case "l2":
                 ylabel = "L2"
@@ -4397,7 +4416,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
 
         ylabel += " latency (cycles)"
         xlabel = r"$k$"
-        
+
         fig = plt.figure(
             figsize=(0.8 * plot.DINA4_WIDTH_INCHES, 0.2 * plot.DINA4_HEIGHT_INCHES),
             layout="constrained",
@@ -4430,22 +4449,24 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         ax.set_xlabel(xlabel)
 
         num_ticks = 5
-        tick_step_size = int(np.amax([
-            10.0, utils.round_down_to_multiple_of(np.floor(ymax / num_ticks), 50)
-        ]))
+        tick_step_size = int(
+            np.amax(
+                [10.0, utils.round_down_to_multiple_of(np.floor(ymax / num_ticks), 50)]
+            )
+        )
         yticks = list(np.arange(0, ymax, tick_step_size))
 
         print("before sort", latency_centroids)
-        latency_centroids = (sorted(
+        latency_centroids = sorted(
             list(latency_centroids),
             key=lambda c: ((latency_process["latency"] - c).abs() < 10).sum(),
             reverse=True,
-        ))
+        )
         bin_size = 75
         print("after sort", latency_centroids)
-        latency_centroid_bins = set([
-            utils.round_down_to_multiple_of(c, bin_size) for c in latency_centroids
-        ])
+        latency_centroid_bins = set(
+            [utils.round_down_to_multiple_of(c, bin_size) for c in latency_centroids]
+        )
         print("bins", latency_centroid_bins)
         unique_latency_centroids = []
         for c in latency_centroids:
@@ -4462,7 +4483,8 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
 
         # remove overlapping ticks
         yticks = [
-            tick for tick in yticks
+            tick
+            for tick in yticks
             if not any([np.abs(tick - c) < bin_size for c in unique_latency_centroids])
         ]
         yticks = sorted(yticks + unique_latency_centroids)
@@ -4470,7 +4492,8 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         print("yticks", yticks)
         ax.set_yticks(yticks)
 
-        default_legend(ax,
+        default_legend(
+            ax,
             size_bytes=config["size_bytes"],
             warmup=config["warmup"],
             stride_bytes=config["stride_bytes"],
@@ -4499,9 +4522,7 @@ def get_cache_file(
         cache_file_name = "{}-{}-{}".format(prefix, mem, kind)
     else:
         gpu_name = str(gpu.value).replace(" ", "-")
-        cache_file_name = "{}/{}-{}-{}-{}".format(
-            gpu_name, gpu_name, prefix, mem, kind
-        )
+        cache_file_name = "{}/{}-{}-{}-{}".format(gpu_name, gpu_name, prefix, mem, kind)
     if isinstance(compute_capability, int):
         cache_file_name += "-cc{}".format(compute_capability)
 

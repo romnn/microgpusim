@@ -145,7 +145,9 @@ def find_cache_set_mapping():
             stride = float(stride_bytes) / 4.0
             overflow_index = float(overflow_addr_index) / stride
             overflow_latencies = latencies[
-                int(overflow_index * repetitions) : int((overflow_index + 1) * repetitions),
+                int(overflow_index * repetitions) : int(
+                    (overflow_index + 1) * repetitions
+                ),
                 :,
             ]
             fig = plot_access_process_latencies(
@@ -159,22 +161,32 @@ def find_cache_set_mapping():
             )
 
             filename = PLOT_DIR / "pchase_overflow" / cache_file.relative_to(CACHE_DIR)
-            filename = filename.with_name("overflow_{}".format(int(overflow_index))).with_suffix(".pdf")
+            filename = filename.with_name(
+                "overflow_{}".format(int(overflow_index))
+            ).with_suffix(".pdf")
             filename.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(filename)
             print("saved to ", filename)
 
     if False:
         # group by first miss in round 1 and 2
-        print(combined.loc[(combined["k"] >= 1 * round_size) & (combined["k"] < 3 * round_size), :].head(n=100))
+        print(
+            combined.loc[
+                (combined["k"] >= 1 * round_size) & (combined["k"] < 3 * round_size), :
+            ].head(n=100)
+        )
 
         # print(stride_bytes / 4)
         # total_sets = {k * 4: list() for k in range(1 * round_size, 3 * round_size, int(stride_bytes / 4))}
-        total_sets = {int(k): list() for k in range(0, known_cache_size_bytes, stride_bytes)}
+        total_sets = {
+            int(k): list() for k in range(0, known_cache_size_bytes, stride_bytes)
+        }
         # print(total_sets)
         # before = len(total_sets)
         if random:
-            for (n, overflow_index, r), _df in combined.groupby(["n", "overflow_index", "r"]):
+            for (n, overflow_index, r), _df in combined.groupby(
+                ["n", "overflow_index", "r"]
+            ):
                 rounds_3 = _df["k"] >= 3 * round_size
 
                 rounds_1_and_2 = _df["k"] >= 1 * round_size
@@ -183,7 +195,9 @@ def find_cache_set_mapping():
                 assert len(first_miss) <= 1
                 if len(first_miss) > 0:
                     first_miss = int(first_miss.iloc[0])
-                    misses = tuple(_df.loc[rounds_3 & (_df["hit_cluster"] > 0), "index"].tolist())
+                    misses = tuple(
+                        _df.loc[rounds_3 & (_df["hit_cluster"] > 0), "index"].tolist()
+                    )
                     total_sets[first_miss].append(misses)
 
         # pprint(total_sets)
@@ -438,7 +452,12 @@ def find_cache_set_mapping():
         print("==== SET BIT {:<2}".format(set_bit))
 
         bit_mapping = get_offset_bit_mapping(bit=set_bit)
-        bit_pos_used = sorted([int(str(bit).removeprefix("~").removeprefix("b")) for bit in unique_bits(f)])
+        bit_pos_used = sorted(
+            [
+                int(str(bit).removeprefix("~").removeprefix("b"))
+                for bit in unique_bits(f)
+            ]
+        )
         bits_used = [sym.symbols(f"b{pos}") for pos in bit_pos_used]
 
         # bits_used = sorted(
@@ -468,7 +487,9 @@ def find_cache_set_mapping():
                     # "xor_bit": sym.logic.boolalg.Or(*[sym.logic.boolalg.And(term, sym.symbols(f"b{bit}")) for term in ff.args]),
                     "xor_bit": sym.logic.boolalg.Or(
                         *[
-                            sym.logic.boolalg.Xor(term, bit) if contains_var(f.args[i], var=bit) else term
+                            sym.logic.boolalg.Xor(term, bit)
+                            if contains_var(f.args[i], var=bit)
+                            else term
                             for i, term in enumerate(ff.args)
                         ]
                     ),
@@ -488,8 +509,13 @@ def find_cache_set_mapping():
                     print(sub_f)
                     valid = True
                     for addr, target_bit in bit_mapping:
-                        index_bits = bitarray.util.int2ba(addr, length=64, endian="little")
-                        vars = {bit: index_bits[pos] for bit, pos in reversed(list(zip(bits_used, bit_pos_used)))}
+                        index_bits = bitarray.util.int2ba(
+                            addr, length=64, endian="little"
+                        )
+                        vars = {
+                            bit: index_bits[pos]
+                            for bit, pos in reversed(list(zip(bits_used, bit_pos_used)))
+                        }
                         ref_pred = int(bool(f.subs(vars)))
                         sub_pred = int(bool(sub_f.subs(vars)))
                         assert ref_pred == target_bit
@@ -543,7 +569,9 @@ def find_cache_set_mapping():
         bit_mapping = [
             (
                 int(addr),
-                bitarray.util.int2ba(int(set_id), length=num_sets_log2, endian="little")[set_bit],
+                bitarray.util.int2ba(
+                    int(set_id), length=num_sets_log2, endian="little"
+                )[set_bit],
             )
             for addr, set_id in combined[["virt_addr", "set"]].to_numpy()
         ]
@@ -551,14 +579,18 @@ def find_cache_set_mapping():
         bit_mapping = [
             (
                 int(addr),
-                bitarray.util.int2ba(int(offset), length=num_sets_log2, endian="little")[set_bit],
+                bitarray.util.int2ba(
+                    int(offset), length=num_sets_log2, endian="little"
+                )[set_bit],
             )
             for addr, offset in combined[["virt_addr", "offset"]].to_numpy()
         ]
 
         print("==== SET BIT {:<2}".format(set_bit))
         for addr, target_bit in bit_mapping:
-            full_index_bits = bitarray.util.int2ba(addr, length=max_bits, endian="little")
+            full_index_bits = bitarray.util.int2ba(
+                addr, length=max_bits, endian="little"
+            )
 
             # even xor => 0
             # uneven xor => 1
@@ -621,10 +653,19 @@ def find_cache_set_mapping():
                                 # lol = bool(full_index_bits[11]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13]) ^ bool(full_index_bits[14]) ^ bool(full_index_bits[15])
                                 # print(predicted, lol)
                                 # predicted = predicted ^ lol
-                            if full_index_bits[9] & full_index_bits[10] & full_index_bits[11] & full_index_bits[12]:
+                            if (
+                                full_index_bits[9]
+                                & full_index_bits[10]
+                                & full_index_bits[11]
+                                & full_index_bits[12]
+                            ):
                                 predicted = bool(not predicted)
 
-                        if full_index_bits[9] & full_index_bits[10] & ~(full_index_bits[11] & full_index_bits[12]):
+                        if (
+                            full_index_bits[9]
+                            & full_index_bits[10]
+                            & ~(full_index_bits[11] & full_index_bits[12])
+                        ):
                             predicted = bool(not predicted)
 
                     # predicted = bool(full_index_bits[7])
@@ -645,10 +686,12 @@ def find_cache_set_mapping():
 
                     inverter = False
 
-                    section1 = full_index_bits[9:11] == bitarray.bitarray("11", endian="big") or full_index_bits[
-                        9:11
-                    ] == bitarray.bitarray("01", endian="big")
-                    section2 = full_index_bits[11:13] != bitarray.bitarray("11", endian="big")
+                    section1 = full_index_bits[9:11] == bitarray.bitarray(
+                        "11", endian="big"
+                    ) or full_index_bits[9:11] == bitarray.bitarray("01", endian="big")
+                    section2 = full_index_bits[11:13] != bitarray.bitarray(
+                        "11", endian="big"
+                    )
                     # section2 = (
                     #     full_index_bits[11:13] == bitarray.bitarray("11", endian="big")
                     #     or full_index_bits[11:13] == bitarray.bitarray("01", endian="big")
@@ -669,10 +712,18 @@ def find_cache_set_mapping():
                     # 010
                     # 101
                     # 111
-                    t1 = full_index_bits[10:13] == bitarray.bitarray("000", endian="big")
-                    t2 = full_index_bits[10:13] == bitarray.bitarray("010", endian="big")
-                    t3 = full_index_bits[10:13] == bitarray.bitarray("101", endian="big")
-                    t4 = full_index_bits[10:13] == bitarray.bitarray("111", endian="big")
+                    t1 = full_index_bits[10:13] == bitarray.bitarray(
+                        "000", endian="big"
+                    )
+                    t2 = full_index_bits[10:13] == bitarray.bitarray(
+                        "010", endian="big"
+                    )
+                    t3 = full_index_bits[10:13] == bitarray.bitarray(
+                        "101", endian="big"
+                    )
+                    t4 = full_index_bits[10:13] == bitarray.bitarray(
+                        "111", endian="big"
+                    )
                     print(full_index_bits[10:13])
 
                     t5 = full_index_bits[13:15] != bitarray.bitarray("11", endian="big")
@@ -826,7 +877,9 @@ def find_cache_set_mapping():
                     addr,
                     "|".join(
                         split_at_indices(
-                            np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
+                            np.binary_repr(
+                                bitarray.util.ba2int(full_index_bits), width=num_bits
+                            ),
                             indices=[
                                 0,
                                 num_bits - 15,
@@ -839,7 +892,9 @@ def find_cache_set_mapping():
                     str(
                         color(
                             int(predicted),
-                            fg="green" if bool(predicted) == bool(target_bit) else "red",
+                            fg="green"
+                            if bool(predicted) == bool(target_bit)
+                            else "red",
                         )
                     ),
                     str(color("<==", fg="blue")) if addr in marks else "",
@@ -873,27 +928,46 @@ def find_cache_set_mapping():
                     )
                 )
 
-        print(len(list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))))
+        print(
+            len(
+                list(
+                    range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+                )
+            )
+        )
         print(len(offsets))
-        assert len(list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))) == len(offsets)
+        assert len(
+            list(range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes))
+        ) == len(offsets)
 
     if True:
         found_mapping_functions = dict()
         for set_bit in range(num_sets_log2):
             offset_bits = [
-                bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[set_bit] for o in offsets
+                bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[
+                    set_bit
+                ]
+                for o in offsets
             ]
             for min_bits in range(1, num_bits):
-                bits_used = [line_size_log2 + num_sets_log2 + bit for bit in range(min_bits)]
+                bits_used = [
+                    line_size_log2 + num_sets_log2 + bit for bit in range(min_bits)
+                ]
 
                 print("testing bits {:<30}".format(str(bits_used)))
                 t = logicmin.TT(min_bits, 1)
                 validation_table = []
 
-                way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
+                way_boundary_addresses = range(
+                    0, known_cache_size_bytes, num_sets * known_cache_line_bytes
+                )
                 for index, offset in zip(way_boundary_addresses, offset_bits):
-                    index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
-                    new_index_bits = bitarray.bitarray([index_bits[b] for b in reversed(bits_used)])
+                    index_bits = bitarray.util.int2ba(
+                        index, length=max_bits, endian="little"
+                    )
+                    new_index_bits = bitarray.bitarray(
+                        [index_bits[b] for b in reversed(bits_used)]
+                    )
                     new_index = bitarray.util.ba2int(new_index_bits)
                     new_index_bits_str = np.binary_repr(new_index, width=min_bits)
                     t.add(new_index_bits_str, str(offset))
@@ -902,14 +976,20 @@ def find_cache_set_mapping():
                 sols = t.solve()
                 # dnf = sols.printN(xnames=[f"b{b}" for b in range(num_bits)], ynames=['offset'], syntax=None)
                 # dnf = sols[0].printSol("offset",xnames=[f"b{b}" for b in range(num_bits)],syntax=None)
-                dnf = str(sols[0].expr(xnames=[f"b{b}" for b in reversed(bits_used)], syntax=None))
+                dnf = str(
+                    sols[0].expr(
+                        xnames=[f"b{b}" for b in reversed(bits_used)], syntax=None
+                    )
+                )
                 set_mapping_function = logicmin_dnf_to_sympy_cnf(dnf)
                 print(set_mapping_function)
 
                 # validate set mapping function
                 valid = True
                 for index_bits, offset in validation_table:
-                    vars = {sym.symbols(f"b{b}"): index_bits[b] for b in reversed(bits_used)}
+                    vars = {
+                        sym.symbols(f"b{b}"): index_bits[b] for b in reversed(bits_used)
+                    }
                     predicted = set_mapping_function.subs(vars)
                     predicted = int(bool(predicted))
                     if predicted != offset:
@@ -919,7 +999,9 @@ def find_cache_set_mapping():
                     # set_mapping_function = sym.logic.boolalg.to_dnf(set_mapping_function, simplify=True, force=True)
                     print(
                         color(
-                            "found valid set mapping function for bit {:<2}: {}".format(set_bit, set_mapping_function),
+                            "found valid set mapping function for bit {:<2}: {}".format(
+                                set_bit, set_mapping_function
+                            ),
                             fg="green",
                         )
                     )
@@ -929,7 +1011,9 @@ def find_cache_set_mapping():
             if found_mapping_functions.get(set_bit) is None:
                 print(
                     color(
-                        "no minimal set mapping function found for set bit {:<2}".format(set_bit),
+                        "no minimal set mapping function found for set bit {:<2}".format(
+                            set_bit
+                        ),
                         fg="red",
                     )
                 )
@@ -943,13 +1027,19 @@ def find_cache_set_mapping():
             == "(b10 & b13 & ~b11) | (b11 & b12 & b13 & b9) | (b11 & ~b13 & ~b9) | (b13 & ~b11 & ~b9) | (b11 & b13 & b9 & ~b10) | (b10 & b11 & ~b12 & ~b13) | (b9 & ~b10 & ~b11 & ~b13)"
         )
 
-        found_mapping_functions_pyeda = {k: sympy_to_pyeda(v) for k, v in found_mapping_functions.items()}
+        found_mapping_functions_pyeda = {
+            k: sympy_to_pyeda(v) for k, v in found_mapping_functions.items()
+        }
 
         if False:
             for set_bit, f in found_mapping_functions_pyeda.items():
                 minimized = pyeda_minimize(f)
                 # (minimized,) = pyeda.boolalg.minimization.espresso_exprs(f.to_dnf())
-                print("minimized function for set bit {:<2}: {}".format(set_bit, minimized))
+                print(
+                    "minimized function for set bit {:<2}: {}".format(
+                        set_bit, minimized
+                    )
+                )
 
         for set_bit, f in found_mapping_functions.items():
             print("==== SET BIT {:<2}".format(set_bit))
@@ -1013,11 +1103,18 @@ def find_cache_set_mapping():
     # print(minimized)
 
     for set_bit in range(num_sets_log2):
-        way_boundary_addresses = range(0, known_cache_size_bytes, num_sets * known_cache_line_bytes)
-        offset_bits = [bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[set_bit] for o in offsets]
+        way_boundary_addresses = range(
+            0, known_cache_size_bytes, num_sets * known_cache_line_bytes
+        )
+        offset_bits = [
+            bitarray.util.int2ba(int(o), length=num_sets_log2, endian="little")[set_bit]
+            for o in offsets
+        ]
         print("==== SET BIT {:<2}".format(set_bit))
         for index, offset in zip(way_boundary_addresses, offset_bits):
-            full_index_bits = bitarray.util.int2ba(index, length=max_bits, endian="little")
+            full_index_bits = bitarray.util.int2ba(
+                index, length=max_bits, endian="little"
+            )
 
             # index_bits = bitarray.util.int2ba(index >> line_size_log2, length=num_bits, endian="little")
             # even xor => 0
@@ -1035,7 +1132,9 @@ def find_cache_set_mapping():
             marks = set([1536])
 
             if False and set_bit == 0:
-                predicted = index_bits[5] ^ (index_bits[4] ^ index_bits[3]) ^ index_bits[2]
+                predicted = (
+                    index_bits[5] ^ (index_bits[4] ^ index_bits[3]) ^ index_bits[2]
+                )
                 # predicted = index_bits[11] ^ predicted
                 if True:
                     predicted = (index_bits[4] + predicted) % 2
@@ -1062,10 +1161,19 @@ def find_cache_set_mapping():
                         # lol = bool(full_index_bits[11]) ^ bool(full_index_bits[12]) ^ bool(full_index_bits[13]) ^ bool(full_index_bits[14]) ^ bool(full_index_bits[15])
                         # print(predicted, lol)
                         # predicted = predicted ^ lol
-                    if full_index_bits[9] & full_index_bits[10] & full_index_bits[11] & full_index_bits[12]:
+                    if (
+                        full_index_bits[9]
+                        & full_index_bits[10]
+                        & full_index_bits[11]
+                        & full_index_bits[12]
+                    ):
                         predicted = bool(not predicted)
 
-                if full_index_bits[9] & full_index_bits[10] & ~(full_index_bits[11] & full_index_bits[12]):
+                if (
+                    full_index_bits[9]
+                    & full_index_bits[10]
+                    & ~(full_index_bits[11] & full_index_bits[12])
+                ):
                     predicted = bool(not predicted)
 
                 # special = bool(full_index_bits[11]) ^ bool(full_index_bits[13])
@@ -1086,7 +1194,9 @@ def find_cache_set_mapping():
             print(
                 "{}\t\t{} => {:>2} {:>2} {}".format(
                     index,
-                    np.binary_repr(bitarray.util.ba2int(full_index_bits), width=num_bits),
+                    np.binary_repr(
+                        bitarray.util.ba2int(full_index_bits), width=num_bits
+                    ),
                     offset,
                     str(
                         color(
@@ -1117,7 +1227,9 @@ def find_cache_set_mapping():
         set_offsets = np.argsort(sets[:, way_id])
         # print(set_offsets)
         # offsets_df
-        offset_mapping_table.loc[offset_mapping_table.index[i], "set"] = int(set_offsets[set_id])
+        offset_mapping_table.loc[offset_mapping_table.index[i], "set"] = int(
+            set_offsets[set_id]
+        )
 
     offset_mapping_table = offset_mapping_table.astype(int)
 
@@ -1136,7 +1248,9 @@ def find_cache_set_mapping():
     def build_set_mapping_table(df, addr_col="virt_addr", num_sets=None, offset=None):
         set_mapping_table = df.copy()
         if offset is not None and num_sets is not None:
-            set_mapping_table["set"] = (set_mapping_table["set"] + int(offset)) % int(num_sets)
+            set_mapping_table["set"] = (set_mapping_table["set"] + int(offset)) % int(
+                num_sets
+            )
 
         set_mapping_table = set_mapping_table[[addr_col, "set"]].astype(int)
         set_mapping_table = set_mapping_table.rename(columns={addr_col: "addr"})
@@ -1163,8 +1277,14 @@ def find_cache_set_mapping():
 
     num_bits = 64
     for degree in range(2, 4):
-        print(color(f"SOLVE FOR <XOR> MAPPING [degree={degree}, bits={num_bits}]", fg="cyan"))
-        sols = solve_mapping_table_xor(set_mapping_table, num_bits=num_bits, degree=degree)
+        print(
+            color(
+                f"SOLVE FOR <XOR> MAPPING [degree={degree}, bits={num_bits}]", fg="cyan"
+            )
+        )
+        sols = solve_mapping_table_xor(
+            set_mapping_table, num_bits=num_bits, degree=degree
+        )
     # print(sols)
 
     # remove incomplete rounds

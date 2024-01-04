@@ -58,7 +58,10 @@ def cache(input):
     assert len(df["line_id"].unique()) == sets * assoc
     assert len(df["set_id"].unique()) == sets
     assert len(df["assoc_id"].unique()) == assoc
-    assert len(df[["partition", "line_id", "sector"]].drop_duplicates()) == 3 * MB / sector_size
+    assert (
+        len(df[["partition", "line_id", "sector"]].drop_duplicates())
+        == 3 * MB / sector_size
+    )
 
     status_values = ["INVALID", "RESERVED", "VALID", "MODIFIED"]
     print(df.value_counts(["partition", "status"], dropna=False))
@@ -69,11 +72,19 @@ def cache(input):
     # dx, dy = int(sets), int(sector_size * assoc)
     # data = np.zeros(shape=(partitions, dx, dy))
     states = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
-    allocations = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
-    alloc_times = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
-    last_access_times = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
+    allocations = np.zeros(
+        shape=(partitions, sets, assoc, int(line_size / sector_size))
+    )
+    alloc_times = np.zeros(
+        shape=(partitions, sets, assoc, int(line_size / sector_size))
+    )
+    last_access_times = np.zeros(
+        shape=(partitions, sets, assoc, int(line_size / sector_size))
+    )
 
-    for (partition_id, set_id, assoc_id), row_df in df.groupby(["partition", "set_id", "assoc_id"]):
+    for (partition_id, set_id, assoc_id), row_df in df.groupby(
+        ["partition", "set_id", "assoc_id"]
+    ):
         # row_df.sort_values(["line_id", "sector"])
         row_df.sort_values(["line_id", "sector"])
         # print(row_df.head(n=100))
@@ -88,10 +99,16 @@ def cache(input):
         # print(row_df.shape)
         # print(values.shape)
         states[int(partition_id), int(set_id), int(assoc_id), :] = (
-            row_df["status"].apply(lambda status: status_values.index(status)).to_numpy()
+            row_df["status"]
+            .apply(lambda status: status_values.index(status))
+            .to_numpy()
         )
-        allocations[int(partition_id), int(set_id), int(assoc_id), :] = row_df["allocation_id"].to_numpy()
-        alloc_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df["sector_alloc_time"].to_numpy()
+        allocations[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
+            "allocation_id"
+        ].to_numpy()
+        alloc_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
+            "sector_alloc_time"
+        ].to_numpy()
         last_access_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
             "last_sector_access_time"
         ].to_numpy()
@@ -138,8 +155,12 @@ def cache(input):
     # Make normalizer and formatter
     status_norm_bins = np.arange(len(status_colors)).astype(float) + 0.5
     status_norm_bins = np.insert(status_norm_bins, 0, np.min(status_norm_bins) - 1.0)
-    status_norm = matplotlib.colors.BoundaryNorm(status_norm_bins, len(status_labels), clip=True)
-    status_fmt = matplotlib.ticker.FuncFormatter(lambda x, _: status_labels[status_norm(x)])
+    status_norm = matplotlib.colors.BoundaryNorm(
+        status_norm_bins, len(status_labels), clip=True
+    )
+    status_fmt = matplotlib.ticker.FuncFormatter(
+        lambda x, _: status_labels[status_norm(x)]
+    )
 
     im = None
     for partition_id in range(partitions):
@@ -186,7 +207,9 @@ def cache(input):
     allocation_ids = np.arange(first_allocation_id - 1, last_allocation_id + 1)
     num_allocations = len(allocation_ids) - 1
     allocation_norm_bins = allocation_ids.astype(float)
-    allocation_norm = matplotlib.colors.BoundaryNorm(allocation_norm_bins, num_allocations, clip=True)
+    allocation_norm = matplotlib.colors.BoundaryNorm(
+        allocation_norm_bins, num_allocations, clip=True
+    )
     # allocation_norm_bins = np.insert(allocation_norm_bins, 0, np.min(allocation_norm_bins) - 1.0)
     allocation_fmt = matplotlib.ticker.FuncFormatter(lambda x, _: allocation_norm(x))
 

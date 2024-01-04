@@ -78,9 +78,15 @@ class MyEnum(enum.Enum):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.name.lower() == other.name.lower() or self.value.lower() == other.value.lower()
+            return (
+                self.name.lower() == other.name.lower()
+                or self.value.lower() == other.value.lower()
+            )
         elif isinstance(other, str):
-            return self.name.lower() == other.lower() or self.value.lower() == other.lower()
+            return (
+                self.name.lower() == other.lower()
+                or self.value.lower() == other.lower()
+            )
         else:
             return False
 
@@ -198,7 +204,9 @@ class SSHClient:
 
     def run_command(
         self, cmd: str
-    ) -> typing.Tuple[int, paramiko.channel.ChannelFile, paramiko.channel.ChannelStderrFile]:
+    ) -> typing.Tuple[
+        int, paramiko.channel.ChannelFile, paramiko.channel.ChannelStderrFile
+    ]:
         _, stdout, stderr = self.connection.exec_command(cmd)
         stdout.channel.recv_exit_status()
         exit_status = stderr.channel.recv_exit_status()
@@ -218,9 +226,15 @@ class SSHClient:
         remote_path: os.PathLike,
         recursive: bool = False,
     ):
-        self.scp_client.put(files=local_path, remote_path=remote_path, recursive=recursive)
+        self.scp_client.put(
+            files=local_path, remote_path=remote_path, recursive=recursive
+        )
         size = humanize.naturalsize(Path(local_path).stat().st_size, binary=True)
-        print("uploaded {} ({}) to {}:{}:{}".format(local_path, size, self.host, self.port, remote_path))
+        print(
+            "uploaded {} ({}) to {}:{}:{}".format(
+                local_path, size, self.host, self.port, remote_path
+            )
+        )
 
     def file_exists(
         self,
@@ -235,18 +249,36 @@ class SSHClient:
         remote_dir: os.PathLike,
     ):
         self.scp_client.put(files=local_paths, remote_path=remote_dir, recursive=True)
-        print("uploaded {} files to {}:{}:{}".format(len(local_paths), self.host, self.port, remote_dir))
+        print(
+            "uploaded {} files to {}:{}:{}".format(
+                len(local_paths), self.host, self.port, remote_dir
+            )
+        )
 
-    def download_file(self, remote_path: os.PathLike, local_path: os.PathLike, recursive: bool = False):
-        self.scp_client.get(remote_path=remote_path, local_path=local_path, recursive=recursive)
+    def download_file(
+        self, remote_path: os.PathLike, local_path: os.PathLike, recursive: bool = False
+    ):
+        self.scp_client.get(
+            remote_path=remote_path, local_path=local_path, recursive=recursive
+        )
         size = humanize.naturalsize(Path(local_path).stat().st_size, binary=True)
-        print("downloaded {}:{}:{} ({}) to {}".format(self.host, self.port, remote_path, size, local_path))
+        print(
+            "downloaded {}:{}:{} ({}) to {}".format(
+                self.host, self.port, remote_path, size, local_path
+            )
+        )
 
-    def read_file_contents(self, remote_path: os.PathLike) -> tempfile.NamedTemporaryFile:
+    def read_file_contents(
+        self, remote_path: os.PathLike
+    ) -> tempfile.NamedTemporaryFile:
         temp_file = tempfile.NamedTemporaryFile()
         self.scp_client.get(remote_path=remote_path, local_path=temp_file.name)
         size = humanize.naturalsize(Path(temp_file.name).stat().st_size, binary=True)
-        print("read file contents {}:{}:{} ({}) to {}".format(self.host, self.port, remote_path, size, temp_file.name))
+        print(
+            "read file contents {}:{}:{} ({}) to {}".format(
+                self.host, self.port, remote_path, size, temp_file.name
+            )
+        )
         return temp_file
 
     def close(self):
@@ -261,7 +293,9 @@ class SSHClient:
 
 def duration_to_slurm(duration: datetime.timedelta):
     if duration.days > 0:
-        raise NotImplementedError("durations of more than one day are not supported yet")
+        raise NotImplementedError(
+            "durations of more than one day are not supported yet"
+        )
     hours, remainder = divmod(duration.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
@@ -288,9 +322,15 @@ class DAS(SSHClient):
         err = None
         for r in range(retries):
             if r > 0:
-                print("reading from {} (attempt {}/{})".format(remote_path, r + 1, retries))
+                print(
+                    "reading from {} (attempt {}/{})".format(
+                        remote_path, r + 1, retries
+                    )
+                )
             try:
-                exit_status, stdout, stderr = self.run_command('stat -c "%s" {}'.format(remote_path))
+                exit_status, stdout, stderr = self.run_command(
+                    'stat -c "%s" {}'.format(remote_path)
+                )
                 if exit_status != 0:
                     raise ValueError(stderr.read().decode("utf-8"))
                 if int(stdout.read().decode("utf-8")) > 0:
@@ -300,7 +340,9 @@ class DAS(SSHClient):
                 err = e
             time.sleep(interval)
 
-        raise err or FileNotFoundError("{} does not exist or is empty".format(remote_path))
+        raise err or FileNotFoundError(
+            "{} does not exist or is empty".format(remote_path)
+        )
 
     def run_pchase_sync(
         self,
@@ -313,11 +355,19 @@ class DAS(SSHClient):
         compute_capability=None,
         retries=10,
     ) -> typing.Tuple[typing.IO, typing.IO]:
-        executable = executable if executable is not None else self.remote_pchase_executable
+        executable = (
+            executable if executable is not None else self.remote_pchase_executable
+        )
 
-        job_name = "-".join([Path(executable).name, str(gpu.value).replace(" ", "-")] + cmd)
-        remote_stdout_path = self.remote_pchase_results_dir / "{}.stdout".format(job_name)
-        remote_stderr_path = self.remote_pchase_results_dir / "{}.stderr".format(job_name)
+        job_name = "-".join(
+            [Path(executable).name, str(gpu.value).replace(" ", "-")] + cmd
+        )
+        remote_stdout_path = self.remote_pchase_results_dir / "{}.stdout".format(
+            job_name
+        )
+        remote_stderr_path = self.remote_pchase_results_dir / "{}.stderr".format(
+            job_name
+        )
 
         print(job_name, compute_capability, cmd)
 
@@ -326,7 +376,9 @@ class DAS(SSHClient):
         pending_job_names = self.get_job_names(status="PENDING")
         if not force and job_name in set(running_job_names + pending_job_names):
             job_id = self.get_job_id_by_name(job_name)
-            raise ValueError("slurm job <{}> is already running (ID {})".format(job_name, job_id))
+            raise ValueError(
+                "slurm job <{}> is already running (ID {})".format(job_name, job_id)
+            )
         elif force:
             print(color("force re-running job {}".format(job_name), fg="red"))
 
@@ -371,7 +423,9 @@ class DAS(SSHClient):
         timeout=4 * HOUR,
         log_every=100_000,
         env=None,
-    ) -> typing.Tuple[typing.Optional[int], str, typing.Tuple[os.PathLike, os.PathLike]]:
+    ) -> typing.Tuple[
+        typing.Optional[int], str, typing.Tuple[os.PathLike, os.PathLike]
+    ]:
         # upload pchase executable
         # client.upload_file(local_path=local_pchase_executable, remote_path=remote_pchase_executable)
 
@@ -383,8 +437,14 @@ class DAS(SSHClient):
         if isinstance(log_every, int):
             env.update({"LOG_EVERY": str(log_every)})
 
-        executable = Path(executable) if executable is not None else self.remote_pchase_executable
-        executable = executable.with_name(executable.name + "_" + str(get_compute_capability(gpu=gpu)))
+        executable = (
+            Path(executable)
+            if executable is not None
+            else self.remote_pchase_executable
+        )
+        executable = executable.with_name(
+            executable.name + "_" + str(get_compute_capability(gpu=gpu))
+        )
 
         # load cuda toolkit
         module = "module load {}".format(self.__class__.CUDA_MODULE)
@@ -394,13 +454,17 @@ class DAS(SSHClient):
         assert exit_status == 0
 
         # create results dir
-        exit_status, stdout, stderr = self.run_command("mkdir -p {}".format(self.remote_pchase_results_dir))
+        exit_status, stdout, stderr = self.run_command(
+            "mkdir -p {}".format(self.remote_pchase_results_dir)
+        )
         print(stderr.read().decode("utf-8"), end="")
         print(stdout.read().decode("utf-8"), end="")
         assert exit_status == 0
 
         # build slurm script
-        job_name = name or "-".join([Path(executable).name, str(gpu.value).replace(" ", "-")] + args)
+        job_name = name or "-".join(
+            [Path(executable).name, str(gpu.value).replace(" ", "-")] + args
+        )
         remote_slurm_job_path = self.remote_pchase_results_dir / f"{job_name}.job"
         remote_slurm_stdout_path = self.remote_pchase_results_dir / f"{job_name}.stdout"
         remote_slurm_stderr_path = self.remote_pchase_results_dir / f"{job_name}.stderr"
@@ -410,7 +474,9 @@ class DAS(SSHClient):
         slurm_script += "#SBATCH --output={}\n".format(str(remote_slurm_stdout_path))
         slurm_script += "#SBATCH --error={}\n".format(str(remote_slurm_stderr_path))
         if isinstance(timeout, int):
-            slurm_script += "#SBATCH --time={}\n".format(duration_to_slurm(datetime.timedelta(seconds=timeout)))
+            slurm_script += "#SBATCH --time={}\n".format(
+                duration_to_slurm(datetime.timedelta(seconds=timeout))
+            )
         if isinstance(timeout, datetime.timedelta):
             slurm_script += "#SBATCH --time={}\n".format(duration_to_slurm(timeout))
         slurm_script += "#SBATCH -N 1\n"
@@ -426,7 +492,9 @@ class DAS(SSHClient):
         self.upload_data(data=StringIO(slurm_script), remote_path=remote_slurm_job_path)
 
         # enqueue slurm job
-        exit_status, stdout, stderr = self.run_command("sbatch {}".format(remote_slurm_job_path))
+        exit_status, stdout, stderr = self.run_command(
+            "sbatch {}".format(remote_slurm_job_path)
+        )
         print(stderr.read().decode("utf-8"), end="")
 
         stdout = stdout.read().decode("utf-8")
@@ -562,7 +630,11 @@ class Handler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         try:
-            print("forward: opening new channel to {}:{}".format(self.ssh_remote_host, self.ssh_remote_port))
+            print(
+                "forward: opening new channel to {}:{}".format(
+                    self.ssh_remote_host, self.ssh_remote_port
+                )
+            )
             channel = self.ssh_transport.open_channel(
                 kind="direct-tcpip",
                 dest_addr=(self.ssh_remote_host, self.ssh_remote_port),
@@ -570,7 +642,11 @@ class Handler(SocketServer.BaseRequestHandler):
                 timeout=60,
             )
         except Exception as e:
-            print("incoming request to {}:{} failed: {}".format(self.ssh_remote_host, self.ssh_remote_port, repr(e)))
+            print(
+                "incoming request to {}:{} failed: {}".format(
+                    self.ssh_remote_host, self.ssh_remote_port, repr(e)
+                )
+            )
             raise e
 
         if channel is None:
@@ -622,7 +698,9 @@ def tunnel_das(das_host, local_port):
 
     client = None
     try:
-        client = SSHClient(host=vu_host, username=vu_username, password=vu_password, compress=True)
+        client = SSHClient(
+            host=vu_host, username=vu_username, password=vu_password, compress=True
+        )
         print("connected to VU")
         forward_tunnel(
             client.connection.get_transport(),

@@ -192,7 +192,9 @@ class NsightStats(common.Stats):
     bench_config: BenchConfig[ProfileTargetConfig]
     target_config: ProfileConfig
 
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig[ProfileTargetConfig]) -> None:
+    def __init__(
+        self, config: GPUConfig, bench_config: BenchConfig[ProfileTargetConfig]
+    ) -> None:
         self.bench_config = bench_config
         self.target_config = self.bench_config["target_config"].value
         self.path = Path(self.target_config["profile_dir"])
@@ -205,7 +207,10 @@ class NsightStats(common.Stats):
             with open(self.path / f"profile.nsight.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
                 df = pd.DataFrame.from_records(
-                    [{k: None if v is None else v["value"] for k, v in m.items()} for m in metrics]
+                    [
+                        {k: None if v is None else v["value"] for k, v in m.items()}
+                        for m in metrics
+                    ]
                 )
                 df = df.drop(columns=["Kernel Time"])
                 df["run"] = r
@@ -278,7 +283,9 @@ class NsightStats(common.Stats):
         # map sorted correlation ids to increasing launch ids
         launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())
         new_launch_ids = {old: new for new, old in enumerate(launch_ids)}
-        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
+        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(
+            lambda id: new_launch_ids[id]
+        )
 
     def _compute_cycles(self):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
@@ -292,7 +299,9 @@ class NsightStats(common.Stats):
         return grouped["gpu__time_duration"].sum() * 1e-3
 
     def _compute_exec_time_sec(self):
-        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
+        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(
+            1e-6
+        )
 
     def _compute_num_blocks(self):
         self.result_df["num_blocks"] = np.nan
@@ -301,7 +310,9 @@ class NsightStats(common.Stats):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         # there is also sm__inst_executed.sum_inst
         # sm__sass_thread_inst_executed.sum_inst
-        self.result_df["instructions"] = grouped["smsp__thread_inst_executed_not_pred_off_sum"].sum()
+        self.result_df["instructions"] = grouped[
+            "smsp__thread_inst_executed_not_pred_off_sum"
+        ].sum()
 
     def _compute_warp_instructions(self):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
@@ -334,7 +345,10 @@ class NsightStats(common.Stats):
     def _compute_l2_accesses(self):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         accesses = (
-            grouped[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]].sum().astype(float).sum(axis=1)
+            grouped[["lts__request_tex_read_sectors", "lts__request_tex_write_sectors"]]
+            .sum()
+            .astype(float)
+            .sum(axis=1)
         )
         total = grouped["lts__request_tex_sectors"].sum()
         assert (((total - accesses).abs() / total.abs()) < 0.05).all()
@@ -505,7 +519,9 @@ class NsightStats(common.Stats):
         grouped = self.df.groupby(NSIGHT_INDEX_COLS, dropna=False)
         # lts__request_total_sectors_hitrate_pct
         # lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum_sector
-        self.result_df["l2_hit_rate"] = grouped["lts__request_total_sectors_hitrate_pct"].mean()
+        self.result_df["l2_hit_rate"] = grouped[
+            "lts__request_total_sectors_hitrate_pct"
+        ].mean()
         self.result_df["l2_hit_rate"] /= 100.0
 
     def _compute_l2_miss_rate(self):
@@ -516,7 +532,9 @@ class NvprofStats(common.Stats):
     bench_config: BenchConfig[ProfileTargetConfig]
     target_config: ProfileConfig
 
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig[ProfileTargetConfig]) -> None:
+    def __init__(
+        self, config: GPUConfig, bench_config: BenchConfig[ProfileTargetConfig]
+    ) -> None:
         self.bench_config = bench_config
         self.target_config = self.bench_config["target_config"].value
         self.path = Path(self.target_config["profile_dir"])
@@ -529,7 +547,9 @@ class NvprofStats(common.Stats):
         for r in range(self.repetitions):
             with open(self.path / f"profile.nvprof.commands.{r}.json", "rb") as f:
                 commands = json.load(f)
-                commands_df = pd.DataFrame.from_records([{k: v["value"] for k, v in c.items()} for c in commands])
+                commands_df = pd.DataFrame.from_records(
+                    [{k: v["value"] for k, v in c.items()} for c in commands]
+                )
                 # name refers to kernels now
                 commands_df = commands_df.rename(columns={"Name": "Kernel"})
                 commands_df["run"] = r
@@ -537,7 +557,9 @@ class NvprofStats(common.Stats):
 
             with open(self.path / f"profile.nvprof.metrics.{r}.json", "rb") as f:
                 metrics = json.load(f)
-                df = pd.DataFrame.from_records([{k: v["value"] for k, v in m.items()} for m in metrics])
+                df = pd.DataFrame.from_records(
+                    [{k: v["value"] for k, v in m.items()} for m in metrics]
+                )
                 df["run"] = r
                 dfs.append(df)
 
@@ -595,7 +617,11 @@ class NvprofStats(common.Stats):
                     ]
                 ].head(n=20)
             )
-            print(self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head(n=20))
+            print(
+                self.result_df[["dram_accesses", "dram_reads", "dram_writes"]].head(
+                    n=20
+                )
+            )
 
     def compute_native_result_df_nvprof(self):
         self.result_df = pd.DataFrame()
@@ -662,20 +688,28 @@ class NvprofStats(common.Stats):
                 "Correlation_ID": "kernel_launch_id",
             }
         )
-        self.result_df["kernel_function_signature"] = self.result_df["kernel_name_mangled"].apply(
-            lambda name: cxxfilt.demangle(name)
-        )
-        self.result_df["kernel_name"] = self.result_df["kernel_function_signature"].apply(
-            lambda sig: np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
+        self.result_df["kernel_function_signature"] = self.result_df[
+            "kernel_name_mangled"
+        ].apply(lambda name: cxxfilt.demangle(name))
+        self.result_df["kernel_name"] = self.result_df[
+            "kernel_function_signature"
+        ].apply(
+            lambda sig: np.nan
+            if pd.isnull(sig)
+            else common.function_name_from_signature(sig)
         )
 
         # map sorted correlation ids to increasing launch ids
         launch_ids = sorted(self.result_df["kernel_launch_id"].unique().tolist())
         new_launch_ids = {old: new for new, old in enumerate(launch_ids)}
-        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(lambda id: new_launch_ids[id])
+        self.result_df["kernel_launch_id"] = self.result_df["kernel_launch_id"].apply(
+            lambda id: new_launch_ids[id]
+        )
 
     def _compute_exec_time_sec(self):
-        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(1e-6)
+        self.result_df["exec_time_sec"] = self._kernel_durations_us().values * float(
+            1e-6
+        )
 
     def _compute_cycles(self):
         if self.use_duration:
@@ -711,7 +745,9 @@ class NvprofStats(common.Stats):
         ]
 
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        self.result_df["instructions"] = grouped[inst_cols].sum().astype(float).sum(axis=1)
+        self.result_df["instructions"] = (
+            grouped[inst_cols].sum().astype(float).sum(axis=1)
+        )
 
     def _compute_warp_instructions(self):
         nvprof_key = "inst_per_warp"
@@ -723,7 +759,10 @@ class NvprofStats(common.Stats):
 
     def _compute_dram_reads(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        assert (grouped["dram_read_transactions"].mean() == grouped["dram_read_transactions"].sum()).all()
+        assert (
+            grouped["dram_read_transactions"].mean()
+            == grouped["dram_read_transactions"].sum()
+        ).all()
         self.result_df["dram_reads"] = grouped["dram_read_transactions"].mean()
 
     def _compute_dram_writes(self):
@@ -732,8 +771,12 @@ class NvprofStats(common.Stats):
 
     def _compute_dram_accesses(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
-        reads_and_writes = grouped[["dram_read_transactions", "dram_write_transactions"]]
-        self.result_df["dram_accesses"] = reads_and_writes.sum().astype(float).sum(axis=1)
+        reads_and_writes = grouped[
+            ["dram_read_transactions", "dram_write_transactions"]
+        ]
+        self.result_df["dram_accesses"] = (
+            reads_and_writes.sum().astype(float).sum(axis=1)
+        )
 
     def _compute_l2_reads(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
@@ -759,10 +802,14 @@ class NvprofStats(common.Stats):
         self.result_df["l2_write_hit_rate"] /= 100.0
 
     def _compute_l2_read_miss_rate(self):
-        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"].fillna(0.0)
+        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df[
+            "l2_read_hit_rate"
+        ].fillna(0.0)
 
     def _compute_l2_write_miss_rate(self):
-        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"].fillna(0.0)
+        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df[
+            "l2_write_hit_rate"
+        ].fillna(0.0)
 
     def _compute_l2_hit_rate(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
@@ -773,22 +820,34 @@ class NvprofStats(common.Stats):
         self.result_df["l2_miss_rate"] = 1.0 - self.result_df["l2_hit_rate"].fillna(0.0)
 
     def _compute_l2_read_hits(self):
-        self.result_df["l2_read_hits"] = self.result_df["l2_reads"] * self.result_df["l2_read_hit_rate"]
+        self.result_df["l2_read_hits"] = (
+            self.result_df["l2_reads"] * self.result_df["l2_read_hit_rate"]
+        )
 
     def _compute_l2_write_hits(self):
-        self.result_df["l2_write_hits"] = self.result_df["l2_writes"] * self.result_df["l2_write_hit_rate"]
+        self.result_df["l2_write_hits"] = (
+            self.result_df["l2_writes"] * self.result_df["l2_write_hit_rate"]
+        )
 
     def _compute_l2_read_misses(self):
-        self.result_df["l2_read_misses"] = self.result_df["l2_reads"] * self.result_df["l2_read_miss_rate"]
+        self.result_df["l2_read_misses"] = (
+            self.result_df["l2_reads"] * self.result_df["l2_read_miss_rate"]
+        )
 
     def _compute_l2_write_misses(self):
-        self.result_df["l2_write_misses"] = self.result_df["l2_writes"] * self.result_df["l2_write_miss_rate"]
+        self.result_df["l2_write_misses"] = (
+            self.result_df["l2_writes"] * self.result_df["l2_write_miss_rate"]
+        )
 
     def _compute_l2_hits(self):
-        self.result_df["l2_hits"] = self.result_df["l2_read_hits"] + self.result_df["l2_write_hits"]
+        self.result_df["l2_hits"] = (
+            self.result_df["l2_read_hits"] + self.result_df["l2_write_hits"]
+        )
 
     def _compute_l2_misses(self):
-        self.result_df["l2_misses"] = self.result_df["l2_read_misses"] + self.result_df["l2_write_misses"]
+        self.result_df["l2_misses"] = (
+            self.result_df["l2_read_misses"] + self.result_df["l2_write_misses"]
+        )
 
     def _compute_l1_accesses(self):
         grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
@@ -832,7 +891,9 @@ class NvprofStats(common.Stats):
 
     def _kernel_launches_df(self) -> pd.DataFrame:
         commands = self.commands_df
-        kernel_launches = commands[~commands["Kernel"].str.contains(r"\[CUDA memcpy|memset.*\]")]
+        kernel_launches = commands[
+            ~commands["Kernel"].str.contains(r"\[CUDA memcpy|memset.*\]")
+        ]
         if isinstance(kernel_launches, pd.Series):
             return kernel_launches.to_frame()
         return kernel_launches
