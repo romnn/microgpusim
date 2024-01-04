@@ -22,6 +22,7 @@ import itertools
 
 import gpucachesim.cmd as cmd_utils
 from gpucachesim import REPO_ROOT_DIR
+import gpucachesim.utils as utils
 
 sys.path.insert(0, str(REPO_ROOT_DIR / "CuAssembler"))
 import CuAsm as asm
@@ -598,6 +599,39 @@ def bitstring(n, num_bits):
 
 def bits(n, num_bits):
     return [get_bit(int(i), int(n)) for i in reversed(range(num_bits))]
+
+def count_clauses(eq) -> int:
+    if isinstance(eq, (sym.logic.boolalg.And, sym.logic.boolalg.Or)):
+        return len(eq.args)
+    elif isinstance(eq, sym.logic.Not):
+        return count_clauses(eq.args[0])
+    elif isinstance(eq, sym.logic.Symbol):
+        return 1
+    else:
+        raise ValueError("cannot count clauses of {}".format(eq))
+
+def count_symbols(eq: typing.Any) -> int:
+    vars = set()
+    _get_symbols(vars, eq)
+    return len(vars)
+
+def _get_symbols(vars: typing.Set[str], eq: typing.Any): # -> typing.Set[str]:
+    if isinstance(eq, (sym.logic.boolalg.And, sym.logic.boolalg.Or)):
+        # print(eq.args)
+        # return vars.update(utils.flatten([
+        # vars.update(utils.flatten([
+            # list(_get_symbols(set(), a)) for a in eq.args]))
+        for a in eq.args:
+            _get_symbols(vars, a)
+    elif isinstance(eq, sym.logic.Not):
+        # return vars.update(list(_get_symbols(set(), eq.args[0])))
+        # vars.update(list(_get_symbols(set(), eq.args[0])))
+        _get_symbols(vars, eq.args[0])
+    elif isinstance(eq, sym.Symbol):
+        # return set([str(eq)])
+        vars.update([str(eq)])
+    else:
+        raise ValueError("cannot count clauses of {}".format(eq))
 
 
 def solve_mapping_table(df, num_bits=64, use_and=False):
