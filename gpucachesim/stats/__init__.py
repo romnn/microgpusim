@@ -2663,7 +2663,11 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
 
     fill = {
         **{col: 0.0 for col in stats_df.columns},
-        **{"kernel_name_mangled": np.nan, "kernel_name": np.nan},
+        **{
+            "kernel_name_mangled": np.nan,
+            "kernel_name": np.nan,
+            "device": np.nan,
+        },
         **{c: np.nan for c in benchmarks.ALL_BENCHMARK_INPUT_COLS},
         **{c: np.nan for c in benchmarks.SIMULATE_INPUT_COLS},
         **{
