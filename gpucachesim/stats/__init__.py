@@ -3774,16 +3774,17 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             va="top",
         )
 
+        # plot without legend or xticks (middle)
         ax.set_xticks(xtick_values, ["" for _ in range(len(xtick_values))], rotation=0)
-        filename = plot_dir / "{}.{}.{}_no_xticks.pdf".format(
+        filename = plot_dir / "{}.{}.{}_no_xticks_no_legend.pdf".format(
             profiler, benchmark, stat_col
         )
         fig.savefig(filename)
 
         ax.set_xticks(xtick_values, xtick_labels, rotation=0)
 
-        # plot without legend
-        filename = plot_dir / "{}.{}.{}_no_legend.pdf".format(
+        # plot with xticks but without legend (bottom)
+        filename = plot_dir / "{}.{}.{}_with_xticks_no_legend.pdf".format(
             profiler, benchmark, stat_col
         )
         fig.savefig(filename)
@@ -3805,9 +3806,18 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             ncols=4,
         )
 
+        # default plot
         filename = plot_dir / "{}.{}.{}.pdf".format(profiler, benchmark, stat_col)
         fig.savefig(filename)
         print(color("wrote {}".format(filename), fg="cyan"))
+
+        # plot with legend but without xticks (top)
+        ax.set_xticks(xtick_values, ["" for _ in range(len(xtick_values))], rotation=0)
+        filename = plot_dir / "{}.{}.{}_no_xticks_with_legend.pdf".format(
+            profiler, benchmark, stat_col
+        )
+        fig.savefig(filename)
+
 
 
 @main.command()
