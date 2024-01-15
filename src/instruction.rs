@@ -766,6 +766,7 @@ impl WarpInstruction {
         };
 
         // dbg!(&self.data_size);
+        // note: data size is in bytes
         let segment_size = match self.data_size {
             1 => 32,
             2 if use_sector_segment_size => 32,
@@ -828,6 +829,8 @@ impl WarpInstruction {
                     let addr = thread.mem_req_addr[access];
                     let block_addr = line_size_based_tag_func(addr, segment_size);
                     // 32-byte chunk within in a 128-byte accesses by this thread
+                    // this is equal to the 7-5=2 bits from the 
+                    // cache line that identify the sector 
                     let chunk = (addr & 127) / 32;
                     let tx = subwarp_transactions.entry(block_addr).or_default();
 

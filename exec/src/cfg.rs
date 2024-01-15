@@ -265,10 +265,11 @@ pub fn build_control_flow_graph(
                     last_super_cfg_node_idx = super_node_idx;
                 }
                 {
+                    let instructions = std::mem::take(&mut current_instructions);
                     let node_idx = thread_cfg.add_node(TraceNode::Branch {
                         id: node_id,
                         branch_id: *branch_id,
-                        instructions: std::mem::take(&mut current_instructions),
+                        instructions,
                     });
                     thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, took_branch);
                     last_thread_cfg_node_idx = node_idx;
@@ -291,10 +292,11 @@ pub fn build_control_flow_graph(
                     last_super_cfg_node_idx = super_node_idx;
                 }
                 {
+                    let instructions = std::mem::take(&mut current_instructions);
                     let node_idx = thread_cfg.add_node(TraceNode::Reconverge {
                         id: *node_id,
                         branch_id: *branch_id,
-                        instructions: std::mem::take(&mut current_instructions),
+                        instructions,
                     });
                     thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, reconverge_took_branch);
                     last_thread_cfg_node_idx = node_idx;

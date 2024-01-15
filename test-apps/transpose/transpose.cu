@@ -125,6 +125,12 @@ __global__ void copySharedMem(float *odata, float *idata, int width,
 
 __global__ void transposeNaive(float *odata, float *idata, int width,
                                int height) {
+  /*
+  Each thread executing the kernel
+  transposes four elements from one column of the input
+  matrix to their transposed locations in one row of the
+  output matrix.
+    */
   assert(TILE_DIM == blockDim.x);
   assert(BLOCK_ROWS == blockDim.y);
   assert(TILE_DIM == BLOCK_ROWS);
@@ -149,22 +155,32 @@ __global__ void transposeNaive(float *odata, float *idata, int width,
 
 __global__ void transposeCoalesced(float *odata, float *idata, int width,
                                    int height) {
+  assert(TILE_DIM == blockDim.x);
+  assert(BLOCK_ROWS == blockDim.y);
+  assert(TILE_DIM == BLOCK_ROWS);
+
   // Handle to thread block group
   cg::thread_block cta = cg::this_thread_block();
   __shared__ float tile[TILE_DIM][TILE_DIM];
 
+  // this is the same as for naive
   int xIndex = blockIdx.x * TILE_DIM + threadIdx.x;
   int yIndex = blockIdx.y * TILE_DIM + threadIdx.y;
   int index_in = xIndex + (yIndex)*width;
 
+  // this reverses
   xIndex = blockIdx.y * TILE_DIM + threadIdx.x;
   yIndex = blockIdx.x * TILE_DIM + threadIdx.y;
   int index_out = xIndex + (yIndex)*height;
 
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
+    // load a tile to shared memory
+    // each thread computes one column in the tile matrix
+    // therefore there must exist TILE_DIM threads
     tile[threadIdx.y + i][threadIdx.x] = idata[index_in + i * width];
   }
 
+  // wait for the entire tile to be computed
   cg::sync(cta);
 
   for (int i = 0; i < TILE_DIM; i += BLOCK_ROWS) {
