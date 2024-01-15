@@ -55,6 +55,10 @@ const char *sSDKsample = "Transpose";
 
 #define TILE_DIM 16
 #define BLOCK_ROWS 16
+// this config is used in the pdf documentation but is less efficient
+// because one thread transposes 32/8=4 elements.
+// #define TILE_DIM 32
+// #define BLOCK_ROWS 8
 
 // This sample assumes that MATRIX_SIZE_X = MATRIX_SIZE_Y
 int MATRIX_SIZE_X = 1024;
@@ -127,7 +131,7 @@ __global__ void transposeNaive(float *odata, float *idata, int width,
                                int height) {
   assert(TILE_DIM == blockDim.x);
   assert(BLOCK_ROWS == blockDim.y);
-  assert(TILE_DIM == BLOCK_ROWS);
+  // assert(TILE_DIM == BLOCK_ROWS);
   int xIndex = blockIdx.x * TILE_DIM + threadIdx.x;
   int yIndex = blockIdx.y * TILE_DIM + threadIdx.y;
 

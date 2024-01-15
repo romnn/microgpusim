@@ -203,9 +203,8 @@ def collect_full_latency_distribution(
     configs=None,
     verbose=False,
     repetitions=None,
+    warmup=1,
 ):
-    if repetitions is None:
-        repetitions = 1 if sim else 500
     if configs is None:
         configs = []
 
@@ -221,7 +220,7 @@ def collect_full_latency_distribution(
                 end_size_bytes=size_bytes,
                 step_size_bytes=1,
                 stride_bytes=stride_bytes,
-                warmup=1,
+                warmup=warmup,
                 iter_size=64,
                 max_rounds=None,
                 repetitions=repetitions,
@@ -242,7 +241,7 @@ def collect_full_latency_distribution(
                     end_size_bytes=size_bytes,
                     step_size_bytes=1,
                     stride_bytes=stride_bytes,
-                    warmup=1,
+                    warmup=warmup,
                     repetitions=repetitions,
                     max_rounds=None,
                     iter_size=64,
@@ -261,8 +260,8 @@ def collect_full_latency_distribution(
                     end_size_bytes=size_bytes,
                     step_size_bytes=1,
                     stride_bytes=stride_bytes,
-                    warmup=1,
-                    repetitions=1,
+                    warmup=warmup,
+                    repetitions=repetitions,
                     max_rounds=2,
                     iter_size=None,
                     sim=sim,
@@ -291,13 +290,16 @@ def collect_full_latency_distribution(
 
     latencies = []
     for config in configs:
-        hit_latencies_df, stderr = pchase(**config._asdict(), gpu=gpu, force=force)
+        latencies_df, stderr = pchase(**config._asdict(), gpu=gpu, force=force)
         if verbose:
             print(stderr)
-        hit_latencies = hit_latencies_df["latency"].to_numpy()
-        latencies.append(hit_latencies)
+        # hit_latencies = hit_latencies_df["latency"].to_numpy()
+        # latencies.append(hit_latencies)
+        latencies.append(latencies_df)
 
-    return np.hstack(latencies)
+    # return np.hstack(latencies)
+    latencies = pd.concat(latencies)
+    return latencies
 
 
 def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=4):
@@ -306,8 +308,10 @@ def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=4):
     combined_latencies = latencies.copy()
 
     if force_misses:
-        fit_latencies = collect_full_latency_distribution(sim=sim, gpu=gpu)
-        combined_latencies = np.hstack([latencies, fit_latencies])
+        fit_latencies_df = collect_full_latency_distribution(
+            sim=sim, gpu=gpu, repetitions=1 if sim else 100)
+        combined_latencies = np.hstack([
+            latencies, fit_latencies_df["latencies"].numpy()])
 
     latencies = np.abs(latencies)
     latencies = latencies.reshape(-1, 1)
@@ -389,34 +393,6 @@ def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=4):
 
     print("latency_centroids = {}".format(latency_centroids))
     return df
-
-
-# def run_remote_pchase(cmd, gpu, executable=, force=False) -> typing.Tuple[str, str]:
-#     das6 = remote.DAS6()
-#     try:
-#         job_name = "-".join([prefix, str(gpu)] + cmd)
-#         remote_stdout_path = das6.remote_pchase_results_dir / "{}.stdout".format(job_name)
-#         remote_stderr_path = das6.remote_pchase_results_dir / "{}.stderr".format(job_name)
-#
-#         # check if job already running
-#         running_job_names = das6.get_running_job_names()
-#         if not force and job_name in running_job_names:
-#             raise ValueError("slurm job <{}> is already running".format(job_name))
-#
-#         # check if results already exists
-#         if force or not das6.file_exists(remote_stdout_path):
-#             job_id, _, _ = das6.submit_pchase(gpu=gpu, name=job_name, args=cmd)
-#             print("submitted job <{}> [ID={}]".format(job_name, job_id))
-#
-#             das6.wait_for_job(job_id)
-#
-#         # copy stdout and stderr
-#         stdout = das6.read_file_contents(remote_path=remote_stdout_path).decode("utf-8")
-#         stderr = das6.read_file_contents(remote_path=remote_stderr_path).decode("utf-8")
-#     except Exception as e:
-#         das6.close()
-#         raise e
-#     return stdout, stderr
 
 
 def pchase(
@@ -3501,14 +3477,14 @@ def find_cache_sets(
     min_x = plot_df["n"].min()
     max_x = plot_df["n"].max()
     cache_line_boundaries = np.arange(min_x, max_x, step=known_cache_line_bytes)
-
-    # for i, cache_line_boundary in enumerate(cache_line_boundaries):
-    #     ax.axvline(
-    #         x=cache_line_boundary,
-    #         color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
-    #         linestyle="--",
-    #         label="cache line boundary" if i == 0 else None,
-    #     )
+    if len(cache_line_boundaries) < 10:
+        for i, cache_line_boundary in enumerate(cache_line_boundaries):
+            ax.axvline(
+                x=cache_line_boundary,
+                color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
+                linestyle="--",
+                label="cache line boundary" if i == 0 else None,
+            )
 
     marker_size = 12
     ax.scatter(
@@ -3518,6 +3494,7 @@ def find_cache_sets(
         # linewidth=1.5,
         # linestyle='--',
         marker="x",
+        zorder=2,
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
         label=get_label(sim=sim, gpu=gpu),
     )
@@ -3545,6 +3522,7 @@ def find_cache_sets(
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
+    ax.axes.set_zorder(10)
 
     # xticks = np.arange(known_cache_size_bytes, max_x, step=256)
     # xticklabels = [humanize.naturalsize(n, binary=True) for n in xticks]
@@ -3561,7 +3539,7 @@ def find_cache_sets(
     )
     xticklabels = [humanize.naturalsize(n, binary=True, format="%.2f") for n in xticks]
     print(xticklabels)
-    ax.set_xticks(xticks, xticklabels, rotation=30)
+    ax.set_xticks(xticks, xticklabels, rotation=20)
     ax.set_xlim(min_x, max_x)
 
     ylim = plot_df["hit_cluster_agg_miss_rate"].max() * 2 * 100.0 + 10.0
@@ -3571,9 +3549,9 @@ def find_cache_sets(
         ax,
         stride_bytes=stride_bytes,
         step_size_bytes=step_size_bytes,
+        warmup=warmup,
         repetitions=repetitions,
     )
-    # ax.legend(loc="upper left")
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
@@ -3917,6 +3895,7 @@ def find_cache_line_size(
 
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
+    ax.axes.set_zorder(10)
 
     # num_ticks = 5
     # step_size = int(np.ceil(ymax / num_ticks))
@@ -3953,7 +3932,7 @@ def find_cache_line_size(
     print(xticklabels)
     print("ymax", ymax)
 
-    ax.set_xticks(xticks, xticklabels, rotation=30)
+    ax.set_xticks(xticks, xticklabels, rotation=20)
     ax.set_xlim(min_x, max_x)
     if not absolute:
         ax.set_ylim(0, 1.05 * ymax)
@@ -4305,7 +4284,10 @@ CLUSTERS = ["L1_HIT", "L2_HIT", "L2_MISS", "TLB_MISS"]
     help="collect l2 latency by skipping L1",
 )
 def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1):
-    repetitions = max(1, repetitions or 1)
+    if repetitions is None:
+        repetitions = 1 if sim else 500
+        # repetitions = 1
+    repetitions = max(1, repetitions)
 
     gpu = remote.find_gpu(gpu)
 
@@ -4319,12 +4301,17 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             cache_file, header=0, index_col=None, compression=CSV_COMPRESSION
         )
     else:
-        latencies = pd.DataFrame(
-            collect_full_latency_distribution(
-                sim=sim, gpu=gpu, skip_l1=skip_l1, force=force
-            ),
-            columns=["latency"],
+        latencies = collect_full_latency_distribution(
+            sim=sim, gpu=gpu, skip_l1=skip_l1, force=force,
+            repetitions=repetitions,
         )
+        # latencies = pd.DataFrame( # columns=["latency"],)
+        print(latencies)
+        latencies = latencies.drop(columns=["r"])
+        latencies = (
+            latencies.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
+        )
+        print(latencies)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
@@ -4376,14 +4363,19 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         )
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
+    ax.axes.set_zorder(10)
+
     ax.set_ylim(0, latency_hist_df["count"].max() * 1.5)
-    default_legend(ax)
-    # ax.legend()
+
+    default_legend(ax, repetitions=repetitions)
+
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(filename)
     print("saved to ", filename)
     plt.close(fig)
+
+    return
 
     for config in [
         # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
@@ -4481,6 +4473,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
 
         ax.set_ylabel(ylabel)
         ax.set_xlabel(xlabel)
+        ax.axes.set_zorder(10)
 
         num_ticks = 5
         tick_step_size = int(
@@ -4756,6 +4749,7 @@ def find_cache_size(
         color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
         linestyle="--",
         label="cache size",
+        zorder=2,
     )
     ax.plot(
         plot_df["n"],
@@ -4763,11 +4757,13 @@ def find_cache_size(
         linewidth=1.5,
         linestyle="--",
         marker="x",
+        zorder=3,
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
         label=get_label(sim=sim, gpu=gpu),
     )
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
+    ax.axes.set_zorder(10)
 
     num_ticks = 8
     tick_step_size_bytes = utils.round_up_to_next_power_of_two(
@@ -4795,7 +4791,7 @@ def find_cache_size(
     )
 
     ax.set_yticks(yticks, yticklabels)
-    ax.set_xticks(xticks, xticklabels, rotation=30)
+    ax.set_xticks(xticks, xticklabels, rotation=20)
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 110.0)
 
@@ -4803,22 +4799,9 @@ def find_cache_size(
         ax,
         stride_bytes=stride_bytes,
         step_size_bytes=step_size_bytes,
+        warmup=warmup,
         repetitions=repetitions,
     )
-    # plt.plot([], [], " ", label="$s=${}".format(humanize.naturalsize(stride_bytes, binary=True)))
-    # plt.plot([], [], " ", label="$r={}$".format(repetitions))
-    # ax.legend(
-    #     loc='lower center',
-    #     bbox_to_anchor=(0.5, 1.0),
-    #     borderpad=0.1,
-    #     labelspacing=0.2,
-    #     columnspacing=0.2,
-    #     edgecolor="none",
-    #     frameon=False,
-    #     fancybox=False,
-    #     shadow=False,
-    #     ncols=2,
-    # )
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
     filename.parent.mkdir(parents=True, exist_ok=True)

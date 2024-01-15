@@ -99,7 +99,11 @@ def plt_darken_color(color, amount=0.5):
     return plt_lighten_color(color, 1.0 + amount)
 
 
-def round_to_precision(num, round_to=2, variable_precision=False):
+def round_to_precision(num: float, precision: int = 2) -> float:
+    return round(num, precision)
+
+
+def round_to_precision_str(num, round_to=2, variable_precision=False):
     num = round(num, round_to)
     if variable_precision:
         for pos in range(round_to + 1):
@@ -115,9 +119,18 @@ def human_format_thousands(num, round_to=2, variable_precision=False):
     while abs(num) >= 1000:
         magnitude += 1
         num = num / 1000.0
+    # handle cases that round to zero but are not actually zero
+    if num > 0 and round_to_precision(num, precision=round_to) == 0.0:
+        return "<{}{}".format(
+            "{:.{}f}".format(1 / 10**round_to, round_to),
+            ["", "K", "M", "G", "T", "P"][magnitude],
+        )
+    if num < 0 and round_to_precision(num, precision=round_to) == 0.0:
+        return "<{}{}".format(
+            "{:.{}f}".format(1 / 10**round_to, round_to),
+            ["", "K", "M", "G", "T", "P"][magnitude],
+        )
     return "{}{}".format(
-        round_to_precision(
-            num, round_to=round_to, variable_precision=variable_precision
-        ),
+        round_to_precision_str(num, round_to=round_to, variable_precision=variable_precision),
         ["", "K", "M", "G", "T", "P"][magnitude],
     )
