@@ -12,6 +12,153 @@ pub const NUM_SECTORS: usize = 4;
 /// Sector size is 32 bytes.
 pub const SECTOR_SIZE: u32 = 32;
 
+pub fn breakdown_request_to_sector_requests<'c>(
+    fetch: mem_fetch::MemFetch,
+    mem_controller: &'c dyn mcu::MemoryController,
+    sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
+) {
+    log::trace!(
+        "breakdown to sector requests for {fetch} with data size {} sector mask={}",
+        fetch.data_size(),
+        fetch.access.sector_mask.to_bit_string()
+    );
+
+    // struct SectorFetch<'c> {
+    struct SectorFetch {
+        addr: address,
+        physical_addr: crate::mcu::PhysicalAddress,
+        partition_addr: address,
+        sector: usize,
+        byte_mask: mem_fetch::ByteMask,
+        original_fetch: mem_fetch::MemFetch,
+        // mem_controller: &'c dyn mcu::MemoryController,
+        // config: &'c config::GPU,
+    }
+
+    assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+
+    // impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
+    impl Into<mem_fetch::MemFetch> for SectorFetch {
+        fn into(self) -> mem_fetch::MemFetch {
+            let mut sector_mask = mem_fetch::SectorMask::ZERO;
+            sector_mask.set(self.sector, true);
+
+            let access = mem_fetch::access::MemAccess {
+                addr: self.addr,
+                req_size_bytes: SECTOR_SIZE,
+                byte_mask: self.byte_mask,
+                sector_mask,
+                ..self.original_fetch.access.clone()
+            };
+
+            mem_fetch::MemFetch {
+                uid: mem_fetch::generate_uid(),
+                original_fetch: Some(Box::new(self.original_fetch.clone())),
+                access,
+                physical_addr: self.physical_addr,
+                partition_addr: self.partition_addr,
+                ..self.original_fetch
+            }
+        }
+    }
+
+    let num_sectors = NUM_SECTORS as usize;
+    let sector_size = SECTOR_SIZE as usize;
+
+    if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
+        sector_requests[0] = Some(fetch.clone());
+    } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
+        // break down every sector
+        // TODO ROMAN: reset the byte mask for each sector
+        // let mut byte_mask = mem_fetch::ByteMask::ZERO;
+        for sector in 0..num_sectors {
+            let mut byte_mask = mem_fetch::ByteMask::ZERO;
+            byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+            let addr = fetch.addr() + (sector_size * sector) as u64;
+            let physical_addr = mem_controller.to_physical_address(addr);
+            let partition_addr = mem_controller.memory_partition_address(addr);
+
+            let sector_fetch = SectorFetch {
+                sector,
+                addr,
+                physical_addr,
+                partition_addr,
+                byte_mask: fetch.access.byte_mask & byte_mask,
+                original_fetch: fetch.clone(),
+                // mem_controller: &*self.mem_controller,
+            };
+            sector_requests[sector] = Some(sector_fetch.into());
+        }
+    } else if fetch.data_size() == 64
+        && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
+    {
+        // This is for constant cache
+        let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
+        let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
+
+        let mut byte_mask = mem_fetch::ByteMask::ZERO;
+        for sector in sector_start..(sector_start + 2) {
+            byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+            let addr = fetch.addr();
+            let physical_addr = mem_controller.to_physical_address(addr);
+            let partition_addr = mem_controller.memory_partition_address(addr);
+
+            let sector_fetch = SectorFetch {
+                sector,
+                addr,
+                physical_addr,
+                partition_addr,
+                byte_mask: fetch.access.byte_mask & byte_mask,
+                original_fetch: fetch.clone(),
+                // mem_controller: &*self.mem_controller,
+            };
+
+            sector_requests[sector] = Some(sector_fetch.into());
+        }
+    } else if fetch.data_size() > MAX_MEMORY_ACCESS_SIZE {
+        panic!(
+            "fetch {fetch} has data size={} (max data size is {MAX_MEMORY_ACCESS_SIZE })",
+            fetch.data_size()
+        );
+    } else {
+        // access sectors individually
+        for sector in 0..num_sectors {
+            if fetch.access.sector_mask[sector as usize] {
+                let mut byte_mask = mem_fetch::ByteMask::ZERO;
+                byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+
+                let addr = fetch.addr() + (sector_size * sector) as u64;
+                let physical_addr = mem_controller.to_physical_address(addr);
+                let partition_addr = mem_controller.memory_partition_address(addr);
+
+                let sector_fetch = SectorFetch {
+                    sector,
+                    addr,
+                    physical_addr,
+                    partition_addr,
+                    byte_mask: fetch.access.byte_mask & byte_mask,
+                    original_fetch: fetch.clone(),
+                    // mem_controller: &*self.mem_controller,
+                };
+
+                sector_requests[sector] = Some(sector_fetch.into());
+            }
+        }
+    }
+    log::trace!(
+        "sector requests for {fetch}: {:?}",
+        sector_requests
+            .iter()
+            .filter_map(|x| x.as_ref())
+            .map(ToString::to_string)
+            .collect::<Vec<_>>(),
+    );
+    debug_assert!(
+        sector_requests.iter().any(|req| req.is_some()),
+        "no fetch sent"
+    );
+}
+
 // pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
 pub struct MemorySubPartition {
     pub id: usize,
@@ -77,7 +224,7 @@ impl MemorySubPartition {
                 Some(l2_config) => {
                     let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                     let mut data_l2 = cache::DataL2::new(
-                        format!("mem-sub-{}-{}", id, style("L2-CACHE").blue()),
+                        format!("mem-sub-{:03}-{}", id, style("L2-CACHE").blue()),
                         id,
                         partition_id,
                         cache_stats,
@@ -122,132 +269,134 @@ impl MemorySubPartition {
         }
     }
 
-    fn breakdown_request_to_sector_requests(
-        &self,
-        fetch: mem_fetch::MemFetch,
-        sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
-    ) {
-        log::trace!(
-            "breakdown to sector requests for {fetch} with data size {} sector mask={}",
-            fetch.data_size(),
-            fetch.access.sector_mask.to_bit_string()
-        );
-
-        struct SectorFetch<'c> {
-            addr: address,
-            sector: usize,
-            byte_mask: mem_fetch::ByteMask,
-            original_fetch: mem_fetch::MemFetch,
-            mem_controller: &'c dyn mcu::MemoryController,
-            // config: &'c config::GPU,
-        }
-
-        assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
-
-        impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
-            fn into(self) -> mem_fetch::MemFetch {
-                let physical_addr = self.mem_controller.to_physical_address(self.addr);
-                let partition_addr = self.mem_controller.memory_partition_address(self.addr);
-
-                let mut sector_mask = mem_fetch::SectorMask::ZERO;
-                sector_mask.set(self.sector, true);
-
-                let access = mem_fetch::access::MemAccess {
-                    addr: self.addr,
-                    req_size_bytes: SECTOR_SIZE,
-                    byte_mask: self.byte_mask,
-                    sector_mask,
-                    ..self.original_fetch.access.clone()
-                };
-
-                mem_fetch::MemFetch {
-                    uid: mem_fetch::generate_uid(),
-                    original_fetch: Some(Box::new(self.original_fetch.clone())),
-                    access,
-                    physical_addr,
-                    partition_addr,
-                    ..self.original_fetch
-                }
-            }
-        }
-
-        let num_sectors = NUM_SECTORS as usize;
-        let sector_size = SECTOR_SIZE as usize;
-
-        if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
-            sector_requests[0] = Some(fetch.clone());
-        } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
-            // break down every sector
-            let mut byte_mask = mem_fetch::ByteMask::ZERO;
-            for sector in 0..num_sectors {
-                byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-                let sector_fetch = SectorFetch {
-                    sector,
-                    addr: fetch.addr() + (sector_size * sector) as u64,
-                    byte_mask: fetch.access.byte_mask & byte_mask,
-                    original_fetch: fetch.clone(),
-                    mem_controller: &*self.mem_controller,
-                };
-                sector_requests[sector] = Some(sector_fetch.into());
-            }
-        } else if fetch.data_size() == 64
-            && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
-        {
-            // This is for constant cache
-            let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
-            let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
-
-            let mut byte_mask = mem_fetch::ByteMask::ZERO;
-            for sector in sector_start..(sector_start + 2) {
-                byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-
-                let sector_fetch = SectorFetch {
-                    sector,
-                    addr: fetch.addr(),
-                    byte_mask: fetch.access.byte_mask & byte_mask,
-                    original_fetch: fetch.clone(),
-                    mem_controller: &*self.mem_controller,
-                };
-
-                sector_requests[sector] = Some(sector_fetch.into());
-            }
-        } else if fetch.data_size() > MAX_MEMORY_ACCESS_SIZE {
-            panic!(
-                "fetch {fetch} has data size={} (max data size is {MAX_MEMORY_ACCESS_SIZE })",
-                fetch.data_size()
-            );
-        } else {
-            // access sectors individually
-            for sector in 0..num_sectors {
-                if fetch.access.sector_mask[sector as usize] {
-                    let mut byte_mask = mem_fetch::ByteMask::ZERO;
-                    byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-
-                    let sector_fetch = SectorFetch {
-                        sector,
-                        addr: fetch.addr() + (sector_size * sector) as u64,
-                        byte_mask: fetch.access.byte_mask & byte_mask,
-                        original_fetch: fetch.clone(),
-                        mem_controller: &*self.mem_controller,
-                    };
-
-                    sector_requests[sector] = Some(sector_fetch.into());
-                }
-            }
-        }
-        log::trace!(
-            "sector requests for {fetch}: {:?}",
-            sector_requests
-                .iter()
-                .filter_map(|x| x.as_ref())
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-        );
-        debug_assert!(
-            sector_requests.iter().any(|req| req.is_some()),
-            "no fetch sent"
-        );
-    }
+    // fn breakdown_request_to_sector_requests(
+    //     &self,
+    //     fetch: mem_fetch::MemFetch,
+    //     sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
+    // ) {
+    //     log::trace!(
+    //         "breakdown to sector requests for {fetch} with data size {} sector mask={}",
+    //         fetch.data_size(),
+    //         fetch.access.sector_mask.to_bit_string()
+    //     );
+    //
+    //     struct SectorFetch<'c> {
+    //         addr: address,
+    //         sector: usize,
+    //         byte_mask: mem_fetch::ByteMask,
+    //         original_fetch: mem_fetch::MemFetch,
+    //         mem_controller: &'c dyn mcu::MemoryController,
+    //         // config: &'c config::GPU,
+    //     }
+    //
+    //     assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+    //
+    //     impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
+    //         fn into(self) -> mem_fetch::MemFetch {
+    //             let physical_addr = self.mem_controller.to_physical_address(self.addr);
+    //             let partition_addr = self.mem_controller.memory_partition_address(self.addr);
+    //
+    //             let mut sector_mask = mem_fetch::SectorMask::ZERO;
+    //             sector_mask.set(self.sector, true);
+    //
+    //             let access = mem_fetch::access::MemAccess {
+    //                 addr: self.addr,
+    //                 req_size_bytes: SECTOR_SIZE,
+    //                 byte_mask: self.byte_mask,
+    //                 sector_mask,
+    //                 ..self.original_fetch.access.clone()
+    //             };
+    //
+    //             mem_fetch::MemFetch {
+    //                 uid: mem_fetch::generate_uid(),
+    //                 original_fetch: Some(Box::new(self.original_fetch.clone())),
+    //                 access,
+    //                 physical_addr,
+    //                 partition_addr,
+    //                 ..self.original_fetch
+    //             }
+    //         }
+    //     }
+    //
+    //     let num_sectors = NUM_SECTORS as usize;
+    //     let sector_size = SECTOR_SIZE as usize;
+    //
+    //     if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
+    //         sector_requests[0] = Some(fetch.clone());
+    //     } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
+    //         // break down every sector
+    //         // TODO ROMAN: reset the byte mask for each sector
+    //         // let mut byte_mask = mem_fetch::ByteMask::ZERO;
+    //         for sector in 0..num_sectors {
+    //             let mut byte_mask = mem_fetch::ByteMask::ZERO;
+    //             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+    //             let sector_fetch = SectorFetch {
+    //                 sector,
+    //                 addr: fetch.addr() + (sector_size * sector) as u64,
+    //                 byte_mask: fetch.access.byte_mask & byte_mask,
+    //                 original_fetch: fetch.clone(),
+    //                 mem_controller: &*self.mem_controller,
+    //             };
+    //             sector_requests[sector] = Some(sector_fetch.into());
+    //         }
+    //     } else if fetch.data_size() == 64
+    //         && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
+    //     {
+    //         // This is for constant cache
+    //         let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
+    //         let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
+    //
+    //         let mut byte_mask = mem_fetch::ByteMask::ZERO;
+    //         for sector in sector_start..(sector_start + 2) {
+    //             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+    //
+    //             let sector_fetch = SectorFetch {
+    //                 sector,
+    //                 addr: fetch.addr(),
+    //                 byte_mask: fetch.access.byte_mask & byte_mask,
+    //                 original_fetch: fetch.clone(),
+    //                 mem_controller: &*self.mem_controller,
+    //             };
+    //
+    //             sector_requests[sector] = Some(sector_fetch.into());
+    //         }
+    //     } else if fetch.data_size() > MAX_MEMORY_ACCESS_SIZE {
+    //         panic!(
+    //             "fetch {fetch} has data size={} (max data size is {MAX_MEMORY_ACCESS_SIZE })",
+    //             fetch.data_size()
+    //         );
+    //     } else {
+    //         // access sectors individually
+    //         for sector in 0..num_sectors {
+    //             if fetch.access.sector_mask[sector as usize] {
+    //                 let mut byte_mask = mem_fetch::ByteMask::ZERO;
+    //                 byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
+    //
+    //                 let sector_fetch = SectorFetch {
+    //                     sector,
+    //                     addr: fetch.addr() + (sector_size * sector) as u64,
+    //                     byte_mask: fetch.access.byte_mask & byte_mask,
+    //                     original_fetch: fetch.clone(),
+    //                     mem_controller: &*self.mem_controller,
+    //                 };
+    //
+    //                 sector_requests[sector] = Some(sector_fetch.into());
+    //             }
+    //         }
+    //     }
+    //     log::trace!(
+    //         "sector requests for {fetch}: {:?}",
+    //         sector_requests
+    //             .iter()
+    //             .filter_map(|x| x.as_ref())
+    //             .map(ToString::to_string)
+    //             .collect::<Vec<_>>(),
+    //     );
+    //     debug_assert!(
+    //         sector_requests.iter().any(|req| req.is_some()),
+    //         "no fetch sent"
+    //     );
+    // }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         let mut sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
@@ -262,7 +411,11 @@ impl MemorySubPartition {
                 .map(|l2_cache| l2_cache.inner.kind == config::CacheKind::Sector)
                 .unwrap_or(false);
             if sectored {
-                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+                breakdown_request_to_sector_requests(
+                    fetch,
+                    &self.mem_controller,
+                    &mut sector_requests,
+                );
             } else {
                 let mut sector_fetch = fetch;
                 sector_fetch.access.sector_mask.fill(true);
@@ -285,7 +438,11 @@ impl MemorySubPartition {
             };
 
             if sectored {
-                self.breakdown_request_to_sector_requests(fetch, &mut sector_requests);
+                breakdown_request_to_sector_requests(
+                    fetch,
+                    &self.mem_controller,
+                    &mut sector_requests,
+                );
             } else {
                 let mut sector_fetch = fetch;
                 sector_fetch.access.sector_mask.fill(true);
@@ -301,6 +458,12 @@ impl MemorySubPartition {
             .into_iter()
             .filter_map(|x: Option<mem_fetch::MemFetch>| x)
         {
+            // println!(
+            //     "sectored fetch: {} sector={} bytes={}",
+            //     fetch,
+            //     fetch.access.sector_mask[..4].to_bit_string(),
+            //     fetch.access.byte_mask[..128].to_bit_string()
+            // );
             self.request_tracker.insert(fetch.clone());
             self.num_pending_requests += 1;
             assert!(!self.interconn_to_l2_queue.full());
