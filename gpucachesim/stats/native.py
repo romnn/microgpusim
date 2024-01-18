@@ -185,7 +185,6 @@ NVPROF_NUMERIC_METRIC_COLUMNS = [
 def normalize_nvprof_device_name(name):
     # Strip off device numbers, e.g. (0), (1)
     # that some profiler versions add to the end of device name
-    print(name)
     return re.sub(r" \(\d+\)$", "", name)
 
 

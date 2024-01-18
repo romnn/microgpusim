@@ -3169,18 +3169,13 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     all_input_cols = copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS)
     all_input_cols = sorted(list([col for col in all_input_cols if col in selected_df]))
 
-    rows_per_config = selected_df.groupby(
-        ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled", "run"]
-        + benchmarks.SIMULATE_INPUT_COLS
-        + all_input_cols,
-        as_index=False,
-        dropna=False,
-    ).size()
-    # print(rows_per_config)
-    # print(rows_per_config[rows_per_config["size"] > 1][:1].T)
-    assert (
-        rows_per_config["size"] == 1
-    ).all(), "must have exactly one row per config/run"
+    per_config_group_cols = [
+        "target", "benchmark", "input_id", "kernel_name",
+        "kernel_name_mangled", "run",
+    ] + benchmarks.SIMULATE_INPUT_COLS + all_input_cols
+    pprint(per_config_group_cols)
+
+    
 
     # print(selected_df.loc[
     #     (selected_df["input_id"] == 0) & (selected_df["target"] == Target.Simulate.value),
@@ -3192,6 +3187,31 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     per_config = per_config[
         ~(per_config["kernel_name"].isna() & per_config["kernel_name_mangled"].isna())
     ]
+
+    def _inspect(df):
+        if len(df) > 1:
+            print(df[per_config_group_cols].T)
+            print(df.T)
+            raise ValueError("must have exactly one row per config/run")
+
+    rows_per_config_grouper = per_config.groupby(
+        per_config_group_cols,
+        as_index=False,
+        dropna=False,
+    )
+    rows_per_config_grouper.apply(_inspect)
+    rows_per_config = rows_per_config_grouper.size()
+
+    # print(rows_per_config)
+    print(rows_per_config[rows_per_config["size"] > 1].shape)
+    # print(rows_per_config.loc[
+    #     rows_per_config["size"] > 1,per_config_group_cols].sort_values(by=per_config_group_cols)[:5].T)
+    print(rows_per_config[rows_per_config["size"] > 1][:1].T)
+    assert (
+        rows_per_config["size"] == 1
+    ).all(), "must have exactly one row per config/run"
+
+
     # per_config = per_config.reset_index()
     # print(per_config.loc[
     #     (per_config["input_id"] == 0) & (per_config["target"] == Target.Simulate.value),
@@ -3439,8 +3459,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         ),
     ]
     selected_table_benchmarks = pd.concat(selected_table_benchmarks)
-    selected_table_benchmarks = selected_table_benchmarks[
-        per_config_pivoted.index.names
+    selected_table_benchmarks = selected_table_benchmarks.loc[
+        :,[col for col in per_config_pivoted.index.names if col in selected_table_benchmarks]
     ]
     table_index = (
         per_config_pivoted.index.to_frame()
@@ -3774,6 +3794,10 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             va="top",
         )
 
+        fig.set_size_inches(
+            1.0 * plot.DINA4_WIDTH_INCHES, 0.10 * plot.DINA4_HEIGHT_INCHES
+        )
+
         # plot without legend or xticks (middle)
         ax.set_xticks(xtick_values, ["" for _ in range(len(xtick_values))], rotation=0)
         filename = plot_dir / "{}.{}.{}_no_xticks_no_legend.pdf".format(
@@ -3789,9 +3813,9 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         )
         fig.savefig(filename)
 
-        fig.set_size_inches(
-            1.0 * plot.DINA4_WIDTH_INCHES, 0.16 * plot.DINA4_HEIGHT_INCHES
-        )
+        # fig.set_size_inches(
+        #     1.0 * plot.DINA4_WIDTH_INCHES, 0.16 * plot.DINA4_HEIGHT_INCHES
+        # )
 
         ax.legend(
             loc="lower center",
