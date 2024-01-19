@@ -95,28 +95,14 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
         print(df.value_counts(["partition", "status"], dropna=False))
         print(df.value_counts(["partition", "allocation_id"], dropna=False))
 
-        # dx, dy = int(sets * assoc), int(line_size / sector_size)
-        # dx, dy = int(sets), int(sector_size * assoc)
-        # data = np.zeros(shape=(partitions, dx, dy))
         states = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
         allocations = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
         alloc_times = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
         last_access_times = np.zeros(shape=(partitions, sets, assoc, int(line_size / sector_size)))
 
         for (partition_id, set_id, assoc_id), row_df in df.groupby(["partition", "set_id", "assoc_id"]):
-            # row_df.sort_values(["line_id", "sector"])
             row_df.sort_values(["line_id", "sector"])
-            # print(row_df.head(n=100))
-            # break
 
-            # data[set_id * assoc + assoc_id,] = data[]
-            # print(set_id)
-            # assoc_size = int(assoc * (line_size / sector_size))
-            # assoc_size = int(assoc * sector_size)
-            # start_idx = (line_size / sector_size)
-            # print(int(assoc_id) * assoc_size, (int(assoc_id) + 1) * assoc_size)
-            # print(row_df.shape)
-            # print(values.shape)
             states[int(partition_id), int(set_id), int(assoc_id), :] = (
                 row_df["status"].apply(lambda status: status_values.index(status)).to_numpy()
             )
@@ -125,10 +111,6 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
             last_access_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
                 "last_sector_access_time"
             ].to_numpy()
-
-            # int(assoc_id) * assoc_size : (int(assoc_id) + 1) * assoc_size,
-            # print(row_df)
-            # print(row_df.shape)
 
         states = states.reshape((partitions, sets, -1))
         allocations = allocations.reshape((partitions, sets, -1))
@@ -212,7 +194,6 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
             # allocations
             fig, axes = plt.subplots(ny, nx, **fig_options)
 
-            # first_allocation_id = int(np.amin(np.nan_to_num(allocations, nan=0.0)))
             first_allocation_id = 1
             last_allocation_id = int(np.amax(np.nan_to_num(allocations, nan=0.0)))
             print("allocations: {} to {}".format(first_allocation_id, last_allocation_id))
@@ -234,28 +215,18 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
                 boundaries=allocation_boundaries,
                 ncolors=np.max([1, num_allocations]),
                 clip=True,
-                # vmin=1,
-                # vmax=last_allocation_id,
             )
-
-            # allocation_norm_bins = np.insert(allocation_norm_bins, 0, np.min(allocation_norm_bins) - 1.0)
 
             def get_alloc_fmt(x, pos):
                 allocation_bin = allocation_norm(x)
                 allocation = allocation_ids[allocation_bin]
-                print("fmt for cmap: x={} pos={} -> allocation_ids[{}]={}".format(x, pos, allocation_bin, allocation))
+                # print("fmt for cmap: x={} pos={} -> allocation_ids[{}]={}".format(x, pos, allocation_bin, allocation))
                 return allocation
 
             allocation_fmt = matplotlib.ticker.FuncFormatter(get_alloc_fmt)
-            # lambda x, _: allocation_norm(x))
 
-            # allocation_cmap = plt.get_cmap("jet", num_allocations)
-            # allocation_cmap = plt.get_cmap("hsv", num_allocations)
-            # allocation_cmap = plt.get_cmap("hsv", num_allocations + 1)
             MAX_ALLOCATION_COLORS = 16
             allocation_cmap = plt.get_cmap("hsv", MAX_ALLOCATION_COLORS)
-
-            # cmap.set_under("gray")
 
             im = None
             for partition_id in range(partitions):
@@ -271,27 +242,16 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
                 )
                 ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
-            # diffs = allocation_ids[1:] - allocation_ids[:-1]
-            # allocation_tick_values = allocation_ids[:-1].astype(float) + diffs / 2.0
-            # allocation_tick_labels = allocation_ids[:-1].astype(int)
-            # print(diffs)
-            # print(allocation_tick_values)
-            # print(allocation_tick_labels)
             cbar = fig.colorbar(
                 im,
                 ax=axes.ravel().tolist(),
                 format=allocation_fmt,
                 ticks=allocation_ids,
-                # ticks=allocation_tick_values,
                 orientation="horizontal",
                 location="bottom",
                 label="allocation",
                 aspect=20,
             )
-            # cbar.ax.set_xticklabels(allocation_tick_labels)
-            # cbar.ax.set_width(20)
-            # cbar.ax.set_aspect(2)
-            # cbar.ax.set_xticklabels(allocation_tick_labels)
 
             plt.grid(False)
             fig.supxlabel(xlabel)
@@ -312,24 +272,19 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
                 ax = axes[sy, sx]
                 im = ax.imshow(
                     alloc_times[partition_id],
-                    # cmap=status_cmap,
-                    # norm=status_norm,
                     interpolation="none",
                     origin="upper",
                     aspect="auto",
                 )
                 ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
-            # diff = status_norm_bins[1:] - status_norm_bins[:-1]
-            # tickz = status_norm_bins[:-1] + diff / 2
-            # fig.colorbar(im, format=status_fmt, ticks=tickz, ax=axes.ravel().tolist())
             fig.colorbar(
                 im,
                 ax=axes.ravel().tolist(),
                 orientation="horizontal",
                 location="bottom",
                 label="cache line allocation time (cycle)",
-            )  # , format=status_fmt, ticks=tickz, )
+            )
 
             plt.grid(False)
             fig.supxlabel(xlabel)
@@ -350,24 +305,19 @@ def cache(input, plot_states, plot_allocations, plot_alloc_times, plot_last_acce
                 ax = axes[sy, sx]
                 im = ax.imshow(
                     last_access_times[partition_id],
-                    # cmap=status_cmap,
-                    # norm=status_norm,
                     interpolation="none",
                     origin="upper",
                     aspect="auto",
                 )
                 ax.set_title("subpartition {}".format(partition_id + 1), fontsize=6)
 
-            # diff = status_norm_bins[1:] - status_norm_bins[:-1]
-            # tickz = status_norm_bins[:-1] + diff / 2
-            # fig.colorbar(im, format=status_fmt, ticks=tickz, ax=axes.ravel().tolist())
             fig.colorbar(
                 im,
                 ax=axes.ravel().tolist(),
                 orientation="horizontal",
                 location="bottom",
                 label="cache line last access time (cycle)",
-            )  # , format=status_fmt, ticks=tickz, )
+            )
 
             plt.grid(False)
             fig.supxlabel(xlabel)
