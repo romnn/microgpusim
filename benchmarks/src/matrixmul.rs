@@ -34,7 +34,7 @@ where
 {
     type Error = std::convert::Infallible;
 
-    #[gpucachesim::exec::inject_reconvergence_points]
+    #[gpucachesim::exec::instrument_control_flow]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
         let bx = tid.block_idx.x as usize;
         let by = tid.block_idx.y as usize;

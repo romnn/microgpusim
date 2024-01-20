@@ -887,7 +887,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for SingleForLoopKernel {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 let is_even = tid.thread_idx.x % 2 == 0;
                 let num_iterations = if is_even { 3 } else { 1 };
@@ -938,7 +938,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for SingleIfKernel {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 block
                     .memory
@@ -1053,7 +1053,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for TwoLevelNestedForLoops {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 // fully parallel
                 let inst = mem_inst!(Load[Global]@100, 4);
@@ -1120,7 +1120,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for TwoLevelNestedMultipleSerialIf {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 // fully parallel
                 let inst = mem_inst!(Load[Global]@100, 4);
@@ -1194,7 +1194,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for Balanced {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 // fully parallel
                 let inst = mem_inst!(Load[Global]@100, 4);
@@ -1260,7 +1260,7 @@ mod tests {
         #[async_trait::async_trait]
         impl super::Kernel for Imbalanced {
             type Error = std::convert::Infallible;
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 // fully parallel
                 let inst = mem_inst!(Load[Global]@100, 4);
@@ -1337,7 +1337,7 @@ mod tests {
         {
             type Error = std::convert::Infallible;
 
-            #[crate::inject_reconvergence_points]
+            #[crate::instrument_control_flow]
             async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
                 let idx = (tid.block_idx.x * tid.block_dim.x + tid.thread_idx.x) as usize;
 

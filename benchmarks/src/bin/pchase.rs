@@ -208,7 +208,8 @@ where
                 // line_size: 128,
                 // associativity: 48, // 6,
                 replacement_policy: gpucachesim::cache::config::ReplacementPolicy::LRU,
-                write_policy: gpucachesim::cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
+                write_policy:
+                    gpucachesim::cache::config::WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH,
                 allocate_policy: gpucachesim::cache::config::AllocatePolicy::ON_MISS,
                 write_allocate_policy:
                     gpucachesim::cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,

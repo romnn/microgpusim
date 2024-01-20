@@ -104,7 +104,7 @@ impl VisitMut for ControlFlowVisitorMut {
 }
 
 #[proc_macro_attribute]
-pub fn inject_reconvergence_points(
+pub fn instrument_control_flow(
     _args: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {

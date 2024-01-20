@@ -37,7 +37,7 @@ impl<'a> Kernel for FineGrainPChase<'a>
 {
     type Error = std::convert::Infallible;
 
-    #[gpucachesim::exec::inject_reconvergence_points]
+    #[gpucachesim::exec::instrument_control_flow]
     async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
         let mut j = 0u32;
 
