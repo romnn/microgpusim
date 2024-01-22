@@ -10,30 +10,41 @@ use std::collections::VecDeque;
 pub struct ReadOnly {
     inner: cache::base::Base<
         cache::block::Line,
-        cache::controller::pascal::DataCacheController,
+        // cache::controller::pascal::DataCacheController,
+        cache::controller::pascal::L1DataCacheController,
         stats::cache::PerKernel,
     >,
 }
 
 impl ReadOnly {
     pub fn new(
+        id: usize,
         name: String,
-        // core_id: usize,
-        // cluster_id: usize,
+        kind: cache::base::Kind,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
-        cache_config: Arc<config::Cache>,
+        readonly_cache_config: Arc<config::Cache>,
         accelsim_compat: bool,
     ) -> Self {
-        let cache_controller = cache::controller::pascal::DataCacheController::new(
-            cache::config::Config::new(&*cache_config, accelsim_compat),
+        let cache_config = cache::config::Config::new(&*readonly_cache_config, accelsim_compat);
+        let cache_controller = cache::controller::pascal::L1DataCacheController::new(
+            cache_config,
+            // this is totally a hack and not a nice solution
+            &crate::config::L1DCache {
+                inner: Arc::clone(&readonly_cache_config),
+                l1_latency: 1,
+                l1_hit_latency: 1,
+                l1_banks_byte_interleaving: 1,
+                l1_banks: 1,
+            },
+            accelsim_compat,
         );
         let inner = cache::base::Builder {
             name,
-            // core_id,
-            // cluster_id,
+            id,
+            kind,
             stats,
             cache_controller,
-            cache_config,
+            cache_config: readonly_cache_config,
             accelsim_compat,
         }
         .build();
@@ -236,12 +247,20 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
         self.inner.invalidate();
     }
 
+    fn invalidate_addr(&mut self, addr: address) {
+        self.inner.invalidate_addr(addr);
+    }
+
     fn flush(&mut self) -> usize {
         self.inner.flush()
     }
 
     fn num_used_lines(&self) -> usize {
         self.inner.tag_array.num_used_lines()
+    }
+
+    fn num_used_bytes(&self) -> u64 {
+        self.inner.tag_array.num_used_lines() as u64 * self.inner.cache_config.line_size as u64
     }
 
     fn num_total_lines(&self) -> usize {

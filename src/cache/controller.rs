@@ -49,77 +49,79 @@ pub trait CacheController: Sync + Send + 'static {
 pub mod pascal {
     use crate::{address, cache};
 
-    #[derive(Debug, Clone)]
-    pub struct DataCacheController {
-        set_index_function: cache::set_index::linear::SetIndex,
-        config: cache::Config,
-    }
-
-    impl DataCacheController {
-        #[must_use]
-        pub fn new(config: cache::Config) -> Self {
-            let set_index_function =
-                cache::set_index::linear::SetIndex::new(config.num_sets, config.line_size as usize);
-            Self {
-                config,
-                set_index_function,
-            }
-        }
-    }
-
-    impl super::CacheController for DataCacheController {
-        // #[inline]
-        fn tag(&self, addr: address) -> address {
-            // For generality, the tag includes both index and tag.
-            // This allows for more complex set index calculations that
-            // can result in different indexes mapping to the same set,
-            // thus the full tag + index is required to check for hit/miss.
-            // Tag is now identical to the block address.
-
-            // return addr >> (m_line_sz_log2+m_nset_log2);
-            // return addr & ~(new_addr_type)(m_line_sz - 1);
-
-            // The tag lookup is at line size (128B) granularity.
-            // clear the last log2(line_size = 128) bits
-            addr & !address::from(self.config.line_size - 1)
-        }
-
-        // #[inline]
-        fn block_addr(&self, addr: address) -> address {
-            self.tag(addr)
-            // addr & !address::from(self.config.line_size - 1)
-        }
-
-        // #[inline]
-        fn set_index(&self, addr: address) -> u64 {
-            use cache::set_index::SetIndexer;
-            self.set_index_function.compute_set_index(
-                addr,
-                // self.config.num_sets,
-                // self.config.line_size_log2,
-                // self.config.num_sets_log2,
-            )
-        }
-
-        // #[inline]
-        fn set_bank(&self, _addr: address) -> u64 {
-            // not banked by default
-            0
-        }
-
-        // #[inline]
-        fn mshr_addr(&self, addr: address) -> address {
-            addr & !address::from(self.config.atom_size - 1)
-        }
-    }
+    // #[derive(Debug, Clone)]
+    // pub struct DataCacheController {
+    //     set_index_function: cache::set_index::linear::SetIndex,
+    //     config: cache::Config,
+    // }
+    //
+    // impl DataCacheController {
+    //     #[must_use]
+    //     pub fn new(config: cache::Config) -> Self {
+    //         let set_index_function =
+    //             cache::set_index::linear::SetIndex::new(config.num_sets, config.line_size as usize);
+    //         Self {
+    //             config,
+    //             set_index_function,
+    //         }
+    //     }
+    // }
+    //
+    // impl super::CacheController for DataCacheController {
+    //     // #[inline]
+    //     fn tag(&self, addr: address) -> address {
+    //         // For generality, the tag includes both index and tag.
+    //         // This allows for more complex set index calculations that
+    //         // can result in different indexes mapping to the same set,
+    //         // thus the full tag + index is required to check for hit/miss.
+    //         // Tag is now identical to the block address.
+    //
+    //         // return addr >> (m_line_sz_log2+m_nset_log2);
+    //         // return addr & ~(new_addr_type)(m_line_sz - 1);
+    //
+    //         // The tag lookup is at line size (128B) granularity.
+    //         // clear the last log2(line_size = 128) bits
+    //         addr & !address::from(self.config.line_size - 1)
+    //     }
+    //
+    //     // #[inline]
+    //     fn block_addr(&self, addr: address) -> address {
+    //         self.tag(addr)
+    //         // addr & !address::from(self.config.line_size - 1)
+    //     }
+    //
+    //     // #[inline]
+    //     fn set_index(&self, addr: address) -> u64 {
+    //         use cache::set_index::SetIndexer;
+    //         self.set_index_function.compute_set_index(
+    //             addr,
+    //             // self.config.num_sets,
+    //             // self.config.line_size_log2,
+    //             // self.config.num_sets_log2,
+    //         )
+    //     }
+    //
+    //     // #[inline]
+    //     fn set_bank(&self, _addr: address) -> u64 {
+    //         // not banked by default
+    //         0
+    //     }
+    //
+    //     // #[inline]
+    //     fn mshr_addr(&self, addr: address) -> address {
+    //         addr & !address::from(self.config.atom_size - 1)
+    //     }
+    // }
 
     /// This is mostly the same as the L2 cache controller.
     ///
     /// The difference is that the set_index calculation is based on the number of l1 banks.
     #[derive(Debug, Clone)]
     pub struct L1DataCacheController {
-        inner: DataCacheController,
-        set_index_function: cache::set_index::pascal::SetIndex,
+        // inner: DataCacheController,
+        cache_config: cache::Config,
+        linear_set_index_function: cache::set_index::linear::SetIndex,
+        pseudo_random_l1_set_index_function: cache::set_index::pascal::L1PseudoRandomSetIndex,
         banks_set_index_function: cache::set_index::linear::SetIndex,
 
         #[allow(dead_code)]
@@ -134,20 +136,28 @@ pub mod pascal {
     impl L1DataCacheController {
         #[must_use]
         pub fn new(
-            config: cache::Config,
+            cache_config: cache::Config,
             l1_config: &crate::config::L1DCache,
             accelsim_compat_mode: bool,
         ) -> Self {
-            let mut set_index_function = cache::set_index::pascal::SetIndex::default();
-            set_index_function.accelsim_compat_mode = accelsim_compat_mode;
+            let mut pseudo_random_l1_set_index_function =
+                cache::set_index::pascal::L1PseudoRandomSetIndex::default();
+            pseudo_random_l1_set_index_function.accelsim_compat_mode = accelsim_compat_mode;
+            let linear_set_index_function = cache::set_index::linear::SetIndex::new(
+                l1_config.inner.num_sets,
+                l1_config.inner.line_size as usize,
+            );
+
             let banks_set_index_function = cache::set_index::linear::SetIndex::new(
                 l1_config.l1_banks,
                 l1_config.l1_banks_byte_interleaving,
             );
 
             Self {
-                inner: DataCacheController::new(config),
-                set_index_function,
+                // inner: DataCacheController::new(config),
+                cache_config,
+                pseudo_random_l1_set_index_function,
+                linear_set_index_function,
                 banks_set_index_function,
                 l1_latency: l1_config.l1_latency,
                 banks_byte_interleaving: l1_config.l1_banks_byte_interleaving,
@@ -161,33 +171,40 @@ pub mod pascal {
     impl super::CacheController for L1DataCacheController {
         // #[inline]
         fn tag(&self, addr: address) -> address {
-            self.inner.tag(addr)
+            // self.inner.tag(addr)
+            // For generality, the tag includes both index and tag.
+            // This allows for more complex set index calculations that
+            // can result in different indexes mapping to the same set,
+            // thus the full tag + index is required to check for hit/miss.
+            // Tag is now identical to the block address.
+
+            // return addr >> (m_line_sz_log2+m_nset_log2);
+            // return addr & ~(new_addr_type)(m_line_sz - 1);
+
+            // The tag lookup is at line size (128B) granularity.
+            // clear the last log2(line_size = 128) bits
+            addr & !address::from(self.cache_config.line_size - 1)
         }
 
         // #[inline]
         fn block_addr(&self, addr: address) -> address {
-            self.inner.block_addr(addr)
+            self.tag(addr)
+            // self.inner.block_addr(addr)
         }
 
         // #[inline]
         fn set_index(&self, addr: address) -> u64 {
             use cache::set_index::SetIndexer;
-            self.set_index_function.compute_set_index(
-                addr,
-                // self.inner.config.num_sets,
-                // self.inner.config.line_size_log2,
-                // self.inner.config.num_sets_log2,
-            )
+            // TODO: REMOVE
+            // return self.linear_set_index_function.compute_set_index(addr);
+            self.pseudo_random_l1_set_index_function
+                .compute_set_index(addr)
         }
 
         // #[inline]
         fn mshr_addr(&self, addr: address) -> address {
-            log::trace!(
-                "computing mshr addr for {}: atom size={}",
-                addr,
-                self.inner.config.atom_size
-            );
-            self.inner.mshr_addr(addr)
+            // self.inner.mshr_addr(addr)
+            addr & !address::from(self.cache_config.atom_size - 1)
         }
 
         // #[inline]

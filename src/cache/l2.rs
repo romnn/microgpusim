@@ -6,61 +6,111 @@ use std::collections::VecDeque;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
-pub struct L2DataCacheController<MC, CC> {
+// pub struct L2DataCacheController<MC, CC> {
+// pub struct L2DataCacheController<MC> {
+pub struct L2DataCacheController {
     accelsim_compat: bool,
-    memory_controller: MC,
-    cache_controller: CC,
+    memory_controller: Arc<dyn mcu::MemoryController>,
+    // memory_controller: MC,
+    linear_set_index_function: cache::set_index::linear::SetIndex,
+    pseudo_random_set_index_function: cache::set_index::pascal::L2PseudoRandomSetIndex,
+    cache_config: cache::Config,
+    // cache_config: Arc<config::L2DCache>,
+    // cache_controller: CC,
 }
 
-impl<MC, CC> cache::CacheController for L2DataCacheController<MC, CC>
-where
-    MC: mcu::MemoryController,
-    CC: cache::CacheController,
+// impl<MC, CC> cache::CacheController for L2DataCacheController<MC, CC>
+// impl<MC> cache::CacheController for L2DataCacheController<MC>
+impl cache::CacheController for L2DataCacheController
+// where
+//     MC: mcu::MemoryController,
+// CC: cache::CacheController,
 {
     // #[inline]
     fn tag(&self, addr: address) -> address {
-        self.cache_controller.tag(addr)
+        // For generality, the tag includes both index and tag.
+        // This allows for more complex set index calculations that
+        // can result in different indexes mapping to the same set,
+        // thus the full tag + index is required to check for hit/miss.
+        // Tag is now identical to the block address.
+
+        // return addr >> (m_line_sz_log2+m_nset_log2);
+        // return addr & ~(new_addr_type)(m_line_sz - 1);
+
+        // The tag lookup is at line size (128B) granularity.
+        // clear the last log2(line_size = 128) bits
+        addr & !address::from(self.cache_config.line_size - 1)
+
+        // self.cache_controller.tag(addr)
     }
 
     // #[inline]
     fn block_addr(&self, addr: address) -> address {
-        self.cache_controller.block_addr(addr)
+        self.tag(addr)
+        // self.cache_controller.block_addr(addr)
     }
 
     // #[inline]
     fn set_index(&self, addr: address) -> u64 {
-        let partition_addr = if true || self.accelsim_compat {
-            self.memory_controller.memory_partition_address(addr)
+        use cache::set_index::SetIndexer;
+        if self.accelsim_compat {
+            let partition_addr = self.memory_controller.memory_partition_address(addr);
+            self.linear_set_index_function
+                .compute_set_index(partition_addr)
         } else {
-            addr
-        };
-        // println!("partition address for addr {} is {}", addr, partition_addr);
-        self.cache_controller.set_index(partition_addr)
+            // let partition_addr = self.memory_controller.memory_partition_address(addr);
+
+            // let set_index = self
+            //     .pseudo_random_set_index_function
+            //     .compute_set_index(addr);
+
+            // let sub_partition = self.memory_controller.to_physical_address(addr);
+            // let sub_partition_size = self.cache_config.associativity*16
+            let partition_addr = self.memory_controller.memory_partition_address(addr);
+            let set_index = self
+                .linear_set_index_function
+                .compute_set_index(partition_addr);
+
+            assert!(set_index < 128);
+            set_index
+        }
+
+        // let partition_addr = if true || self.accelsim_compat {
+        //     self.memory_controller.memory_partition_address(addr)
+        // } else {
+        //     addr
+        // };
+        // // println!("partition address for addr {} is {}", addr, partition_addr);
+        // self.cache_controller.set_index(partition_addr)
     }
 
     // #[inline]
-    fn set_bank(&self, addr: address) -> u64 {
-        self.cache_controller.set_bank(addr)
+    fn set_bank(&self, _addr: address) -> u64 {
+        // not banked
+        0
     }
 
     // #[inline]
     fn mshr_addr(&self, addr: address) -> address {
-        self.cache_controller.mshr_addr(addr)
+        // TODO: ROMAN changed to block size as well, such that we maybe overfetch
+        // addr & !address::from(self.cache_config.line_size - 1)
+        addr & !address::from(self.cache_config.atom_size - 1)
+        // self.cache_controller.mshr_addr(addr)
     }
 }
 
 /// Generic data cache.
 #[allow(clippy::module_name_repetitions)]
 pub struct DataL2 {
-    pub sub_partition_id: usize,
-    pub partition_id: usize,
     pub cache_config: Arc<config::L2DCache>,
     pub inner: super::data::Data<
-        mcu::MemoryControllerUnit,
-        L2DataCacheController<
-            mcu::MemoryControllerUnit,
-            cache::controller::pascal::DataCacheController,
-        >,
+        // mcu::MemoryControllerUnit,
+        // mcu::PascalMemoryControllerUnit,
+        L2DataCacheController,
+        //<
+        // mcu::MemoryControllerUnit,
+        // cache::controller::pascal::DataCacheController,
+        //>,
         stats::cache::PerKernel,
     >,
 }
@@ -69,36 +119,44 @@ impl DataL2 {
     pub fn new(
         name: String,
         sub_partition_id: usize,
-        partition_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
-        cache_config: Arc<config::L2DCache>,
+        mem_controller: Arc<dyn mcu::MemoryController>,
+        l2_cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        let mem_controller = mcu::MemoryControllerUnit::new(&config).unwrap();
-        let default_cache_controller = cache::controller::pascal::DataCacheController::new(
-            cache::Config::new(cache_config.inner.as_ref(), config.accelsim_compat),
+        let cache_config =
+            cache::Config::new(l2_cache_config.inner.as_ref(), config.accelsim_compat);
+
+        let linear_set_index_function = cache::set_index::linear::SetIndex::new(
+            cache_config.num_sets,
+            cache_config.line_size as usize,
         );
+        let pseudo_random_set_index_function =
+            cache::set_index::pascal::L2PseudoRandomSetIndex::default();
         let cache_controller = L2DataCacheController {
             accelsim_compat: config.accelsim_compat,
             memory_controller: mem_controller.clone(),
-            cache_controller: default_cache_controller,
+            cache_config,
+            pseudo_random_set_index_function,
+            linear_set_index_function,
+            // cache_controller: default_cache_controller,
         };
         let inner = super::data::Builder {
             name,
+            id: sub_partition_id,
+            kind: cache::base::Kind::OffChip,
             stats,
             config,
             cache_controller,
             mem_controller,
-            cache_config: cache_config.inner.clone(),
+            cache_config: l2_cache_config.inner.clone(),
             write_alloc_type: AccessKind::L2_WR_ALLOC_R,
             write_back_type: AccessKind::L2_WRBK_ACC,
         }
         .build();
         Self {
             inner,
-            sub_partition_id,
-            partition_id,
-            cache_config,
+            cache_config: l2_cache_config,
         }
     }
 
@@ -205,8 +263,17 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
         self.inner.invalidate();
     }
 
+    fn invalidate_addr(&mut self, addr: address) {
+        self.inner.invalidate_addr(addr);
+    }
+
     fn num_used_lines(&self) -> usize {
         self.inner.inner.tag_array.num_used_lines()
+    }
+
+    fn num_used_bytes(&self) -> u64 {
+        self.inner.inner.tag_array.num_used_lines() as u64
+            * self.inner.inner.cache_config.line_size as u64
     }
 
     fn num_total_lines(&self) -> usize {
@@ -227,6 +294,7 @@ impl super::Bandwidth for DataL2 {
 #[cfg(test)]
 mod tests {
     use crate::cache::CacheController;
+    use crate::sync::Arc;
     use color_eyre::eyre;
 
     #[test]
@@ -236,14 +304,24 @@ mod tests {
         let l2_cache_config = &config.data_cache_l2.as_ref().unwrap().inner;
 
         // create l2 data cache controller
-        let memory_controller = crate::mcu::MemoryControllerUnit::new(&config)?;
-        let cache_controller = crate::cache::controller::pascal::DataCacheController::new(
-            crate::cache::Config::new(l2_cache_config.as_ref(), accelsim_compat),
+        let memory_controller = Arc::new(crate::mcu::MemoryControllerUnit::new(&config)?);
+        // let cache_controller = crate::cache::controller::pascal::DataCacheController::new(
+        //     crate::cache::Config::new(l2_cache_config.as_ref(), accelsim_compat),
+        // );
+        let cache_config = crate::cache::Config::new(l2_cache_config.as_ref(), accelsim_compat);
+        let pseudo_random_set_index_function =
+            crate::cache::set_index::pascal::L2PseudoRandomSetIndex::default();
+        let linear_set_index_function = crate::cache::set_index::linear::SetIndex::new(
+            cache_config.num_sets,
+            cache_config.line_size as usize,
         );
+
         let l2_cache_controller = super::L2DataCacheController {
             accelsim_compat: false,
             memory_controller,
-            cache_controller,
+            cache_config,
+            linear_set_index_function,
+            pseudo_random_set_index_function,
         };
 
         let block_addr = 34_887_082_112;

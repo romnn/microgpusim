@@ -5,7 +5,6 @@ use crate::{
     mshr::{self, MSHR},
     tag_array,
 };
-use cache::block::Block;
 use console::style;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
@@ -35,15 +34,31 @@ struct FetchKey {
     addr: u64,
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Kind {
+    /// On chip cache (e.g. L1D)
+    OnChip,
+    /// Off chip cache (e.g. L2D)
+    OffChip,
+}
+
 /// Base cache
 ///
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
 pub struct Base<B, CC, S> {
+    /// Name of the cache
     pub name: String,
-    // pub core_id: usize,
-    // pub cluster_id: usize,
+    /// ID of the cache
+    ///
+    /// For on-chip caches (e.g. L1D), this corresponds to the SM ID.
+    /// For off-chip caches (e.g. L2D), this corresponds to the subpartition ID.
+    pub id: usize,
+    /// Cache kind
+    pub kind: Kind,
+    // Is L1 cache
+    // pub is_l1: bool,
     pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
@@ -61,8 +76,8 @@ pub struct Base<B, CC, S> {
 #[derive(Debug, Clone)]
 pub struct Builder<CC, S> {
     pub name: String,
-    // pub core_id: usize,
-    // pub cluster_id: usize,
+    pub id: usize,
+    pub kind: Kind,
     pub stats: Arc<Mutex<S>>,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
@@ -99,10 +114,12 @@ where
 
         let miss_queue = VecDeque::with_capacity(self.cache_config.miss_queue_size);
 
+        // let is_l1 = self.name.to_uppercase().contains("L1D");
         Base {
             name: self.name,
-            // core_id: self.core_id,
-            // cluster_id: self.cluster_id,
+            id: self.id,
+            kind: self.kind,
+            // is_l1,
             tag_array,
             mshrs,
             top_port: None,
@@ -127,7 +144,7 @@ where
     /// Check MSHR hit or MSHR available
     pub fn send_read_request(
         &mut self,
-        unused_addr: address,
+        _unused_addr: address,
         block_addr: u64,
         cache_index: usize,
         mut fetch: mem_fetch::MemFetch,
@@ -136,14 +153,44 @@ where
         read_only: bool,
         write_allocate: bool,
     ) -> (bool, Option<tag_array::EvictedBlockInfo>) {
+        // use trace_model::ToBitString;
         let mut should_miss = false;
         let mut evicted = None;
 
+        // sanity check
+        // assert!(
+        //     fetch.access.num_bytes() <= SECTOR_SIZE as usize,
+        //     "sending read request for {} for {} bytes ({})",
+        //     fetch,
+        //     fetch.access.num_bytes(),
+        //     fetch.access.byte_mask[..128].to_bit_string()
+        // );
+        if !fetch.access_kind().is_inst() {
+            assert!(
+                // data size is rounded up to sector size
+                fetch.access.num_bytes() <= fetch.access.data_size() as usize,
+                "{}: data size ({}) is smaller than the number of bytes ({})",
+                fetch,
+                fetch.access.data_size() as usize,
+                fetch.access.num_bytes(),
+            );
+        }
+
+        // NOTE:
+        // mshr address is at sector size granularity
+        // block address is at cache line size granularity
         let mshr_addr = self.cache_controller.mshr_addr(fetch.addr());
+        let fetch_block_addr = self.cache_controller.block_addr(fetch.addr());
         let mshr_hit = self.mshrs.get(mshr_addr).is_some();
         let mshr_full = self.mshrs.full(mshr_addr);
 
-        assert_eq!(unused_addr, fetch.addr());
+        // sanity check
+        assert_eq!(block_addr, fetch_block_addr);
+        // assert_eq!(mshr_addr, fetch_block_addr);
+        assert_eq!(_unused_addr, fetch.addr());
+        if self.kind == Kind::OffChip {
+            assert_eq!(fetch.sub_partition_id(), self.id);
+        }
 
         // if self.name.to_lowercase().contains("readonly") {
         //     log::warn!(
@@ -152,8 +199,8 @@ where
         //     );
         // }
         log::debug!(
-            "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, fetch addr={}, block={}, mshr_addr={})",
-            &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), unused_addr, fetch.addr(), block_addr, mshr_addr, 
+            "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, block={}, mshr_addr={})",
+            &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), fetch.addr(), block_addr, mshr_addr, 
         );
 
         // dbg!(self
@@ -186,11 +233,12 @@ where
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                if self.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+                self.num_accesses_stat(&fetch),
+                // if self.cache_config.accelsim_compat {
+                //     1
+                // } else {
+                //     fetch.access.num_transactions()
+                // },
             );
 
             should_miss = true;
@@ -229,8 +277,16 @@ where
 
             // replace address with mshr block address
             let original_fetch = fetch.clone();
+            // if !self.cache_config.accelsim_compat && self.name.to_uppercase().contains("L2") {
+            //     // L2 (over-)fetches 128B cache lines
+            //     assert_eq!(mshr_addr, fetch_block_addr);
+            //     fetch.access.req_size_bytes = self.cache_config.line_size;
+            //     fetch.access.addr = block_addr;
+            // } else {
+            // L1 fetches 32B sector atom size
             fetch.access.req_size_bytes = self.cache_config.atom_size;
             fetch.access.addr = mshr_addr;
+            // }
             fetch.set_status(self.miss_queue_status, time);
 
             log::trace!(
@@ -261,11 +317,12 @@ where
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 access_stat,
-                if self.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+                self.num_accesses_stat(&fetch),
+                // if self.cache_config.accelsim_compat {
+                //     1
+                // } else {
+                //     fetch.access.num_transactions()
+                // },
             );
         } else {
             panic!(
@@ -282,9 +339,9 @@ where
 impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
     /// Sends next request to top memory in the memory hierarchy.
     fn cycle(&mut self, cycle: u64) {
-        let Some(ref top_level_memory_port) = self.top_port else {
-            // panic!("missing top port");
-            return;
+        let Some(ref top_port) = self.top_port else {
+            panic!("missing top port");
+            // return;
         };
 
         log::debug!(
@@ -301,13 +358,13 @@ impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
 
         // process miss queue
         if let Some(fetch) = self.miss_queue.front() {
-            let mut top_level_memory_port = top_level_memory_port.lock();
+            let mut top_port = top_port.lock();
             let packet_size = if fetch.is_write() {
                 fetch.size()
             } else {
                 fetch.control_size()
             };
-            if top_level_memory_port.can_send(&[packet_size]) {
+            if top_port.can_send(&[packet_size]) {
                 let fetch = self.miss_queue.pop_front().unwrap();
                 log::debug!(
                     "{}::baseline cache::memport::push({}, data size={}, control size={})",
@@ -316,7 +373,8 @@ impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
                     fetch.data_size(),
                     fetch.control_size(),
                 );
-                top_level_memory_port.send(ic::Packet {
+                // assert!(fetch.sub_partition_id() >= self.id);
+                top_port.send(ic::Packet {
                     data: fetch,
                     time: cycle,
                 });
@@ -336,6 +394,19 @@ impl<B, CC, S> Base<B, CC, S> {
     #[must_use]
     pub fn miss_queue_can_fit(&self, n: usize) -> bool {
         self.miss_queue.len() + n < self.cache_config.miss_queue_size
+    }
+
+    /// The number of accesses to count as statistics.
+    ///
+    /// For L1, we count uncoalesced accesses.
+    /// For L2, we count coalesced accesses.
+    pub fn num_accesses_stat(&self, _fetch: &mem_fetch::MemFetch) -> usize {
+        1
+        // if self.cache_config.accelsim_compat || !self.is_l1 {
+        //     1
+        // } else {
+        //     fetch.access.num_uncoalesced_accesses()
+        // }
     }
 
     /// Checks whether the miss queue is full.
@@ -385,6 +456,10 @@ where
     /// Invalidate all entries in cache
     pub fn invalidate(&mut self) {
         self.tag_array.invalidate();
+    }
+
+    pub fn invalidate_addr(&mut self, addr: address) {
+        self.tag_array.invalidate_addr(addr);
     }
 
     /// Checks if fetch is waiting to be filled by lower memory level

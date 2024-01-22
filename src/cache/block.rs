@@ -323,7 +323,7 @@ pub mod sector {
     use crate::{address, mem_fetch, mem_sub_partition::SECTOR_SIZE};
 
     #[allow(clippy::struct_excessive_bools)]
-    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Clone, PartialEq, Eq, Hash)]
     pub struct Block<const N: usize> {
         pub tag: u64,
         pub block_addr: address,
@@ -345,6 +345,12 @@ pub mod sector {
 
         set_byte_mask_on_fill: bool,
         dirty_byte_mask: mem_fetch::ByteMask,
+    }
+
+    impl<const N: usize> std::fmt::Debug for Block<N> {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "SectorBlock@{}{:?}", self.block_addr, self.status)
+        }
     }
 
     impl<const N: usize> std::fmt::Display for Block<N> {
