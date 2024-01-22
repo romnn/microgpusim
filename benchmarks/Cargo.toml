@@ -31,6 +31,7 @@ strum = { version = "0", features = ["derive"] }
 
 gpucachesim = { path = "../" }
 trace-model = { path = "../trace/model" }
+utils = { path = "../utils" }
 
 # running the benchmarks
 # validate = { path = "../validate" }
@@ -39,4 +40,3 @@ clap = { version = "4", features = ["derive"] }
 [dev-dependencies]
 approx = "0.5"
 ndarray = { version = "0", features = ["approx-0_5"] }
-utils = { path = "../utils" }
