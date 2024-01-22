@@ -999,7 +999,9 @@ impl Default for GPU {
             simulation_threads: None,
             deadlock_check: false,
             // l2_prefetch_percent: None, // for TitanX
+            // l2_prefetch_percent: Some(0.0), // for TitanX
             l2_prefetch_percent: Some(90.0), // for TitanX
+            // l2_prefetch_percent: Some(50.0), // for TitanX
             // l2_prefetch_percent: 25.0, // for GTX 1080
             memory_controller_unit: std::sync::OnceLock::new(),
             occupancy_sm_number: 60,
@@ -1105,7 +1107,7 @@ impl Default for GPU {
                     line_size: 128,
                     associativity: 48, // 6,
                     replacement_policy: cache::config::ReplacementPolicy::LRU,
-                    write_policy: cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
+                    write_policy: cache::config::WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH,
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::FERMI_HASH_SET_FUNCTION,
@@ -1137,13 +1139,15 @@ impl Default for GPU {
                     // line_size: 128,
                     // associativity: 16,
                     // associativity: 16,
-                    num_sets: 64,
+                    // num_sets: 64,
+                    num_sets: 128,
                     line_size: 128,
                     associativity: 16,
                     replacement_policy: cache::config::ReplacementPolicy::LRU,
                     write_policy: cache::config::WritePolicy::WRITE_BACK,
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
+                    // write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                     // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
@@ -1184,7 +1188,7 @@ impl Default for GPU {
             shared_memory_size_pref_shared: 16 * KB as usize,
             shared_memory_num_banks: 32,
             shared_memory_limited_broadcast: false,
-            shared_memory_warp_parts: 1,
+            shared_memory_warp_parts: 2,
             mem_unit_ports: 1,
             warp_distro_shader_core: -1,
             warp_issue_shader_core: 0,
@@ -1258,7 +1262,8 @@ impl Default for GPU {
             ideal_l2: false,
             data_cache_l2_texture_only: false,
             num_memory_controllers: 12, // 8 for GTX1080
-            num_sub_partitions_per_memory_controller: 2,
+            // num_sub_partitions_per_memory_controller: 2,
+            num_sub_partitions_per_memory_controller: 1,
             num_dram_chips_per_memory_controller: 1,
             dram_frfcfs_sched_queue_size: 64,
             dram_return_queue_size: 64, // 116 for GTX 1080?
