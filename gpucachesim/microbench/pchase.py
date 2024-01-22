@@ -132,6 +132,8 @@ def predict_is_hit(latencies, fit=None, num_clusters=4):
         fit = np.nan_to_num(fit, nan=0, posinf=0)
         km.fit(fit)
 
+
+    print(km.cluster_centers_.ravel())
     predicted_clusters = km.predict(latencies)
 
     cluster_centroids = km.cluster_centers_.ravel()
@@ -204,7 +206,7 @@ def collect_full_latency_distribution(
     verbose=False,
     repetitions=None,
     warmup=1,
-):
+) -> pd.DataFrame:
     if configs is None:
         configs = []
 
@@ -289,12 +291,13 @@ def collect_full_latency_distribution(
         )
 
     latencies = []
-    for config in configs:
+    for config_id, config in enumerate(configs):
         latencies_df, stderr = pchase(**config._asdict(), gpu=gpu, force=force)
         if verbose:
             print(stderr)
         # hit_latencies = hit_latencies_df["latency"].to_numpy()
         # latencies.append(hit_latencies)
+        latencies_df["config_id"] = config_id
         latencies.append(latencies_df)
 
     # return np.hstack(latencies)
@@ -302,7 +305,10 @@ def collect_full_latency_distribution(
     return latencies
 
 
-def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=4):
+def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=None):
+    if num_clusters is None:
+        # sim does not model TLB cache (cluster 4)
+        num_clusters = 3 if sim else 4
     latencies = df["latency"].to_numpy()
     fit_latencies = latencies.copy()
     combined_latencies = latencies.copy()
@@ -310,8 +316,8 @@ def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=4):
     if force_misses:
         fit_latencies_df = collect_full_latency_distribution(
             sim=sim, gpu=gpu, repetitions=1 if sim else 100)
-        combined_latencies = np.hstack([
-            latencies, fit_latencies_df["latencies"].numpy()])
+        fit_latencies = fit_latencies_df["latency"].to_numpy()
+        combined_latencies = np.hstack([latencies, fit_latencies])
 
     latencies = np.abs(latencies)
     latencies = latencies.reshape(-1, 1)
@@ -410,6 +416,7 @@ def pchase(
     executable: typing.Optional[os.PathLike] = None,
     force=False,
     stream_output=False,
+    sim_output_cache_state=False,
     log_every=100_000,
 ) -> typing.Tuple[pd.DataFrame, str]:
     warmup = max(0, int(warmup))
@@ -444,6 +451,9 @@ def pchase(
     if isinstance(log_every, int):
         env.update({"LOG_EVERY": str(log_every)})
 
+    if sim_output_cache_state:
+        env.update({"PCHASE_OUTPUT_CACHE_STATE": "yes"})
+
     if sim or (gpu is None):
         if executable is None:
             executable = SIM_P_CHASE if sim else NATIVE_P_CHASE
@@ -464,8 +474,8 @@ def pchase(
         timeout_sec = max(5, 2 * timeout_sec)
 
         print(
-            "[stream={}, timeout {: >5.1f} sec]\t{}".format(
-                stream_output, timeout_sec, cmd
+            "[stream={}, l2 state={} timeout {: >5.1f} sec]\t{}".format(
+                stream_output, sim_output_cache_state, timeout_sec, cmd
             )
         )
 
@@ -655,7 +665,8 @@ def set_mapping(
 
 def get_label(sim, gpu: typing.Optional[enum.Enum]):
     if sim:
-        return "gpucachesim"
+        return r"gpucachesim"
+        return r"\textsc{gpucachesim}"
     if gpu is None:
         return "GTX 1080"
     return gpu.value
@@ -760,20 +771,24 @@ def get_known_cache_num_sets(mem: str, gpu: typing.Optional[enum.Enum] = None) -
 @click.option("--mem", "mem", default="l2", help="memory to microbenchmark")
 @click.option("--cached", "cached", type=bool, is_flag=True, help="use cached data")
 @click.option("--sim", "sim", type=bool, is_flag=True, help="simulate")
+@click.option("--stream", "stream_output", type=bool, help="stream output")
 @click.option(
     "--gpu", "gpu", type=str, help="the remote gpu device to run the microbenchmark"
 )
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
-def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
+def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, stream_output, gpu, force):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup or 0
 
     gpu = remote.find_gpu(gpu)
 
-    predicted_l2_prefetch_percent = get_known_l2_prefetch_percent(mem=mem, gpu=gpu)
+    # predicted_l2_prefetch_percent = get_known_l2_prefetch_percent(mem=mem, gpu=gpu)
     known_l2_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
+    print("L2 size: {}".format(
+        humanize.naturalsize(known_l2_cache_size_bytes, binary=True)))
+    # known_l2_cache_size_bytes = 4 * 128 * KB
 
     match (gpu, mem.lower()):
         case (_, "l2"):
@@ -789,6 +804,16 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     end_cache_size_bytes = int(
         utils.round_down_to_multiple_of(1.5 * known_l2_cache_size_bytes, stride_bytes)
     )
+    if sim:
+        # to speed up testing
+        start_cache_size_bytes = int(2.5 * MB)
+        end_cache_size_bytes = int(3.5 * MB)
+
+        # start_cache_size_bytes = int(2.0 * MB)
+        # end_cache_size_bytes = int(2.5 * MB)
+
+        assert start_cache_size_bytes % step_size_bytes == 0
+        assert end_cache_size_bytes % step_size_bytes == 0
 
     print(
         "range: {:>10} to {:<10} step size={} steps={}".format(
@@ -801,6 +826,9 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
 
     assert start_cache_size_bytes % stride_bytes == 0
     assert end_cache_size_bytes % stride_bytes == 0
+
+    if stream_output is None:
+        stream_output = sim == True
 
     cache_file = get_cache_file(prefix="l2_prefetch_size", mem=mem, sim=sim, gpu=gpu)
     if cached and cache_file.is_file():
@@ -825,7 +853,8 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
             warmup=warmup,
             sim=sim,
             force=force,
-            stream_output=sim == True,
+            stream_output=stream_output,
+            sim_output_cache_state=True,
         )
         print(stderr)
 
@@ -924,10 +953,12 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     )
 
     ax.axvline(
-        x=predicted_l2_prefetch_percent * known_l2_cache_size_bytes,
+        # x=predicted_l2_prefetch_percent * known_l2_cache_size_bytes,
+        x=known_l2_cache_size_bytes,
         color=plot.plt_rgba(*plot.RGB_COLOR["purple1"], 0.5),
         linestyle="--",
-        label=r"{:2.0f}% L2 size".format(predicted_l2_prefetch_percent * 100.0),
+        # label=r"{:2.0f}% L2 size".format(predicted_l2_prefetch_percent * 100.0),
+        label="L2 cache size",
     )
 
     marker_size = 12
@@ -992,12 +1023,13 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, gpu, force):
     ax.set_xlim(min_x, max_x)
     ax.set_ylim(0, 1.05 * ymax)
 
-    # ax.legend(loc="upper right" if predicted_l2_prefetch_percent < 0.75 else "lower left")
+    print("step size bytes={}".format(step_size_bytes))
     default_legend(
         ax,
         stride_bytes=stride_bytes,
         step_size_bytes=step_size_bytes,
         repetitions=repetitions,
+        warmup=warmup,
     )
 
     filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
@@ -4304,16 +4336,22 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             repetitions=repetitions,
         )
         # latencies = pd.DataFrame( # columns=["latency"],)
-        print(latencies)
+        # print(latencies)
         latencies = latencies.drop(columns=["r"])
         latencies = (
-            latencies.groupby(["n", "k", "index", "virt_addr"]).median().reset_index()
+            latencies.groupby(["config_id", "n", "k", "index", "virt_addr"]).median().reset_index()
         )
-        print(latencies)
+        # print(latencies)
 
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         print("wrote cache file to ", cache_file)
         latencies.to_csv(cache_file, index=False, compression=CSV_COMPRESSION)
+
+    if "r" in latencies:
+        latencies = latencies.drop(columns=["r"])
+    latencies = (
+        latencies.groupby(["config_id", "n", "k", "index", "virt_addr"]).median().reset_index()
+    )
 
     bin_size = 20
     bins = np.arange(0, 700, step=bin_size)
@@ -4342,6 +4380,7 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         color=plot.plt_rgba(*plot.RGB_COLOR["green1"], 1.0),
         hatch="/",
         width=bin_size,
+        zorder=3,
         edgecolor="black",
         label=get_label(sim=sim, gpu=gpu),
     )
@@ -4358,7 +4397,18 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             xy=(centroid, y),
             ha="center",
             va="bottom",
+            zorder=5,
         )
+    ax.grid(
+        True,
+        axis="y",
+        linestyle="-",
+        linewidth=1,
+        color="black",
+        alpha=0.1,
+        zorder=1,
+    )
+
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
     ax.axes.set_zorder(10)
@@ -4372,8 +4422,6 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     fig.savefig(filename)
     print("saved to ", filename)
     plt.close(fig)
-
-    return
 
     for config in [
         # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)

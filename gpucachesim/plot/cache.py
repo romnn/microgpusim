@@ -193,6 +193,9 @@ def cache(
         alloc_times = np.flip(alloc_times, axis=-1)
         last_access_times = np.flip(last_access_times, axis=-1)
 
+        # remove invalid allocations
+        allocations[states == status_values.index("INVALID")] = np.nan
+
         fontsize = 9
         font_family = "Helvetica"
         xlabel = "sector in cache set"

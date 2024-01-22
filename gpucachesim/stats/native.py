@@ -688,7 +688,7 @@ class NvprofStats(common.Stats):
         else:
             grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
             sm_count = self.config.num_total_cores
-            print(sm_count)
+            assert sm_count == 28
             self.result_df["cycles"] = grouped["elapsed_cycles_sm"].sum()
             self.result_df["cycles"] /= sm_count
 
