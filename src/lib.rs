@@ -45,14 +45,14 @@ pub mod warp;
 #[cfg(test)]
 pub mod testing;
 
-pub use exec;
-
 use self::core::{warp_inst_complete, Core, PipelineStage};
 use allocation::{Allocation, Allocations};
 use cluster::Cluster;
 use engine::cycle::Component;
+pub use exec;
 use interconn as ic;
 use kernel::Kernel;
+use mem_sub_partition::SECTOR_SIZE;
 use trace_model::{Command, ToBitString};
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
@@ -60,6 +60,7 @@ use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
 use crossbeam::utils::CachePadded;
+use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 
@@ -387,14 +388,21 @@ where
             stats::Config::from_config(&config),
         )));
 
-        let mem_controller = Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap());
+        let mem_controller: Arc<dyn mcu::MemoryController> = if config.accelsim_compat {
+            Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap())
+        } else {
+            Arc::new(mcu::PascalMemoryControllerUnit::new(&config).unwrap())
+        };
+        // TODO: REMOVE
+        // let mem_controller: Arc<dyn mcu::MemoryController> =
+        //     Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap());
 
         let num_mem_units = config.num_memory_controllers;
 
         let mem_partition_units: Vec<_> = (0..num_mem_units)
-            .map(|i| {
+            .map(|partition_id| {
                 let unit = mem_partition_unit::MemoryPartitionUnit::new(
-                    i,
+                    partition_id,
                     Arc::clone(&config),
                     mem_controller.clone(),
                     Arc::clone(&stats),
@@ -618,7 +626,7 @@ where
 
     pub fn launch(&self, kernel: Arc<dyn Kernel>, cycle: u64) -> eyre::Result<()> {
         // kernel.set_launched();
-        // println!("launch kernel {} in cycle {}", kernel.id(), cycle);
+        // eprintln!("launch kernel {} in cycle {}", kernel.id(), cycle);
         let threads_per_block = kernel.config().threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
@@ -793,7 +801,7 @@ where
                             // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
                             // , gpu_sim_cycle + gpu_tot_sim_cycle);
                             // log::trace!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
-                            // println!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
+                            // eprintln!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
                             self.interconn.push(
                                 device,
                                 cluster_id,
@@ -845,7 +853,7 @@ where
             let start = std::time::Instant::now();
             // let mut parallel_mem_partition_reqs_per_cycle = 0;
             // let mut stall_dram_full = 0;
-            for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
+            for (sub_id, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
                 let mut mem_sub = mem_sub.try_lock();
                 // move memory request from interconnect into memory partition
                 // (if not backed up)
@@ -854,17 +862,18 @@ where
                 // is no L2 cache in the system In the worst case, we may need
                 // to push NUM_SECTORS requests, so ensure you have enough
                 // buffer for them
-                let device = self.config.mem_id_to_device_id(i);
+                let device = self.config.mem_id_to_device_id(sub_id);
 
                 if mem_sub
                     .interconn_to_l2_queue
                     .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
                     if let Some(packet) = self.interconn.pop(device) {
+                        assert_eq!(packet.data.sub_partition_id(), sub_id);
                         log::debug!(
                             "got new fetch {} for mem sub partition {} ({})",
                             packet.data,
-                            i,
+                            sub_id,
                             device
                         );
 
@@ -872,7 +881,11 @@ where
                         // self.parallel_mem_partition_reqs += 1;
                     }
                 } else {
-                    log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                    log::debug!(
+                        "SKIP sub partition {} ({}): DRAM full stall",
+                        sub_id,
+                        device
+                    );
                     // if let Some(kernel) = &*self.current_kernel.lock() {
                     let kernel_id = self
                         .current_kernel
@@ -950,8 +963,8 @@ where
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for core_id in &*core_sim_order {
                         let core = cluster.cores[*core_id].try_read();
-                        let port = core.mem_port.lock();
-                        assert_eq!(port.buffer.len(), 0);
+                        let mem_port = core.mem_port.lock();
+                        assert_eq!(mem_port.buffer.len(), 0);
                     }
                 }
             }
@@ -960,11 +973,12 @@ where
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in &*core_sim_order {
                     let core = cluster.cores[*core_id].try_read();
-                    let mut port = core.mem_port.lock();
+                    let mut mem_port = core.mem_port.lock();
                     log::trace!(
                         "interconn buffer for core {:?}: {:?}",
                         core.id(),
-                        port.buffer
+                        mem_port
+                            .buffer
                             .iter()
                             .map(
                                 |ic::Packet {
@@ -978,15 +992,19 @@ where
                     for ic::Packet {
                         data: (dest, fetch, size),
                         time,
-                    } in port.buffer.drain(..)
+                    } in mem_port.buffer.drain(..)
                     {
                         // log::trace!(
-                        // println!(
+                        // eprintln!(
                         //     "interconn push from core {:?}: {fetch} (cluster={:?}, core={:?})",
                         //     core.id(),
                         //     fetch.cluster_id,
                         //     fetch.core_id,
                         // );
+                        assert_eq!(
+                            dest,
+                            self.config.mem_id_to_device_id(fetch.sub_partition_id())
+                        );
                         self.interconn.push(
                             core.cluster_id,
                             dest,
@@ -1000,7 +1018,7 @@ where
                     continue;
                 }
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                    // println!(
+                    // eprintln!(
                     //     "SERIAL: cluster {} is active in cycle {}",
                     //     cluster.cluster_id, cycle
                     // );
@@ -1116,7 +1134,6 @@ where
 
     #[allow(dead_code)]
     fn debug_non_exit(&self) {
-        use itertools::Itertools;
         log::trace!(
             "all clusters completed: {}",
             self.clusters
@@ -1226,38 +1243,453 @@ where
         );
     }
 
-    /// Simulate memory copy to simulated device.
-    #[allow(clippy::needless_pass_by_value)]
-    #[must_use]
-    pub fn memcopy_to_gpu(
-        &mut self,
-        addr: address,
-        num_bytes: u64,
-        name: Option<String>,
-        mut cycle: u64,
-    ) -> u64 {
-        log::info!(
-            "CUDA mem copy: {:<20} {:>15} ({:>5} f32) to address {addr:>20}",
-            name.as_deref().unwrap_or("<unnamed>"),
-            human_bytes::human_bytes(num_bytes as f64),
-            num_bytes / 4,
-        );
-        // let alloc_range = addr..(addr + num_bytes);
-        // self.allocations.write().insert(alloc_range, name);
+    pub fn invalidate_l2(&mut self, start_addr: address, num_bytes: u64) {
+        eprintln!("invalidate l2 cache [start={start_addr}, num bytes={num_bytes}]");
+        for sub in &self.mem_sub_partitions {
+            let mut sub = sub.lock();
+            if let Some(ref mut l2_cache) = sub.l2_cache {
+                let chunk_size = SECTOR_SIZE;
+                let num_chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
 
-        let print_cache = |sim: &Self| {
-            let mut num_total_lines = 0;
-            let mut num_total_lines_used = 0;
-            let num_sub_partitions = sim.mem_sub_partitions.len();
-            for sub in sim.mem_sub_partitions.iter() {
+                for chunk in 0..num_chunks {
+                    let addr = start_addr + (chunk as u64 * chunk_size as u64);
+                    l2_cache.invalidate_addr(addr);
+                }
+            }
+        }
+    }
+
+    pub fn l2_used_bytes(&self) -> u64 {
+        self.mem_sub_partitions
+            .iter()
+            .map(|sub| {
                 let sub = sub.lock();
                 if let Some(ref l2_cache) = sub.l2_cache {
-                    let num_lines_used = l2_cache.num_used_lines();
-                    let num_lines = l2_cache.num_total_lines();
-                    println!(
-                        "sub {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
-                        sub.id,
-                        num_sub_partitions,
+                    l2_cache.num_used_bytes()
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+
+    pub fn l2_used_lines(&self) -> usize {
+        self.mem_sub_partitions
+            .iter()
+            .map(|sub| {
+                let sub = sub.lock();
+                if let Some(ref l2_cache) = sub.l2_cache {
+                    l2_cache.num_used_lines() as usize
+                } else {
+                    0
+                }
+            })
+            .sum()
+    }
+
+    /// Simulate memory copy to simulated device.
+    // #[allow(clippy::needless_pass_by_value)]
+    pub fn handle_allocations_and_memcopies(
+        &mut self,
+        commands: &Vec<Command>,
+        // addr: address,
+        // num_bytes: u64,
+        // name: Option<String>,
+        mut cycle: u64,
+        // force: bool,
+    ) {
+        // handle allocations (no copy)
+        let (mut allocations, copies): (Vec<_>, Vec<_>) = commands
+            .into_iter()
+            .cloned()
+            .partition_map(|cmd| match cmd {
+                Command::MemAlloc(alloc) => itertools::Either::Left(alloc),
+                Command::MemcpyHtoD(copy) => itertools::Either::Right(copy),
+                Command::KernelLaunch(_launch) => unreachable!(),
+            });
+
+        // allocations.sort_by_key(|alloc| let allocation_id = self
+        //         .allocations
+        //         .read()
+        //         .iter()
+        //         .find(|(_, alloc)| alloc.start_addr == *device_ptr)
+        //         .map(|(_, alloc)| alloc.id)
+        //         .unwrap();)
+
+        for trace_model::command::MemAlloc {
+            allocation_name,
+            device_ptr,
+            num_bytes,
+            ..
+        } in &allocations
+        {
+            self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
+        }
+        // for cmd in allocations {
+        //     if let Command::MemAlloc(trace_model::command::MemAlloc {
+        //         allocation_name,
+        //         device_ptr,
+        //         num_bytes,
+        //         ..
+        //     }) = cmd
+        //     {
+        //         self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
+        //     }
+        // }
+
+        let l2_cache_size_bytes = self
+            .config
+            .data_cache_l2
+            .as_ref()
+            .map(|l2| self.mem_sub_partitions.len() * l2.inner.total_bytes())
+            .unwrap_or(0);
+        let l2_prefetch_percent = self.config.l2_prefetch_percent.unwrap_or(100.0);
+        let mut cache_bytes_used = self.l2_used_bytes();
+
+        let mut valid_prefill_memcopies = Vec::new();
+
+        for trace_model::command::MemAlloc {
+            allocation_name,
+            device_ptr,
+            mut num_bytes,
+            fill_l2,
+        } in allocations.clone().into_iter().rev()
+        {
+            let allocation_id = self
+                .allocations
+                .read()
+                .iter()
+                .find(|(_, alloc)| alloc.start_addr == device_ptr)
+                .map(|(_, alloc)| alloc.id)
+                .unwrap();
+
+            if num_bytes > 64 {
+                eprintln!(
+                    "CUDA allocation={:<3} {}: {:>15} ({:>5} f32) to address {:>20}",
+                    allocation_id,
+                    allocation_name.as_deref().unwrap_or("<unnamed>"),
+                    human_bytes::human_bytes(num_bytes as f64),
+                    num_bytes / 4,
+                    device_ptr,
+                );
+            }
+
+            let alloc_range = device_ptr..device_ptr + num_bytes;
+
+            // find a copy
+            let copy = copies
+                .iter()
+                .find(|copy| alloc_range.contains(&copy.dest_device_addr));
+
+            // dedup
+            // if valid_prefill_memcopies
+            //     .iter()
+            //     .any(|(have_start, have_num_bytes, _)| {
+            //         *have_start <= start_addr && start_addr < *have_start + *have_num_bytes
+            //     })
+            // {
+            //     // skip
+            //     continue;
+            // }
+
+            // if allocation_id == 3 {
+            //     // invalidate everything before
+            //     self.invalidate_l2()
+            //     // continue;
+            // }
+
+            // check if there is enough space for this allocation
+            // let should_prefill = true;
+            // let should_prefill = if valid_prefill_allocations.len() > 0 {
+            //     // already have an allocation
+            //     let percent =
+            //         ((num_bytes + cache_bytes_used) as f32 / l2_cache_size_bytes as f32) * 100.0;
+            //     percent <= 75.0
+            // } else {
+            //     // first allocation
+            //     let percent =
+            //         ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
+            //     percent <= l2_prefetch_percent
+            //     // if percent > l2_prefetch_percent {
+            //     //     should_prefill = false
+            //     // }
+            // };
+            //
+            let percent =
+                ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
+            let should_prefill = if allocations.len() == 1 {
+                // for a single allocation, go all in
+                // cache_bytes_used + num_bytes
+                percent <= 100.0
+            } else {
+                // percent <= l2_prefetch_percent
+                // should be less than 75 percent
+                percent <= 60.0
+            };
+
+            num_bytes = num_bytes.min((2.5 * crate::config::MB as f32) as u64);
+
+            // what does it take to make LRU miss all sets when going over capacity
+            // 12 partitions *128 sets * 128B line/1024 = 129KB
+
+            // if *fill_l2 || (copy.is_some() && should_prefill) {
+            let force_fill = fill_l2 == trace_model::command::L2Prefill::Force;
+            let disabled = fill_l2 == trace_model::command::L2Prefill::NoPrefill;
+
+            if force_fill || (!disabled && should_prefill) {
+                valid_prefill_memcopies.push((device_ptr, num_bytes, allocation_id));
+                cache_bytes_used += num_bytes;
+            }
+        }
+
+        // if false {
+        //     for cmd in commands.iter().rev() {
+        //         #[derive(Debug, PartialEq, Eq)]
+        //         enum AllocationKind {
+        //             MemCopy,
+        //             Alloc,
+        //         }
+        //         let (force, start_addr, num_bytes, kind) = match cmd {
+        //             Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+        //                 allocation_name,
+        //                 dest_device_addr,
+        //                 num_bytes,
+        //             }) => {
+        //                 // if *num_bytes > 64 {
+        //                 //     eprintln!(
+        //                 //         "CUDA mem copy: {:<20} {:>15} ({:>5} f32) to address {dest_device_addr:>20}",
+        //                 //         allocation_name.as_deref().unwrap_or("<unnamed>"),
+        //                 //         human_bytes::human_bytes(*num_bytes as f64),
+        //                 //         *num_bytes / 4,
+        //                 //     );
+        //                 // }
+        //                 (
+        //                     trace_model::command::L2Prefill::Auto,
+        //                     *dest_device_addr,
+        //                     *num_bytes,
+        //                     AllocationKind::MemCopy,
+        //                 )
+        //             }
+        //             Command::MemAlloc(trace_model::command::MemAlloc {
+        //                 allocation_name,
+        //                 device_ptr,
+        //                 fill_l2,
+        //                 num_bytes,
+        //                 ..
+        //             }) => {
+        //                 // if *num_bytes > 64 {
+        //                 //     eprintln!(
+        //                 //         "CUDA mem allocation: {:<20} {:>15} ({:>5} f32) to address {device_ptr:>20}",
+        //                 //         allocation_name.as_deref().unwrap_or("<unnamed>"),
+        //                 //         human_bytes::human_bytes(*num_bytes as f64),
+        //                 //         *num_bytes / 4,
+        //                 //     );
+        //                 // }
+        //                 // continue;
+        //                 (*fill_l2, *device_ptr, *num_bytes, AllocationKind::Alloc)
+        //             }
+        //             _ => continue,
+        //             // other => panic!("bad command {}", other),
+        //         };
+        //
+        //         let allocation_id = self
+        //             .allocations
+        //             .read()
+        //             .iter()
+        //             .find(|(_, alloc)| alloc.start_addr == start_addr)
+        //             .map(|(_, alloc)| alloc.id)
+        //             .unwrap();
+        //
+        //         if num_bytes > 64 {
+        //             eprintln!(
+        //                 "CUDA mem {}: {:>15} ({:>5} f32) [allocation={}] to address {:>20}",
+        //                 if kind == AllocationKind::MemCopy {
+        //                     "copy"
+        //                 } else {
+        //                     "allocation"
+        //                 },
+        //                 // allocation_name.as_deref().unwrap_or("<unnamed>"),
+        //                 human_bytes::human_bytes(num_bytes as f64),
+        //                 num_bytes / 4,
+        //                 allocation_id,
+        //                 start_addr,
+        //             );
+        //         }
+        //
+        //         // dedup
+        //         if valid_prefill_memcopies
+        //             .iter()
+        //             .any(|(have_start, have_num_bytes, _)| {
+        //                 *have_start <= start_addr && start_addr < *have_start + *have_num_bytes
+        //             })
+        //         {
+        //             // skip
+        //             continue;
+        //         }
+        //
+        //         // if allocation_id == 3 {
+        //         //     // invalidate everything before
+        //         //     self.invalidate_l2()
+        //         //     // continue;
+        //         // }
+        //
+        //         // check if there is enough space for this allocation
+        //         // let should_prefill = true;
+        //         // let should_prefill = if valid_prefill_allocations.len() > 0 {
+        //         //     // already have an allocation
+        //         //     let percent =
+        //         //         ((num_bytes + cache_bytes_used) as f32 / l2_cache_size_bytes as f32) * 100.0;
+        //         //     percent <= 75.0
+        //         // } else {
+        //         //     // first allocation
+        //         //     let percent =
+        //         //         ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
+        //         //     percent <= l2_prefetch_percent
+        //         //     // if percent > l2_prefetch_percent {
+        //         //     //     should_prefill = false
+        //         //     // }
+        //         // };
+        //         //
+        //         let should_prefill = {
+        //             let percent = ((cache_bytes_used + num_bytes) as f32
+        //                 / l2_cache_size_bytes as f32)
+        //                 * 100.0;
+        //             // percent <= l2_prefetch_percent
+        //             // should be less than 75 percent
+        //             percent <= 60.0
+        //         };
+        //
+        //         if force || should_prefill {
+        //             valid_prefill_memcopies.push((start_addr, num_bytes, allocation_id));
+        //             cache_bytes_used += num_bytes;
+        //         }
+        //     }
+        // }
+
+        // let valid_prefill_allocations: Vec<_> = commands
+        //     .iter()
+        //     .rev()
+        //     .take_while(|cmd| {
+        //     let (start_address, num_bytes) = match cmd {
+        //         Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+        //             dest_device_addr,
+        //             num_bytes,
+        //             ..
+        //         }) => (dest_device_addr, num_bytes),
+        //         Command::MemAlloc(trace_model::command::MemAlloc {
+        //             device_ptr,
+        //             fill_l2,
+        //             num_bytes,
+        //             ..
+        //         }) => {
+        //             if *fill_l2 {
+        //                 return true;
+        //             }
+        //             (device_ptr, num_bytes)
+        //         }
+        //         other => panic!("bad command {}", other),
+        //     };
+        //     false
+        // })
+        // .collect();
+
+        eprintln!(
+            "have {} valid memcopies",
+            valid_prefill_memcopies
+                .iter()
+                .filter(|(_, num_bytes, _)| *num_bytes > 64)
+                .count(),
+            // .filter_map(|(_, num_bytes)| if *num_bytes > 64 {
+            //     Some(*num_bytes)
+            // } else {
+            //     None
+            // })
+            // .sum::<u64>(),
+            // valid_prefill_allocations
+        );
+
+        // let mut completed_prefills: Vec<(u64, u64, usize)> = Vec::new();
+        for (start_addr, num_bytes, allocation_id) in valid_prefill_memcopies
+            .into_iter()
+            .sorted_by_key(|(_, _, allocation_id)| *allocation_id)
+        {
+            // if allocation_id == 3 {
+            //     for (prev_start, prev_num_bytes, _) in completed_prefills.drain(..) {
+            //         self.invalidate_l2(prev_start, prev_num_bytes);
+            //     }
+            //     // let (prev_start, prev_num_bytes, _) = &valid_prefill_allocations[0];
+            //     // self.invalidate_l2(*prev_start, *prev_num_bytes);
+            //     // let (prev_start, prev_num_bytes, _) = &valid_prefill_allocations[1];
+            //     // self.invalidate_l2(*prev_start, *prev_num_bytes);
+            //     eprintln!(
+            //         "post invalidation: bytes used={}",
+            //         human_bytes::human_bytes(self.l2_used_bytes() as f64)
+            //     );
+            // }
+
+            cycle = crate::timeit!(
+                "cycle::memcopy",
+                self.memcopy_to_gpu(
+                    start_addr, num_bytes,
+                    cycle,
+                    // *dest_device_addr,
+                    // *num_bytes,
+                    // allocation_name.clone(),
+                    // false,
+                )
+            );
+
+            // completed_prefills.push((start_addr, num_bytes, allocation_id));
+        }
+
+        //     match cmd {
+        //         // Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+        //         //     allocation_name,
+        //         //     dest_device_addr,
+        //         //     num_bytes,
+        //         // }) => {}
+        //         Command::MemAlloc(trace_model::command::MemAlloc {
+        //             allocation_name,
+        //             device_ptr,
+        //             fill_l2,
+        //             num_bytes,
+        //         }) => {
+        //             // let fill_l2 = *fill_l2;
+        //             // let device_ptr = *device_ptr;
+        //             // let num_bytes = *num_bytes;
+        //             // let allocation_name = allocation_name.clone();
+        //             self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
+        //             // let has_memcopy = self.commands.iter().any(|cmd| match cmd {
+        //             //     Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+        //             //         dest_device_addr,
+        //             //         ..
+        //             //     }) => {
+        //             //         device_ptr <= *dest_device_addr
+        //             //             && *dest_device_addr < device_ptr + num_bytes
+        //             //     }
+        //             //     _ => false,
+        //             // });
+        //         }
+        //         other => panic!("bad command {}", other),
+        //     }
+        // }
+    }
+
+    pub fn print_l1_cache(&self) {
+        let mut num_total_lines = 0;
+        let mut num_total_lines_used = 0;
+        let total_cores = self.config.total_cores();
+        for cluster in self.clusters.iter() {
+            for core in cluster.cores.iter() {
+                let core = core.read();
+                let ldst_unit = core.load_store_unit.lock();
+                if let Some(ref l1_cache) = ldst_unit.data_l1 {
+                    let num_lines_used = l1_cache.num_used_lines();
+                    let num_lines = l1_cache.num_total_lines();
+                    eprintln!(
+                        "core {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+                        core.core_id,
+                        total_cores,
                         num_lines_used,
                         num_lines,
                         num_lines_used as f32 / num_lines as f32 * 100.0,
@@ -1267,40 +1699,169 @@ where
                     num_total_lines_used += num_lines_used;
                 }
             }
-            println!(
-                "Total L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
-                num_total_lines_used,
-                num_total_lines,
-                num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
-                human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
-            );
-            let stats = sim.stats();
-            for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        }
+        eprintln!(
+            "Total L1D {:>5}/{:<5} lines used ({:2.2}%, {})",
+            num_total_lines_used,
+            num_total_lines,
+            num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
+            human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
+        );
+    }
+
+    pub fn print_l2_cache(&self) {
+        let mut num_total_lines = 0;
+        let mut num_total_lines_used = 0;
+        let num_sub_partitions = self.mem_sub_partitions.len();
+        for sub in self.mem_sub_partitions.iter() {
+            let sub = sub.lock();
+            if let Some(ref l2_cache) = sub.l2_cache {
+                let num_lines_used = l2_cache.num_used_lines();
+                let num_lines = l2_cache.num_total_lines();
                 eprintln!(
-                    "L2D[kernel {}]: {:#?}",
-                    kernel_launch_id,
-                    &kernel_stats.l2d_stats.reduce()
+                    "sub {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+                    sub.id,
+                    num_sub_partitions,
+                    num_lines_used,
+                    num_lines,
+                    num_lines_used as f32 / num_lines as f32 * 100.0,
+                    human_bytes::human_bytes(num_lines_used as f64 * 128.0),
                 );
+                num_total_lines += num_lines;
+                num_total_lines_used += num_lines_used;
             }
-            eprintln!("L2D[no kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
-            eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
-        };
+        }
+        eprintln!(
+            "Total L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+            num_total_lines_used,
+            num_total_lines,
+            num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
+            human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
+        );
+        // let stats = self.stats();
+        // for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        //     eprintln!(
+        //         "L2D[kernel {}]: {:#?}",
+        //         kernel_launch_id,
+        //         &kernel_stats.l2d_stats.reduce()
+        //     );
+        // }
+        // eprintln!("L2D[no kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
+        // eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
+    }
 
-        let write_l2_cache_state = |sim: &Self, path: &Path| -> eyre::Result<()> {
-            // open csv writer
-            let writer = utils::fs::open_writable(path)?;
-            let mut csv_writer = csv::WriterBuilder::new()
-                .flexible(false)
-                .from_writer(writer);
+    pub fn write_l1_cache_state(&self, path: &Path) -> eyre::Result<()> {
+        // open csv writer
+        let writer = utils::fs::open_writable(path)?;
+        let mut csv_writer = csv::WriterBuilder::new()
+            .flexible(false)
+            .from_writer(writer);
 
-            for sub in sim.mem_sub_partitions.iter() {
-                let sub = sub.lock();
-                if let Some(ref l2_cache) = sub.l2_cache {
-                    l2_cache.write_state(&mut csv_writer)?;
+        for cluster in self.clusters.iter() {
+            for core in cluster.cores.iter() {
+                let core = core.read();
+                let ldst_unit = core.load_store_unit.lock();
+                if let Some(ref l1_cache) = ldst_unit.data_l1 {
+                    l1_cache.write_state(&mut csv_writer)?;
                 }
             }
-            Ok(())
-        };
+        }
+        Ok(())
+    }
+
+    pub fn write_l2_cache_state(&self, path: &Path) -> eyre::Result<()> {
+        // open csv writer
+        let writer = utils::fs::open_writable(path)?;
+        let mut csv_writer = csv::WriterBuilder::new()
+            .flexible(false)
+            .from_writer(writer);
+
+        for sub in self.mem_sub_partitions.iter() {
+            let sub = sub.lock();
+            if let Some(ref l2_cache) = sub.l2_cache {
+                l2_cache.write_state(&mut csv_writer)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Simulate memory copy to simulated device.
+    #[allow(clippy::needless_pass_by_value)]
+    #[must_use]
+    pub fn memcopy_to_gpu(
+        &mut self,
+        addr: address,
+        num_bytes: u64,
+        // name: Option<String>,
+        mut cycle: u64,
+        // force: bool,
+    ) -> u64 {
+        // {:<20}
+        log::info!(
+            "CUDA mem copy: {:>15} ({:>5} f32) to address {addr:>20}",
+            // name.as_deref().unwrap_or("<unnamed>"),
+            human_bytes::human_bytes(num_bytes as f64),
+            num_bytes / 4,
+        );
+        // let alloc_range = addr..(addr + num_bytes);
+        // self.allocations.write().insert(alloc_range, name);
+
+        // let print_cache = |sim: &Self| {
+        //     let mut num_total_lines = 0;
+        //     let mut num_total_lines_used = 0;
+        //     let num_sub_partitions = sim.mem_sub_partitions.len();
+        //     for sub in sim.mem_sub_partitions.iter() {
+        //         let sub = sub.lock();
+        //         if let Some(ref l2_cache) = sub.l2_cache {
+        //             let num_lines_used = l2_cache.num_used_lines();
+        //             let num_lines = l2_cache.num_total_lines();
+        //             eprintln!(
+        //                 "sub {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+        //                 sub.id,
+        //                 num_sub_partitions,
+        //                 num_lines_used,
+        //                 num_lines,
+        //                 num_lines_used as f32 / num_lines as f32 * 100.0,
+        //                 human_bytes::human_bytes(num_lines_used as f64 * 128.0),
+        //             );
+        //             num_total_lines += num_lines;
+        //             num_total_lines_used += num_lines_used;
+        //         }
+        //     }
+        //     eprintln!(
+        //         "Total L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
+        //         num_total_lines_used,
+        //         num_total_lines,
+        //         num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
+        //         human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
+        //     );
+        //     let stats = sim.stats();
+        //     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+        //         eprintln!(
+        //             "L2D[kernel {}]: {:#?}",
+        //             kernel_launch_id,
+        //             &kernel_stats.l2d_stats.reduce()
+        //         );
+        //     }
+        //     eprintln!("L2D[no kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
+        //     eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
+        // };
+
+        // let write_l2_cache_state = |sim: &Self, path: &Path| -> eyre::Result<()> {
+        //     // open csv writer
+        //     let writer = utils::fs::open_writable(path)?;
+        //     let mut csv_writer = csv::WriterBuilder::new()
+        //         .flexible(false)
+        //         .from_writer(writer);
+        //
+        //     for sub in sim.mem_sub_partitions.iter() {
+        //         let sub = sub.lock();
+        //         if let Some(ref l2_cache) = sub.l2_cache {
+        //             l2_cache.write_state(&mut csv_writer)?;
+        //         }
+        //     }
+        //     Ok(())
+        // };
 
         if self.config.fill_l2_on_memcopy {
             if self.config.accelsim_compat {
@@ -1313,16 +1874,13 @@ where
                 }
             } else {
                 if let Some(ref l2_cache) = self.config.data_cache_l2 {
-                    let start = std::time::Instant::now();
+                    // let start = std::time::Instant::now();
                     let l2_cache_size_bytes =
                         self.mem_sub_partitions.len() * l2_cache.inner.total_bytes();
-                    let percent = (num_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
 
-                    let should_prefetch = self
-                        .config
-                        .l2_prefetch_percent
-                        .map(|l2_prefetch_percent| percent <= l2_prefetch_percent)
-                        .unwrap_or(true);
+                    let bytes_used = self.l2_used_bytes();
+                    // let bytes_used_percent =
+                    //     (bytes_used as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     // find allocation
                     let allocation_id = self
@@ -1332,62 +1890,72 @@ where
                         .find(|(_, alloc)| alloc.start_addr == addr)
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
-                    // let should_prefetch = allocation_id == 3;
+
+                    // let size_below_threshold = self
+                    //     .config
+                    //     .l2_prefetch_percent
+                    //     .map(|l2_prefetch_percent| percent <= l2_prefetch_percent)
+                    //     .unwrap_or(true);
+
+                    // let should_prefetch = force || (size_below_threshold && allocation_id == 1);
+                    // let should_prefetch = force || (size_below_threshold && allocation_id == 3);
+                    // * self.config.data_cache_l2.map(|l2| l2.line_size());
+                    // let should_prefetch =
+                    //     force || (bytes_used_percent <= 25.0 && size_below_threshold);
+                    // let should_prefetch = force || allocation_id == 3;
+                    // let should_prefetch = force || size_below_threshold;
+                    // let should_prefetch = false;
                     // let should_prefetch = allocation_id != 3;
+
+                    let max_bytes = num_bytes.min(l2_cache_size_bytes as u64);
+                    let percent = (max_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     if num_bytes > 64 {
                         eprintln!(
-                            "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} valid={}",
-                            human_bytes::human_bytes(num_bytes as f64),
+                            "l2 cache prefill {}/{} ({}%) threshold={:?}% allocation={:?} used={}",
+                            human_bytes::human_bytes(max_bytes as f64),
                             human_bytes::human_bytes(l2_cache_size_bytes as f64),
                             percent,
                             self.config.l2_prefetch_percent,
                             allocation_id,
-                            should_prefetch,
+                            human_bytes::human_bytes(bytes_used as f64),
                         );
                     }
 
-                    let output_memcopy_l2_cache_state = std::env::var("OUTPUT_L2_CACHE_STATE")
-                        .as_deref()
-                        .unwrap_or("")
-                        .to_lowercase()
-                        == "yes";
+                    let output_memcopy_l2_cache_state =
+                        std::env::var("OUTPUT_L2_CACHE_STATE_MEMCPY")
+                            .as_deref()
+                            .unwrap_or("")
+                            .to_lowercase()
+                            == "yes";
                     let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
 
-                    if output_memcopy_l2_cache_state
-                        && num_bytes > 64
-                        && !self.config.accelsim_compat
-                    {
-                        write_l2_cache_state(
-                            self,
-                            &debug_dir.join(format!("l2_cache_state_{}_before.csv", allocation_id)),
-                        )
-                        .unwrap();
-                        print_cache(self);
-                    }
+                    // if output_memcopy_l2_cache_state
+                    //     && num_bytes > 64
+                    //     && !self.config.accelsim_compat
+                    // {
+                    //     self.write_l2_cache_state(
+                    //         &debug_dir.join(format!("l2_cache_state_{}_before.csv", allocation_id)),
+                    //     )
+                    //     .unwrap();
+                    //     self.print_l2_cache();
+                    // }
 
-                    if should_prefetch {
-                        cycle = self.fill_l2(addr, num_bytes, cycle);
-                    }
+                    cycle = self.fill_l2(addr, max_bytes, cycle);
 
                     if output_memcopy_l2_cache_state
                         && num_bytes > 64
                         && !self.config.accelsim_compat
                     {
-                        write_l2_cache_state(
-                            self,
+                        self.write_l2_cache_state(
                             &debug_dir.join(format!("l2_cache_state_{}_after.csv", allocation_id)),
                         )
                         .unwrap();
-                        print_cache(self);
+                        self.print_l2_cache();
                     }
 
-                    if should_prefetch && num_bytes > 64 {
-                        eprintln!("memcopy completed in {:?}", start.elapsed());
-                    }
-
-                    // if allocation_id == 2 {
-                    //     panic!("test");
+                    // if should_prefetch && num_bytes > 64 {
+                    // eprintln!("memcopy completed in {:?}", start.elapsed());
                     // }
                 }
             }
@@ -1397,9 +1965,15 @@ where
 
     #[must_use]
     pub fn fill_l2(&mut self, addr: address, num_bytes: u64, mut cycle: u64) -> u64 {
+        assert!(
+            addr % 256 == 0,
+            "memcopy start address ({}) is not 256B aligned)",
+            addr
+        );
         let chunk_size: u64 = 128;
         let num_chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
 
+        let mut partition_hist = vec![0; self.mem_controller.num_memory_sub_partitions()];
         for chunk in 0..num_chunks {
             let write_addr = addr + (chunk as u64 * chunk_size);
 
@@ -1411,13 +1985,16 @@ where
                 req_size_bytes: chunk_size as u32,
                 is_write: true,
                 warp_active_mask: warp::ActiveMask::all_ones(),
-                byte_mask: mem_fetch::ByteMask::ZERO,
-                sector_mask: mem_fetch::SectorMask::ZERO,
+                byte_mask: !mem_fetch::ByteMask::ZERO,
+                sector_mask: !mem_fetch::SectorMask::ZERO,
             }
             .build();
 
+            assert!(access.byte_mask.all());
+            assert!(access.sector_mask.all());
+
             let physical_addr = self.mem_controller.to_physical_address(access.addr);
-            let partition_addr = self.mem_controller.memory_partition_address(access.addr);
+            // let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {
                 instr: None,
@@ -1428,11 +2005,12 @@ where
                 core_id: None,
                 cluster_id: None,
                 physical_addr,
-                partition_addr,
+                // partition_addr,
             }
             .build();
 
             let dest_sub_partition_id = fetch.sub_partition_id();
+            partition_hist[dest_sub_partition_id] += 1;
             let dest_mem_device = self.config.mem_id_to_device_id(dest_sub_partition_id);
             let packet_size = fetch.control_size();
 
@@ -1447,6 +2025,10 @@ where
                 },
                 packet_size,
             );
+        }
+
+        if num_bytes > 64 {
+            eprintln!("memory partition histogram: {:?}", partition_hist);
         }
 
         let copy_start_cycle = cycle;
@@ -1475,6 +2057,7 @@ where
                     .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
                     if let Some(packet) = self.interconn.pop(mem_sub_device) {
+                        assert_eq!(packet.data.sub_partition_id(), sub_id);
                         mem_sub.push(packet.data, cycle);
                     }
                 } else {
@@ -1508,7 +2091,6 @@ where
                 // dbg!(self.interconn.busy());
 
                 if self.interconn.busy() {
-                    use itertools::Itertools;
                     for cluster_id in 0..self.config.num_simt_clusters {
                         let queue = self
                             .interconn
@@ -1545,6 +2127,89 @@ where
             }
         }
 
+        // OPTIONAL: check prefilled chunks are HIT (debugging)
+        // if log::log_enabled!(log::Level::Trace) {
+        if false {
+            for chunk in 0..num_chunks {
+                let chunk_addr = addr + (chunk as u64 * chunk_size);
+
+                let access = mem_fetch::access::Builder {
+                    kind: mem_fetch::access::Kind::GLOBAL_ACC_R,
+                    addr: chunk_addr,
+                    kernel_launch_id: None,
+                    allocation: self.allocations.try_read().get(&chunk_addr).cloned(),
+                    req_size_bytes: chunk_size as u32,
+                    is_write: false,
+                    warp_active_mask: warp::ActiveMask::all_ones(),
+                    byte_mask: !mem_fetch::ByteMask::ZERO,
+                    sector_mask: !mem_fetch::SectorMask::ZERO,
+                }
+                .build();
+
+                let physical_addr = self.mem_controller.to_physical_address(access.addr);
+                // let partition_addr = self.mem_controller.memory_partition_address(access.addr);
+
+                let fetch = mem_fetch::Builder {
+                    instr: None,
+                    access,
+                    warp_id: 0,
+                    // the core id and cluster id are not set as no core/cluster explicitely requested the write.
+                    // the WRITE_ACK will not be forwarded.
+                    core_id: None,
+                    cluster_id: None,
+                    physical_addr,
+                    // partition_addr,
+                }
+                .build();
+
+                let mut write_fetch = fetch.clone();
+                write_fetch.access.kind = mem_fetch::access::Kind::GLOBAL_ACC_W;
+                write_fetch.access.is_write = true;
+                let read_fetch = fetch;
+
+                let dest_sub_partition_id = read_fetch.sub_partition_id();
+                let sub = &self.mem_sub_partitions[dest_sub_partition_id];
+                if let Some(ref mut l2_cache) = sub.lock().l2_cache {
+                    use crate::mem_sub_partition::{
+                        breakdown_request_to_sector_requests, NUM_SECTORS,
+                    };
+                    let mut read_sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
+                        [(); NUM_SECTORS].map(|_| None);
+                    breakdown_request_to_sector_requests(
+                        read_fetch,
+                        &self.mem_controller,
+                        &mut read_sector_requests,
+                    );
+
+                    let mut write_sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
+                        [(); NUM_SECTORS].map(|_| None);
+                    breakdown_request_to_sector_requests(
+                        write_fetch,
+                        &self.mem_controller,
+                        &mut write_sector_requests,
+                    );
+
+                    for read_fetch in read_sector_requests.into_iter().filter_map(|x| x) {
+                        let addr = read_fetch.addr();
+                        assert!(!read_fetch.is_write());
+                        // let mut _events = Vec::new();
+                        // let read_status = l2_cache.access(addr, read_fetch, &mut _events, 0);
+                        // eprintln!("READ: checked {}: {:?}", addr, read_status);
+                        // assert_eq!(read_status, cache::RequestStatus::HIT);
+                    }
+
+                    for write_fetch in write_sector_requests.into_iter().filter_map(|x| x) {
+                        let addr = write_fetch.addr();
+                        assert!(write_fetch.is_write());
+                        // let mut _events = Vec::new();
+                        // let write_status = l2_cache.access(addr, write_fetch, &mut _events, 0);
+                        // eprintln!("WRITE: checked {}: {:?}", addr, write_status);
+                        // assert_eq!(write_status, cache::RequestStatus::HIT);
+                    }
+                }
+            }
+        }
+
         let copy_duration = cycle - copy_start_cycle;
         log::debug!("l2 memcopy took {copy_duration} cycles");
         cycle
@@ -1566,6 +2231,11 @@ where
         );
 
         // keep track of allocations
+        assert!(
+            addr % 128 == 0,
+            "allocation start address ({}) is not 128B aligned)",
+            addr
+        );
         let alloc_range = addr..(addr + num_bytes);
         self.allocations.write().insert(alloc_range, name);
     }
@@ -1653,49 +2323,110 @@ where
     /// the `window_size` or processed every command.
     #[must_use]
     pub fn process_commands(&mut self, mut cycle: u64) -> u64 {
+        let mut allocations_and_memcopies = Vec::new();
         while self.kernels.len() < self.kernel_window_size && self.command_idx < self.commands.len()
         {
-            let cmd = &self.commands[self.command_idx];
+            let cmd = self.commands[self.command_idx].clone();
             match cmd {
-                Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-                    allocation_name,
-                    dest_device_addr,
-                    num_bytes,
-                }) => {
-                    cycle = crate::timeit!(
-                        "cycle::memcopy",
-                        self.memcopy_to_gpu(
-                            *dest_device_addr,
-                            *num_bytes,
-                            allocation_name.clone(),
-                            cycle,
-                        )
-                    );
-                }
-                Command::MemAlloc(trace_model::command::MemAlloc {
-                    allocation_name,
-                    device_ptr,
-                    fill_l2,
-                    num_bytes,
-                }) => {
-                    let fill_l2 = *fill_l2;
-                    let device_ptr = *device_ptr;
-                    let num_bytes = *num_bytes;
-                    let allocation_name = allocation_name.clone();
-                    self.gpu_mem_alloc(device_ptr, num_bytes, allocation_name.clone(), cycle);
-                    if fill_l2 {
-                        cycle = crate::timeit!(
-                            "cycle::memcopy",
-                            self.memcopy_to_gpu(
-                                device_ptr,
-                                num_bytes,
-                                allocation_name.clone(),
-                                cycle,
-                            )
-                        );
-                    }
-                }
+                // Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+                //     allocation_name,
+                //     dest_device_addr,
+                //     num_bytes,
+                // }) => {
+                //     cycle = crate::timeit!(
+                //         "cycle::memcopy",
+                //         self.memcopy_to_gpu(
+                //             *dest_device_addr,
+                //             *num_bytes,
+                //             allocation_name.clone(),
+                //             cycle,
+                //             false,
+                //         )
+                //     );
+                // }
+                // Command::MemAlloc(trace_model::command::MemAlloc {
+                //     allocation_name,
+                //     device_ptr,
+                //     fill_l2,
+                //     num_bytes,
+                // }) => {
+                //     let fill_l2 = *fill_l2;
+                //     let device_ptr = *device_ptr;
+                //     let num_bytes = *num_bytes;
+                //     let allocation_name = allocation_name.clone();
+                //     self.gpu_mem_alloc(device_ptr, num_bytes, allocation_name.clone(), cycle);
+                //     let has_memcopy = self.commands.iter().any(|cmd| match cmd {
+                //         Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+                //             dest_device_addr,
+                //             ..
+                //         }) => {
+                //             device_ptr <= *dest_device_addr
+                //                 && *dest_device_addr < device_ptr + num_bytes
+                //         }
+                //         _ => false,
+                //     });
+                //
+                //     if (true || fill_l2) && !has_memcopy {
+                //         cycle = crate::timeit!(
+                //             "cycle::memcopy",
+                //             self.memcopy_to_gpu(
+                //                 device_ptr,
+                //                 num_bytes,
+                //                 allocation_name.clone(),
+                //                 cycle,
+                //                 true,
+                //             )
+                //         );
+                //     }
+                // }
                 Command::KernelLaunch(launch) => {
+                    self.handle_allocations_and_memcopies(&allocations_and_memcopies, cycle);
+
+                    // TODO: clean up this mess
+                    let output_cache_state = std::env::var("PCHASE_OUTPUT_CACHE_STATE")
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase()
+                        == "yes";
+
+                    if output_cache_state {
+                        // we assume running pchase, so there is only a
+                        // single allocation plus memcopy
+                        // assert!(allocations_and_memcopies.len() == 2);
+                        let alloc_sizes: Vec<_> = allocations_and_memcopies
+                            .iter()
+                            .map(|cmd| match cmd {
+                                Command::MemAlloc(trace_model::command::MemAlloc {
+                                    num_bytes,
+                                    ..
+                                }) => *num_bytes,
+                                Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
+                                    num_bytes,
+                                    ..
+                                }) => *num_bytes,
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        assert!(alloc_sizes.iter().all_equal());
+                        let size_bytes = *alloc_sizes.first().unwrap();
+
+                        let cache_state_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                            .join("benchmarks/debug/pchase_cache_state");
+                        std::fs::create_dir_all(&cache_state_dir).ok();
+                        let l2_cache_state_file = cache_state_dir.join(format!(
+                            "pchase_{:0>12}_{}_l2_cache_state_before.csv",
+                            size_bytes.to_string(),
+                            utils::fs::Bytes(size_bytes as usize)
+                                .to_string()
+                                .replace(" ", "_")
+                                .replace(".", "_")
+                        ));
+                        self.write_l2_cache_state(&l2_cache_state_file).unwrap();
+                        eprintln!("wrote L2 cache state to {}", l2_cache_state_file.display());
+                    }
+
+                    allocations_and_memcopies.clear();
+
                     let mut kernel = kernel::trace::KernelTrace::new(
                         launch.clone(),
                         self.traces_dir.as_ref().unwrap(),
@@ -1709,6 +2440,7 @@ where
                     //     .filter(Option::is_some)
                     //     .count();
                     eprintln!("kernel launch {}: {:#?}", launch.id, &launch);
+                    // todo!("temp");
                     let num_launched_kernels = self.executed_kernels.lock().len();
 
                     match std::env::var("KERNEL_LIMIT")
@@ -1740,6 +2472,7 @@ where
                         }
                     }
                 }
+                cmd => allocations_and_memcopies.push(cmd),
             }
             // cycle += 1;
             self.command_idx += 1;
@@ -1816,6 +2549,24 @@ where
                 self.run_to_completion_parallel_nondeterministic(run_ahead)?;
             }
         }
+
+        let output_cache_state = std::env::var("OUTPUT_FINAL_CACHE_STATE")
+            .as_deref()
+            .unwrap_or("")
+            .to_lowercase()
+            == "yes";
+
+        let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
+        if output_cache_state {
+            // l2 cache
+            self.print_l2_cache();
+            self.write_l2_cache_state(&debug_dir.join("post_l2_cache_state.csv"))?;
+
+            // l1 cache
+            self.print_l1_cache();
+            self.write_l1_cache_state(&debug_dir.join("post_l1_cache_state.csv"))?;
+        }
+
         Ok(start.elapsed())
     }
 
@@ -1878,7 +2629,7 @@ where
 
                 match self.log_after_cycle {
                     Some(ref log_after_cycle) if cycle >= *log_after_cycle => {
-                        println!("initializing logging after cycle {cycle}");
+                        eprintln!("initializing logging after cycle {cycle}");
                         init_logging();
                         self.log_after_cycle.take();
                         let allocations = self.allocations.read();
@@ -2062,12 +2813,12 @@ pub fn init_deadlock_detector() {
                 continue;
             }
 
-            println!("{} deadlocks detected", deadlocks.len());
+            eprintln!("{} deadlocks detected", deadlocks.len());
             for (i, threads) in deadlocks.iter().enumerate() {
-                println!("Deadlock #{i}");
+                eprintln!("Deadlock #{i}");
                 for t in threads {
-                    println!("Thread Id {:#?}", t.thread_id());
-                    println!("{:#?}", t.backtrace());
+                    eprintln!("Thread Id {:#?}", t.thread_id());
+                    eprintln!("{:#?}", t.backtrace());
                 }
             }
         })
@@ -2153,9 +2904,11 @@ pub fn init_logging() {
         let level_style = buf.default_level_style(record.level());
         writeln!(
             buf,
-            "[ {} {} ] {}",
+            "[ {}{}{} {} ] {}",
             // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-            level_style.value(record.level()),
+            level_style.render(),
+            record.level(),
+            level_style.render_reset(),
             record.module_path().unwrap_or(""),
             record.args()
         )

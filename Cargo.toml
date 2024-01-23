@@ -6,7 +6,7 @@ members = [
   "playground",
   "playground/sys",
   "exec",
-  "exec/impl",
+  "exec/derive",
   "stats",
   "benchmarks",
   "accelsim",

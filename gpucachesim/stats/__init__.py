@@ -46,7 +46,7 @@ pd.set_option("display.max_rows", 500)
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:f}".format})
 np.seterr(all="raise")
 
-DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.config.yml"
+DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.original.config.yml"
 
 
 @click.group()
@@ -928,7 +928,7 @@ def rel_err(
     # print(true_values)
     # print(values == true_values)
     rel_err = rel_err.fillna(0.0)
-    # rel_err[correct] = 0.0
+    rel_err[correct] = 0.0
     rel_err[rel_err == 0.0] = 0.0
 
     return rel_err
@@ -978,6 +978,50 @@ def smape(true_values: np.ndarray, values: np.ndarray) -> float:
 
     smape = (values - true_values).abs() / (values.abs() + true_values.abs())
     return smape.mean()
+
+
+def ermsle(true_values: np.ndarray, values: np.ndarray) -> float:
+    """ERMSLE: Exponential root mean square log error"""
+    values = values.fillna(0.0)
+    true_values = true_values.fillna(0.0)
+    ratios = values / true_values
+    ratios[values == true_values] = 1.0
+
+    log_ratios = np.empty_like(ratios)
+    valid_mask = np.isfinite(ratios) & ratios != 0
+
+    # temp
+    ratios[~valid_mask] = 1.0
+    log_ratios = np.abs(np.log(ratios)) ** 2
+    # undo temp
+    log_ratios[~valid_mask] = np.nan
+    # mean
+    rmsle = np.sqrt(np.mean(log_ratios[valid_mask]))
+    # exponential
+    rmsle = np.abs(np.exp(rmsle))
+    return rmsle
+
+
+def emale(true_values: np.ndarray, values: np.ndarray) -> float:
+    """EMALE: Exponential mean absolute log error"""
+    values = values.fillna(0.0)
+    true_values = true_values.fillna(0.0)
+    ratios = values / true_values
+    ratios[values == true_values] = 1.0
+
+    log_ratios = np.empty_like(ratios)
+    valid_mask = np.isfinite(ratios) & ratios != 0
+
+    # temp
+    ratios[~valid_mask] = 1.0
+    log_ratios = np.abs(np.log(ratios))
+    # undo temp
+    log_ratios[~valid_mask] = np.nan
+    # mean
+    male = np.mean(log_ratios[valid_mask])
+    # exponential
+    emale = np.abs(np.exp(male))
+    return emale
 
 
 def mape(true_values: np.ndarray, values: np.ndarray) -> float:
@@ -1479,8 +1523,11 @@ def speed_table(bench_name_arg, path, nsight, verbose, include_mean_time):
 
 class ErrorMetric(enum.Enum):
     MAPE = "MAPE"
+    SMAPE = "SMAPE"
     MAE = "MAE"
     Correlation = "Corr."
+    EMALE = "EMALE"
+    ERMSLE = "ERMSLE"
     # RelErr = "Rel err."
 
     # MAPE = ("mape", "MAPE")
@@ -1506,12 +1553,12 @@ class ErrorMetric(enum.Enum):
 # @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
 @click.option("--bench", "bench_name_arg", help="Benchmark name")
-# @click.option("--metric", "metric", type=str, help="metric")
+@click.option("--metric", "metric_arg", type=str, help="metric")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
 )
-def result_table(bench_name_arg, path, nsight, verbose):
+def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name_arg, profiler=profiler, path=path)
 
@@ -1531,97 +1578,119 @@ def result_table(bench_name_arg, path, nsight, verbose):
         error_metrics: typing.Sequence[typing.Tuple[str, ErrorMetric]]
 
     benches = sorted(selected_df["benchmark"].unique().tolist())
-    cycles = Metric(
-        label="Cycles",
-        is_percent=False,
-        error_metrics=[
-            # ("cycles", ErrorMetric.RelErr),
-            ("cycles", ErrorMetric.MAPE),
-            ("cycles", ErrorMetric.Correlation),
-        ],
-    )
-    dram_reads = Metric(
-        label="DRAM reads",
-        is_percent=False,
-        error_metrics=[
-            ("dram_reads_percent", ErrorMetric.MAPE),
-            ("dram_reads", ErrorMetric.Correlation),
-        ],
-    )
-    dram_writes = Metric(
-        label="DRAM writes",
-        is_percent=False,
-        error_metrics=[
-            ("dram_writes_percent", ErrorMetric.MAPE),
-            ("dram_writes", ErrorMetric.Correlation),
-        ],
-    )
-    l1_accesses = Metric(
-        label="L1 Accesses",
-        is_percent=False,
-        error_metrics=[
-            ("l1_accesses", ErrorMetric.MAPE),
-            ("l1_accesses", ErrorMetric.Correlation),
-        ],
-    )
-    l2_accesses = Metric(
-        label="L2 Accesses",
-        is_percent=False,
-        error_metrics=[
-            ("l2_accesses", ErrorMetric.MAPE),
-            ("l2_accesses", ErrorMetric.Correlation),
-        ],
-    )
-    l2_reads = Metric(
-        label="L2 reads",
-        is_percent=False,
-        error_metrics=[
-            ("l2_reads", ErrorMetric.MAPE),
-            ("l2_reads", ErrorMetric.Correlation),
-        ],
-    )
-    l2_writes = Metric(
-        label="L2 writes",
-        is_percent=False,
-        error_metrics=[
-            ("l2_writes", ErrorMetric.MAPE),
-            ("l2_writes", ErrorMetric.Correlation),
-        ],
-    )
-    l1_hit_rate = Metric(
-        label="L1D hitrate",
-        is_percent=True,
-        error_metrics=[
-            ("l1_global_hit_rate", ErrorMetric.MAE),
-            ("l1_global_hit_rate", ErrorMetric.Correlation),
-        ],
-    )
-    l2_hit_rate = Metric(
-        label="L2D hitrate",
-        is_percent=True,
-        error_metrics=[
-            ("l2_hit_rate", ErrorMetric.MAE),
-            ("l2_hit_rate", ErrorMetric.Correlation),
-        ],
-    )
-
-    metrics = [dram_reads]
-    metrics = [dram_writes]
-    metrics = [l1_accesses]
-    metrics = [l2_accesses]
-    metrics = [
-        l1_hit_rate,
-        l2_hit_rate,
-        l1_accesses,
-        l2_accesses,
-        cycles,
-        dram_reads,
-        dram_writes,
+    all_metrics = [
+        Metric(
+            label="Cycles",
+            is_percent=False,
+            error_metrics=[
+                # ("cycles", ErrorMetric.RelErr),
+                ("cycles", ErrorMetric.EMALE),
+                ("cycles", ErrorMetric.ERMSLE),
+                ("cycles", ErrorMetric.SMAPE),
+                ("cycles", ErrorMetric.MAPE),
+                ("cycles", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="DRAM reads",
+            is_percent=False,
+            error_metrics=[
+                ("dram_reads", ErrorMetric.EMALE),
+                ("dram_reads_percent", ErrorMetric.MAPE),
+                ("dram_reads", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="DRAM writes",
+            is_percent=False,
+            error_metrics=[
+                ("dram_writes", ErrorMetric.EMALE),
+                ("dram_writes_percent", ErrorMetric.MAPE),
+                ("dram_writes", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L1 Accesses",
+            is_percent=False,
+            error_metrics=[
+                ("l1_accesses", ErrorMetric.EMALE),
+                ("l1_accesses", ErrorMetric.MAPE),
+                ("l1_accesses", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2 Accesses",
+            is_percent=False,
+            error_metrics=[
+                ("l2_accesses", ErrorMetric.EMALE),
+                ("l2_accesses", ErrorMetric.MAPE),
+                ("l2_accesses", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2 reads",
+            is_percent=False,
+            error_metrics=[
+                ("l2_reads", ErrorMetric.EMALE),
+                ("l2_reads", ErrorMetric.MAPE),
+                ("l2_reads", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2 writes",
+            is_percent=False,
+            error_metrics=[
+                ("l2_writes", ErrorMetric.EMALE),
+                ("l2_writes", ErrorMetric.MAPE),
+                ("l2_writes", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L1D hitrate",
+            is_percent=True,
+            error_metrics=[
+                ("l1_global_hit_rate", ErrorMetric.EMALE),
+                ("l1_global_hit_rate", ErrorMetric.MAE),
+                ("l1_global_hit_rate", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2D hitrate",
+            is_percent=True,
+            error_metrics=[
+                ("l2_hit_rate", ErrorMetric.EMALE),
+                ("l2_hit_rate", ErrorMetric.MAE),
+                ("l2_hit_rate", ErrorMetric.Correlation),
+            ],
+        )
     ]
+
+    # metrics = [dram_reads]
+    # metrics = [dram_writes]
+    # metrics = [l1_accesses]
+    # metrics = [l2_accesses]
+    # metrics = [
+    #     l1_hit_rate,
+    #     l2_hit_rate,
+    #     l1_accesses,
+    #     l2_accesses,
+    #     cycles,
+    #     dram_reads,
+    #     dram_writes,
+    # ]
     # metrics = [l1_hit_rate]
     # metrics = [l2_hit_rate]
     # metrics = [cycles]
 
+    
+    if metric_arg is None:
+        metrics = all_metrics[:1]
+    else:
+        metrics = [m for m in all_metrics if metric_arg.replace(" ", "").lower() == m["label"].replace(" ", "").lower()]
+        if len(metrics) == 0:
+            raise ValueError("no metric named {}, have {}", metric_arg, [m["label"].replace(" ", "").lower() for m in all_metrics])
+
+    print("computing {} metrics: {}".format(len(metrics), [m["label"] for m in metrics]))
     print(benches)
 
     dtypes = {
@@ -1826,6 +1895,32 @@ def result_table(bench_name_arg, path, nsight, verbose):
                     #     error_values = error_values.mean(axis=1)
                     #     # error_values *= 100.0
 
+                    case ErrorMetric.EMALE:
+                        error_values = []
+                        for suffix in sim_targets.keys():
+                            true_values = bench_df[metric_col] * value_scale
+                            values = bench_df[metric_col + suffix] * value_scale
+                            error = emale(true_values=true_values, values=values)
+                            bench_df[
+                                metric_col + "_" + error_metric.name.lower() + suffix
+                            ] = error
+                            error_values.append(error)
+                        error_values = pd.DataFrame(error_values)
+                        error_values = error_values.mean(axis=1)
+
+                    case ErrorMetric.ERMSLE:
+                        error_values = []
+                        for suffix in sim_targets.keys():
+                            true_values = bench_df[metric_col] * value_scale
+                            values = bench_df[metric_col + suffix] * value_scale
+                            error = ermsle(true_values=true_values, values=values)
+                            bench_df[
+                                metric_col + "_" + error_metric.name.lower() + suffix
+                            ] = error
+                            error_values.append(error)
+                        error_values = pd.DataFrame(error_values)
+                        error_values = error_values.mean(axis=1)
+
                     case ErrorMetric.MAE:
                         error_values = []
                         for suffix in sim_targets.keys():
@@ -1837,6 +1932,20 @@ def result_table(bench_name_arg, path, nsight, verbose):
                             ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
+                        error_values = error_values.mean(axis=1)
+
+                    case ErrorMetric.SMAPE:
+                        error_values = []
+                        for suffix in sim_targets.keys():
+                            true_values = bench_df[metric_col] * value_scale
+                            values = bench_df[metric_col + suffix] * value_scale
+                            error = smape(true_values=true_values, values=values)
+                            bench_df[
+                                metric_col + "_" + error_metric.name.lower() + suffix
+                            ] = error
+                            error_values.append(error)
+                        error_values = pd.DataFrame(error_values)
+                        error_values *= 100.0
                         error_values = error_values.mean(axis=1)
 
                     case ErrorMetric.MAPE:
@@ -1895,13 +2004,25 @@ def result_table(bench_name_arg, path, nsight, verbose):
                         #     if value == np.nanmin(error_values):
                         #         table += r"\boldmath"
                         #     table += "${:5.2f}\\%$".format(value)
-                        case ErrorMetric.MAPE:
+                        # case ErrorMetric.MALE:
+                        #     if value == np.nanmin(error_values):
+                        #         table += r"\boldmath"
+                        #     table += "${}\\%$".format(
+                        #         plot.human_format_thousands(value)
+                        #     )
+                        # case ErrorMetric.SMAPE:
+                        #     if value == np.nanmin(error_values):
+                        #         table += r"\boldmath"
+                        #     table += "${}\\%$".format(
+                        #         plot.human_format_thousands(value)
+                        #     )
+                        case ErrorMetric.SMAPE | ErrorMetric.MAPE:
                             if value == np.nanmin(error_values):
                                 table += r"\boldmath"
                             table += "${}\\%$".format(
                                 plot.human_format_thousands(value)
                             )
-                        case ErrorMetric.MAE:
+                        case ErrorMetric.EMALE | ErrorMetric.ERMSLE | ErrorMetric.MAE:
                             if value == np.nanmin(error_values):
                                 table += r"\boldmath"
                             if metric_is_percent:
@@ -3169,18 +3290,13 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     all_input_cols = copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS)
     all_input_cols = sorted(list([col for col in all_input_cols if col in selected_df]))
 
-    rows_per_config = selected_df.groupby(
-        ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled", "run"]
-        + benchmarks.SIMULATE_INPUT_COLS
-        + all_input_cols,
-        as_index=False,
-        dropna=False,
-    ).size()
-    # print(rows_per_config)
-    # print(rows_per_config[rows_per_config["size"] > 1][:1].T)
-    assert (
-        rows_per_config["size"] == 1
-    ).all(), "must have exactly one row per config/run"
+    per_config_group_cols = [
+        "target", "benchmark", "input_id", "kernel_name",
+        "kernel_name_mangled", "run",
+    ] + benchmarks.SIMULATE_INPUT_COLS + all_input_cols
+    pprint(per_config_group_cols)
+
+    
 
     # print(selected_df.loc[
     #     (selected_df["input_id"] == 0) & (selected_df["target"] == Target.Simulate.value),
@@ -3192,6 +3308,31 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     per_config = per_config[
         ~(per_config["kernel_name"].isna() & per_config["kernel_name_mangled"].isna())
     ]
+
+    def _inspect(df):
+        if len(df) > 1:
+            print(df[per_config_group_cols].T)
+            print(df.T)
+            raise ValueError("must have exactly one row per config/run")
+
+    rows_per_config_grouper = per_config.groupby(
+        per_config_group_cols,
+        as_index=False,
+        dropna=False,
+    )
+    rows_per_config_grouper.apply(_inspect)
+    rows_per_config = rows_per_config_grouper.size()
+
+    # print(rows_per_config)
+    print(rows_per_config[rows_per_config["size"] > 1].shape)
+    # print(rows_per_config.loc[
+    #     rows_per_config["size"] > 1,per_config_group_cols].sort_values(by=per_config_group_cols)[:5].T)
+    print(rows_per_config[rows_per_config["size"] > 1][:1].T)
+    assert (
+        rows_per_config["size"] == 1
+    ).all(), "must have exactly one row per config/run"
+
+
     # per_config = per_config.reset_index()
     # print(per_config.loc[
     #     (per_config["input_id"] == 0) & (per_config["target"] == Target.Simulate.value),
@@ -3439,8 +3580,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         ),
     ]
     selected_table_benchmarks = pd.concat(selected_table_benchmarks)
-    selected_table_benchmarks = selected_table_benchmarks[
-        per_config_pivoted.index.names
+    selected_table_benchmarks = selected_table_benchmarks.loc[
+        :,[col for col in per_config_pivoted.index.names if col in selected_table_benchmarks]
     ]
     table_index = (
         per_config_pivoted.index.to_frame()
@@ -3659,9 +3800,14 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
                 )
 
             x = [idx]
-            y = target_df[stat_col].fillna(0.0).mean()
+            y = target_df[stat_col].fillna(0.0)
             if stat_config.percent:
-                y *= 100.0
+                y = y.median() * 100.0
+            else:
+                y = y.mean()
+
+            # print((target_name, stat_col), target_df[stat_col].fillna(0.0))
+
             ystd = target_df[stat_col].fillna(0.0).std()
 
             bar_color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target.lower()], 1.0)
@@ -3738,7 +3884,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             ytick_values = np.linspace(0, ymax, 6)
 
         ytick_labels = [
-            plot.human_format_thousands(v, round_to=0) for v in ytick_values
+            plot.human_format_thousands(v, round_to=0).rjust(6, " ") for v in ytick_values
         ]
         ax.set_yticks(ytick_values, ytick_labels)
 
@@ -3774,6 +3920,10 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             va="top",
         )
 
+        fig.set_size_inches(
+            1.0 * plot.DINA4_WIDTH_INCHES, 0.10 * plot.DINA4_HEIGHT_INCHES
+        )
+
         # plot without legend or xticks (middle)
         ax.set_xticks(xtick_values, ["" for _ in range(len(xtick_values))], rotation=0)
         filename = plot_dir / "{}.{}.{}_no_xticks_no_legend.pdf".format(
@@ -3789,9 +3939,9 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         )
         fig.savefig(filename)
 
-        fig.set_size_inches(
-            1.0 * plot.DINA4_WIDTH_INCHES, 0.16 * plot.DINA4_HEIGHT_INCHES
-        )
+        # fig.set_size_inches(
+        #     1.0 * plot.DINA4_WIDTH_INCHES, 0.16 * plot.DINA4_HEIGHT_INCHES
+        # )
 
         ax.legend(
             loc="lower center",

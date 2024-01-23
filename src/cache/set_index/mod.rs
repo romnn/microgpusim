@@ -6,6 +6,22 @@ pub trait SetIndexer: std::fmt::Debug + Send + Sync + 'static {
     fn compute_set_index(&self, addr: address) -> u64;
 }
 
+#[macro_export]
+macro_rules! xor {
+    ( $addr:ident, $( $x:expr ),* ) => {
+        {
+            let mut bit: Option<bool> = None;
+            $(
+                match bit {
+                    None => bit = Some($addr[$x]),
+                    Some(b) => bit = Some(b ^ $addr[$x]),
+                }
+            )*
+            bit.unwrap()
+        }
+    };
+}
+
 pub mod fermi {
     // Set Indexing function from
     // "A Detailed GPU Cache Model Based on Reuse
@@ -428,21 +444,22 @@ pub mod linear {
 pub mod pascal {
     use bitvec::{array::BitArray, field::BitField, order::Lsb0, BitArr};
 
-    pub const NUM_SETS: usize = 4;
-    pub const NUM_SETS_LOG2: u32 = NUM_SETS.ilog2();
+    pub const L1_NUM_SETS: usize = 4;
+    pub const L1_NUM_SETS_LOG2: u32 = L1_NUM_SETS.ilog2();
+
     pub const LINE_SIZE: u64 = 128;
     pub const LINE_SIZE_LOG2: u32 = LINE_SIZE.ilog2();
 
-    /// Pascal set index function.
+    /// Pascal L1 pseudo random set index function.
     ///
     /// This uses 4 sets with 128B cache lines.
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct SetIndex {
+    pub struct L1PseudoRandomSetIndex {
         pub accelsim_compat_mode: bool,
         linear_set_index: super::linear::SetIndex,
     }
 
-    impl Default for SetIndex {
+    impl Default for L1PseudoRandomSetIndex {
         fn default() -> Self {
             Self {
                 accelsim_compat_mode: false,
@@ -451,12 +468,12 @@ pub mod pascal {
         }
     }
 
-    impl SetIndex {
+    impl L1PseudoRandomSetIndex {
         pub fn compute_way_offset(&self, addr: super::address) -> u64 {
             let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
             addr_bits.store(addr);
 
-            debug_assert_eq!(9, LINE_SIZE_LOG2 + NUM_SETS_LOG2);
+            debug_assert_eq!(9, LINE_SIZE_LOG2 + L1_NUM_SETS_LOG2);
             let offset0 = addr_bits[10] ^ addr_bits[12] ^ addr_bits[14];
             let offset1 = !offset0
                 ^ addr_bits[9]
@@ -473,7 +490,7 @@ pub mod pascal {
         }
     }
 
-    impl super::SetIndexer for SetIndex {
+    impl super::SetIndexer for L1PseudoRandomSetIndex {
         // #[inline]
         fn compute_set_index(&self, addr: super::address) -> u64 {
             let set_idx = self.linear_set_index.compute_set_index(addr);
@@ -481,7 +498,106 @@ pub mod pascal {
                 return set_idx;
             }
             let way_offset = self.compute_way_offset(addr);
-            (set_idx + way_offset) % (NUM_SETS as u64)
+            (set_idx + way_offset) % (L1_NUM_SETS as u64)
+        }
+    }
+
+    /// Pascal L2 pseudo random set index function.
+    ///
+    /// For the 2MB L2 in GTX1080, we have a total of 1024 sets across 8 memory sub partitions.
+    /// For the 3MB L2 in TitanX, we have a total of 1536 sets across 24 memory sub
+    /// partitions.
+    /// Cache lines are 128B.
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct L2PseudoRandomSetIndex {
+        pub accelsim_compat_mode: bool,
+        // linear_set_index: super::linear::SetIndex,
+    }
+
+    impl Default for L2PseudoRandomSetIndex {
+        fn default() -> Self {
+            Self {
+                accelsim_compat_mode: false,
+                // linear_set_index: super::linear::SetIndex::new(4, 128),
+            }
+        }
+    }
+
+    // impl L1PseudoRandomSetIndex {
+    //     pub fn compute_way_offset(&self, addr: super::address) -> u64 {
+    //         let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+    //         addr_bits.store(addr);
+    //
+    //         debug_assert_eq!(9, LINE_SIZE_LOG2 + NUM_SETS_LOG2);
+    //         let offset0 = addr_bits[10] ^ addr_bits[12] ^ addr_bits[14];
+    //         let offset1 = !offset0
+    //             ^ addr_bits[9]
+    //             ^ addr_bits[10]
+    //             ^ addr_bits[11]
+    //             ^ addr_bits[12]
+    //             ^ addr_bits[13]
+    //             ^ addr_bits[14];
+    //
+    //         let mut offset: BitArr!(for 2, in u8, Lsb0) = BitArray::ZERO;
+    //         offset.set(0, offset0);
+    //         offset.set(1, offset1);
+    //         offset.load()
+    //     }
+    // }
+
+    impl super::SetIndexer for L2PseudoRandomSetIndex {
+        // #[inline]
+        fn compute_set_index(&self, addr: super::address) -> u64 {
+            let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+            addr_bits.store(addr);
+
+            // memory module index
+            // cbit0 = X(addr, 10, 12, 16, 20, 23, 26, 29, 30)
+            // cbit1 = X(addr, 11, 12, 13, 15, 17, 20, 21, 23, 25, 26, 30)
+            // cbit2 = X(addr, 12, 13, 18, 19, 22, 25, 26, 27, 30, 31)
+            let bit0 = xor!(addr_bits, 10, 12, 16, 20, 23, 26, 29, 30);
+            let bit1 = xor!(addr_bits, 11, 12, 13, 15, 17, 20, 21, 23, 25, 26, 30);
+            let bit2 = xor!(addr_bits, 12, 13, 18, 19, 22, 25, 26, 27, 30, 31);
+
+            // set index
+            // cbit3 = X(addr, 7, 8, 16, 17, 23, 26, 31)
+            // cbit4 = X(addr, 8, 10, 12, 16, 17, 21, 24, 25, 26, 27)
+            // cbit5 = X(addr, 9, 10, 18, 25, 29, 30, 31)
+            // cbit6 = X(addr, 13, 14, 20, 23, 28, 29, 30)
+            // cbit7 = X(addr, 14, 15, 17, 20, 21, 23, 24, 28, 31)
+            // cbit8 = X(addr, 15, 16, 19, 20, 23, 24, 25, 26, 28, 29, 30, 32)
+            // cbit9 = X(addr, 16, 17, 18, 19, 21, 22, 23, 25, 27, 28, 30)
+            let bit3 = xor!(addr_bits, 7, 8, 16, 17, 23, 26, 31);
+
+            let bit4 = xor!(addr_bits, 8, 10, 12, 16, 17, 21, 24, 25, 26, 27);
+            let bit5 = xor!(addr_bits, 9, 10, 18, 25, 29, 30, 31);
+            let bit6 = xor!(addr_bits, 13, 14, 20, 23, 28, 29, 30);
+            let bit7 = xor!(addr_bits, 14, 15, 17, 20, 21, 23, 24, 28, 31);
+            let bit8 = xor!(addr_bits, 15, 16, 19, 20, 23, 24, 25, 26, 28, 29, 30, 32);
+            let bit9 = xor!(addr_bits, 16, 17, 18, 19, 21, 22, 23, 25, 27, 28, 30);
+
+            let mut set_index: BitArr!(for 7, in usize, Lsb0) = BitArray::ZERO;
+            set_index.set(0, bit3);
+            set_index.set(1, bit4);
+            set_index.set(2, bit5);
+            set_index.set(3, bit6);
+            set_index.set(4, bit7);
+            set_index.set(5, bit8);
+            set_index.set(6, bit9);
+            set_index.load()
+
+            // let mut set_index: BitArr!(for 10, in usize, Lsb0) = BitArray::ZERO;
+            // set_index.set(0, bit0);
+            // set_index.set(1, bit1);
+            // set_index.set(2, bit2);
+            // set_index.set(3, bit3);
+            // set_index.set(4, bit4);
+            // set_index.set(5, bit5);
+            // set_index.set(6, bit6);
+            // set_index.set(7, bit7);
+            // set_index.set(8, bit8);
+            // set_index.set(9, bit9);
+            // set_index.load()
         }
     }
 }
@@ -493,10 +609,10 @@ mod tests {
     use utils::diff;
 
     #[test]
-    fn test_pascal_way_offset() {
-        use super::pascal::{LINE_SIZE, NUM_SETS};
+    fn test_pascal_l1_pseudo_random_way_offset() {
+        use super::pascal::{L1_NUM_SETS, LINE_SIZE};
         let cache_size_bytes: u64 = 24 * 1024;
-        let set_index = super::pascal::SetIndex::default();
+        let set_index = super::pascal::L1PseudoRandomSetIndex::default();
 
         let base_addr = 140180606419456;
         let line_offsets: Vec<_> = (0..cache_size_bytes)
@@ -508,11 +624,11 @@ mod tests {
 
         // check that all consecutive NUM_SETS cache lines (each way) share the same offset.
         assert!(line_offsets
-            .chunks(NUM_SETS)
+            .chunks(L1_NUM_SETS)
             .all(|way| way.iter().all_equal()));
 
         // check the offsets that are assigned to each way.
-        let way_offsets: Vec<_> = line_offsets.into_iter().step_by(NUM_SETS).collect();
+        let way_offsets: Vec<_> = line_offsets.into_iter().step_by(L1_NUM_SETS).collect();
         let want = vec![
             0, 3, 1, 0, 2, 1, 3, 3, 1, 2, 0, 1, 3, 0, 2, 0, 2, 1, 3, 2, 0, 3, 1, 1, 3, 0, 2, 3, 1,
             2, 0, 3, 1, 2, 0, 1, 3, 0, 2, 2, 0, 3, 1, 0, 2, 1, 3, 1,

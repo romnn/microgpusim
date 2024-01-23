@@ -1,5 +1,33 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Bytes(pub usize);
+
+impl std::fmt::Display for Bytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", human_bytes::human_bytes(self.0 as f64))
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum InvalidSizeError {
+    #[error(transparent)]
+    Parse(#[from] parse_size::Error),
+
+    #[error(transparent)]
+    Cast(#[from] std::num::TryFromIntError),
+}
+
+impl std::str::FromStr for Bytes {
+    type Err = InvalidSizeError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let bytes: u64 = parse_size::parse_size(value)?;
+        let bytes: usize = bytes.try_into()?;
+        Ok(Self(bytes))
+    }
+}
+
 pub fn multi_glob<I, S>(patterns: I) -> impl Iterator<Item = Result<PathBuf, glob::GlobError>>
 where
     I: IntoIterator<Item = S>,

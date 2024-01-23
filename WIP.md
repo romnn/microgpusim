@@ -65,15 +65,11 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
-  - rename exec-impl to exec-derive
+  - today
 
-  - parallel plot / results: do not count the small inputs where serial is faster than parallel
-
-    - e.g. take the min out of serial and parallel exec time
-
-  - transpose: why is there no dram write hit rate?
-
-    - benchmarks using shared mem: babelstream, transpose
+    - commit and fix compilation on das and on CI
+    - collect traces on das5 titanx
+    - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
 
   - always perform l2 mem copy, but set skip l2 flag if above threshold
 
@@ -101,6 +97,24 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
     - check if any line ever has different hit_cluster, otherwise makes no sense
     - this prob wont be interesting for l1, but maybe l2?
+
+- DONE:
+
+  - FAILED: add the microbenchmarks from the fractional gpu paper and make them work with virtual addresses
+  - DONE: transpose: why is there no write hit rate?
+    - DONE: benchmarks using shared mem: babelstream, transpose
+  - DONE: rename exec-impl to exec-derive
+  - DONE: commit and make lockstep work again
+  - DONE: output the l2 cache states after each round of pchase
+  - IDEA: asymmetric LRU for l2 cache
+  - DONE: change back: do not use linear set indexing for L1
+  - DONE: change back: do not use reference physical addressing
+  - DONE: accelsim/playground simulate for the unchanged validated reference config
+  - DONE: plot the L1 cache state at the end of naive matrixmul
+  - DONE: integer axis for cache state
+  - DONE: parallel plot / results: do not count the small inputs where serial is faster than parallel
+
+    - DONE: e.g. take the min out of serial and parallel exec time
 
   - DONE: read traces using producer-consumer approach
   - DONE: rerun all the benchmarks for parallel table

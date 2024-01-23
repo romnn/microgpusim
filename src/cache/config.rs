@@ -19,11 +19,11 @@ pub enum WriteAllocatePolicy {
 /// A cache write policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum WritePolicy {
-    READ_ONLY,          // R
-    WRITE_BACK,         // B
-    WRITE_THROUGH,      // T
-    WRITE_EVICT,        // E
-    LOCAL_WB_GLOBAL_WT, // L
+    READ_ONLY,                             // R
+    WRITE_BACK,                            // B
+    WRITE_THROUGH,                         // T
+    WRITE_EVICT,                           // E
+    LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH, // L
 }
 
 /// A cache allocate policy.

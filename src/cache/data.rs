@@ -5,22 +5,23 @@ use crate::{
     mshr::MSHR,
     tag_array,
 };
-
 use cache::block::Block;
 use color_eyre::eyre;
 use mcu::MemoryController;
 use mem_fetch::access::Kind as AccessKind;
+use std::collections::VecDeque;
 use tag_array::Access;
 
-use std::collections::VecDeque;
-
-#[derive(Debug, Clone)]
-pub struct Builder<MC, CC, S> {
+#[derive(Clone)]
+// pub struct Builder<MC, CC, S> {
+pub struct Builder<CC, S> {
     pub name: String,
-    // pub core_id: usize,
-    // pub cluster_id: usize,
+    /// SM ID or subpartition ID depending on cache type
+    pub id: usize,
+    pub kind: cache::base::Kind,
     pub stats: Arc<Mutex<S>>,
-    pub mem_controller: MC,
+    pub mem_controller: Arc<dyn mcu::MemoryController>,
+    // pub mem_controller: MC,
     pub cache_controller: CC,
     pub config: Arc<config::GPU>,
     pub cache_config: Arc<config::Cache>,
@@ -33,27 +34,30 @@ pub struct Builder<MC, CC, S> {
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
-pub struct Data<MC, CC, S> {
+// pub struct Data<MC, CC, S> {
+pub struct Data<CC, S> {
     pub inner: cache::base::Base<cache::block::sector::Block<NUM_SECTORS>, CC, S>,
 
     /// Memory controller
-    pub mem_controller: MC,
-
+    pub mem_controller: Arc<dyn mcu::MemoryController>,
+    // pub mem_controller: MC,
     /// Specifies type of write allocate request (e.g., L1 or L2)
     write_alloc_type: AccessKind,
     /// Specifies type of writeback request (e.g., L1 or L2)
     write_back_type: AccessKind,
 }
 
-impl<MC, CC, S> Builder<MC, CC, S>
+// impl<MC, CC, S> Builder<MC, CC, S>
+impl<CC, S> Builder<CC, S>
 where
     CC: Clone,
 {
-    pub fn build(self) -> Data<MC, CC, S> {
+    // pub fn build(self) -> Data<MC, CC, S> {
+    pub fn build(self) -> Data<CC, S> {
         let inner = super::base::Builder {
             name: self.name,
-            // core_id: self.core_id,
-            // cluster_id: self.cluster_id,
+            id: self.id,
+            kind: self.kind,
             stats: self.stats,
             cache_controller: self.cache_controller,
             cache_config: self.cache_config,
@@ -69,16 +73,20 @@ where
     }
 }
 
-impl<MC, CC, S> Data<MC, CC, S> {
+// kind: cache::data::Kind::OffChip,
+
+// impl<MC, CC, S> Data<MC, CC, S> {
+impl<CC, S> Data<CC, S> {
     // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
 }
 
-impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
+// impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
+impl<CC> Data<CC, stats::cache::PerKernel>
 where
-    MC: MemoryController,
+    // MC: MemoryController,
     CC: cache::CacheController,
 {
     /// Write-back hit: mark block as modified.
@@ -271,6 +279,10 @@ where
         events: &mut Vec<cache::Event>,
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
+        if self.inner.kind == cache::base::Kind::OffChip {
+            assert_eq!(fetch.sub_partition_id(), self.inner.id);
+        }
+
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
@@ -280,11 +292,12 @@ where
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                if self.inner.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+                self.inner.num_accesses_stat(&fetch),
+                // if self.inner.cache_config.accelsim_compat {
+                //     1
+                // } else {
+                //     fetch.access.num_transactions()
+                // },
             );
             // }
             return cache::RequestStatus::RESERVATION_FAIL;
@@ -340,12 +353,14 @@ where
                     // the evicted block may have wrong chip id when
                     // advanced L2 hashing is used, so set the right chip
                     // address from the original mf
+                    // if self.inner.cache_config.accelsim_compat {
                     physical_addr.chip = fetch.physical_addr.chip;
                     physical_addr.sub_partition = fetch.physical_addr.sub_partition;
+                    // }
 
-                    let partition_addr = self
-                        .mem_controller
-                        .memory_partition_address(writeback_access.addr);
+                    // let partition_addr = self
+                    //     .mem_controller
+                    //     .memory_partition_address(writeback_access.addr);
 
                     let writeback_fetch = mem_fetch::Builder {
                         instr: fetch.instr.clone(),
@@ -354,7 +369,7 @@ where
                         core_id: None,
                         cluster_id: None,
                         physical_addr,
-                        partition_addr,
+                        // partition_addr,
                     }
                     .build();
 
@@ -402,11 +417,12 @@ where
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                if self.inner.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+                self.inner.num_accesses_stat(&fetch),
+                // if self.inner.cache_config.accelsim_compat {
+                //     1
+                // } else {
+                //     fetch.access.num_transactions()
+                // },
             );
             // }
             // cannot handle request this cycle
@@ -462,11 +478,12 @@ where
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(failure),
-                if self.inner.cache_config.accelsim_compat {
-                    1
-                } else {
-                    fetch.access.num_transactions()
-                },
+                self.inner.num_accesses_stat(&fetch),
+                // if self.inner.cache_config.accelsim_compat {
+                //     1
+                // } else {
+                //     fetch.access.num_transactions()
+                // },
             );
             log::debug!("handling write miss for {}: RESERVATION FAIL", &fetch);
             return cache::RequestStatus::RESERVATION_FAIL;
@@ -475,14 +492,13 @@ where
         let event = cache::Event::WriteRequestSent;
         self.send_write_request(fetch.clone(), event, time, events);
 
-        let is_write = false;
         let new_access = mem_fetch::access::Builder {
             kind: self.write_alloc_type,
             addr: fetch.addr(),
             kernel_launch_id: fetch.kernel_launch_id(),
             allocation: fetch.access.allocation.clone(),
             req_size_bytes: self.inner.cache_config.atom_size,
-            is_write, // Now performing a read
+            is_write: false, // Now performing a read
             warp_active_mask: fetch.access.warp_active_mask,
             byte_mask: fetch.access.byte_mask,
             sector_mask: fetch.access.sector_mask,
@@ -490,9 +506,9 @@ where
         .build();
 
         let physical_addr = self.mem_controller.to_physical_address(new_access.addr);
-        let partition_addr = self
-            .mem_controller
-            .memory_partition_address(new_access.addr);
+        // let partition_addr = self
+        //     .mem_controller
+        //     .memory_partition_address(new_access.addr);
 
         let new_fetch = mem_fetch::Builder {
             instr: None,
@@ -501,9 +517,12 @@ where
             core_id: fetch.core_id,
             cluster_id: fetch.cluster_id,
             physical_addr: physical_addr.clone(),
-            partition_addr,
+            // partition_addr,
         }
         .build();
+        assert_eq!(new_fetch.addr(), fetch.addr());
+        assert_eq!(new_fetch.sub_partition_id(), fetch.sub_partition_id());
+        assert_eq!(new_fetch.sub_partition_id(), self.inner.id);
 
         let Some(cache_index) = cache_index else {
             return cache::RequestStatus::RESERVATION_FAIL;
@@ -545,14 +564,13 @@ where
                     // SECTOR_MISS and HIT_RESERVED should not send write back
                     debug_assert_eq!(probe_status, cache::RequestStatus::MISS);
 
-                    let is_write = true;
                     let writeback_access = mem_fetch::access::Builder {
                         kind: self.write_back_type,
                         addr: evicted.block_addr,
                         kernel_launch_id: fetch.kernel_launch_id(),
                         allocation: evicted.allocation.clone(),
                         req_size_bytes: evicted.modified_size,
-                        is_write,
+                        is_write: true,
                         warp_active_mask: fetch.access.warp_active_mask,
                         byte_mask: evicted.byte_mask,
                         sector_mask: evicted.sector_mask,
@@ -564,12 +582,14 @@ where
                     let mut tlx_addr = self
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
+                    // if self.inner.cache_config.accelsim_compat {
                     tlx_addr.chip = fetch.physical_addr.chip;
                     tlx_addr.sub_partition = fetch.physical_addr.sub_partition;
+                    // }
 
-                    let partition_addr = self
-                        .mem_controller
-                        .memory_partition_address(writeback_access.addr);
+                    // let partition_addr = self
+                    //     .mem_controller
+                    //     .memory_partition_address(writeback_access.addr);
 
                     let writeback_fetch = mem_fetch::Builder {
                         instr: None,
@@ -578,7 +598,7 @@ where
                         core_id: None,
                         cluster_id: None,
                         physical_addr,
-                        partition_addr,
+                        // partition_addr,
                     }
                     .build();
 
@@ -637,7 +657,7 @@ where
             WritePolicy::WRITE_BACK => Self::write_hit_write_back,
             WritePolicy::WRITE_THROUGH => unimplemented!("WritePolicy::WRITE_THROUGH"),
             WritePolicy::WRITE_EVICT => unimplemented!("WritePolicy::WRITE_EVICT"),
-            WritePolicy::LOCAL_WB_GLOBAL_WT => unimplemented!("WritePolicy::LOCAL_WB_GLOBAL_WT"),
+            WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH => unimplemented!("WritePolicy::LOCAL_WB_GLOBAL_WT"),
             // WritePolicy::LOCAL_WB_GLOBAL_WT => Self::write_hit_global_write_evict_local_write_back,
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
@@ -685,6 +705,7 @@ where
                 }
                 None if no_allocate_on_write => {
                     // this almost never happens
+                    todo!("have no probe status");
                     access_status = self.write_miss(
                         addr,
                         None,
@@ -701,17 +722,18 @@ where
                     // (i.e all lines are reserved)
                     let mut stats = self.inner.stats.lock();
                     let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    // let count = if self.inner.cache_config.accelsim_compat ||  {
+                    //         1
+                    //     } else {
+                    //         fetch.access.num_transactions()
+                    //     },
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
-                        if self.inner.cache_config.accelsim_compat {
-                            1
-                        } else {
-                            fetch.access.num_transactions()
-                        },
+                        self.inner.num_accesses_stat(&fetch),
                     );
                 }
             }
@@ -728,11 +750,12 @@ where
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
-                        if self.inner.cache_config.accelsim_compat {
-                            1
-                        } else {
-                            fetch.access.num_transactions()
-                        },
+                        self.inner.num_accesses_stat(&fetch),
+                        // if self.inner.cache_config.accelsim_compat {
+                        //     1
+                        // } else {
+                        //     fetch.access.num_transactions()
+                        // },
                     );
                 }
                 Some((_cache_index, cache::RequestStatus::HIT)) => {
@@ -753,15 +776,17 @@ where
     }
 }
 
-impl<MC, CC, S> crate::engine::cycle::Component for Data<MC, CC, S> {
+// impl<MC, CC, S> crate::engine::cycle::Component for Data<MC, CC, S> {
+impl<CC, S> crate::engine::cycle::Component for Data<CC, S> {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl<MC, CC> cache::Cache<stats::cache::PerKernel> for Data<MC, CC, stats::cache::PerKernel>
+// impl<MC, CC> cache::Cache<stats::cache::PerKernel> for Data<MC, CC, stats::cache::PerKernel>
+impl<CC> cache::Cache<stats::cache::PerKernel> for Data<CC, stats::cache::PerKernel>
 where
-    MC: MemoryController,
+    // MC: MemoryController,
     CC: cache::CacheController,
 {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -793,11 +818,28 @@ where
         let super::base::Base {
             ref cache_controller,
             ref cache_config,
+            kind,
             ..
         } = self.inner;
 
-        debug_assert_eq!(&fetch.access.addr, &addr);
-        debug_assert!(fetch.access_kind().is_inst() || fetch.data_size() <= cache_config.atom_size);
+        assert_eq!(&fetch.access.addr, &addr);
+        if !fetch.access_kind().is_inst() {
+            assert!(fetch.data_size() <= cache_config.atom_size);
+        }
+
+        if kind == cache::base::Kind::OffChip {
+            assert!(
+                fetch.sub_partition_id() >= self.inner.id,
+                "L2 #{} received {} [addr={}] with destination {} (addr gives {})",
+                self.inner.id,
+                fetch,
+                fetch.addr(),
+                fetch.sub_partition_id(),
+                self.mem_controller
+                    .to_physical_address(fetch.addr())
+                    .sub_partition,
+            );
+        }
 
         let is_write = fetch.is_write();
         let access_kind = fetch.access_kind();
@@ -818,34 +860,69 @@ where
             .tag_array
             .probe(block_addr, &fetch, is_write, true);
         let probe_status = probe.map_or(cache::RequestStatus::RESERVATION_FAIL, |(_, s)| s);
+        if time == 0 {
+            assert!(matches!(
+                probe_status,
+                cache::RequestStatus::HIT | cache::RequestStatus::HIT_RESERVED
+            ));
+        }
 
         let access_status =
             self.process_tag_probe(is_write, probe, addr, fetch.clone(), events, time);
 
-        log::info!(
-            "{}::access({}) => probe status={:?} access status={:?}",
-            self.inner.name,
-            &dbg_fetch,
-            probe_status,
-            access_status
-        );
-
-        let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(kernel_launch_id);
         let access_stat = if self.inner.cache_config.accelsim_compat {
             cache::select_status_accelsim_compat(probe_status, access_status)
         } else {
             cache::select_status(probe_status, access_status)
         };
+
+        log::debug!(
+            "{}::access({}) => status={:?} (probe={:?} access={:?}) accesses={} size={} bytes={}",
+            self.inner.name,
+            &dbg_fetch,
+            access_stat,
+            probe_status,
+            access_status,
+            self.inner.num_accesses_stat(&fetch),
+            fetch.access.data_size(),
+            fetch.access.byte_mask.count_ones(),
+        );
+        if self.inner.name.contains("L2") && dbg_fetch.core_id.is_some() {
+            let is_write = dbg_fetch.is_write();
+            let is_hit = matches!(
+                access_stat,
+                cache::RequestStatus::HIT | cache::RequestStatus::HIT_RESERVED
+            );
+            // if false || (!is_hit && is_write) {
+            if !is_hit && !is_write {
+                // if !is_hit {
+                log::error!(
+                    "{}::access({}, {}) => status={:?} (probe={:?} access={:?}) accesses={} size={} bytes={}",
+                    self.inner.name,
+                    &dbg_fetch,
+                    dbg_fetch.addr(),
+                    access_stat,
+                    probe_status,
+                    access_status,
+                    self.inner.num_accesses_stat(&fetch),
+                    fetch.access.data_size(),
+                    fetch.access.byte_mask.count_ones(),
+                );
+            }
+        }
+
+        let mut stats = self.inner.stats.lock();
+        let kernel_stats = stats.get_mut(kernel_launch_id);
         kernel_stats.inc(
             allocation_id,
             access_kind,
             cache::AccessStat::Status(access_stat),
-            if self.inner.cache_config.accelsim_compat {
-                1
-            } else {
-                fetch.access.num_transactions()
-            },
+            self.inner.num_accesses_stat(&fetch),
+            // if self.inner.cache_config.accelsim_compat {
+            //     1
+            // } else {
+            //     fetch.access.num_transactions()
+            // },
         );
 
         if crate::DEBUG_PRINT
@@ -908,6 +985,10 @@ where
         self.inner.invalidate();
     }
 
+    fn invalidate_addr(&mut self, addr: address) {
+        self.inner.invalidate_addr(addr);
+    }
+
     fn flush(&mut self) -> usize {
         self.inner.flush()
     }
@@ -916,12 +997,17 @@ where
         self.inner.tag_array.num_used_lines()
     }
 
+    fn num_used_bytes(&self) -> u64 {
+        self.inner.tag_array.num_used_lines() as u64 * self.inner.cache_config.line_size as u64
+    }
+
     fn num_total_lines(&self) -> usize {
         self.inner.tag_array.num_total_lines()
     }
 }
 
-impl<MC, CC, S> cache::Bandwidth for Data<MC, CC, S> {
+// impl<MC, CC, S> cache::Bandwidth for Data<MC, CC, S> {
+impl<CC, S> cache::Bandwidth for Data<CC, S> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

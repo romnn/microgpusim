@@ -11,6 +11,9 @@ glob = "0"
 async-process = "1"
 libc = "0"
 
+parse-size = { version = "1", features = ["std"] }
+human_bytes = "0"
+
 unicode-segmentation = "1"
 strip-ansi-escapes = "0"
 console = "0"

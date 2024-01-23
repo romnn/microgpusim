@@ -84,7 +84,7 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
         num_schedulers_per_core: 4,                  // 4
         num_memory_controllers: 12,                  // 8
         num_dram_chips_per_memory_controller: 1,     // 1
-        num_sub_partitions_per_memory_controller: 2, // 2
+        num_sub_partitions_per_memory_controller: 1, // 2
         simulate_clock_domains: false,
         fill_l2_on_memcopy: true,
         flush_l1_cache: false,

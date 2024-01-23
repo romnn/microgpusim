@@ -126,9 +126,9 @@ pub fn select_status_accelsim_compat(probe: RequestStatus, access: RequestStatus
 pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
     // probe is at sector granularity while access is at line granularity?
     match probe {
-        // RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
-        //     RequestStatus::HIT_RESERVED
-        // }
+        RequestStatus::HIT_RESERVED if access != RequestStatus::RESERVATION_FAIL => {
+            RequestStatus::HIT_RESERVED
+        }
         RequestStatus::SECTOR_MISS if access == RequestStatus::MISS => RequestStatus::SECTOR_MISS,
         _ => access,
     }
@@ -186,6 +186,9 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
     /// Invalidate the cache.
     fn invalidate(&mut self);
 
+    /// Invalidate an address of the cache.
+    fn invalidate_addr(&mut self, addr: address);
+
     /// Force access to the tag array only
     fn force_tag_access(
         &mut self,
@@ -203,6 +206,9 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
 
     /// Number of lines used
     fn num_used_lines(&self) -> usize;
+
+    /// Number of bytes used
+    fn num_used_bytes(&self) -> u64;
 
     /// Number of total lines
     fn num_total_lines(&self) -> usize;

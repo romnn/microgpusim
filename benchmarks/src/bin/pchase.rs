@@ -6,37 +6,11 @@ use gpucachesim_benchmarks::pchase;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::io::Write;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use trace_model::ToBitString;
-
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Bytes(pub usize);
-
-impl std::fmt::Display for Bytes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", human_bytes::human_bytes(self.0 as f64))
-    }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum InvalidSizeError {
-    #[error(transparent)]
-    Parse(#[from] parse_size::Error),
-
-    #[error(transparent)]
-    Cast(#[from] std::num::TryFromIntError),
-}
-
-impl std::str::FromStr for Bytes {
-    type Err = InvalidSizeError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let bytes: u64 = parse_size::parse_size(value)?;
-        let bytes: usize = bytes.try_into()?;
-        Ok(Self(bytes))
-    }
-}
+use utils::fs::Bytes;
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -186,6 +160,7 @@ where
     let mut sim_config = config::gtx1080::build_config(&config::Input::default())?;
     sim_config.parallelization = config::Parallelization::Deterministic;
     sim_config.fill_l2_on_memcopy = true;
+    // sim_config.num_memory_controllers = 1;
     // sim_config.parallelization = config::Parallelization::Serial;
     if false {
         sim_config.data_cache_l1 = Some(Arc::new(gpucachesim::config::L1DCache {
@@ -201,14 +176,15 @@ where
                 kind: gpucachesim::config::CacheKind::Sector,
                 // kind: CacheKind::Normal,
                 // 128B cache
-                num_sets: 2,
-                line_size: 32,
-                associativity: 1,
-                // num_sets: 4, // 64,
-                // line_size: 128,
-                // associativity: 48, // 6,
+                // num_sets: 2,
+                // line_size: 32,
+                // associativity: 1,
+                num_sets: 4, // 64,
+                line_size: 128,
+                associativity: 48, // 6,
                 replacement_policy: gpucachesim::cache::config::ReplacementPolicy::LRU,
-                write_policy: gpucachesim::cache::config::WritePolicy::LOCAL_WB_GLOBAL_WT,
+                write_policy:
+                    gpucachesim::cache::config::WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH,
                 allocate_policy: gpucachesim::cache::config::AllocatePolicy::ON_MISS,
                 write_allocate_policy:
                     gpucachesim::cache::config::WriteAllocatePolicy::NO_WRITE_ALLOCATE,
@@ -259,6 +235,12 @@ where
             traces_dir.to_path_buf(),
         )
     };
+    let output_cache_state = std::env::var("PCHASE_OUTPUT_CACHE_STATE")
+        .as_deref()
+        .unwrap_or("")
+        .to_lowercase()
+        == "yes";
+
     sim.add_commands(commands_path, traces_dir)?;
     sim.run()?;
 
@@ -267,6 +249,22 @@ where
     //         // core.write().fetch_return_callback = Some(fetch_return_callback.clone());
     //     }
     // }
+
+    if output_cache_state {
+        let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
+        let cache_state_dir = debug_dir.join("pchase_cache_state");
+        std::fs::create_dir_all(&cache_state_dir)?;
+        let l2_cache_state_file = cache_state_dir.join(format!(
+            "pchase_{:0>12}_{}_l2_cache_state_after.csv",
+            size_bytes.to_string(),
+            Bytes(size_bytes)
+                .to_string()
+                .replace(" ", "_")
+                .replace(".", "_")
+        ));
+        sim.write_l2_cache_state(&l2_cache_state_file)?;
+        eprintln!("wrote L2 cache state to {}", l2_cache_state_file.display());
+    }
 
     let stats = sim.stats();
     // for kernel_stats in &stats.inner {
@@ -278,6 +276,7 @@ where
 
     let reduced = stats.clone().reduce();
     let l1d_stats = reduced.l1d_stats.reduce();
+    let l2d_stats = reduced.l2d_stats.reduce();
     // dbg!(&l1d_stats);
 
     let l1d_read_hits: usize = l1d_stats
@@ -411,6 +410,18 @@ where
     // dbg!(all_adresses.len());
     // dbg!(all_latencies);
 
+    eprintln!(
+        "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
+        &l1d_stats.global_hit_rate() * 100.0,
+        &l1d_stats.num_global_hits(),
+        &l1d_stats.num_global_accesses(),
+    );
+    eprintln!(
+        "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
+        &l2d_stats.global_hit_rate() * 100.0,
+        &l2d_stats.num_global_hits(),
+        &l2d_stats.num_global_accesses(),
+    );
     eprintln!("simulation completed in {:?}", start.elapsed());
     Ok(())
 }
@@ -516,6 +527,13 @@ async fn main() -> eyre::Result<()> {
 
     let sizes = (start_size_bytes.0..=end_size_bytes.0).step_by(step_size_bytes.0);
     let num_sizes = sizes.clone().count();
+    if num_sizes < 1 {
+        eprintln!("WARNING: testing zero sizes");
+    }
+    if repetitions < 1 {
+        eprintln!("WARNING: repetitions is zero");
+    }
+
     for (i, size_bytes) in sizes.enumerate() {
         if size_bytes == 0 {
             continue;

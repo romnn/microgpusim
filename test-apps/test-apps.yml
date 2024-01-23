@@ -70,7 +70,8 @@ config:
     repetitions: 2
     # simulation configurations
     config_dir: ../accelsim/gtx1080/
-    config: ../accelsim/gtx1080/gpgpusim.config
+    # config: ../accelsim/gtx1080/gpgpusim.config
+    config: ../accelsim/gtx1080/gpgpusim.original.config
     trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
     inter_config: ../accelsim/gtx1080/config_pascal_islip.icnt
   playground_simulate:
@@ -79,7 +80,8 @@ config:
     repetitions: 1
     # simulation configurations
     config_dir: ../accelsim/gtx1080/
-    config: ../accelsim/gtx1080/gpgpusim.config
+    # config: ../accelsim/gtx1080/gpgpusim.config
+    config: ../accelsim/gtx1080/gpgpusim.original.config
     trace_config: ../accelsim/gtx1080/gpgpusim.trace.config
     inter_config: ../accelsim/gtx1080/config_pascal_islip.icnt
 #

@@ -242,7 +242,7 @@ void linear_to_raw_address_translation::addrdec_tlx(new_addr_type addr,
       break;
     }
     case RANDOM: {
-      assert(0 && "random partition indexing function not supported");
+      // assert(0 && "random partition indexing function not supported");
       // This is an unrealistic hashing using software hashtable
       // we generate a random set for each memory address and save the value in
       new_addr_type chip_address = (addr >> (ADDR_CHIP_S - log2sub_partition));

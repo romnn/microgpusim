@@ -32,7 +32,7 @@ pub mod naive {
     {
         type Error = std::convert::Infallible;
 
-        #[gpucachesim::exec::inject_reconvergence_points]
+        #[gpucachesim::exec::instrument_control_flow]
         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
             // int xIndex = blockIdx.x * TILE_DIM + threadIdx.x;
             let x_index = (tid.block_idx.x * TILE_DIM + tid.thread_idx.x) as usize;
@@ -86,7 +86,7 @@ pub mod coalesced {
     {
         type Error = std::convert::Infallible;
 
-        #[gpucachesim::exec::inject_reconvergence_points]
+        #[gpucachesim::exec::instrument_control_flow]
         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
             // cg::thread_block cta = cg::this_thread_block();
             // __shared__ float tile[TILE_DIM][TILE_DIM];
@@ -166,7 +166,7 @@ pub mod optimized {
     {
         type Error = std::convert::Infallible;
 
-        #[gpucachesim::exec::inject_reconvergence_points]
+        #[gpucachesim::exec::instrument_control_flow]
         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
             // cg::thread_block cta = cg::this_thread_block();
             // __shared__ float tile[TILE_DIM][TILE_DIM + 1];

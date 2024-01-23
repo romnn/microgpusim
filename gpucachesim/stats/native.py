@@ -185,7 +185,6 @@ NVPROF_NUMERIC_METRIC_COLUMNS = [
 def normalize_nvprof_device_name(name):
     # Strip off device numbers, e.g. (0), (1)
     # that some profiler versions add to the end of device name
-    print(name)
     return re.sub(r" \(\d+\)$", "", name)
 
 
@@ -689,7 +688,7 @@ class NvprofStats(common.Stats):
         else:
             grouped = self.df.groupby(NVPROF_INDEX_COLS, dropna=False)
             sm_count = self.config.num_total_cores
-            print(sm_count)
+            assert sm_count == 28
             self.result_df["cycles"] = grouped["elapsed_cycles_sm"].sum()
             self.result_df["cycles"] /= sm_count
 

@@ -98,11 +98,22 @@ impl std::fmt::Display for MemcpyHtoD {
     }
 }
 
+/// L2 pre-fill on CUDA memory copies
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum L2Prefill {
+    /// Decide based on allocation size and current cache state
+    Auto,
+    /// Force L2 prefill
+    Force,
+    /// Disable L2 prefill
+    NoPrefill,
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MemAlloc {
     pub allocation_name: Option<String>,
     pub device_ptr: u64,
-    pub fill_l2: bool,
+    pub fill_l2: L2Prefill,
     pub num_bytes: u64,
 }
 

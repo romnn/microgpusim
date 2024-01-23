@@ -165,34 +165,50 @@ where
         // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
             // println!("core {} generates mem accesses", self.core_id);
-            if let Some(accesses) = pipe_reg_mut.generate_mem_accesses(&self.config) {
-                for mut access in accesses {
+            if let Some(accesses) =
+                pipe_reg_mut.generate_mem_accesses(&self.config, &self.allocations)
+            {
+                for access in accesses {
                     if let AccessKind::LOCAL_ACC_W | AccessKind::LOCAL_ACC_R = access.kind {
                         panic!("have local access!");
                     }
                     // set mem accesses allocation start addr, because only core knows
-                    match access.kind {
-                        AccessKind::GLOBAL_ACC_R
-                        | AccessKind::LOCAL_ACC_R
-                        | AccessKind::CONST_ACC_R
-                        | AccessKind::TEXTURE_ACC_R
-                        | AccessKind::GLOBAL_ACC_W
-                        | AccessKind::LOCAL_ACC_W => {
-                            access.allocation =
-                                self.allocations.try_read().get(&access.addr).cloned();
-                        }
-
-                        other @ (AccessKind::L1_WRBK_ACC
-                        | AccessKind::L2_WRBK_ACC
-                        | AccessKind::INST_ACC_R
-                        | AccessKind::L1_WR_ALLOC_R
-                        | AccessKind::L2_WR_ALLOC_R) => {
-                            panic!(
-                                "generated {:?} access from instruction {}",
-                                &other, &pipe_reg_mut
-                            );
-                        }
+                    // match access.kind {
+                    //     AccessKind::GLOBAL_ACC_R
+                    //     | AccessKind::LOCAL_ACC_R
+                    //     | AccessKind::CONST_ACC_R
+                    //     | AccessKind::TEXTURE_ACC_R
+                    //     | AccessKind::GLOBAL_ACC_W
+                    //     | AccessKind::LOCAL_ACC_W => {
+                    //         access.allocation =
+                    //             self.allocations.try_read().get(&access.addr).cloned();
+                    //     }
+                    //
+                    //     other @ (AccessKind::L1_WRBK_ACC
+                    //     | AccessKind::L2_WRBK_ACC
+                    //     | AccessKind::INST_ACC_R
+                    //     | AccessKind::L1_WR_ALLOC_R
+                    //     | AccessKind::L2_WR_ALLOC_R) => {
+                    //         panic!(
+                    //             "generated {:?} access from instruction {}",
+                    //             &other, &pipe_reg_mut
+                    //         );
+                    //     }
+                    // }
+                    if matches!(
+                        access.kind,
+                        AccessKind::L1_WRBK_ACC
+                            | AccessKind::L2_WRBK_ACC
+                            | AccessKind::INST_ACC_R
+                            | AccessKind::L1_WR_ALLOC_R
+                            | AccessKind::L2_WR_ALLOC_R
+                    ) {
+                        panic!(
+                            "generated {:?} access from instruction {}",
+                            &access.kind, &pipe_reg_mut
+                        );
                     }
+
                     log::trace!(
                         "generate_mem_accesses: adding access {} to instruction {}",
                         &access,
@@ -526,13 +542,14 @@ where
 
         let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
         let mut instr_l1_cache = cache::ReadOnly::new(
+            core_id,
             format!(
                 "core-{}-{}-{}",
                 cluster_id,
                 core_id,
                 style("READONLY-INSTR-CACHE").green(),
             ),
-            // core_id,
+            cache::base::Kind::OnChip,
             // cluster_id,
             cache_stats,
             config.inst_cache_l1.as_ref().unwrap().clone(),
@@ -603,7 +620,7 @@ where
         let operand_collector = Arc::new(Mutex::new(operand_collector));
 
         let load_store_unit = fu::LoadStoreUnit::new(
-            0, // no id for now
+            core_id, // is the core id for now
             core_id,
             cluster_id,
             warps.clone(),
@@ -1455,8 +1472,8 @@ where
                         .build();
 
                         let physical_addr = self.mem_controller.to_physical_address(access.addr);
-                        let partition_addr =
-                            self.mem_controller.memory_partition_address(access.addr);
+                        // let partition_addr =
+                        //     self.mem_controller.memory_partition_address(access.addr);
 
                         let fetch = mem_fetch::Builder {
                             instr: None,
@@ -1465,7 +1482,7 @@ where
                             core_id: Some(self.core_id),
                             cluster_id: Some(self.cluster_id),
                             physical_addr,
-                            partition_addr,
+                            // partition_addr,
                         }
                         .build();
 

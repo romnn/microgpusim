@@ -1,8 +1,8 @@
 use super::{address, cache, mem_fetch};
 use crate::{config, mem_sub_partition::NUM_SECTORS};
 use color_eyre::eyre;
-
 use std::collections::HashMap;
+use trace_model::ToBitString;
 
 pub type LineTable = HashMap<address, u64>;
 
@@ -94,6 +94,9 @@ pub trait Access<B> {
     ///
     /// This effectively resets the tag array.
     fn invalidate(&mut self);
+
+    /// Invalidate a cache line for an address.
+    fn invalidate_addr(&mut self, addr: address);
 
     /// The maximum number of tags this array can hold.
     #[must_use]
@@ -237,7 +240,6 @@ where
     // #[inline]
     fn invalidate(&mut self) {
         log::trace!("tag_array::invalidate()");
-        eprintln!("tag_array::invalidate()");
         for line in &mut self.lines {
             for sector in 0..NUM_SECTORS {
                 // let mut sector_mask = mem_fetch::SectorMask::ZERO;
@@ -246,6 +248,22 @@ where
             }
         }
         self.num_dirty = 0;
+    }
+
+    fn invalidate_addr(&mut self, addr: address) {
+        let block_addr = self.cache_controller.block_addr(addr);
+        let set_index = self.cache_controller.set_index(block_addr) as usize;
+        let tag = self.cache_controller.tag(block_addr);
+        let sector = ((addr & 127) / 32) as usize;
+        assert!(sector < NUM_SECTORS);
+
+        for way in 0..self.cache_config.associativity {
+            let idx = set_index * self.cache_config.associativity + way;
+            let line = &mut self.lines[idx];
+            if line.tag() == tag {
+                line.set_status(cache::block::Status::INVALID, sector);
+            }
+        }
     }
 
     // #[inline]
@@ -356,7 +374,28 @@ where
             );
 
             if line.tag() == tag {
-                match line.status(sector_mask.first_one().unwrap()) {
+                let status = line.status(sector_mask.first_one().unwrap());
+                log::trace!(
+                    "have line with tag={} status={:?} for sector mask={}",
+                    tag,
+                    status,
+                    sector_mask[..4].to_bit_string(),
+                );
+                if false {
+                    if let Some(ref fetch) = fetch {
+                        println!(
+                            "{: >40} {: >20} IS {:>15?} {:?} sectors={} bytes={}",
+                            fetch.to_string(),
+                            fetch.addr().to_string(),
+                            status,
+                            line,
+                            fetch.access.sector_mask[..4].to_bit_string(),
+                            fetch.access.byte_mask[..128].to_bit_string(),
+                        );
+                    }
+                }
+
+                match status {
                     cache::block::Status::RESERVED => {
                         return Some((idx, cache::RequestStatus::HIT_RESERVED));
                     }
@@ -364,9 +403,8 @@ where
                         return Some((idx, cache::RequestStatus::HIT));
                     }
                     cache::block::Status::MODIFIED => {
-                        let status = if is_write
-                            || (!is_write && line.is_readable(sector_mask.first_one().unwrap()))
-                        {
+                        let sector_is_readable = line.is_readable(sector_mask.first_one().unwrap());
+                        let status = if is_write || (!is_write && sector_is_readable) {
                             cache::RequestStatus::HIT
                         } else {
                             cache::RequestStatus::SECTOR_MISS
@@ -374,12 +412,18 @@ where
                         return Some((idx, status));
                     }
                     cache::block::Status::INVALID => {
+                        // if is_write {
+                        //     return Some((idx, cache::RequestStatus::HIT));
+                        // }
                         if line.is_valid() {
                             return Some((idx, cache::RequestStatus::SECTOR_MISS));
                         }
                     }
                 }
             }
+            // else {
+            //     log::warn!("NO line with tag={}", tag);
+            // }
             if !line.is_reserved() {
                 // If the cache line is from a load op (not modified),
                 // or the number of total dirty cache lines is above a specific value,
@@ -393,19 +437,19 @@ where
                         invalid_line = Some(idx);
                     } else {
                         // valid line: keep track of most appropriate replacement candidate
-                        if self.cache_config.replacement_policy
-                            == cache::config::ReplacementPolicy::LRU
-                        {
-                            if line.last_access_time() < valid_time {
-                                valid_time = line.last_access_time();
-                                valid_line = Some(idx);
+                        match self.cache_config.replacement_policy {
+                            cache::config::ReplacementPolicy::LRU => {
+                                if line.last_access_time() < valid_time {
+                                    valid_time = line.last_access_time();
+                                    valid_line = Some(idx);
+                                }
                             }
-                        } else if self.cache_config.replacement_policy
-                            == cache::config::ReplacementPolicy::FIFO
-                            && line.alloc_time() < valid_time
-                        {
-                            valid_time = line.alloc_time();
-                            valid_line = Some(idx);
+                            cache::config::ReplacementPolicy::FIFO => {
+                                if line.alloc_time() < valid_time {
+                                    valid_time = line.alloc_time();
+                                    valid_line = Some(idx);
+                                }
+                            }
                         }
                     }
                 }
@@ -430,6 +474,16 @@ where
             return None;
             // return cache::RequestStatus::RESERVATION_FAIL;
         }
+
+        // match (valid_line, invalid_line) {
+        //     (_, Some(invalid)) => Some((invalid, cache::RequestStatus::HIT)),
+        //     (Some(valid), None) => Some((valid, cache::RequestStatus::MISS)),
+        //     (None, None) => {
+        //         // if an unreserved block exists,
+        //         // it is either invalid or replaceable
+        //         panic!("found neither a valid nor invalid cache line");
+        //     }
+        // }
 
         let cache_idx = match (valid_line, invalid_line) {
             (_, Some(invalid)) => invalid,

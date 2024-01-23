@@ -24,7 +24,7 @@ futures = "0.3"
 async-trait = "0"
 
 trace-model = { path = "../trace/model" }
-exec-impl = { path = "./impl" }
+exec-derive = { path = "./derive" }
 
 # todo: remove in the future
 log = "0"

@@ -155,7 +155,7 @@ pub struct Access {
     /// Physical address in global memory (DRAM).
     pub physical_addr: PhysicalAddress,
     /// Memory partition address.
-    pub partition_addr: address,
+    // pub partition_addr: address,
     /// Access kind.
     pub kind: AccessKind,
     /// The number of bytes requested.
