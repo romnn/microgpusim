@@ -134,7 +134,7 @@ fn gather_simulation_state(
                 let l1_data_cache = l1_data_cache
                     .as_any()
                     .downcast_ref::<cache::Data<
-                        Arc<dyn crate::mcu::MemoryController>,
+                        // Arc<dyn crate::mcu::MemoryController>,
                         cache::controller::pascal::L1DataCacheController,
                         stats::cache::PerKernel,
                     >>()
@@ -436,6 +436,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     // box_config.flush_l1_cache = true;
     // box_config.flush_l2_cache = false;
     box_config.accelsim_compat = true;
+    // box_config.shared_memory_warp_parts = 1;
     if let Some(ref mut l1_cache) = box_config.data_cache_l1 {
         // workaround: compatible with accelsim which does not differentiate
         // between l1 tag lookup and hit latency

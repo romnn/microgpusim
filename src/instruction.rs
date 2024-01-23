@@ -4,12 +4,14 @@ use crate::{
     mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{pascal, ArchOp, Op, Opcode},
-    operand_collector as opcoll, warp,
+    operand_collector as opcoll,
+    sync::RwLock,
+    warp,
 };
-
 use bitvec::{array::BitArray, BitArr};
 use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
 use std::collections::{HashMap, VecDeque};
+use trace_model::ToBitString;
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MemorySpace {
@@ -71,22 +73,22 @@ struct TransactionInfo {
     chunk_mask: BitArr!(for 4, in u8),
     byte_mask: mem_fetch::ByteMask,
     active_mask: warp::ActiveMask,
+    num_uncoalesced_accesses: usize,
 }
 
 impl std::fmt::Debug for TransactionInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use trace_model::ToBitString;
         f.debug_struct("TransactionInfo")
             .field("chunk_mask", &self.chunk_mask[..4].to_bit_string())
             .field("byte_mask", &self.byte_mask[..128].to_bit_string())
             .field("active_mask", &self.active_mask[..32].to_bit_string())
+            .field("num_uncoalesced_accesses", &self.num_uncoalesced_accesses)
             .finish()
     }
 }
 
 impl std::fmt::Display for TransactionInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use trace_model::ToBitString;
         f.debug_struct("TransactionInfo")
             .field("chunks", &self.chunk_mask[..4].to_bit_string())
             .field("bytes", &self.byte_mask[..128].to_bit_string())
@@ -580,7 +582,11 @@ impl WarpInstruction {
         }
     }
 
-    pub fn generate_mem_accesses(&mut self, config: &config::GPU) -> Option<Vec<MemAccess>> {
+    pub fn generate_mem_accesses(
+        &mut self,
+        config: &config::GPU,
+        allocations: &RwLock<crate::allocation::Allocations>,
+    ) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -730,7 +736,8 @@ impl WarpInstruction {
                         unimplemented!("atomics not supported for now");
                     } else {
                         // here, we return the memory accesses
-                        let accesses = self.memory_coalescing_arch(is_write, access_kind, config);
+                        let accesses =
+                            self.memory_coalescing_arch(is_write, access_kind, config, allocations);
                         Some(accesses)
                     }
                 } else {
@@ -753,6 +760,7 @@ impl WarpInstruction {
         is_write: bool,
         access_kind: AccessKind,
         config: &config::GPU,
+        allocations: &RwLock<crate::allocation::Allocations>,
     ) -> Vec<MemAccess> {
         let warp_parts = config.shared_memory_warp_parts;
         let coalescing_arch = config.coalescing_arch as usize;
@@ -765,9 +773,8 @@ impl WarpInstruction {
             coalescing_arch >= 40
         };
 
-        // dbg!(&self.data_size);
-        // note: data size is in bytes
-        let segment_size = match self.data_size {
+        // data size is number of BYTES from opcode, e.g. LD.32 is 4 bytes
+        let segment_size: u64 = match self.data_size {
             1 => 32,
             2 if use_sector_segment_size => 32,
             2 if !use_sector_segment_size => 64,
@@ -775,9 +782,12 @@ impl WarpInstruction {
             4 | 8 | 16 if !use_sector_segment_size => 128,
             size => panic!("invalid data size {size}"),
         };
+        assert_eq!(
+            segment_size,
+            crate::mem_sub_partition::SECTOR_SIZE as u64,
+            "require sector segment size for sectored L1"
+        );
         let subwarp_size = config.warp_size / warp_parts;
-        // dbg!(&warp_parts);
-        // dbg!(&segment_size);
         log::trace!(
             "memory_coalescing_arch {:?}: segment size={} subwarp size={}",
             access_kind,
@@ -793,9 +803,8 @@ impl WarpInstruction {
             for i in 0..subwarp_size {
                 let thread_id = subwarp * subwarp_size + i;
                 let thread = &self.threads[thread_id];
-                log::trace!(
-                // println!(
-                    "memory_coalescing_arch {:?}: checking thread {:<2} tid={:?} active={:<5} request addresses={:?}",
+                log::warn!(
+                    "{:?}: thread {:<2} tid(todo)={:?} active={:<5} addresses={:?}",
                     access_kind,
                     thread_id,
                     thread.thread_idx,
@@ -810,7 +819,6 @@ impl WarpInstruction {
                 let mut num_accesses = 1;
 
                 if self.memory_space == Some(MemorySpace::Local) {
-                    dbg!("have local mem");
                     // Local memory accesses >4B were split into 4B chunks
                     if self.data_size >= 4 {
                         data_size_coalesced = 4;
@@ -822,17 +830,20 @@ impl WarpInstruction {
 
                 debug_assert!(num_accesses as usize <= MAX_ACCESSES_PER_THREAD_INSTRUCTION);
 
+                // todo: refactor this to use filter
                 let mut access = 0;
                 while access < MAX_ACCESSES_PER_THREAD_INSTRUCTION
                     && thread.mem_req_addr[access] != 0
                 {
                     let addr = thread.mem_req_addr[access];
                     let block_addr = line_size_based_tag_func(addr, segment_size);
+                    // log::warn!("addr={}, block_addr={}", addr, block_addr);
                     // 32-byte chunk within in a 128-byte accesses by this thread
-                    // this is equal to the 7-5=2 bits from the 
-                    // cache line that identify the sector 
+                    // this is equal to the 7-5=2 bits from the
+                    // cache line that identify the sector
                     let chunk = (addr & 127) / 32;
                     let tx = subwarp_transactions.entry(block_addr).or_default();
+                    tx.num_uncoalesced_accesses += 1;
 
                     tx.chunk_mask.set(chunk as usize, true);
                     tx.active_mask.set(thread_id, true);
@@ -849,6 +860,7 @@ impl WarpInstruction {
                     // segment handle
                     let coalesced_end_addr = addr + u64::from(data_size_coalesced) - 1;
                     if block_addr != line_size_based_tag_func(coalesced_end_addr, segment_size) {
+                        todo!("check this again");
                         let block_addr = line_size_based_tag_func(coalesced_end_addr, segment_size);
                         let chunk = (coalesced_end_addr & 127) / 32;
                         let tx = subwarp_transactions.entry(block_addr).or_default();
@@ -866,56 +878,106 @@ impl WarpInstruction {
                 }
             }
 
-            log::trace!(
-                "memory_coalescing_arch {:?}: subwarp_transactions: {:?}",
-                access_kind,
-                subwarp_transactions,
-            );
+            // log::warn!(
+            //     "memory_coalescing_arch {:?}: subwarp_transactions: {:?}",
+            //     access_kind,
+            //     subwarp_transactions,
+            // );
 
             let mut subwarp_accesses: Vec<_> = subwarp_transactions.into_iter().collect();
 
             // sort for deterministic ordering: add smallest addresses first
             subwarp_accesses.sort_by_key(|(block_addr, _)| *block_addr);
 
-            for (block_addr, subwarp_access) in &subwarp_accesses {
-                use trace_model::ToBitString;
-                log::trace!(
-                    "{:>18}: chunk={:>4} byte={:<128} activemask={:<32}",
-                    block_addr,
-                    subwarp_access.chunk_mask[..4].to_bit_string(),
-                    subwarp_access.byte_mask[..128].to_bit_string(),
-                    subwarp_access.active_mask[..32].to_bit_string(),
-                )
+            // log::trace!(
+            //     "memory_coalescing_arch {:?}: {} subwarp_accesses: {:?}",
+            //     access_kind,
+            //     subwarp_accesses.len(),
+            //     subwarp_accesses,
+            // );
+
+            if log::log_enabled!(log::Level::Trace) {
+                for (i, (block_addr, subwarp_access)) in subwarp_accesses.iter().enumerate() {
+                    let (last_block_addr, _) = subwarp_accesses[i.saturating_sub(1)];
+                    let diff = *block_addr as i64 - last_block_addr as i64;
+
+                    let mut four_byte_mask: bitvec::BitArr!(for 32, in u32) =
+                        bitvec::array::BitArray::ZERO;
+                    for (word, active) in subwarp_access.byte_mask[..128]
+                        .chunks(4)
+                        .map(|c| c.any())
+                        .enumerate()
+                    {
+                        four_byte_mask.set(word, active);
+                    }
+                    // let byte_mask_string =
+                    //     format!("{:<128}", subwarp_access.byte_mask[..128].to_bit_string());
+                    let byte_mask_string = format!("{:<32}", four_byte_mask[..32].to_bit_string());
+
+                    // this is horribly inefficient
+                    let active_mask_string = subwarp_access.active_mask[..32]
+                        .to_bit_string()
+                        .chars()
+                        .collect::<Vec<char>>()
+                        .chunks(subwarp_size)
+                        .map(|c| c.iter().collect::<String>())
+                        .collect::<Vec<String>>()
+                        .join("|");
+                    log::trace!(
+                        " [{: >2}] {:>18} ({}{:<4}): chunk={:>4} floats={} activemask={}",
+                        i,
+                        block_addr,
+                        if diff < 0 { "-" } else { "+" },
+                        diff.abs(),
+                        subwarp_access.chunk_mask[..4].to_bit_string(),
+                        byte_mask_string,
+                        active_mask_string,
+                    )
+                }
             }
 
             // step 2: reduce each transaction size, if possible
-            accesses.extend(
-                subwarp_accesses
-                    .into_iter()
-                    .map(|(block_addr, transaction)| {
-                        self.memory_coalescing_arch_reduce(
-                            is_write,
-                            access_kind,
-                            &transaction,
-                            block_addr,
-                            segment_size,
-                        )
-                    }),
-            );
+            accesses.extend(subwarp_accesses.into_iter().map(|(block_addr, tx)| {
+                // dbg!(&tx);
+                self.memory_coalescing_arch_reduce(
+                    is_write,
+                    access_kind,
+                    &tx,
+                    block_addr,
+                    segment_size,
+                )
+            }));
 
             assert!(
                 self.active_mask.not_any() || !accesses.is_empty(),
                 "active memory instruction must coalesce to at least one access"
             );
         }
+
+        for access in accesses.iter_mut() {
+            // set mem accesses allocation start addr, because only core knows
+            access.allocation = allocations.try_read().get(&access.addr).cloned();
+        }
+
         let active_thread_count = self.active_mask.count_ones();
         let mean_transaction_size = active_thread_count as f32 / accesses.len() as f32;
-        log::debug!(
-            "coalesced warp instruction {self} into {} transactions (transaction size={:2.2}): {:?}",
+        log::warn!(
+            "==> coalesced warp instruction {self} into {} transactions (transaction size={:2.2}): {:?}",
             accesses.len(),
             mean_transaction_size,
             accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
         );
+        if accesses.len() == warp_parts {
+            for access in accesses.iter() {
+                log::warn!(
+                    "tx: {} data size={} bytes={} num uncoalesced accesses={}",
+                    access,
+                    access.data_size(),
+                    access.byte_mask[..128].to_bit_string(),
+                    access.num_uncoalesced_accesses()
+                );
+            }
+        }
         // println!(
         //     "coalesced warp instruction {self} into {} transactions (transaction size={:2.2})",
         //     accesses.len(),
@@ -978,7 +1040,7 @@ impl WarpInstruction {
             }
         }
 
-        MemAccessBuilder {
+        let mut access = MemAccessBuilder {
             kind: access_kind,
             addr,
             kernel_launch_id: Some(self.kernel_launch_id),
@@ -989,6 +1051,8 @@ impl WarpInstruction {
             byte_mask: tx.byte_mask,
             sector_mask: tx.chunk_mask,
         }
-        .build()
+        .build();
+        access.num_uncoalesced_accesses = tx.num_uncoalesced_accesses;
+        access
     }
 }

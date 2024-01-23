@@ -192,7 +192,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
               m_request_tracker.erase(mf);
               delete mf;
             } else {
-              throw std::runtime_error("l2 to interconn queue push");
+              // throw std::runtime_error("l2 to interconn queue push");
               mf->set_reply();
               mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
                              m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

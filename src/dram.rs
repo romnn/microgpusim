@@ -53,7 +53,7 @@ impl DRAM {
     /// We only collect statistics here.
     pub fn access(&mut self, fetch: &mem_fetch::MemFetch) {
         let dram_id = fetch.physical_addr.chip as usize;
-        let bank = fetch.physical_addr.bk as usize;
+        let bank = fetch.physical_addr.bank as usize;
 
         // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
         let mut stats = self.stats.lock();

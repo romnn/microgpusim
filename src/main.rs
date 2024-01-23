@@ -218,25 +218,27 @@ fn main() -> eyre::Result<()> {
             &l2d_stats.num_global_accesses(),
         );
         eprintln!(
-            "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
-            &l2d_stats.global_write_hit_rate() * 100.0,
-            &l2d_stats.num_global_write_hits(),
-            &l2d_stats.num_global_writes(),
-        );
-        eprintln!(
             "L2D read hit rate: {:4.2}% ({} read hits / {} reads)",
             &l2d_stats.global_read_hit_rate() * 100.0,
             &l2d_stats.num_global_read_hits(),
             &l2d_stats.num_global_reads(),
         );
+        eprintln!(
+            "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
+            &l2d_stats.global_write_hit_rate() * 100.0,
+            &l2d_stats.num_global_write_hits(),
+            &l2d_stats.num_global_writes(),
+        );
     }
-    eprintln!("TIMINGS:");
     let timings: Vec<_> = gpucachesim::TIMINGS
         .lock()
         .clone()
         .into_iter()
         .sorted_by_key(|(label, _)| label.to_string())
         .collect();
+    if !timings.is_empty() {
+        eprintln!("TIMINGS:");
+    }
 
     let total_time = start.elapsed();
     let norm_time = if gpucachesim::config::Parallelization::Serial != parallelization {

@@ -27,7 +27,7 @@ pub fn breakdown_request_to_sector_requests<'c>(
     struct SectorFetch {
         addr: address,
         physical_addr: crate::mcu::PhysicalAddress,
-        partition_addr: address,
+        // partition_addr: address,
         sector: usize,
         byte_mask: mem_fetch::ByteMask,
         original_fetch: mem_fetch::MemFetch,
@@ -56,7 +56,7 @@ pub fn breakdown_request_to_sector_requests<'c>(
                 original_fetch: Some(Box::new(self.original_fetch.clone())),
                 access,
                 physical_addr: self.physical_addr,
-                partition_addr: self.partition_addr,
+                // partition_addr: self.partition_addr,
                 ..self.original_fetch
             }
         }
@@ -76,13 +76,13 @@ pub fn breakdown_request_to_sector_requests<'c>(
             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
             let addr = fetch.addr() + (sector_size * sector) as u64;
             let physical_addr = mem_controller.to_physical_address(addr);
-            let partition_addr = mem_controller.memory_partition_address(addr);
+            // let partition_addr = mem_controller.memory_partition_address(addr);
 
             let sector_fetch = SectorFetch {
                 sector,
                 addr,
                 physical_addr,
-                partition_addr,
+                // partition_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
                 // mem_controller: &*self.mem_controller,
@@ -101,13 +101,13 @@ pub fn breakdown_request_to_sector_requests<'c>(
             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
             let addr = fetch.addr();
             let physical_addr = mem_controller.to_physical_address(addr);
-            let partition_addr = mem_controller.memory_partition_address(addr);
+            // let partition_addr = mem_controller.memory_partition_address(addr);
 
             let sector_fetch = SectorFetch {
                 sector,
                 addr,
                 physical_addr,
-                partition_addr,
+                // partition_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
                 // mem_controller: &*self.mem_controller,
@@ -129,13 +129,13 @@ pub fn breakdown_request_to_sector_requests<'c>(
 
                 let addr = fetch.addr() + (sector_size * sector) as u64;
                 let physical_addr = mem_controller.to_physical_address(addr);
-                let partition_addr = mem_controller.memory_partition_address(addr);
+                // let partition_addr = mem_controller.memory_partition_address(addr);
 
                 let sector_fetch = SectorFetch {
                     sector,
                     addr,
                     physical_addr,
-                    partition_addr,
+                    // partition_addr,
                     byte_mask: fetch.access.byte_mask & byte_mask,
                     original_fetch: fetch.clone(),
                     // mem_controller: &*self.mem_controller,
@@ -226,9 +226,10 @@ impl MemorySubPartition {
                     let mut data_l2 = cache::DataL2::new(
                         format!("mem-sub-{:03}-{}", id, style("L2-CACHE").blue()),
                         id,
-                        partition_id,
+                        // partition_id,
                         cache_stats,
                         config.clone(),
+                        mem_controller.clone(),
                         l2_config.clone(),
                     );
                     data_l2.set_top_port(l2_to_dram_queue.clone());
@@ -399,6 +400,7 @@ impl MemorySubPartition {
     // }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+        let original_fetch = fetch.clone();
         let mut sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
             [(); NUM_SECTORS].map(|_| None);
 
@@ -454,10 +456,55 @@ impl MemorySubPartition {
             // }
         }
 
+        // for now we enforce sub partitions to stay consistent
+        // after breaking down to sector requests.
+        // As long as the requests are at most cache line size,
+        // that decision makes sense.
+        //
+        // Otherwise, one could move breakdown to sector requests
+        // out of the sub partition, as at this point it is too
+        // late to change the physical address to another
+        // sub partition.
+
+        let sector_sub_partitions: Vec<_> = sector_requests
+            .iter()
+            .filter_map(Option::as_ref)
+            .map(|sector| sector.sub_partition_id())
+            .collect();
+
+        assert!(
+            sector_sub_partitions
+                .iter()
+                .all(|sub_id| *sub_id == original_fetch.sub_partition_id()),
+            "breakdown {} (sub partition {}) to sectors resulted in different sub partitions {:?}",
+            original_fetch,
+            original_fetch.sub_partition_id(),
+            sector_sub_partitions,
+        );
+        assert!(
+            sector_sub_partitions
+                .iter()
+                .all(|sub_id| *sub_id == self.id),
+            "breakdown {} (sub partition {}) to sectors: sub partition {} has got requests for sub partitions {:?}",
+            original_fetch, original_fetch.sub_partition_id(), 
+            self.id,
+            sector_sub_partitions,
+        );
+
         for mut fetch in sector_requests
             .into_iter()
             .filter_map(|x: Option<mem_fetch::MemFetch>| x)
         {
+            // if fetch.addr() == 140157222135328 {
+            //     // fetch WRITE_REQUEST(GLOBAL_ACC_W@1+9760) with addr 140157222135328 goes to sub 2
+            //     // L2 #8 received READ_REQUEST(GLOBAL_ACC_R@1+9760) [addr=140157222135328] with destination 2 (addr gives 2)
+            //     log::error!(
+            //         "fetch {} with addr {} goes to sub {}",
+            //         fetch,
+            //         fetch.addr(),
+            //         fetch.sub_partition_id()
+            //     );
+            // }
             // println!(
             //     "sectored fetch: {} sector={} bytes={}",
             //     fetch,
@@ -655,6 +702,7 @@ impl MemorySubPartition {
         let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
         if !l2_to_dram_queue.full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first().map(Packet::as_ref) {
+                assert_eq!(fetch.sub_partition_id(), self.id);
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
                         // L2 is enabled and access is for L2
@@ -739,6 +787,7 @@ impl MemorySubPartition {
                     let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
 
+                    assert!(fetch.sub_partition_id() >= self.id);
                     l2_to_dram_queue.enqueue(fetch);
                 }
             }

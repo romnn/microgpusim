@@ -6,7 +6,7 @@ use std::sync::Arc;
 pub struct Options {
     pub mem_space: model::MemorySpace,
     pub name: Option<String>,
-    pub fill_l2: bool,
+    pub fill_l2: trace_model::command::L2Prefill,
 }
 
 impl Default for Options {
@@ -14,7 +14,7 @@ impl Default for Options {
         Self {
             mem_space: model::MemorySpace::Global,
             name: None,
-            fill_l2: true,
+            fill_l2: trace_model::command::L2Prefill::Auto,
         }
     }
 }

@@ -27,19 +27,19 @@ impl std::fmt::Debug for MemoryPartitionUnit {
 
 impl MemoryPartitionUnit {
     pub fn new(
-        id: usize,
+        partition_id: usize,
         config: Arc<config::GPU>,
         mem_controller: Arc<dyn mcu::MemoryController>,
         stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
-            .map(|i| {
-                let sub_id = id * num_sub_partitions + i;
+            .map(|local_sub_id| {
+                let global_sub_id = partition_id * num_sub_partitions + local_sub_id;
 
                 Arc::new(Mutex::new(MemorySubPartition::new(
-                    sub_id,
-                    id,
+                    global_sub_id,
+                    partition_id,
                     Arc::clone(&config),
                     Arc::clone(&mem_controller),
                     Arc::clone(&stats),
@@ -51,7 +51,7 @@ impl MemoryPartitionUnit {
         let arb_config: arbitration::Config = (&(*config)).into();
         let arbiter = Box::new(arbitration::ArbitrationUnit::new(&arb_config));
         Self {
-            id,
+            id: partition_id,
             config,
             stats,
             dram,
@@ -159,9 +159,17 @@ impl MemoryPartitionUnit {
                 );
 
                 let dest_global_spid = returned_fetch.sub_partition_id();
+                // dbg!(
+                //     &dest_global_spid,
+                //     self.id,
+                //     self.config.num_sub_partitions_per_memory_controller
+                // );
+                // assert!(dest_global_spid < self.sub_partitions.len());
                 let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
+                // assert!(dest_spid >= self.id);
+                // dbg!(&dest_spid);
                 let mut sub = self.sub_partitions[dest_spid].try_lock();
-                debug_assert_eq!(sub.id, dest_global_spid);
+                assert_eq!(sub.id, dest_global_spid);
 
                 // depending on which sub the fetch is for, we race for the sub
 
@@ -170,6 +178,7 @@ impl MemoryPartitionUnit {
                     // panic!("fyi: simple dram model stall");
                 } else {
                     let (_, mut returned_fetch) = self.dram_latency_queue.pop_front().unwrap();
+                    assert!(returned_fetch.sub_partition_id() >= self.id);
                     // dbg!(&returned_fetch);
                     // returned_fetch.set_reply();
 
@@ -266,6 +275,10 @@ impl MemoryPartitionUnit {
                     // );
                     let ready_cycle = cycle + self.config.dram_latency as u64;
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_DRAM_LATENCY_QUEUE, 0);
+
+                    // dbg!(self.id, sub.id, sub.partition_id);
+                    assert!(self.id <= sub.id);
+                    assert!(fetch.sub_partition_id() >= self.id, "fetch {}: sub partition from l2 to DRAM does no longer match (have {} but want >{})", fetch, fetch.sub_partition_id(), self.id);
                     self.dram_latency_queue.push_back((ready_cycle, fetch));
                     self.arbiter.borrow_credit(spid);
 

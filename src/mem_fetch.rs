@@ -201,6 +201,8 @@ pub mod access {
         pub is_write: bool,
         /// Requested number of bytes.
         pub req_size_bytes: u32,
+        /// Number of uncoalesced accesses corresponding to this access.
+        pub num_uncoalesced_accesses: usize,
         /// Access kind.
         pub kind: Kind,
         /// Warp active mask of the warp that issued this access.
@@ -275,6 +277,7 @@ pub mod access {
                 kernel_launch_id: self.kernel_launch_id,
                 is_write: self.is_write,
                 req_size_bytes: self.req_size_bytes,
+                num_uncoalesced_accesses: 1,
                 kind: self.kind,
                 warp_active_mask: self.warp_active_mask,
                 byte_mask: self.byte_mask,
@@ -299,11 +302,21 @@ pub mod access {
             self.allocation.as_ref().map(|alloc| alloc.id)
         }
 
-        // #[inline]
+        // // #[inline]
+        // #[deprecated = "this is not the place to compute transaction size"]
+        // #[must_use]
+        // pub fn num_transactions(&self) -> usize {
+        //     1
+        //     // let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
+        //     // (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
+        // }
+
         #[must_use]
-        pub fn num_transactions(&self) -> usize {
-            let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
-            (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
+        pub fn num_uncoalesced_accesses(&self) -> usize {
+            self.num_uncoalesced_accesses
+            // 1
+            // let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
+            // (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
         }
 
         #[must_use]
@@ -329,6 +342,12 @@ pub mod access {
 
         #[must_use]
         // #[inline]
+        pub fn num_bytes(&self) -> usize {
+            self.byte_mask.count_ones()
+        }
+
+        #[must_use]
+        // #[inline]
         pub fn data_size(&self) -> u32 {
             self.req_size_bytes
         }
@@ -347,7 +366,7 @@ pub struct MemFetch {
     pub access: access::MemAccess,
     pub instr: Option<WarpInstruction>,
     pub physical_addr: mcu::PhysicalAddress,
-    pub partition_addr: address,
+    // pub partition_addr: address,
     pub kind: Kind,
     pub warp_id: usize,
     pub core_id: Option<usize>,
@@ -442,7 +461,7 @@ impl From<&MemFetch> for stats::mem::Access {
             // access: access::MemAccess,
             // instr: Option<WarpInstruction>,
             physical_addr: fetch.physical_addr.clone().into(),
-            partition_addr: fetch.partition_addr,
+            // partition_addr: fetch.partition_addr,
             // kind: fetch.kind.into(),
             warp_id: fetch.warp_id,
             core_id: fetch.core_id,
@@ -468,7 +487,7 @@ pub struct Builder {
     pub core_id: Option<usize>,
     pub cluster_id: Option<usize>,
     pub physical_addr: mcu::PhysicalAddress,
-    pub partition_addr: address,
+    // pub partition_addr: address,
 }
 
 /// Generate a unique ID that can be used to identify fetch requests
@@ -492,7 +511,7 @@ impl Builder {
             core_id: self.core_id,
             cluster_id: self.cluster_id,
             physical_addr: self.physical_addr,
-            partition_addr: self.partition_addr,
+            // partition_addr: self.partition_addr,
             kind,
             status: Status::INITIALIZED,
             inject_cycle: None,

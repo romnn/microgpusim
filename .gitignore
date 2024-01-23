@@ -3,6 +3,7 @@
 .vscode/
 
 /debug
+/benchmarks/debug
 /results
 /notebooks
 /debug_results

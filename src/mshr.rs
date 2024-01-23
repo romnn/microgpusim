@@ -234,7 +234,6 @@ mod tests {
         // if we ever need to use real addresses
         let _mem_controller = mcu::MemoryControllerUnit::new(&config)?;
         let physical_addr = crate::mcu::PhysicalAddress::default();
-        let partition_addr = 0;
 
         let fetch = mem_fetch::Builder {
             instr: None,
@@ -243,7 +242,6 @@ mod tests {
             core_id: None,
             cluster_id: None,
             physical_addr,
-            partition_addr,
         }
         .build();
         let mshr_addr = cache_config.mshr_addr(fetch_addr);

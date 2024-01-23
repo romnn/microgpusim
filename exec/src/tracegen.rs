@@ -329,6 +329,12 @@ pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
     (value as f64 / multiple_of as f64).ceil() as u64 * multiple_of
 }
 
+/// Texture allocation byte alignment (cudaDeviceProp::textureAlignment)
+///
+/// Guaranteed to be 256B or greater.
+/// On Pascal GTX1080, its 512B.
+pub const ALIGNMENT_BYTES: u64 = 256;
+
 #[async_trait::async_trait]
 impl TraceGenerator for Tracer {
     type Error = TraceError;
@@ -345,10 +351,12 @@ impl TraceGenerator for Tracer {
         let mut offsets_lock = self.offsets.lock().await;
         let offset = &mut offsets_lock[options.mem_space as usize];
         let base_addr = options.mem_space.base_addr();
-        let addr = next_multiple(*offset, 512);
-        // cudaDeviceProp::textureAlignment is either 256 or 512, we choose 512
+        let addr = next_multiple(*offset, ALIGNMENT_BYTES);
         let num_bytes = value.size() as u64;
+
+        // align offset too
         *offset = addr + num_bytes;
+        *offset = next_multiple(*offset, ALIGNMENT_BYTES);
 
         self.commands
             .lock()

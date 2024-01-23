@@ -117,8 +117,13 @@ where
         let is_memory_node = self.num_subnets > 1 && dest_device >= self.num_cores;
         let subnet = usize::from(is_memory_node);
         log::debug!(
-            "{}: {size} bytes from device {src_device} to {dest_device} (subnet {subnet})",
+            "{}: {size} bytes from device {src_device} to {dest_device} ({}) (subnet {subnet})",
             style(format!("INTERCONN PUSH {packet}")).bold(),
+            if is_memory_node {
+                format!("subpartition={}", dest_device - self.num_cores)
+            } else {
+                format!("sm={}", dest_device)
+            },
         );
 
         *self.in_flight.write() += 1;

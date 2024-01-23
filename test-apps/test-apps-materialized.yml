@@ -2,7 +2,7 @@
 ##
 ## AUTO GENERATED! DO NOT EDIT
 ##
-## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 15/01/2024 16:13:04
+## this configuration was materialized from /home/roman/dev/box/test-apps/test-apps.yml on 22/01/2024 19:57:10
 ##
 
 config:
@@ -89,7 +89,7 @@ config:
     trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
     inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
     config_dir: /home/roman/dev/box/accelsim/gtx1080
-    config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+    config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
     inputs: {}
   playground_simulate:
     repetitions: 1
@@ -100,7 +100,7 @@ config:
     trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
     inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
     config_dir: /home/roman/dev/box/accelsim/gtx1080
-    config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+    config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
     inputs: {}
 benchmarks:
   Profile:
@@ -90613,7 +90613,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-simulate
     - name: vectorAdd
@@ -90642,7 +90642,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/accelsim-simulate
     - name: vectorAdd
@@ -90671,7 +90671,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/accelsim-simulate
     - name: vectorAdd
@@ -90700,7 +90700,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/accelsim-simulate
     - name: vectorAdd
@@ -90729,7 +90729,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100000/accelsim-simulate
     - name: vectorAdd
@@ -90758,7 +90758,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-simulate
     - name: vectorAdd
@@ -90787,7 +90787,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100/accelsim-simulate
     - name: vectorAdd
@@ -90816,7 +90816,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-1000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-1000/accelsim-simulate
     - name: vectorAdd
@@ -90845,7 +90845,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-10000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-10000/accelsim-simulate
     - name: vectorAdd
@@ -90874,7 +90874,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-simulate
     - name: vectorAdd
@@ -90903,7 +90903,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100000/accelsim-simulate
     - name: vectorAdd
@@ -90932,7 +90932,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-simulate
     simple_matrixmul:
@@ -90966,7 +90966,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -90999,7 +90999,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91032,7 +91032,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91065,7 +91065,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91098,7 +91098,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91131,7 +91131,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91164,7 +91164,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91197,7 +91197,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91230,7 +91230,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91263,7 +91263,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91296,7 +91296,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91329,7 +91329,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91362,7 +91362,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91395,7 +91395,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91428,7 +91428,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91461,7 +91461,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91494,7 +91494,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91527,7 +91527,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91560,7 +91560,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91593,7 +91593,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91626,7 +91626,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91659,7 +91659,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91692,7 +91692,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91725,7 +91725,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91758,7 +91758,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-simulate
     - name: simple_matrixmul
@@ -91791,7 +91791,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-simulate
     - name: simple_matrixmul
@@ -91824,7 +91824,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-simulate
     - name: simple_matrixmul
@@ -91857,7 +91857,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-512-n-32-p-512/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-512-n-32-p-512/accelsim-simulate
     - name: simple_matrixmul
@@ -91890,7 +91890,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-512-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-512-p-128/accelsim-simulate
     matrixmul:
@@ -91920,7 +91920,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-simulate
     - name: matrixmul
@@ -91949,7 +91949,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-simulate
     - name: matrixmul
@@ -91978,7 +91978,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-simulate
     - name: matrixmul
@@ -92007,7 +92007,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-simulate
     - name: matrixmul
@@ -92036,7 +92036,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-512/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-512/accelsim-simulate
     transpose:
@@ -92069,7 +92069,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-naive/accelsim-simulate
     - name: transpose
@@ -92101,7 +92101,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-coalesced/accelsim-simulate
     - name: transpose
@@ -92133,7 +92133,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-simulate
     - name: transpose
@@ -92165,7 +92165,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-simulate
     - name: transpose
@@ -92197,7 +92197,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-simulate
     - name: transpose
@@ -92229,7 +92229,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-simulate
     babelstream:
@@ -92260,7 +92260,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-simulate
     - name: babelstream
@@ -92290,7 +92290,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-simulate
     - name: babelstream
@@ -92320,7 +92320,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-simulate
   PlaygroundSimulate:
@@ -92351,7 +92351,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100/playground-simulate
     - name: vectorAdd
@@ -92380,7 +92380,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-1000/playground-simulate
     - name: vectorAdd
@@ -92409,7 +92409,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-10000/playground-simulate
     - name: vectorAdd
@@ -92438,7 +92438,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-20000/playground-simulate
     - name: vectorAdd
@@ -92467,7 +92467,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-100000/playground-simulate
     - name: vectorAdd
@@ -92496,7 +92496,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-32-length-500000/playground-simulate
     - name: vectorAdd
@@ -92525,7 +92525,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100/playground-simulate
     - name: vectorAdd
@@ -92554,7 +92554,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-1000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-1000/playground-simulate
     - name: vectorAdd
@@ -92583,7 +92583,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-10000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-10000/playground-simulate
     - name: vectorAdd
@@ -92612,7 +92612,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-20000/playground-simulate
     - name: vectorAdd
@@ -92641,7 +92641,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-100000/playground-simulate
     - name: vectorAdd
@@ -92670,7 +92670,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/accelsim-trace
         stats_dir: /home/roman/dev/box/results/vectorAdd/vectorAdd-dtype-64-length-500000/playground-simulate
     simple_matrixmul:
@@ -92704,7 +92704,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-32/playground-simulate
     - name: simple_matrixmul
@@ -92737,7 +92737,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-64/playground-simulate
     - name: simple_matrixmul
@@ -92770,7 +92770,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-32-p-128/playground-simulate
     - name: simple_matrixmul
@@ -92803,7 +92803,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-32/playground-simulate
     - name: simple_matrixmul
@@ -92836,7 +92836,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-64/playground-simulate
     - name: simple_matrixmul
@@ -92869,7 +92869,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-64-p-128/playground-simulate
     - name: simple_matrixmul
@@ -92902,7 +92902,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-32/playground-simulate
     - name: simple_matrixmul
@@ -92935,7 +92935,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-64/playground-simulate
     - name: simple_matrixmul
@@ -92968,7 +92968,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-32-n-128-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93001,7 +93001,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93034,7 +93034,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93067,7 +93067,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-32-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93100,7 +93100,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93133,7 +93133,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93166,7 +93166,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-64-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93199,7 +93199,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93232,7 +93232,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93265,7 +93265,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-64-n-128-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93298,7 +93298,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93331,7 +93331,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93364,7 +93364,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-32-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93397,7 +93397,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93430,7 +93430,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93463,7 +93463,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-64-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93496,7 +93496,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-32/playground-simulate
     - name: simple_matrixmul
@@ -93529,7 +93529,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-64/playground-simulate
     - name: simple_matrixmul
@@ -93562,7 +93562,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-128-p-128/playground-simulate
     - name: simple_matrixmul
@@ -93595,7 +93595,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-512-n-32-p-512/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-512-n-32-p-512/playground-simulate
     - name: simple_matrixmul
@@ -93628,7 +93628,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-512-p-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/simple_matrixmul/simple_matrixmul-dtype-32-m-128-n-512-p-128/playground-simulate
     matrixmul:
@@ -93658,7 +93658,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-32/playground-simulate
     - name: matrixmul
@@ -93687,7 +93687,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-64/playground-simulate
     - name: matrixmul
@@ -93716,7 +93716,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-128/playground-simulate
     - name: matrixmul
@@ -93745,7 +93745,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-256/playground-simulate
     - name: matrixmul
@@ -93774,7 +93774,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-512/accelsim-trace
         stats_dir: /home/roman/dev/box/results/matrixmul/matrixmul-dtype-32-rows-512/playground-simulate
     transpose:
@@ -93807,7 +93807,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-naive/playground-simulate
     - name: transpose
@@ -93839,7 +93839,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-128-repeat-1-variant-coalesced/playground-simulate
     - name: transpose
@@ -93871,7 +93871,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-naive/playground-simulate
     - name: transpose
@@ -93903,7 +93903,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-256-repeat-1-variant-coalesced/playground-simulate
     - name: transpose
@@ -93935,7 +93935,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-naive/playground-simulate
     - name: transpose
@@ -93967,7 +93967,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/accelsim-trace
         stats_dir: /home/roman/dev/box/results/transpose/transpose-dim-512-repeat-1-variant-coalesced/playground-simulate
     babelstream:
@@ -93998,7 +93998,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-1024/playground-simulate
     - name: babelstream
@@ -94028,7 +94028,7 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-10240/playground-simulate
     - name: babelstream
@@ -94058,6 +94058,6 @@ benchmarks:
         trace_config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.trace.config
         inter_config: /home/roman/dev/box/accelsim/gtx1080/config_pascal_islip.icnt
         config_dir: /home/roman/dev/box/accelsim/gtx1080
-        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.config
+        config: /home/roman/dev/box/accelsim/gtx1080/gpgpusim.original.config
         traces_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/accelsim-trace
         stats_dir: /home/roman/dev/box/results/babelstream/babelstream-size-102400/playground-simulate

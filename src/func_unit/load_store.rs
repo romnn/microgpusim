@@ -109,7 +109,8 @@ enum MemStageStallKind {
 }
 
 impl LoadStoreUnit {
-    pub fn new<MC>(
+    // pub fn new<MC>(
+    pub fn new(
         id: usize,
         core_id: usize,
         cluster_id: usize,
@@ -118,12 +119,12 @@ impl LoadStoreUnit {
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
-        // mem_controller: Arc<dyn mcu::MemoryController>,
-        mem_controller: MC,
+        mem_controller: Arc<dyn mcu::MemoryController>,
+        // mem_controller: MC,
         stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self
-    where
-        MC: mcu::MemoryController + Clone,
+// where
+    //     MC: mcu::MemoryController + Clone,
     {
         let pipeline_depth = config.shared_memory_latency;
         let inner = fu::PipelinedSimdUnit::new(
@@ -156,7 +157,7 @@ impl LoadStoreUnit {
                 );
 
                 let mut data_cache: cache::data::Data<
-                    MC,
+                    // MC,
                     // Arc<dyn mcu::MemoryController>,
                     cache::controller::pascal::L1DataCacheController,
                     stats::cache::PerKernel,
@@ -166,8 +167,8 @@ impl LoadStoreUnit {
                         "ldst-unit-{cluster_id}-{core_id}-{}",
                         style("L1D-CACHE").green()
                     ),
-                    // core_id,
-                    // cluster_id,
+                    id,
+                    kind: cache::base::Kind::OnChip,
                     stats: cache_stats,
                     config: Arc::clone(&config),
                     mem_controller: mem_controller.clone(),
@@ -568,16 +569,10 @@ impl LoadStoreUnit {
                 let instr = self.inner.dispatch_reg.as_mut().unwrap();
                 let access = instr.mem_access_queue.pop_back().unwrap();
 
-                let physical_addr = self
-                    // .config
-                    // .address_mapping()
-                    .mem_controller
-                    .to_physical_address(access.addr);
-                let partition_addr = self
-                    // .config
-                    // .address_mapping()
-                    .mem_controller
-                    .memory_partition_address(access.addr);
+                let physical_addr = self.mem_controller.to_physical_address(access.addr);
+                // let partition_addr = self
+                //     .mem_controller
+                //     .memory_partition_address(access.addr);
 
                 let fetch = mem_fetch::Builder {
                     instr: Some(instr.clone()),
@@ -586,7 +581,7 @@ impl LoadStoreUnit {
                     core_id: Some(self.core_id),
                     cluster_id: Some(self.cluster_id),
                     physical_addr,
-                    partition_addr,
+                    // partition_addr,
                 }
                 .build();
 
@@ -691,7 +686,7 @@ impl LoadStoreUnit {
                     let access = instr.mem_access_queue.pop_back().unwrap();
 
                     let physical_addr = self.mem_controller.to_physical_address(access.addr);
-                    let partition_addr = self.mem_controller.memory_partition_address(access.addr);
+                    // let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
                     let mut fetch = mem_fetch::Builder {
                         instr: Some(instr.clone()),
@@ -700,7 +695,7 @@ impl LoadStoreUnit {
                         core_id: Some(self.core_id),
                         cluster_id: Some(self.cluster_id),
                         physical_addr,
-                        partition_addr,
+                        // partition_addr,
                     }
                     .build();
                     // println!(
@@ -756,7 +751,7 @@ impl LoadStoreUnit {
             stall_cond
         } else {
             let physical_addr = self.mem_controller.to_physical_address(access.addr);
-            let partition_addr = self.mem_controller.memory_partition_address(access.addr);
+            // let partition_addr = self.mem_controller.memory_partition_address(access.addr);
 
             let fetch = mem_fetch::Builder {
                 instr: Some(instr.clone()),
@@ -765,7 +760,7 @@ impl LoadStoreUnit {
                 core_id: Some(self.core_id),
                 cluster_id: Some(self.cluster_id),
                 physical_addr,
-                partition_addr,
+                // partition_addr,
             }
             .build();
             let mut events = Vec::new();
