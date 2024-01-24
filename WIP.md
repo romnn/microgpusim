@@ -67,7 +67,6 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
   - today
 
-    - commit and fix compilation on das and on CI
     - collect traces on das5 titanx
     - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
 
@@ -100,6 +99,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - DONE:
 
+  - DONE: commit and fix compilation on das and on CI
   - FAILED: add the microbenchmarks from the fractional gpu paper and make them work with virtual addresses
   - DONE: transpose: why is there no write hit rate?
     - DONE: benchmarks using shared mem: babelstream, transpose

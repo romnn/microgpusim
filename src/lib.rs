@@ -1351,7 +1351,7 @@ where
         for trace_model::command::MemAlloc {
             allocation_name,
             device_ptr,
-            mut num_bytes,
+            num_bytes,
             fill_l2,
         } in allocations.clone().into_iter().rev()
         {
@@ -1420,14 +1420,35 @@ where
             let should_prefill = if allocations.len() == 1 {
                 // for a single allocation, go all in
                 // cache_bytes_used + num_bytes
-                percent <= 100.0
+                true
+                // percent <= 100.0
             } else {
                 // percent <= l2_prefetch_percent
                 // should be less than 75 percent
                 percent <= 60.0
             };
 
-            num_bytes = num_bytes.min((2.5 * crate::config::MB as f32) as u64);
+            let alignment = crate::exec::tracegen::ALIGNMENT_BYTES;
+
+            // take the last 2.5 MB only
+            let valid_num_bytes = num_bytes.min((2.5 * crate::config::MB as f32) as u64);
+            let end_addr = utils::next_multiple(device_ptr + num_bytes, alignment);
+            assert!(
+                end_addr % alignment == 0,
+                "end address {} for allocation {} is not {} aligned",
+                allocation_id,
+                end_addr,
+                human_bytes::human_bytes(alignment as f32),
+            );
+            let start_addr = end_addr.saturating_sub(valid_num_bytes);
+            let start_addr = utils::next_multiple(start_addr, alignment);
+            assert!(
+                start_addr % alignment == 0,
+                "start address {} for allocation {} is not {} aligned",
+                allocation_id,
+                start_addr,
+                human_bytes::human_bytes(alignment as f32),
+            );
 
             // what does it take to make LRU miss all sets when going over capacity
             // 12 partitions *128 sets * 128B line/1024 = 129KB
@@ -1437,8 +1458,8 @@ where
             let disabled = fill_l2 == trace_model::command::L2Prefill::NoPrefill;
 
             if force_fill || (!disabled && should_prefill) {
-                valid_prefill_memcopies.push((device_ptr, num_bytes, allocation_id));
-                cache_bytes_used += num_bytes;
+                valid_prefill_memcopies.push((start_addr, valid_num_bytes, allocation_id));
+                cache_bytes_used += valid_num_bytes;
             }
         }
 
@@ -1887,7 +1908,7 @@ where
                         .allocations
                         .read()
                         .iter()
-                        .find(|(_, alloc)| alloc.start_addr == addr)
+                        .find(|(_, alloc)| alloc.contains(addr))
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
 
@@ -1907,7 +1928,8 @@ where
                     // let should_prefetch = false;
                     // let should_prefetch = allocation_id != 3;
 
-                    let max_bytes = num_bytes.min(l2_cache_size_bytes as u64);
+                    let max_bytes = num_bytes;
+                    // let max_bytes = num_bytes.min(l2_cache_size_bytes as u64);
                     let percent = (max_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     if num_bytes > 64 {

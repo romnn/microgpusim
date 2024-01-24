@@ -9,6 +9,7 @@ color-eyre = "0"
 thiserror = "1"
 glob = "0"
 async-process = "1"
+pathdiff = "0"
 libc = "0"
 
 parse-size = { version = "1", features = ["std"] }

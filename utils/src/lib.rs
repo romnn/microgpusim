@@ -158,3 +158,20 @@ pub fn visible_characters(text: &str) -> usize {
     };
     stripped.graphemes(true).count()
 }
+
+pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
+    (value as f64 / multiple_of as f64).ceil() as u64 * multiple_of
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_next_multiple() {
+        assert_eq!(super::next_multiple(1, 512), 512);
+        assert_eq!(super::next_multiple(512, 512), 512);
+        assert_eq!(super::next_multiple(513, 512), 1024);
+        assert_eq!(super::next_multiple(0, 512), 0);
+        assert_eq!(super::next_multiple(1024, 512), 1024);
+        assert_eq!(super::next_multiple(1023, 512), 1024);
+    }
+}

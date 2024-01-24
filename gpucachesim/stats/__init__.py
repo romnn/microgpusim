@@ -40,6 +40,7 @@ from gpucachesim.benchmarks import (
 # pd.options.display.float_format = "{:.3f}".format
 pd.options.display.float_format = "{:.2f}".format
 pd.set_option("display.max_rows", 500)
+pd.set_option('future.no_silent_downcasting', True)
 # pd.set_option("display.max_columns", 500)
 # pd.set_option("max_colwidth", 2000)
 # pd.set_option("display.expand_frame_repr", False)
@@ -2797,7 +2798,8 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
             "input_cores_per_cluster": 1,
         },
     }
-    stats_df = stats_df.fillna(fill)
+
+    stats_df = stats_df.fillna(fill).infer_objects(copy=False)
     assert stats_df["run"].isna().sum() == 0
 
     def add_no_kernel_exec_time(df):
@@ -2826,6 +2828,7 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
     group_cols = [col for col in group_cols if col in stats_df]
     stats_df = (
         stats_df.groupby(group_cols, dropna=False)
+        [stats_df.columns]
         .apply(add_no_kernel_exec_time)
         .reset_index(drop=True)
     )
@@ -3090,6 +3093,64 @@ def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
     return stat_cols
 
 
+def table_stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
+    stat_cols = [
+        # "num_blocks",
+        # "mean_blocks_per_sm",
+        # "input_id",
+        # execution time
+        "exec_time_sec",
+        # cycles
+        "cycles",
+        # instructions
+        "instructions",
+    ]
+    
+    if profiler == "nvprof":
+        # nvprof
+        stat_cols += [
+            # l1 accesses
+            "l1_accesses",
+            "l1_global_hit_rate",
+            # l2 reads
+            "l2_read_hits",
+            "l2_read_hit_rate",
+            # l2 writes
+            "l2_write_hits",
+            "l2_write_hit_rate",
+
+            # "l2_hit_rate",
+            # "l2_hits",
+            # "l2_misses",
+            # "l1_reads",
+            # "l1_misses",
+            # "l1_hit_rate",
+            # "l1_local_hit_rate",
+        ]
+    else:
+        # nsight
+        stat_cols += [
+            "l1_hit_rate",
+            "l2_hits",
+            "l2_misses",
+            "l2_hit_rate",
+        ]
+
+    stat_cols += [
+        # dram stats
+        "dram_reads",
+        "dram_writes",
+        # l2 stats
+        # "l2_accesses",
+        # "l2_reads",
+        # "l2_writes",
+    ]
+
+    new_cols = set(stat_cols) - set(stat_cols_for_profiler(profiler))
+    assert len(new_cols) == 0
+    return stat_cols
+
+
 class StatConfig(typing.NamedTuple):
     label: str
     log_y_axis: bool
@@ -3320,7 +3381,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         as_index=False,
         dropna=False,
     )
-    rows_per_config_grouper.apply(_inspect)
+    rows_per_config_grouper[per_config.columns].apply(_inspect)
     rows_per_config = rows_per_config_grouper.size()
 
     # print(rows_per_config)
@@ -3440,7 +3501,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
 
         stat_cols = df.columns.get_level_values(0)
         stat_cols = dedup_and_count(stat_cols.values)
-        print(stat_cols)
+        print("stat cols:", stat_cols)
 
         round_to = 1
 
@@ -3541,11 +3602,12 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         table += r"\end{table}" + "\n"
         return table
 
-    table_stat_cols = [
-        col
-        for col in stat_cols_for_profiler(profiler)
-        if col not in ["input_id", "mean_blocks_per_sm", "l1_local_hit_rate", "l1_hit_rate"]
-    ]
+    table_stat_cols = table_stat_cols_for_profiler(profiler)
+    # table_stat_cols = [
+    #     col
+    #     for col in table_stat_cols_for_profiler(profiler)
+    #     if col not in ["input_id", "mean_blocks_per_sm", "l1_local_hit_rate", "l1_hit_rate"]
+    # ]
 
     # filter benchmarks that should be plotted
     selected_table_benchmarks = [

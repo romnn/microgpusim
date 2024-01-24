@@ -12,6 +12,14 @@ pub struct Allocation {
 }
 
 impl Allocation {
+    pub fn contains(&self, addr: address) -> bool {
+        let end_addr = self
+            .end_addr
+            .unwrap_or(self.start_addr)
+            .max(self.start_addr);
+        (self.start_addr..end_addr).contains(&addr)
+    }
+
     pub fn num_bytes(&self) -> u64 {
         self.end_addr
             .and_then(|end_addr| end_addr.checked_sub(self.start_addr))

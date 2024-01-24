@@ -405,10 +405,10 @@ macro_rules! __assert_eq {
                     //     SimpleDiff,
                     // };
 
-                    let mut left_val_tup1 = (&left_val,);
-                    let mut right_val_tup1 = (&right_val,);
-                    let mut left_val_tup2 = (&left_val,);
-                    let mut right_val_tup2 = (&right_val,);
+                    let left_val_tup1 = (&left_val,);
+                    let right_val_tup1 = (&right_val,);
+                    let left_val_tup2 = (&left_val,);
+                    let right_val_tup2 = (&right_val,);
                     let left_short = left_val_tup1.print_object(PrintMode::Default);
                     let right_short = right_val_tup1.print_object(PrintMode::Default);
                     let left_expanded = left_val_tup2.print_object(PrintMode::Expanded);

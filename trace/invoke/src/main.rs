@@ -1,5 +1,6 @@
 use clap::{CommandFactory, Parser};
 use color_eyre::eyre;
+use once_cell::sync::Lazy;
 use std::path::PathBuf;
 
 const HELP_TEMPLATE: &str = "{bin} {version} {author}
@@ -11,12 +12,17 @@ USAGE: {usage}
 {all-args}
 ";
 
-const USAGE: &str = "./trace [OPTIONS] -- <executable> [args]";
+static USAGE: Lazy<String> = Lazy::new(|| {
+    format!(
+        "{} [OPTIONS] -- <executable> [args]",
+        env!("CARGO_BIN_NAME")
+    )
+});
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
     help_template=HELP_TEMPLATE,
-    override_usage=USAGE,
+    override_usage=USAGE.to_string(),
     version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown"),
     about = "trace CUDA applications",
     author = "romnn <contact@romnn.com>",
@@ -26,16 +32,25 @@ pub struct Options {
     pub traces_dir: Option<PathBuf>,
     #[clap(long = "tracer", help = "path to tracer (e.g. libtrace.so)")]
     pub tracer: Option<PathBuf>,
+
+    #[clap(
+        long = "skip-kernel-prefixes",
+        help = "skip tracing kernels matching prefix"
+    )]
+    pub skip_kernel_prefixes: Vec<String>,
+
     #[clap(
         long = "save-json",
-        help = "whether to also save JSON traces (default: false)"
+        help = "save JSON traces in addition to msgpack traces"
     )]
     pub save_json: bool,
+
     #[clap(
         long = "full-trace",
-        help = "trace all instructions, including non-memory instructions (default: false)"
+        help = "trace all instructions, including non-memory instructions"
     )]
     pub full_trace: bool,
+
     #[clap(
         long = "validate",
         help = "perform validation on the traces after collection"
@@ -80,11 +95,17 @@ async fn main() -> eyre::Result<()> {
 
     let Options {
         traces_dir,
+        mut skip_kernel_prefixes,
         save_json,
         full_trace,
         validate,
         tracer,
     } = options;
+
+    // trim prefixes
+    for prefix in skip_kernel_prefixes.iter_mut() {
+        *prefix = prefix.trim().to_string();
+    }
 
     let temp_dir = tempfile::tempdir()?;
     let traces_dir = traces_dir
@@ -103,7 +124,7 @@ async fn main() -> eyre::Result<()> {
         traces_dir,
         save_json,
         full_trace,
-        skip_kernel_prefixes: vec![],
+        skip_kernel_prefixes,
         validate,
         tracer_so,
     };

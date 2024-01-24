@@ -325,10 +325,6 @@ impl Tracer {
     }
 }
 
-pub fn next_multiple(value: u64, multiple_of: u64) -> u64 {
-    (value as f64 / multiple_of as f64).ceil() as u64 * multiple_of
-}
-
 /// Texture allocation byte alignment (cudaDeviceProp::textureAlignment)
 ///
 /// Guaranteed to be 256B or greater.
@@ -351,12 +347,12 @@ impl TraceGenerator for Tracer {
         let mut offsets_lock = self.offsets.lock().await;
         let offset = &mut offsets_lock[options.mem_space as usize];
         let base_addr = options.mem_space.base_addr();
-        let addr = next_multiple(*offset, ALIGNMENT_BYTES);
+        let addr = utils::next_multiple(*offset, ALIGNMENT_BYTES);
         let num_bytes = value.size() as u64;
 
         // align offset too
         *offset = addr + num_bytes;
-        *offset = next_multiple(*offset, ALIGNMENT_BYTES);
+        *offset = utils::next_multiple(*offset, ALIGNMENT_BYTES);
 
         self.commands
             .lock()
@@ -1445,16 +1441,6 @@ mod tests {
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );
         Ok(())
-    }
-
-    #[test]
-    fn test_next_multiple() {
-        assert_eq!(super::next_multiple(1, 512), 512);
-        assert_eq!(super::next_multiple(512, 512), 512);
-        assert_eq!(super::next_multiple(513, 512), 1024);
-        assert_eq!(super::next_multiple(0, 512), 0);
-        assert_eq!(super::next_multiple(1024, 512), 1024);
-        assert_eq!(super::next_multiple(1023, 512), 1024);
     }
 
     #[test]

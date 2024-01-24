@@ -326,8 +326,8 @@ impl<'c> Instrumentor<'c> {
             let ctx = &mut self.ctx.lock().unwrap();
             let mut kernel_id = self.kernel_id.lock().unwrap();
 
-            let shmem_static_nbytes =
-                u32::try_from(func.shared_memory_bytes().unwrap_or_default()).unwrap();
+            let shmem_static_nbytes = func.shared_memory_bytes().unwrap_or_default();
+            let shmem_static_nbytes = u32::try_from(shmem_static_nbytes).unwrap_or_default();
             let func_name_mangled = func.mangled_name(ctx);
             let func_name_unmangled = func.unmangled_name(ctx);
             let _pc = func.addr();

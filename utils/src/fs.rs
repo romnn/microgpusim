@@ -197,3 +197,132 @@ pub fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
     }
     ret
 }
+
+pub trait PathExt {
+    #[must_use]
+    fn resolve<P>(&self, base: P) -> PathBuf
+    where
+        P: AsRef<Path>;
+
+    #[must_use]
+    fn relative_to<P>(&self, base: P) -> PathBuf
+    where
+        P: AsRef<Path>;
+
+    #[must_use]
+    fn normalize(&self) -> PathBuf;
+
+    fn try_normalize(&self) -> Result<PathBuf, std::io::Error>;
+}
+
+impl PathExt for Path {
+    // #[inline]
+    #[must_use]
+    fn resolve<P>(&self, base: P) -> PathBuf
+    where
+        P: AsRef<Path>,
+    {
+        if self.is_absolute() {
+            self.normalize()
+        } else {
+            base.as_ref().join(self).normalize()
+        }
+    }
+
+    // #[inline]
+    #[must_use]
+    fn relative_to<P>(&self, base: P) -> PathBuf
+    where
+        P: AsRef<Path>,
+    {
+        let rel_path: PathBuf =
+            pathdiff::diff_paths(self, base).unwrap_or_else(|| self.to_path_buf());
+        rel_path.normalize()
+    }
+
+    fn try_normalize(&self) -> Result<PathBuf, std::io::Error> {
+        Ok(normalize_path(self))
+    }
+
+    // #[inline]
+    #[must_use]
+    fn normalize(&self) -> PathBuf {
+        self.try_normalize().unwrap_or_else(|_| self.to_path_buf())
+    }
+}
+
+#[allow(clippy::unnecessary_wraps)]
+#[cfg(test)]
+mod tests {
+    use super::PathExt;
+    use crate::diff;
+    use color_eyre::eyre;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_path_normalize() -> eyre::Result<()> {
+        diff::assert_eq!(
+            have: PathBuf::from("/base/./vectoradd/vectoradd").try_normalize()?,
+            want: PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff::assert_eq!(
+            have: PathBuf::from("/base/../vectoradd/vectoradd").try_normalize()?,
+            want: PathBuf::from("/vectoradd/vectoradd")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_resolve_on_absolute_path() -> eyre::Result<()> {
+        let absolute_path = PathBuf::from("/base/vectoradd/vectoradd");
+        diff::assert_eq!(have: absolute_path.resolve("/another-base"), want: absolute_path);
+        diff::assert_eq!(have: absolute_path.resolve("test"), want: absolute_path);
+        diff::assert_eq!(have: absolute_path.resolve("../something"), want: absolute_path);
+        diff::assert_eq!(have: absolute_path.resolve(""), want: absolute_path);
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_resolve_absolute_base() -> eyre::Result<()> {
+        diff::assert_eq!(
+            have: PathBuf::from("./vectoradd/vectoradd").resolve("/base/"),
+            want: PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff::assert_eq!(
+            have: PathBuf::from("././vectoradd/vectoradd").resolve("/base"),
+            want: PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff::assert_eq!(
+            have: PathBuf::from("vectoradd/vectoradd").resolve("/base"),
+            want: PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        diff::assert_eq!(
+            have: PathBuf::from("vectoradd/vectoradd")
+                .resolve("/base")
+                .resolve("/base"),
+            want: PathBuf::from("/base/vectoradd/vectoradd")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_path_resolve_relative_base() -> eyre::Result<()> {
+        diff::assert_eq!(
+            have: PathBuf::from("./vectoradd/vectoradd").resolve("base/"),
+            want: PathBuf::from("base/vectoradd/vectoradd")
+        );
+        diff::assert_eq!(
+            have: PathBuf::from("././vectoradd/vectoradd").resolve("./base/test/"),
+            want: PathBuf::from("base/test/vectoradd/vectoradd")
+        );
+        // at the moment, we do not guard against possibly unwanted behaviour when resolving
+        // multiple times on the same relative path accidentally.
+        diff::assert_eq!(
+            have: PathBuf::from("vectoradd/vectoradd")
+                .resolve("base")
+                .resolve("base"),
+            want: PathBuf::from("base/base/vectoradd/vectoradd")
+        );
+        Ok(())
+    }
+}

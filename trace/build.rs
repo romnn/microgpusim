@@ -59,42 +59,50 @@ fn main() {
     }
     result.unwrap();
 
-    let instrumentation_function_name = "instrument_inst";
-    let version_script_path = nvbit_build::output_path().join(format!("{}.version", lib));
+    // use lld instead of ld to support multiple linker version scripts
+    if std::env::var("LINKER_VERSION_SCRIPTS")
+        .ok()
+        .as_deref()
+        .map(str::to_lowercase)
+        .unwrap_or_default()
+        == "yes"
     {
-        let version_script = format!(
-            r#"
+        let instrumentation_function_name = "instrument_inst";
+        let version_script_path = nvbit_build::output_path().join(format!("{}.version", lib));
+        {
+            let version_script = format!(
+                r#"
 Project_1.0 {{
     global:
         {};
 }};
     "#,
-            &instrumentation_function_name
+                &instrumentation_function_name
+            );
+            let mut version_script_file = std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .create(true)
+                .open(&version_script_path)
+                .unwrap();
+            use std::io::Write;
+            version_script_file
+                .write_all(version_script.as_bytes())
+                .unwrap();
+        }
+
+        println!("cargo:rustc-cdylib-link-arg=-fuse-ld=lld");
+
+        // use custom version script to export instrument inst in shared library
+        println!(
+            "cargo:rustc-cdylib-link-arg=-Wl,--version-script={}",
+            version_script_path.display()
         );
-        let mut version_script_file = std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(&version_script_path)
-            .unwrap();
-        use std::io::Write;
-        version_script_file
-            .write_all(version_script.as_bytes())
-            .unwrap();
+
+        // rename symbols to get around the anonymous version script
+        // println!(
+        //     "cargo:rustc-cdylib-link-arg=-Wl,--defsym={}={}",
+        //     instrumentation_function_name, instrumentation_function_name
+        // );
     }
-
-    // use lld instead of ld to support multiple linker version scripts
-    println!("cargo:rustc-cdylib-link-arg=-fuse-ld=lld");
-
-    // use custom version script to export instrument inst in shared library
-    println!(
-        "cargo:rustc-cdylib-link-arg=-Wl,--version-script={}",
-        version_script_path.display()
-    );
-
-    // rename symbols to get around the anonymous version script
-    // println!(
-    //     "cargo:rustc-cdylib-link-arg=-Wl,--defsym={}={}",
-    //     instrumentation_function_name, instrumentation_function_name
-    // );
 }

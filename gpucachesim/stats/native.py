@@ -700,6 +700,9 @@ class NvprofStats(common.Stats):
         self.result_df["num_warps"] = grouped["unique_warps_launched"].sum()
 
     def _compute_instructions(self):
+        # these give different results
+        # inst_executed: The number of instructions executed
+        # inst_issued: The number of instructions issued
         inst_cols = [
             "inst_fp_16",
             "inst_fp_32",
