@@ -1,6 +1,6 @@
+use crate::das::Das;
 use crate::Target;
 use clap::Parser;
-// use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Default, Clone)]
@@ -31,19 +31,34 @@ pub struct Profile {
     pub gpu: Option<String>,
 
     #[clap(long = "das", help = "das cluster to connect to")]
-    pub das: Option<usize>,
+    pub das: Option<Das>,
 
     #[clap(long = "repo", help = "path to remote repository")]
     pub remote_repo: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug, Default, Clone)]
-pub struct Trace {}
+pub struct Trace {
+    #[clap(long = "das", help = "das cluster to connect to")]
+    pub das: Option<Das>,
+
+    #[clap(long = "gpu", help = "gpu device to profile")]
+    pub gpu: Option<String>,
+
+    #[clap(long = "container", help = "local path to singularity container image")]
+    pub container_image: Option<PathBuf>,
+}
 
 #[derive(Parser, Debug, Default, Clone)]
 pub struct AccelsimTrace {
     #[clap(long = "save-json", help = "convert and save traces as JSON")]
     pub save_json: Option<bool>,
+
+    #[clap(long = "das", help = "das cluster to connect to")]
+    pub das: Option<Das>,
+
+    #[clap(long = "gpu", help = "gpu device to profile")]
+    pub gpu: Option<String>,
 }
 
 #[derive(Parser, Debug, Default, Clone)]

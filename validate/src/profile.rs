@@ -1,17 +1,15 @@
 use super::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 use crate::{
-    open_writable,
+    das, open_writable,
     options::{self, Options},
     RunError,
 };
 use color_eyre::{eyre, Help, SectionExt};
+use das::DAS;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use utils::fs::create_dirs;
-
-pub const DAS6_FORWARD_PORT: u16 = 2201;
-pub const DAS5_FORWARD_PORT: u16 = 2202;
 
 #[derive(Debug, Clone, Copy, strum::Display, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[strum(serialize_all = "lowercase")]
@@ -61,52 +59,19 @@ where
         .join(&job_name);
 
     // empty results dir
-    let delete_dir_cmd = format!("rm -rf {}", remote_profile_dir.display());
-    let _ = remote.run_command(delete_dir_cmd).await?;
+    remote.remove_dir(&remote_profile_dir).await.ok();
 
     // create results dir
-    let create_dir_cmd = format!("mkdir -p {}", remote_profile_dir.display());
-    let (exit_status, stdout, stderr) = remote.run_command(create_dir_cmd).await?;
-    if !stdout.is_empty() {
-        log::debug!("{}", stdout);
-    }
-    if !stderr.is_empty() {
-        log::error!("{}", stderr);
-    }
-    assert_eq!(exit_status, 0);
+    remote.create_dir_all(&remote_profile_dir).await?;
+
     Ok((job_name, remote_profile_dir))
 }
 
 #[async_trait::async_trait]
 trait ProfileDAS
 where
-    Self: remote::slurm::Client + remote::scp::Client + remote::Remote,
+    Self: remote::slurm::Client + remote::scp::Client + das::DAS + remote::Remote,
 {
-    fn remote_scratch_dir(&self) -> PathBuf {
-        PathBuf::from("/var/scratch").join(self.username())
-    }
-
-    async fn read_remote_file(
-        &self,
-        remote_path: &Path,
-        allow_empty: bool,
-    ) -> eyre::Result<String> {
-        use tokio::io::AsyncReadExt;
-        // wait for file to become available
-        self.wait_for_file(
-            remote_path,
-            std::time::Duration::from_secs(2),
-            allow_empty,
-            Some(20),
-        )
-        .await?;
-        let (mut stream, stat) = self.download_file(remote_path).await?;
-        assert!(allow_empty || stat.size() > 0);
-        let mut content = String::new();
-        stream.read_to_string(&mut content).await?;
-        Ok(content)
-    }
-
     async fn profile_nvprof<A>(
         &self,
         gpu: &str,
@@ -133,7 +98,7 @@ where
 #[async_trait::async_trait]
 impl<T> ProfileDAS for T
 where
-    T: remote::slurm::Client + remote::Remote + remote::scp::Client + Sync,
+    T: remote::slurm::Client + das::DAS + remote::Remote + remote::scp::Client + Sync,
 {
     async fn profile_nsight<A>(
         &self,
@@ -356,38 +321,6 @@ where
     }
 }
 
-async fn connect_das(profile_options: &options::Profile) -> eyre::Result<remote::SSHClient> {
-    let use_das6 = profile_options.das == Some(6);
-    let port = if use_das6 {
-        DAS6_FORWARD_PORT
-    } else {
-        DAS5_FORWARD_PORT
-    };
-    let host = "localhost".to_string();
-    let username = std::env::var(if use_das6 {
-        "DAS6_USERNAME"
-    } else {
-        "DAS5_USERNAME"
-    })
-    .ok()
-    .ok_or(eyre::eyre!("missing ssh username"))?;
-    let password = std::env::var(if use_das6 {
-        "DAS6_PASSWORD"
-    } else {
-        "DAS5_PASSWORD"
-    })
-    .ok()
-    .ok_or(eyre::eyre!("missing ssh password"))?;
-
-    let addr = std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
-        .map_err(eyre::Report::from)?
-        .next()
-        .ok_or(eyre::eyre!("failed to resolve {}:{}", host, port))?;
-    let das = remote::SSHClient::connect(addr, username, password).await?;
-    log::info!("connected to {}", addr);
-    Ok(das)
-}
-
 pub async fn profile(
     bench: &BenchmarkConfig,
     options: &Options,
@@ -413,8 +346,11 @@ pub async fn profile(
 
     create_dirs(profile_dir).map_err(eyre::Report::from)?;
 
-    let remote = if let Some(ref gpu) = profile_options.gpu {
-        Some((gpu, connect_das(profile_options).await?))
+    let remote = if let (Some(das), Some(gpu)) = (&profile_options.das, &profile_options.gpu) {
+        // let das = profile_options.das.connect();
+        // let das = crate::remote::Das
+        // // (profile_options.das).await?))
+        Some((gpu, das.connect().await?))
     } else {
         None
     };

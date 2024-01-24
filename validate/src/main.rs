@@ -16,8 +16,8 @@ use indicatif::ProgressBar;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
+use utils::fs::PathExt;
 use validate::{
-    benchmark::paths::PathExt,
     materialized::{self, BenchmarkConfig, Benchmarks},
     options::{self, Command, Options},
     Target,

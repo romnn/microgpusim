@@ -3,12 +3,13 @@ pub mod value;
 
 pub use config::{Config, GenericBenchmark as GenericBenchmarkConfig};
 
-use super::{benchmark::paths::PathExt, template::Render, Error, Target};
+use super::{template::Render, Error, Target};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use utils::fs::PathExt;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum TargetBenchmarkConfig {

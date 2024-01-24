@@ -1,6 +1,7 @@
-use crate::{benchmark::paths::PathExt, template, Error, Target};
+use crate::{template, Error, Target};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use utils::fs::PathExt;
 
 #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct GenericBenchmark {

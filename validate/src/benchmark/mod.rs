@@ -1,5 +1,4 @@
 pub mod matrix;
-pub mod paths;
 pub mod template;
 
 pub use matrix::Input;

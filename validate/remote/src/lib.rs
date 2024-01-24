@@ -1,5 +1,5 @@
 use color_eyre::eyre;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 type AsyncSession = async_ssh2_lite::AsyncSession<async_ssh2_lite::TokioTcpStream>;
 
@@ -36,6 +36,8 @@ impl SSHClient {
 #[async_trait::async_trait]
 pub trait Remote {
     fn username(&self) -> &str;
+
+    fn session(&self) -> &AsyncSession;
 
     /// Wait for file to become available at remote path.
     async fn wait_for_file(
@@ -88,6 +90,14 @@ pub trait Remote {
         &self,
         command: impl AsRef<str> + Send + Sync,
     ) -> eyre::Result<(i32, String, String)>;
+
+    async fn create_dir_all(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()>;
+
+    async fn remove_dir(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()>;
+
+    async fn remove_file(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()>;
+
+    async fn read_dir(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<Vec<PathBuf>>;
 }
 
 // #[derive(thiserror::Error, Debug)]
@@ -102,6 +112,10 @@ pub trait Remote {
 impl Remote for SSHClient {
     fn username(&self) -> &str {
         &self.username
+    }
+
+    fn session(&self) -> &AsyncSession {
+        &self.session
     }
 
     async fn run_command(
@@ -124,6 +138,58 @@ impl Remote for SSHClient {
             stdout_buffer.trim().to_string(),
             stderr_buffer.trim().to_string(),
         ))
+    }
+
+    async fn remove_dir(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()> {
+        let remove_dir_cmd = format!("rm -rf {}", path.as_ref().display());
+        let (exit_status, stdout, stderr) = self.run_command(&remove_dir_cmd).await?;
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::error!("{}", stderr);
+        }
+        if exit_status == 0 {
+            Ok(())
+        } else {
+            Err(eyre::eyre!(
+                "command {} failed with code {}",
+                remove_dir_cmd,
+                exit_status
+            ))
+        }
+    }
+
+    async fn remove_file(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()> {
+        let channel = self.session().sftp().await?;
+        channel.unlink(path.as_ref()).await?;
+        Ok(())
+    }
+
+    async fn create_dir_all(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<()> {
+        let create_dir_cmd = format!("mkdir -p {}", path.as_ref().display());
+        let (exit_status, stdout, stderr) = self.run_command(&create_dir_cmd).await?;
+        if !stdout.is_empty() {
+            log::debug!("{}", stdout);
+        }
+        if !stderr.is_empty() {
+            log::error!("{}", stderr);
+        }
+        if exit_status == 0 {
+            Ok(())
+        } else {
+            Err(eyre::eyre!(
+                "command {} failed with code {}",
+                create_dir_cmd,
+                exit_status
+            ))
+        }
+    }
+
+    async fn read_dir(&self, path: impl AsRef<Path> + Send + Sync) -> eyre::Result<Vec<PathBuf>> {
+        let channel = self.session().sftp().await?;
+        let dir_contents = channel.readdir(path.as_ref()).await?;
+        Ok(dir_contents.into_iter().map(|(path, _)| path).collect())
     }
 }
 
@@ -368,6 +434,20 @@ pub mod slurm {
         )
     }
 }
+
+// pub mod sfp {
+//     use color_eyre::eyre;
+//     use std::path::Path;
+//
+//     #[async_trait::async_trait]
+//     pub trait Client {
+//         pub async fn copy_directory_recursive(
+//             &self,
+//             dir: impl AsRef<Path> + Send + Sync
+//             dir: impl AsRef<Path> + Send + Sync
+//         ) -> Result<Vec<(PathBuf, FileStat)>, Error>
+//     }
+// }
 
 pub mod scp {
     use color_eyre::eyre;
