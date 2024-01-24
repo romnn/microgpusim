@@ -2,12 +2,24 @@
 *.env
 .vscode/
 
+# saved docker images
+/trace/*.tar*
+/accelsim/*.tar*
+**/*docker_temp*
+
+# saved singularity images
+**/*.scf
+**/*.sif
+**/*.simg
+
 /debug
 /benchmarks/debug
 /results
 /notebooks
 /debug_results
 /target
+.docker_temp*
+
 /debug.*
 /debug*.*
 *debug-trace
@@ -20,6 +32,7 @@ nsight-compute/
 
 # code coverage files
 /coverage
+/install_singularity.sh
 **/*.profraw
 
 # perf traces

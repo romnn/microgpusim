@@ -1,0 +1,65 @@
+Bootstrap: docker
+From: nvidia/cuda:11.8.0-devel-ubuntu18.04
+
+# NOTE: builds must be run from the gpucachesim root.
+
+%files
+    ./Cargo.toml /opt/gpucachesim/Cargo.toml
+    ./src /opt/gpucachesim/src
+
+    ./utils /opt/gpucachesim/utils
+    ./validate /opt/gpucachesim/validate
+    ./validate/remote /opt/gpucachesim/validate/remote
+    ./profile /opt/gpucachesim/profile
+    ./playground /opt/gpucachesim/playground
+    ./playground/sys /opt/gpucachesim/playground/sys
+    ./exec /opt/gpucachesim/exec
+    ./exec/derive /opt/gpucachesim/exec/derive
+    ./stats /opt/gpucachesim/stats
+	./xtask /opt/gpucachesim/xtask
+    ./benches /opt/gpucachesim/benches
+
+    ./benchmarks/Cargo.toml /opt/gpucachesim/benchmarks/Cargo.toml
+    ./benchmarks/src /opt/gpucachesim/benchmarks/src
+
+    ./accelsim/Cargo.toml /opt/gpucachesim/accelsim/Cargo.toml
+    ./accelsim/accel-sim-framework-dev /opt/gpucachesim/accelsim/accel-sim-framework-dev
+    ./accelsim/src /opt/gpucachesim/accelsim/src
+    ./accelsim/trace /opt/gpucachesim/accelsim/trace
+    ./accelsim/sim /opt/gpucachesim/accelsim/sim
+    ./accelsim/gtx1080 /opt/gpucachesim/accelsim/gtx1080
+
+    ./trace/Cargo.toml /opt/gpucachesim/trace/Cargo.toml
+    ./trace/build.rs /opt/gpucachesim/trace/build.rs
+    ./trace/src /opt/gpucachesim/trace/src
+    ./trace/model /opt/gpucachesim/trace/model
+    ./trace/invoke /opt/gpucachesim/trace/invoke
+    ./trace/instrumentation /opt/gpucachesim/trace/instrumentation
+
+%environment
+	export CUDA_INSTALL_PATH=/usr/local/cuda
+	export PATH="/root/.cargo/bin:${PATH}"
+	export PATH="/opt/gpucachesim/target/release/:${PATH}"
+
+%post
+	apt-get update
+	apt-get install -y build-essential curl ncdu
+
+	# install rust
+	curl https://sh.rustup.rs -sSf | bash -s -- -y
+	PATH="/root/.cargo/bin:${PATH}"
+
+	# force updating the crates registry
+	#cargo install lazy_static && exit 0
+
+	# install dependencies
+	apt-get install -y llvm-dev libclang-dev clang libssl-dev pkg-config lld
+
+	# build
+	cd /opt/gpucachesim
+	ls -liah
+	cargo build -p trace --release
+	cargo build -p invoke-trace --release
+
+%runscript
+    exec /opt/gpucachesim/target/release/invoke-trace
