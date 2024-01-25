@@ -1,9 +1,0 @@
-Bootstrap: docker-archive
-From: ./trace/trace.tar
-
-%environment
-    export CUDA_INSTALL_PATH=/usr/local/cuda
-    export PATH="/root/.cargo/bin:${PATH}"
-
-%runscript
-    exec /app/target/debug/invoke-trace

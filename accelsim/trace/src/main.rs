@@ -3,6 +3,7 @@
 use clap::{CommandFactory, Parser};
 use color_eyre::eyre;
 use console::style;
+use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -15,12 +16,17 @@ USAGE: {usage}
 {all-args}
 ";
 
-const USAGE: &str = "./accelsim-trace [OPTIONS] -- <executable> [args]";
+static USAGE: Lazy<String> = Lazy::new(|| {
+    format!(
+        "{} [OPTIONS] -- <executable> [args]",
+        env!("CARGO_BIN_NAME")
+    )
+});
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
     help_template=HELP_TEMPLATE,
-    override_usage=USAGE,
+    override_usage=USAGE.to_string(),
     version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown"),
     about = "trace CUDA applications using accelsim tracer",
     author = "romnn <contact@romnn.com>",

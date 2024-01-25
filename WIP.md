@@ -65,6 +65,9 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - TODO:
 
+  - GCC version: >= 5.3.0
+  - gcc 8.4.0 vs gcc 7.5.0
+  - clang 10.0.0 vs clang 6.0.0
   - today
 
     - collect traces on das5 titanx

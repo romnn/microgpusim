@@ -59,6 +59,9 @@ pub struct AccelsimTrace {
 
     #[clap(long = "gpu", help = "gpu device to profile")]
     pub gpu: Option<String>,
+
+    #[clap(long = "container", help = "local path to singularity container image")]
+    pub container_image: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug, Default, Clone)]
