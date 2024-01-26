@@ -26,6 +26,28 @@ pub enum WritePolicy {
     LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH, // L
 }
 
+impl WritePolicy {
+    pub fn is_read_only(&self) -> bool {
+        *self == WritePolicy::READ_ONLY
+    }
+
+    pub fn is_write_back(&self) -> bool {
+        *self == WritePolicy::WRITE_BACK
+    }
+
+    pub fn is_write_through(&self) -> bool {
+        *self == WritePolicy::WRITE_THROUGH
+    }
+
+    pub fn is_write_evict(&self) -> bool {
+        *self == WritePolicy::WRITE_EVICT
+    }
+
+    pub fn is_local_write_back_global_write_through(&self) -> bool {
+        *self == WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH
+    }
+}
+
 /// A cache allocate policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum AllocatePolicy {

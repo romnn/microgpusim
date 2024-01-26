@@ -283,6 +283,16 @@ where
             assert_eq!(fetch.sub_partition_id(), self.inner.id);
         }
 
+        dbg!(self.inner.miss_queue_can_fit(1));
+
+        log::debug!(
+            "READ MISS: miss queue={:?}",
+            self.inner
+                .miss_queue
+                .iter()
+                .map(|fetch| fetch.to_string())
+                .collect::<Vec<_>>()
+        );
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
             let mut stats = self.inner.stats.lock();
@@ -315,7 +325,7 @@ where
             false,
         );
 
-        let writeback_policy = self.inner.cache_config.write_policy;
+        let write_policy = self.inner.cache_config.write_policy;
         log::debug!(
             "handling READ MISS for {} (should miss={})",
             fetch,
@@ -329,9 +339,7 @@ where
             // If evicted block is modified and not a write-through
             // (already modified lower level)
             if let Some(evicted) = evicted {
-                if evicted.writeback
-                    && writeback_policy != cache::config::WritePolicy::WRITE_THROUGH
-                {
+                if evicted.writeback && write_policy != cache::config::WritePolicy::WRITE_THROUGH {
                     let is_write = true;
                     let writeback_access = mem_fetch::access::Builder {
                         kind: self.write_back_type,
@@ -433,6 +441,174 @@ where
         let event = cache::Event::WriteRequestSent;
         self.send_write_request(fetch, event, time, events);
         cache::RequestStatus::MISS
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn write_miss_write_allocate_lazy_fetch_on_read(
+        &mut self,
+        addr: address,
+        _cache_index: Option<usize>,
+        fetch: mem_fetch::MemFetch,
+        time: u64,
+        events: &mut Vec<cache::Event>,
+        _probe_status: cache::RequestStatus,
+    ) -> cache::RequestStatus {
+        let block_addr = self.inner.cache_controller.block_addr(addr);
+
+        // if the request writes to the whole cache line/sector, then, write and set
+        // cache line Modified. and no need to send read request to memory or reserve
+        // mshr
+
+        if self.inner.miss_queue_full() {
+            // cannot handle request this cycle
+            let mut stats = self.inner.stats.lock();
+            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+
+            kernel_stats.inc(
+                fetch.allocation_id(),
+                fetch.access_kind(),
+                cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
+                1,
+            );
+            return cache::RequestStatus::RESERVATION_FAIL;
+        }
+
+        let write_policy = self.inner.cache_config.write_policy;
+        if write_policy.is_write_through() {
+            let event = cache::Event::WriteRequestSent {};
+            self.send_write_request(fetch.clone(), event, time, events);
+        }
+
+        // bool wb = false;
+        // evicted_block_info evicted;
+        // cache_request_status m_status =
+        //     m_tag_array->access(block_addr, time, cache_index, wb, evicted, mf);
+        // assert(m_status != HIT);
+        // cache_block_t *block = m_tag_array->get_block(cache_index);
+        // if (!block->is_modified_line()) {
+        //   m_tag_array->inc_dirty();
+        // }
+        // block->set_status(MODIFIED, mf->get_access_sector_mask());
+        // block->set_byte_mask(mf);
+        // if (m_status == HIT_RESERVED) {
+        //   block->set_ignore_on_fill(true, mf->get_access_sector_mask());
+        //   block->set_modified_on_fill(true, mf->get_access_sector_mask());
+        //   block->set_byte_mask_on_fill(true);
+        // }
+
+        // if (mf->get_access_byte_mask().count() == m_config.get_atom_sz()) {
+        //   block->set_m_readable(true, mf->get_access_sector_mask());
+        // } else {
+        //   block->set_m_readable(false, mf->get_access_sector_mask());
+        //   if (m_status == HIT_RESERVED)
+        //     block->set_readable_on_fill(true, mf->get_access_sector_mask());
+        // }
+        // update_m_readable(mf, cache_index);
+
+        let tag_array::AccessStatus {
+            cache_index,
+            evicted,
+            status,
+            ..
+        } = self.inner.tag_array.access(block_addr, &fetch, time);
+        assert_ne!(status, cache::RequestStatus::HIT);
+        let block = self.inner.tag_array.get_block_mut(cache_index.unwrap());
+        let sector_idx = fetch.access.sector_mask.first_one().unwrap();
+
+        let was_modified_before = block.is_modified();
+        block.set_status(cache::block::Status::MODIFIED, sector_idx);
+        block.set_byte_mask(&fetch.access.byte_mask);
+
+        if status == cache::RequestStatus::HIT_RESERVED {
+            block.set_ignore_on_fill(true, sector_idx);
+            block.set_modified_on_fill(true, sector_idx);
+            block.set_byte_mask_on_fill(true);
+        }
+
+        let atom_size = self.inner.cache_config.atom_size as usize;
+        if fetch.access.byte_mask.count_ones() == atom_size {
+            block.set_readable(true, sector_idx);
+        } else {
+            block.set_readable(false, sector_idx);
+            if status == cache::RequestStatus::HIT_RESERVED {
+                block.set_readable_on_fill(true, sector_idx);
+            }
+        }
+        self.update_readable(&fetch, cache_index.unwrap());
+
+        if !was_modified_before {
+            self.inner.tag_array.num_dirty += 1;
+        }
+
+        // if (m_status != RESERVATION_FAIL) {
+        //   // If evicted block is modified and not a write-through
+        //   // (already modified lower level)
+        //   if (wb && (m_config.m_write_policy != WRITE_THROUGH)) {
+        //     mem_fetch *wb = m_memfetch_creator->alloc(
+        //         evicted.m_block_addr, m_wrbk_type, mf->get_access_warp_mask(),
+        //         evicted.m_byte_mask, evicted.m_sector_mask, evicted.m_modified_size,
+        //         true, m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle, -1, -1, -1,
+        //         NULL);
+        //     wb->set_alloc_id(evicted.m_allocation_id);
+        //     wb->set_alloc_start_addr(evicted.m_allocation_start_addr);
+        //
+        //     // the evicted block may have wrong chip id when advanced L2 hashing  is
+        //     // used, so set the right chip address from the original mf
+        //     wb->set_chip(mf->get_tlx_addr().chip);
+        //     wb->set_partition(mf->get_tlx_addr().sub_partition);
+        //     send_write_request(wb, cache_event(WRITE_BACK_REQUEST_SENT, evicted),
+        //                        time, events);
+        //   }
+        //   return cache::RequestStatus::MISS;
+        // }
+
+        if !status.is_reservation_fail() {
+            // If evicted block is modified and not a write-through
+            // (already modified lower level)
+            if let Some(evicted) = evicted {
+                if evicted.writeback && !write_policy.is_write_through() {
+                    let writeback_access = mem_fetch::access::Builder {
+                        kind: self.write_back_type,
+                        addr: evicted.block_addr,
+                        kernel_launch_id: fetch.kernel_launch_id(),
+                        allocation: evicted.allocation.clone(),
+                        req_size_bytes: evicted.modified_size,
+                        is_write: true,
+                        warp_active_mask: fetch.access.warp_active_mask,
+                        byte_mask: evicted.byte_mask,
+                        sector_mask: evicted.sector_mask,
+                    }
+                    .build();
+
+                    // the evicted block may have wrong chip id when advanced L2 hashing
+                    // is used, so set the right chip address from the original mf
+                    let mut physical_addr = self
+                        .mem_controller
+                        .to_physical_address(writeback_access.addr);
+                    physical_addr.chip = fetch.physical_addr.chip;
+                    physical_addr.sub_partition = fetch.physical_addr.sub_partition;
+
+                    let writeback_fetch = mem_fetch::Builder {
+                        instr: None,
+                        access: writeback_access,
+                        warp_id: 0,
+                        core_id: None,
+                        cluster_id: None,
+                        physical_addr,
+                    }
+                    .build();
+
+                    let event = cache::Event::WriteBackRequestSent {
+                        evicted_block: Some(evicted),
+                    };
+
+                    self.send_write_request(writeback_fetch, event, time, events);
+                }
+            }
+            return cache::RequestStatus::MISS;
+        }
+
+        cache::RequestStatus::RESERVATION_FAIL
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -554,11 +730,13 @@ where
             //     "evicted block: {:?}",
             //     evicted.as_ref().map(|e| e.block_addr)
             // );
-            let not_write_through =
-                self.inner.cache_config.write_policy != cache::config::WritePolicy::WRITE_THROUGH;
+
+            let write_policy = self.inner.cache_config.write_policy;
+            // let not_write_through =
+            //     self.inner.cache_config.write_policy != cache::config::WritePolicy::WRITE_THROUGH;
 
             if let Some(evicted) = evicted {
-                if evicted.writeback && not_write_through {
+                if evicted.writeback && !write_policy.is_write_through() {
                     log::debug!("evicted block: {:?}", evicted.block_addr);
 
                     // SECTOR_MISS and HIT_RESERVED should not send write back
@@ -579,12 +757,12 @@ where
 
                     // the evicted block may have wrong chip id when advanced L2 hashing
                     // is used, so set the right chip address from the original mf
-                    let mut tlx_addr = self
+                    let mut physical_address = self
                         .mem_controller
                         .to_physical_address(writeback_access.addr);
                     // if self.inner.cache_config.accelsim_compat {
-                    tlx_addr.chip = fetch.physical_addr.chip;
-                    tlx_addr.sub_partition = fetch.physical_addr.sub_partition;
+                    physical_address.chip = fetch.physical_addr.chip;
+                    physical_address.sub_partition = fetch.physical_addr.sub_partition;
                     // }
 
                     // let partition_addr = self
@@ -633,8 +811,8 @@ where
                 unimplemented!("fetch on write")
             }
             WriteAllocatePolicy::LAZY_FETCH_ON_READ => {
-                // Self::write_miss_write_allocate_lazy_fetch_on_read
-                unimplemented!("fetch on read")
+                Self::write_miss_write_allocate_lazy_fetch_on_read
+                // unimplemented!("fetch on read")
             }
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
@@ -705,7 +883,7 @@ where
                 }
                 None if no_allocate_on_write => {
                     // this almost never happens
-                    todo!("have no probe status");
+                    // todo!("have no probe status");
                     access_status = self.write_miss(
                         addr,
                         None,

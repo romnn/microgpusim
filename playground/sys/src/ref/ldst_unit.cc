@@ -139,6 +139,9 @@ mem_stage_stall_type ldst_unit::process_memory_access_queue_l1cache(
       dbg_addr = mf->get_addr();
       unsigned bank_id =
           m_config->m_L1D_config.set_bank(mf->get_addr(), logger);
+
+      logger->trace("{}: {} -> bank {}", mem_fetch_ptr(mf), mf->get_addr(),
+                    bank_id);
       assert(bank_id < m_config->m_L1D_config.l1_banks);
 
       logger->trace(

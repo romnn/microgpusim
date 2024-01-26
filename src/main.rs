@@ -2,6 +2,7 @@ use clap::Parser;
 use color_eyre::eyre;
 use itertools::Itertools;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
@@ -154,6 +155,15 @@ fn main() -> eyre::Result<()> {
     }
     if let Some(memory_only) = options.memory_only {
         config.memory_only = memory_only;
+    }
+
+    if let Some(ref mut l1_cache) = config.data_cache_l1 {
+        if config.accelsim_compat {
+            // workaround: compatible with accelsim which does not differentiate
+            // between l1 tag lookup and hit latency
+            Arc::get_mut(l1_cache).unwrap().l1_latency =
+                l1_cache.l1_latency + l1_cache.l1_hit_latency;
+        }
     }
 
     dbg!(&config.accelsim_compat);

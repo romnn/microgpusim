@@ -94,10 +94,11 @@ pub trait Block: Default + std::fmt::Debug + std::fmt::Display + Sync + Send + '
     fn alloc_time(&self) -> u64;
     #[must_use]
     fn sector_alloc_time(&self, sector_idx: usize) -> u64;
-    // fn set_ignore_on_fill(&mut self, ignore: bool, mask: &mem_fetch::SectorMask);
-    // fn set_modified_on_fill(&mut self, modified: bool, mask: &mem_fetch::SectorMask);
-    // fn set_readable_on_fill(&mut self, readable: bool, mask: &mem_fetch::SectorMask);
-    // fn set_bytemask_on_fill(&mut self, modified: bool);
+
+    fn set_ignore_on_fill(&mut self, ignore: bool, sector_idx: usize);
+    fn set_modified_on_fill(&mut self, modified: bool, sector_idx: usize);
+    fn set_readable_on_fill(&mut self, readable: bool, sector_idx: usize);
+    fn set_byte_mask_on_fill(&mut self, modified: bool);
 
     #[must_use]
     fn modified_size(&self) -> u32;
@@ -186,6 +187,22 @@ impl Block for Line {
     // fn allocate_sector(&mut self, _sector_mask: &mem_fetch::SectorMask, _time: u64) {
     fn allocate_sector(&mut self, sector_idx: usize, _time: u64) {
         unimplemented!("line block is not sectored");
+    }
+
+    fn set_ignore_on_fill(&mut self, ignore: bool, sector_idx: usize) {
+        unimplemented!("line block is not sectored");
+    }
+
+    fn set_modified_on_fill(&mut self, modified: bool, sector_idx: usize) {
+        unimplemented!("line block is not sectored");
+    }
+
+    fn set_readable_on_fill(&mut self, readable: bool, sector_idx: usize) {
+        unimplemented!("line block is not sectored");
+    }
+
+    fn set_byte_mask_on_fill(&mut self, modified: bool) {
+        self.set_byte_mask_on_fill = modified;
     }
 
     // #[inline]
@@ -334,16 +351,16 @@ pub mod sector {
         sector_fill_time: [u64; N],
 
         pub status: [Status; N],
-        ignore_on_fill_status: [bool; N],
-        set_modified_on_fill: [bool; N],
-        set_readable_on_fill: [bool; N],
+        ignore_on_fill: [bool; N],
+        modified_on_fill: [bool; N],
+        readable_on_fill: [bool; N],
         readable: [bool; N],
 
         alloc_time: u64,
         pub last_access_time: u64,
         fill_time: u64,
 
-        set_byte_mask_on_fill: bool,
+        byte_mask_on_fill: bool,
         dirty_byte_mask: mem_fetch::ByteMask,
     }
 
@@ -372,15 +389,15 @@ pub mod sector {
                 sector_fill_time: [0; N],
                 last_sector_access_time: [0; N],
                 status: [Status::INVALID; N],
-                ignore_on_fill_status: [false; N],
-                set_modified_on_fill: [false; N],
-                set_readable_on_fill: [false; N],
+                ignore_on_fill: [false; N],
+                modified_on_fill: [false; N],
+                readable_on_fill: [false; N],
                 readable: [true; N],
                 alloc_time: 0,
                 last_access_time: 0,
                 fill_time: 0,
                 dirty_byte_mask: mem_fetch::ByteMask::ZERO,
-                set_byte_mask_on_fill: false,
+                byte_mask_on_fill: false,
             }
         }
     }
@@ -396,9 +413,9 @@ pub mod sector {
             self.sector_fill_time.fill(0);
             self.last_sector_access_time.fill(0);
             self.status.fill(Status::INVALID);
-            self.ignore_on_fill_status.fill(false);
-            self.set_modified_on_fill.fill(false);
-            self.set_readable_on_fill.fill(false);
+            self.ignore_on_fill.fill(false);
+            self.modified_on_fill.fill(false);
+            self.readable_on_fill.fill(false);
             self.readable.fill(true);
             self.alloc_time = 0;
             self.last_access_time = 0;
@@ -440,12 +457,12 @@ pub mod sector {
             self.sector_fill_time[sector_idx] = 0;
 
             // this should be the case only for fetch-on-write policy
-            self.set_modified_on_fill[sector_idx] = self.status[sector_idx] == Status::MODIFIED;
+            self.modified_on_fill[sector_idx] = self.status[sector_idx] == Status::MODIFIED;
 
-            self.set_readable_on_fill[sector_idx] = false;
+            self.readable_on_fill[sector_idx] = false;
 
             self.status[sector_idx] = Status::RESERVED;
-            self.ignore_on_fill_status[sector_idx] = false;
+            self.ignore_on_fill[sector_idx] = false;
             // m_set_modified_on_fill[sector_idx] = false;
             self.readable[sector_idx] = true;
 
@@ -475,10 +492,10 @@ pub mod sector {
             self.last_sector_access_time[sector_idx] = time;
             self.sector_fill_time[sector_idx] = 0;
             self.status[sector_idx] = Status::RESERVED;
-            self.ignore_on_fill_status[sector_idx] = false;
-            self.set_modified_on_fill[sector_idx] = false;
-            self.set_readable_on_fill[sector_idx] = false;
-            self.set_byte_mask_on_fill = false;
+            self.ignore_on_fill[sector_idx] = false;
+            self.modified_on_fill[sector_idx] = false;
+            self.readable_on_fill[sector_idx] = false;
+            self.byte_mask_on_fill = false;
 
             // set line stats
             self.alloc_time = time; // only set this for the first allocated sector
@@ -496,17 +513,17 @@ pub mod sector {
         ) {
             // let sector_idx = sector_index(sector_mask);
 
-            self.status[sector_idx] = if self.set_modified_on_fill[sector_idx] {
+            self.status[sector_idx] = if self.modified_on_fill[sector_idx] {
                 Status::MODIFIED
             } else {
                 Status::VALID
             };
 
-            if self.set_readable_on_fill[sector_idx] {
+            if self.readable_on_fill[sector_idx] {
                 self.readable[sector_idx] = true;
-                self.set_readable_on_fill[sector_idx] = false;
+                self.readable_on_fill[sector_idx] = false;
             }
-            if self.set_byte_mask_on_fill {
+            if self.byte_mask_on_fill {
                 self.set_byte_mask(byte_mask);
             }
 
@@ -532,6 +549,22 @@ pub mod sector {
         fn set_status(&mut self, status: Status, sector_idx: usize) {
             // let sector_idx = sector_index(sector_mask);
             self.status[sector_idx] = status;
+        }
+
+        fn set_ignore_on_fill(&mut self, ignore: bool, sector_idx: usize) {
+            self.ignore_on_fill[sector_idx] = ignore;
+        }
+
+        fn set_modified_on_fill(&mut self, modified: bool, sector_idx: usize) {
+            self.modified_on_fill[sector_idx] = modified;
+        }
+
+        fn set_readable_on_fill(&mut self, readable: bool, sector_idx: usize) {
+            self.readable_on_fill[sector_idx] = readable;
+        }
+
+        fn set_byte_mask_on_fill(&mut self, modified: bool) {
+            self.byte_mask_on_fill = modified;
         }
 
         // #[inline]

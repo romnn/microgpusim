@@ -1430,25 +1430,33 @@ where
 
             let alignment = crate::exec::tracegen::ALIGNMENT_BYTES;
 
+            let end_addr = device_ptr + num_bytes;
+            // let end_addr = utils::next_multiple(device_ptr + num_bytes, alignment);
+            // assert!(
+            //     end_addr % alignment == 0,
+            //     "end address {} for allocation {} is not {} aligned",
+            //     allocation_id,
+            //     end_addr,
+            //     human_bytes::human_bytes(alignment as f32),
+            // );
+
             // take the last 2.5 MB only
             let valid_num_bytes = num_bytes.min((2.5 * crate::config::MB as f32) as u64);
-            let end_addr = utils::next_multiple(device_ptr + num_bytes, alignment);
-            assert!(
-                end_addr % alignment == 0,
-                "end address {} for allocation {} is not {} aligned",
-                allocation_id,
-                end_addr,
-                human_bytes::human_bytes(alignment as f32),
-            );
-            let start_addr = end_addr.saturating_sub(valid_num_bytes);
-            let start_addr = utils::next_multiple(start_addr, alignment);
-            assert!(
-                start_addr % alignment == 0,
-                "start address {} for allocation {} is not {} aligned",
-                allocation_id,
-                start_addr,
-                human_bytes::human_bytes(alignment as f32),
-            );
+
+            let start_addr = if valid_num_bytes != num_bytes {
+                let start_addr = end_addr.saturating_sub(valid_num_bytes);
+                let start_addr = utils::next_multiple(start_addr, alignment);
+                assert!(
+                    start_addr % alignment == 0,
+                    "start address {} for allocation {} is not {} aligned",
+                    allocation_id,
+                    start_addr,
+                    human_bytes::human_bytes(alignment as f32),
+                );
+                start_addr
+            } else {
+                device_ptr
+            };
 
             // what does it take to make LRU miss all sets when going over capacity
             // 12 partitions *128 sets * 128B line/1024 = 129KB
@@ -1908,7 +1916,15 @@ where
                         .allocations
                         .read()
                         .iter()
-                        .find(|(_, alloc)| alloc.contains(addr))
+                        .find(|(_, alloc)| {
+                            // eprintln!(
+                            //     "alloc {:>2}: {:>10} to {:>10}",
+                            //     alloc.id,
+                            //     alloc.start_addr,
+                            //     alloc.end_addr.unwrap_or(alloc.start_addr)
+                            // );
+                            alloc.contains(addr)
+                        })
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
 
@@ -1987,11 +2003,19 @@ where
 
     #[must_use]
     pub fn fill_l2(&mut self, addr: address, num_bytes: u64, mut cycle: u64) -> u64 {
+        // assert!(
+        //     addr % 256 == 0,
+        //     "memcopy start address ({}) is not 256B aligned)",
+        //     addr
+        // );
+        let alignment = crate::exec::tracegen::ALIGNMENT_BYTES;
         assert!(
-            addr % 256 == 0,
-            "memcopy start address ({}) is not 256B aligned)",
-            addr
+            addr % alignment == 0,
+            "start address {} is not {} aligned",
+            addr,
+            human_bytes::human_bytes(alignment as f32),
         );
+
         let chunk_size: u64 = 128;
         let num_chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
 
@@ -2740,13 +2764,13 @@ where
             running_kernels.iter_mut().find(|kernel| match kernel {
                 // TODO: could also check here if !self.active()
                 Some((_, k)) => {
-                    dbg!(
-                        &self.active(),
-                        &k.no_more_blocks_to_run(),
-                        &k.running(),
-                        &k.num_running_blocks(),
-                        &k.launched()
-                    );
+                    // dbg!(
+                    //     &self.active(),
+                    //     &k.no_more_blocks_to_run(),
+                    //     &k.running(),
+                    //     &k.num_running_blocks(),
+                    //     &k.launched()
+                    // );
                     k.no_more_blocks_to_run() && !k.running() && k.launched()
                 }
                 _ => false,

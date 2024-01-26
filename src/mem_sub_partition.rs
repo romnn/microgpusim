@@ -771,7 +771,7 @@ impl MemorySubPartition {
                                         );
                                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                                         self.l2_to_interconn_queue.enqueue(fetch);
-                                        panic!("l2 to interconn queue push");
+                                        // panic!("l2 to interconn queue push");
                                     }
                                 }
                             } else {

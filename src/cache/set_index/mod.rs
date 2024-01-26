@@ -410,16 +410,16 @@ pub mod linear {
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct SetIndex {
         pub num_sets: usize,
-        pub line_size_log2: u32,
         pub num_sets_log2: u32,
+        pub line_size_log2: u32,
     }
 
     impl SetIndex {
         pub fn new(num_sets: usize, line_size: usize) -> Self {
             Self {
                 num_sets,
-                line_size_log2: line_size.ilog2(),
                 num_sets_log2: num_sets.ilog2(),
+                line_size_log2: line_size.ilog2(),
             }
         }
     }

@@ -81,9 +81,9 @@ enum cache_request_status cache_stats::select_stats_status(
   /// counted as a HIT_RESERVED in the caches.
   ///
   if (probe == HIT_RESERVED && access != RESERVATION_FAIL)
-    return probe;
+    return HIT_RESERVED;
   else if (probe == SECTOR_MISS && access == MISS)
-    return probe;
+    return SECTOR_MISS;
   else
     return access;
 }
