@@ -63,7 +63,7 @@ SIMULATE_EXECUTION_CONFIG_COLS = [
     "input_threads",
     "input_run_ahead",
 ]
-SIMULATE_INPUT_COLS = SIMULATE_EXECUTION_CONFIG_COLS + SIMULATE_FUNCTIONAL_CONFIG_COLS
+SIMULATE_INPUT_COLS = SIMULATE_FUNCTIONAL_CONFIG_COLS + SIMULATE_EXECUTION_CONFIG_COLS
 
 
 BENCHMARK_INPUT_COL_LABELS = {
@@ -166,6 +166,107 @@ NON_NUMERIC_COLS = {
     **{col: "first" for col in SIMULATE_INPUT_COLS},
     **{col: "first" for col in ALL_BENCHMARK_INPUT_COLS},
 }
+
+
+def _map_dtype(dtype: str) -> str:
+    match dtype.lower():
+        case "category" | "str":
+            return "object"
+        case "bool":
+            return "bool"
+        case "float" | "int":
+            return "float"
+        case other:
+            raise ValueError("unknown dtype {}".format(other))
+
+
+SPECIAL_DTYPES = {
+    # **{col: "float64" for col in stats_df.columns},
+    # **{col: "object" for col in benchmarks.NON_NUMERIC_COLS.keys()},
+    "target": "category",
+    "benchmark": "category",
+    "Host Name": "str",
+    "Process Name": "str",
+    "device": "str",
+    "context_id": "float",
+    "is_release_build": "bool",
+    "kernel_function_signature": "str",
+    "kernel_name": "str",
+    "kernel_name_mangled": "str",
+    "input_id": "float",
+    # "input_memory_only": "first",
+    # "input_mode": "first",
+    # makes no sense to aggregate
+    "cores_per_cluster": "float",
+    "num_clusters": "float",
+    "total_cores": "float",
+    # functional and exec simulation inputs
+    "input_memory_only": "bool",
+    "input_num_clusters": "float",
+    "input_cores_per_cluster": "float",
+    "input_mode": "category",
+    "input_threads": "float",
+    "input_run_ahead": "float",
+    # benchmark inputs
+    "input_m": "float",
+    "input_length": "float",
+    "input_variant": "category",
+    "input_dtype": "float",
+    "input_size": "float",
+    "input_n": "float",
+    "input_dim": "float",
+    "input_rows": "float",
+    "input_p": "float",
+    # memory stats
+    "access_kind": "category",
+    "access_status": "category",
+    "memory_space": "category",
+}
+SPECIAL_DTYPES = {col: _map_dtype(dtype) for col, dtype in SPECIAL_DTYPES.items()}
+missing_dtypes = set(NON_NUMERIC_COLS.keys()) - set(SPECIAL_DTYPES.keys())
+assert len(missing_dtypes) == 0, "missing dtypes for {}".format(missing_dtypes)
+
+
+CATEGORICAL_COLS = set([col for col, dtype in SPECIAL_DTYPES.items() if dtype == "category"])
+
+
+# def default_dtypes() -> typing.Dict[str, str]:
+#     special_dtypes = {
+#         # **{col: "float64" for col in stats_df.columns},
+#         # **{col: "object" for col in benchmarks.NON_NUMERIC_COLS.keys()},
+#         "target": "str",
+#         "benchmark": "str",
+#         "Host Name": "str",
+#         "Process Name": "str",
+#         "device": "str",
+#         "context_id": "float",
+#         "is_release_build": "bool",
+#         "kernel_function_signature": "str",
+#         "kernel_name": "str",
+#         "kernel_name_mangled": "str",
+#         "input_id": "float",
+#         # "input_memory_only": "first",
+#         # "input_mode": "first",
+#         # makes no sense to aggregate
+#         "cores_per_cluster": "float",
+#         "num_clusters": "float",
+#         "total_cores": "float",
+#         "input_memory_only": "bool",
+#         "input_num_clusters": "float",
+#         "input_cores_per_cluster": "float",
+#         "input_mode": "str",
+#         "input_threads": "float",
+#         "input_run_ahead": "float",
+#     }
+#     missing_dtypes = set(benchmarks.NON_NUMERIC_COLS.keys()) - set(special_dtypes.keys())
+#     assert len(missing_dtypes) == 0, "missing dtypes for {}".format(missing_dtypes)
+#
+#     dtypes = {
+#         **{col: "float64" for col in stats_df.columns},
+#         **special_dtypes,
+#     }
+#
+#     return dtypes
 
 
 class GPUConfig:

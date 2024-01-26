@@ -13,6 +13,7 @@ from gpucachesim.benchmarks import (
     SimulateConfig,
     SimulateTargetConfig,
     INDEX_COLS,
+    SPECIAL_DTYPES,
 )
 import gpucachesim.stats.common as common
 
@@ -23,6 +24,15 @@ def parse_cache_stats(path: PathLike):
         header=0,
     )
     return df
+
+
+def fix_dtypes(df):
+    dtypes = {
+        **{col: "float64" for col in df.columns},
+        **SPECIAL_DTYPES,
+    }
+    dtypes = {col: dtype for col, dtype in dtypes.items() if col in df}
+    return df.astype(dtypes)
 
 
 class Stats(common.Stats):
@@ -43,7 +53,6 @@ class Stats(common.Stats):
         # exec_time_sec_release_dfs = []
         sim_dfs = []
         accesses_dfs = []
-        dram_dfs = []
         dram_banks_dfs = []
         instructions_dfs = []
         l1_inst_stats_dfs = []
@@ -105,18 +114,38 @@ class Stats(common.Stats):
             l2_data_stats_df["run"] = r
             l2_data_stats_dfs.append(l2_data_stats_df)
 
-        self.sim_df = pd.concat(sim_dfs)
-        self.accesses_df = pd.concat(accesses_dfs)
-        self.dram_banks_df = pd.concat(dram_banks_dfs)
-        self.instructions_df = pd.concat(instructions_dfs)
-        self.l1_inst_stats_df = pd.concat(l1_inst_stats_dfs)
-        self.l1_tex_stats_df = pd.concat(l1_tex_stats_dfs)
-        self.l1_data_stats_df = pd.concat(l1_data_stats_dfs)
-        self.l1_const_stats_df = pd.concat(l1_const_stats_dfs)
-        self.l2_data_stats_df = pd.concat(l2_data_stats_dfs)
+        self.sim_df = fix_dtypes(pd.concat(sim_dfs))
+        self.accesses_df = fix_dtypes(pd.concat(accesses_dfs))
+        self.dram_banks_df = fix_dtypes(pd.concat(dram_banks_dfs))
+        self.instructions_df = fix_dtypes(pd.concat(instructions_dfs))
+        self.l1_inst_stats_df = fix_dtypes(pd.concat(l1_inst_stats_dfs))
+        self.l1_tex_stats_df = fix_dtypes(pd.concat(l1_tex_stats_dfs))
+        self.l1_data_stats_df = fix_dtypes(pd.concat(l1_data_stats_dfs))
+        self.l1_const_stats_df = fix_dtypes(pd.concat(l1_const_stats_dfs))
+        self.l2_data_stats_df = fix_dtypes(pd.concat(l2_data_stats_dfs))
+
+        # for df in [
+        #     self.sim_df,
+        #     self.accesses_df,
+        #     self.dram_banks_df,
+        #     self.instructions_df,
+        #     self.l1_inst_stats_df,
+        #     self.l1_tex_stats_df,
+        #     self.l1_data_stats_df,
+        #     self.l1_const_stats_df,
+        #     self.l2_data_stats_df,
+        # ]:
+        #     dtypes = {
+        #         **{col: "float64" for col in df.columns},
+        #         **SPECIAL_DTYPES,
+        #     }
+        #     dtypes = {col: dtype for col, dtype in dtypes.items() if col in df}
+        #     # df = df.astype(dtypes)
+        #     df.astype(dtypes, copy=False)
 
     def compute_result_df(self):
         self.result_df = pd.DataFrame()
+
         self._compute_cycles()
         self._compute_instructions()
         self._compute_num_blocks()
@@ -243,13 +272,68 @@ class Stats(common.Stats):
 
     def _compute_l1_hit_rate(self):
         df = self.l1_data_stats_df
+        # no_kernel = df["kernel_name"].isna() & df["kernel_name_mangled"].isna()
         global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
         hit_mask = df["access_status"].isin(["HIT", "HIT_RESERVED"])
         miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+
         hits = df[global_read & hit_mask]
         accesses = df[global_read & (hit_mask | miss_mask)]
+
+        # print("")
+        # print("HIT KERNEL NAME MANGLED")
+        # print(hits.index)
+        #
+        # print("ACCESS KERNEL NAME MANGLED")
+        # print(accesses.index)
+
         hits = hits.groupby(INDEX_COLS, dropna=False, sort=False)["num_accesses"].sum()
         accesses = accesses.groupby(INDEX_COLS, dropna=False, sort=False)["num_accesses"].sum()
+
+        # for index_col in self.result_df.index.names:
+        #     print(
+        #         index_col,
+        #         self.result_df.index.get_level_values(index_col).dtype,
+        #         self.result_df.index.get_level_values(index_col),
+        #     )
+        #
+        # self.result_df.index._sort_levels_monotonic(raise_if_incomparable=True)
+        # hits._sort_levels_monotonic(raise_if_incomparable=True)
+        # accesses._sort_levels_monotonic(raise_if_incomparable=True)
+
+        # print("")
+        # print("HIT KERNEL NAME MANGLED")
+        # print(hits.index)
+        #
+        # print("ACCESS KERNEL NAME MANGLED")
+        # print(accesses.index)
+
+        # print("==== hits")
+        # print(hits)
+        # print(hits.index)
+        # print(hits.dtype)
+        # print(hits.to_numpy())
+
+        # print("==== accesses")
+        # print(accesses)
+        # print(accesses.index)
+        # print(accesses.dtype)
+        # print(accesses.to_numpy())
+
+        # print("==== result")
+        # res = (hits / accesses).fillna(0.0)
+        # print(res)
+        # print(res.dtype)
+        # print(res.index)
+        # for index_col in res.index.names:
+        #     print(index_col, res.index.get_level_values(index_col).dtype)
+        #
+        # print("==== have")
+        # print(self.result_df.index)
+        # for index_col in self.result_df.index.names:
+        #     print(index_col, self.result_df.index.get_level_values(index_col).dtype)
+
+        # print("")
 
         self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
 

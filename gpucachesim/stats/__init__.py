@@ -2761,10 +2761,41 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
             raise ValueError
         stats_df = stats_df[stats_df["benchmark"].isin(bench_names)]
 
+    # special_dtypes = {
+    #     # **{col: "float64" for col in stats_df.columns},
+    #     # **{col: "object" for col in benchmarks.NON_NUMERIC_COLS.keys()},
+    #     "target": "str",
+    #     "benchmark": "str",
+    #     "Host Name": "str",
+    #     "Process Name": "str",
+    #     "device": "str",
+    #     "context_id": "float",
+    #     "is_release_build": "bool",
+    #     "kernel_function_signature": "str",
+    #     "kernel_name": "str",
+    #     "kernel_name_mangled": "str",
+    #     "input_id": "float",
+    #     # "input_memory_only": "first",
+    #     # "input_mode": "first",
+    #     # makes no sense to aggregate
+    #     "cores_per_cluster": "float",
+    #     "num_clusters": "float",
+    #     "total_cores": "float",
+    #     "input_memory_only": "bool",
+    #     "input_num_clusters": "float",
+    #     "input_cores_per_cluster": "float",
+    #     "input_mode": "str",
+    #     "input_threads": "float",
+    #     "input_run_ahead": "float",
+    # }
+    # missing_dtypes = set(benchmarks.NON_NUMERIC_COLS.keys()) - set(special_dtypes.keys())
+    # assert len(missing_dtypes) == 0, "missing dtypes for {}".format(missing_dtypes)
+
     dtypes = {
         **{col: "float64" for col in stats_df.columns},
-        **{col: "object" for col in benchmarks.NON_NUMERIC_COLS.keys()},
+        **benchmarks.SPECIAL_DTYPES,
     }
+    # raise ValueError("test")
     dtypes = {col: dtype for col, dtype in dtypes.items() if col in stats_df}
     stats_df = stats_df.astype(dtypes)
 
@@ -2789,6 +2820,9 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
             "kernel_name_mangled": np.nan,
             "kernel_name": np.nan,
             "device": np.nan,
+            # test this out
+            "kernel_launch_id": np.nan,
+            "run": np.nan,
         },
         **{c: np.nan for c in benchmarks.ALL_BENCHMARK_INPUT_COLS},
         **{c: np.nan for c in benchmarks.SIMULATE_INPUT_COLS},
@@ -2798,6 +2832,7 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
             "input_cores_per_cluster": 1,
         },
     }
+    fill = {col: dtype for col, dtype in fill.items() if col not in benchmarks.CATEGORICAL_COLS}
 
     stats_df = stats_df.fillna(fill).infer_objects(copy=False)
     assert stats_df["run"].isna().sum() == 0
@@ -3446,8 +3481,8 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     print(per_config_pivoted[stat_cols].T)
 
     def build_per_config_table(df):
-        print(df)
-        print(df.index)
+        # print(df)
+        # print(df.index)
 
         num_bench_configs = len(df.index)
 
@@ -3501,7 +3536,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
 
         stat_cols = df.columns.get_level_values(0)
         stat_cols = dedup_and_count(stat_cols.values)
-        print("stat cols:", stat_cols)
+        # print("stat cols:", stat_cols)
 
         round_to = 1
 
@@ -3846,6 +3881,10 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             target = target_df["target"].first().values[0]
             target_name = target_df["target_name"].first().values[0]
 
+            x = [idx]
+            raw_y = target_df[stat_col] # .fillna(0.0)
+            # print((target_name, stat_col), raw_y)
+
             if verbose:
                 print(
                     "{:>15} {:<10} {:>15} [{:<3}]  {:<35}  {:<3} {:<4} = {:<8.2f} {:<8.2f}".format(
@@ -3856,21 +3895,19 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
                         str(input_values[bench_input_cols].tolist()),
                         input_idx,
                         idx,
-                        target_df[stat_col].fillna(0.0).mean(),
-                        target_df[stat_col].fillna(0.0).std(),
+                        raw_y.mean(),
+                        raw_y.std(),
                     )
                 )
 
-            x = [idx]
-            y = target_df[stat_col].fillna(0.0)
+            
+
             if stat_config.percent:
-                y = y.median() * 100.0
+                y = raw_y.median().fillna(0.0) * 100.0
             else:
-                y = y.mean()
+                y = raw_y.mean().fillna(0.0)
 
-            # print((target_name, stat_col), target_df[stat_col].fillna(0.0))
-
-            ystd = target_df[stat_col].fillna(0.0).std()
+            ystd = raw_y.std().fillna(0.0)
 
             bar_color = plot.plt_rgba(*plot.SIM_RGB_COLOR[target.lower()], 1.0)
             hatch = plot.SIM_HATCH[target.lower()]
