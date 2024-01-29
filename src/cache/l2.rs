@@ -75,8 +75,13 @@ impl cache::CacheController for L2DataCacheController
             //     .linear_set_index_function
             //     .compute_set_index(partition_addr);
             let set_index = self
-                .pseudo_random_set_index_function
+                .ipoly_set_index_function
                 .compute_set_index(partition_addr);
+
+            // let partition_addr = addr;
+            // let set_index = self
+            //     .pseudo_random_set_index_function
+            //     .compute_set_index(partition_addr);
 
             assert!(set_index < 128);
             set_index
@@ -108,9 +113,10 @@ impl cache::CacheController for L2DataCacheController
 
 /// Generic data cache.
 #[allow(clippy::module_name_repetitions)]
-pub struct DataL2 {
+pub struct DataL2<MC> {
     pub cache_config: Arc<config::L2DCache>,
     pub inner: super::data::Data<
+        MC,
         // mcu::MemoryControllerUnit,
         // mcu::PascalMemoryControllerUnit,
         L2DataCacheController,
@@ -122,13 +128,18 @@ pub struct DataL2 {
     >,
 }
 
-impl DataL2 {
+// impl DataL2 {
+impl<MC> DataL2<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     pub fn new(
         name: String,
         sub_partition_id: usize,
         stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
-        mem_controller: Arc<dyn mcu::MemoryController>,
+        // mem_controller: Arc<dyn mcu::MemoryController>,
+        mem_controller: Arc<MC>,
         l2_cache_config: Arc<config::L2DCache>,
     ) -> Self {
         let cache_config =
@@ -145,6 +156,7 @@ impl DataL2 {
 
         let pseudo_random_set_index_function =
             cache::set_index::pascal::L2PseudoRandomSetIndex::default();
+
         let cache_controller = L2DataCacheController {
             accelsim_compat: config.accelsim_compat,
             memory_controller: mem_controller.clone(),
@@ -172,20 +184,26 @@ impl DataL2 {
             cache_config: l2_cache_config,
         }
     }
+}
 
+impl<MC> DataL2<MC> {
     // #[inline]
     pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
         self.inner.set_top_port(port);
     }
 }
 
-impl crate::engine::cycle::Component for DataL2 {
+// impl crate::engine::cycle::Component for DataL2 {
+impl<MC> crate::engine::cycle::Component for DataL2<MC> {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
     }
 }
 
-impl super::Cache<stats::cache::PerKernel> for DataL2 {
+impl<MC> super::Cache<stats::cache::PerKernel> for DataL2<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -294,7 +312,7 @@ impl super::Cache<stats::cache::PerKernel> for DataL2 {
     }
 }
 
-impl super::Bandwidth for DataL2 {
+impl<MC> super::Bandwidth for DataL2<MC> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()
     }

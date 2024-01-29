@@ -11,6 +11,24 @@ pub enum Kind {
     SECTOR_ASSOC,    // S
 }
 
+impl Kind {
+    pub fn is_tex_fifo(&self) -> bool {
+        *self == Kind::TEX_FIFO
+    }
+
+    pub fn is_sector_tex_fifo(&self) -> bool {
+        *self == Kind::SECTOR_TEX_FIFO
+    }
+
+    pub fn is_assoc(&self) -> bool {
+        *self == Kind::ASSOC
+    }
+
+    pub fn is_sector_assoc(&self) -> bool {
+        *self == Kind::SECTOR_ASSOC
+    }
+}
+
 /// Miss status handling entry.
 #[derive(Debug)]
 pub struct Entry<F> {

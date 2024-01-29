@@ -153,7 +153,7 @@ impl Base {
                 log::debug!("next warp: {:#?}", &next_warp);
             }
             // assert!(inst_count > 0);
-            if inst_count > 1 {
+            if log::log_enabled!(log::Level::Debug) && inst_count > 1 {
                 log::debug!(
                     "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
                     self.cluster_id,
@@ -202,7 +202,7 @@ impl Base {
             let warp = self.warps.get(warp_id).unwrap();
 
             // todo: what is the difference? why dont we just use next_warp?
-            assert!(Arc::ptr_eq(warp, next_warp_rc));
+            debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
             drop(next_warp);
 
             let mut warp = warp.try_lock();

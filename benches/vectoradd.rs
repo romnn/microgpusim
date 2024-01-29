@@ -14,7 +14,7 @@ use validate::{
 };
 
 #[derive(Debug, Subcommand, strum::EnumIter)]
-enum Command {
+enum TargetCommand {
     Accelsim,
     Playground,
     Serial,
@@ -22,11 +22,32 @@ enum Command {
     Nondeterministic { run_ahead: Option<usize> },
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("invalid target {0:?}")]
+pub struct InvalidTarget(String);
+
+impl std::str::FromStr for TargetCommand {
+    type Err = InvalidTarget;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_ascii_lowercase().trim() {
+            "serial" => Ok(TargetCommand::Serial),
+            "play" | "playground" => Ok(TargetCommand::Playground),
+            "accel" | "accelsim" => Ok(TargetCommand::Accelsim),
+            "det" | "deterministic" => Ok(TargetCommand::Deterministic),
+            "nondet" | "nondeterministic" => {
+                Ok(TargetCommand::Nondeterministic { run_ahead: None })
+            }
+            other => Err(InvalidTarget(other.to_string())),
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 struct Options {
     #[clap(subcommand)]
-    pub command: Option<Command>,
+    pub command: Option<TargetCommand>,
 
     #[arg(long = "threads", help = "number of threads")]
     pub threads: Option<usize>,
@@ -232,16 +253,29 @@ fn main() -> eyre::Result<()> {
 
     color_eyre::install()?;
 
+    // clap parsing does not work when running "cargo bench ..."
     // let options = Options::parse();
-    let options = Options {
-        command: None,
-        threads: None,
-    };
+    //
+    let command: Option<TargetCommand> = std::env::var("TARGET")
+        .ok()
+        .as_deref()
+        .map(std::str::FromStr::from_str)
+        .transpose()?;
+    let threads = std::env::var("THREADS")
+        .ok()
+        .as_deref()
+        .map(str::parse)
+        .transpose()?;
+
+    let options = Options { command, threads };
 
     // takes 34 sec (accel same)
     let (bench_name, input_query): (_, Input) =
         ("transpose", input!({ "dim": 256, "variant": "naive"})?);
-    let (bench_name, input_query): (_, Input) = ("vectorAdd", input!({ "length": 500_000 })?);
+
+    // let (bench_name, input_query): (_, Input) = ("vectorAdd", input!({ "length": 500_000 })?);
+
+    let (bench_name, input_query): (_, Input) = ("vectorAdd", input!({ "length": 1000 })?);
 
     // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
     // let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
@@ -255,9 +289,11 @@ fn main() -> eyre::Result<()> {
         .build()?;
 
     let mut tracing_guard = match options.command {
-        Some(Command::Serial | Command::Nondeterministic { .. } | Command::Deterministic) => {
-            configure_tracing()
-        }
+        Some(
+            TargetCommand::Serial
+            | TargetCommand::Nondeterministic { .. }
+            | TargetCommand::Deterministic,
+        ) => configure_tracing(),
         _ => None,
     };
 
@@ -266,11 +302,11 @@ fn main() -> eyre::Result<()> {
         .map(|cmd| vec![cmd])
         // .unwrap_or(<Command as strum::IntoEnumIterator>::iter().collect());
         .unwrap_or(vec![
-            Command::Accelsim,
-            Command::Playground,
-            Command::Serial,
-            Command::Deterministic,
-            Command::Nondeterministic {
+            TargetCommand::Accelsim,
+            TargetCommand::Playground,
+            TargetCommand::Serial,
+            TargetCommand::Deterministic,
+            TargetCommand::Nondeterministic {
                 run_ahead: Some(10),
             },
         ]);
@@ -281,7 +317,7 @@ fn main() -> eyre::Result<()> {
         gpucachesim::TIMINGS.lock().clear();
 
         match cmd {
-            Command::Accelsim => {
+            TargetCommand::Accelsim => {
                 let bench_config = Arc::new(
                     find_first(Target::AccelsimSimulate, bench_name, &input_query)?.unwrap(),
                 );
@@ -296,7 +332,7 @@ fn main() -> eyre::Result<()> {
                 dbg!(&stats.reduce().sim);
                 println!("accelsim took: {accel_dur:?}");
             }
-            Command::Playground => {
+            TargetCommand::Playground => {
                 let bench_config =
                     find_first(Target::PlaygroundSimulate, bench_name, &input_query)?.unwrap();
                 println!("running {}@{}", bench_config.name, bench_config.input_idx);
@@ -304,7 +340,7 @@ fn main() -> eyre::Result<()> {
                 dbg!(&stats::Stats::from(stats).sim);
                 println!("playground took: {play_dur:?}");
             }
-            Command::Serial => {
+            TargetCommand::Serial => {
                 let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
                 println!("running {}@{}", bench_config.name, bench_config.input_idx);
                 let start = Instant::now();
@@ -328,7 +364,7 @@ fn main() -> eyre::Result<()> {
                     );
                 }
             }
-            Command::Deterministic => {
+            TargetCommand::Deterministic => {
                 let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
                 println!("running {}@{}", bench_config.name, bench_config.input_idx);
                 let start = Instant::now();
@@ -346,7 +382,7 @@ fn main() -> eyre::Result<()> {
                     );
                 }
             }
-            Command::Nondeterministic { run_ahead } => {
+            TargetCommand::Nondeterministic { run_ahead } => {
                 let start = Instant::now();
                 let bench_config = find_first(Target::Simulate, bench_name, &input_query)?.unwrap();
                 let stats = run_box(

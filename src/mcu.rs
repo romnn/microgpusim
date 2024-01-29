@@ -376,7 +376,7 @@ impl MemoryControllerUnit {
 ///
 /// The memory controller is responsible for translating the linear, virtual addresses
 /// used by the program into physical addresses in main memory (DRAM).
-pub trait MemoryController: Send + Sync + 'static {
+pub trait MemoryController: std::fmt::Debug + Send + Sync + 'static {
     /// Compute the physical address relative for its partition for a virtual address.
     // #[must_use]
     #[deprecated = "this is just for accelsim compatibility"]
@@ -590,11 +590,27 @@ impl MemoryController for MemoryControllerUnit {
                 let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
                 let sub_partition = tlx.chip * self.num_sub_partitions_per_channel as u64
                     + (tlx.bank & sub_partition_addr_mask as u64);
-                tlx.sub_partition = crate::cache::set_index::ipoly::hash(
-                    rest_of_addr_high_bits,
-                    sub_partition as usize,
-                    self.num_channels_next_power2 as usize * self.num_sub_partitions_per_channel,
-                );
+
+                let num_partitions =
+                    self.num_channels_next_power2 as usize * self.num_sub_partitions_per_channel;
+                tlx.sub_partition = match num_partitions {
+                    16 => crate::cache::set_index::ipoly::ipoly_16(
+                        rest_of_addr_high_bits,
+                        sub_partition as usize,
+                    ),
+                    32 => crate::cache::set_index::ipoly::ipoly_16(
+                        rest_of_addr_high_bits,
+                        sub_partition as usize,
+                    ),
+                    64 => crate::cache::set_index::ipoly::ipoly_16(
+                        rest_of_addr_high_bits,
+                        sub_partition as usize,
+                    ),
+                    _ => panic!(
+                        "ipoly partition indexing does not support {} partitions",
+                        num_partitions
+                    ),
+                };
 
                 if self.has_gap {
                     // if it is not 2^n partitions, then take modular
@@ -635,6 +651,8 @@ impl MemoryController for MemoryControllerUnit {
 /// Pascal memory controller unit (MCU).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PascalMemoryControllerUnit {
+    pub accelsim_compat: bool,
+    pub compat: MemoryControllerUnit,
     pub num_controllers: usize,
     pub num_sub_partitions_per_channel: usize,
     pub decode_config: Config,
@@ -730,6 +748,8 @@ impl PascalMemoryControllerUnit {
         }
 
         Ok(Self {
+            accelsim_compat: config.accelsim_compat,
+            compat: MemoryControllerUnit::new(&config)?,
             num_controllers: config.num_memory_controllers,
             num_sub_partitions_per_channel: config.num_sub_partitions_per_memory_controller,
             sub_partition_id_mask,
@@ -740,23 +760,27 @@ impl PascalMemoryControllerUnit {
 
 impl MemoryController for PascalMemoryControllerUnit {
     fn memory_partition_address(&self, addr: address) -> address {
-        // we assume we have GAP
-        let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
-        // dbg!(addr_chip_start);
-        let mut partition_addr = (addr >> addr_chip_start) / self.num_controllers as u64;
-        // dbg!(addr >> addr_chip_start);
-        // dbg!((addr >> addr_chip_start) / self.num_channels as u64);
-
-        partition_addr <<= addr_chip_start;
-        partition_addr |= addr & ((1 << addr_chip_start) - 1);
-
-        // remove part of address that constributes to the sub partition id
-        packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
-
-        // unimplemented!("memory partition address is deprecated and not implemented for pascal memory controller unit");
+        self.compat.memory_partition_address(addr)
+        // // we assume we have GAP
+        // let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
+        // // dbg!(addr_chip_start);
+        // let mut partition_addr = (addr >> addr_chip_start) / self.num_controllers as u64;
+        // // dbg!(addr >> addr_chip_start);
+        // // dbg!((addr >> addr_chip_start) / self.num_channels as u64);
+        //
+        // partition_addr <<= addr_chip_start;
+        // partition_addr |= addr & ((1 << addr_chip_start) - 1);
+        //
+        // // remove part of address that constributes to the sub partition id
+        // packbits(!self.sub_partition_id_mask, partition_addr, 0, 64)
+        //
+        // // unimplemented!("memory partition address is deprecated and not implemented for pascal memory controller unit");
     }
 
     fn to_physical_address(&self, addr: address) -> PhysicalAddress {
+        if self.accelsim_compat {
+            return self.compat.to_physical_address(addr);
+        }
         let mut addr_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
         addr_bits.store(addr);
 
@@ -921,7 +945,7 @@ impl MemoryController for PascalMemoryControllerUnit {
         let sub_partition = sub_partition % self.num_memory_sub_partitions() as u64;
         assert!(sub_partition < self.num_memory_sub_partitions() as u64);
 
-        let mut tlx = PhysicalAddress::default();
+        // let mut tlx = PhysicalAddress::default();
         tlx.sub_partition = sub_partition;
         tlx
     }

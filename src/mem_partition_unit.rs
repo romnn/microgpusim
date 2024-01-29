@@ -7,11 +7,14 @@ use console::style;
 use std::collections::VecDeque;
 use trace_model::ToBitString;
 
-pub struct MemoryPartitionUnit {
+// pub struct MemoryPartitionUnit {
+pub struct MemoryPartitionUnit<MC> {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
-    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
+    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<MC>>>>,
+    // pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
+    // phantom: std::marker::PhantomData<MC>,
     pub arbiter: Box<dyn arbitration::Arbiter>,
 
     config: Arc<config::GPU>,
@@ -19,17 +22,23 @@ pub struct MemoryPartitionUnit {
     stats: Arc<Mutex<stats::PerKernel>>,
 }
 
-impl std::fmt::Debug for MemoryPartitionUnit {
+// impl std::fmt::Debug for MemoryPartitionUnit {
+impl<MC> std::fmt::Debug for MemoryPartitionUnit<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryPartitionUnit").finish()
     }
 }
 
-impl MemoryPartitionUnit {
+// impl MemoryPartitionUnit {
+impl<MC> MemoryPartitionUnit<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     pub fn new(
         partition_id: usize,
         config: Arc<config::GPU>,
-        mem_controller: Arc<dyn mcu::MemoryController>,
+        // mem_controller: Arc<dyn mcu::MemoryController>,
+        mem_controller: Arc<MC>,
         stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
@@ -41,7 +50,8 @@ impl MemoryPartitionUnit {
                     global_sub_id,
                     partition_id,
                     Arc::clone(&config),
-                    Arc::clone(&mem_controller),
+                    mem_controller.clone(),
+                    // Arc::clone(&mem_controller),
                     Arc::clone(&stats),
                 )))
             })
@@ -58,21 +68,8 @@ impl MemoryPartitionUnit {
             dram_latency_queue: VecDeque::new(),
             arbiter,
             sub_partitions,
+            // phantom: std::marker::PhantomData,
         }
-    }
-
-    #[must_use]
-    // #[inline]
-    pub fn busy(&self) -> bool {
-        self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
-    }
-
-    #[must_use]
-    // #[inline]
-    fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
-        let mut local_id = global_sub_partition_id;
-        local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
-        local_id
     }
 
     // #[inline]
@@ -92,6 +89,25 @@ impl MemoryPartitionUnit {
         self.sub_partitions[local_subpart_id]
             .lock()
             .force_l2_tag_update(addr, sector_mask, time);
+    }
+}
+
+impl<MC> MemoryPartitionUnit<MC>
+// where
+//     MC: crate::mcu::MemoryController,
+{
+    #[must_use]
+    // #[inline]
+    pub fn busy(&self) -> bool {
+        self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
+    }
+
+    #[must_use]
+    // #[inline]
+    fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
+        let mut local_id = global_sub_partition_id;
+        local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
+        local_id
     }
 
     // #[inline]

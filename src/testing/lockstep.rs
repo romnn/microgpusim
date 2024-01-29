@@ -16,9 +16,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+type IC = ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>;
+type MCU = crate::mcu::PascalMemoryControllerUnit;
+
 // #[inline]
 fn gather_simulation_state(
-    box_sim: &mut crate::MockSimulator<ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>>,
+    box_sim: &mut crate::MockSimulator<IC, MCU>,
     // box_sim: &mut validate::simulate::config::GTX1080,
     play_sim: &mut playground::Accelsim,
 ) -> (testing::state::Simulation, testing::state::Simulation) {
@@ -135,6 +138,7 @@ fn gather_simulation_state(
                     .as_any()
                     .downcast_ref::<cache::Data<
                         // Arc<dyn crate::mcu::MemoryController>,
+                        MCU,
                         cache::controller::pascal::L1DataCacheController,
                         stats::cache::PerKernel,
                     >>()
@@ -168,7 +172,7 @@ fn gather_simulation_state(
     for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
         let sub = sub.try_lock();
         let l2_cache = sub.l2_cache.as_ref().unwrap();
-        let l2_cache: &cache::DataL2 = l2_cache.as_any().downcast_ref().unwrap();
+        let l2_cache: &cache::DataL2<MCU> = l2_cache.as_any().downcast_ref().unwrap();
 
         box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
 
@@ -326,6 +330,10 @@ fn gather_simulation_state(
         };
     }
     assert_eq!(partitions_added, num_partitions);
+    assert_eq!(
+        play_sim.sub_partitions().count(),
+        box_sim.config.total_sub_partitions()
+    );
 
     let mut sub_partitions_added = 0;
     for (sub_id, sub) in play_sim.sub_partitions().enumerate() {

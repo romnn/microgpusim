@@ -195,7 +195,7 @@ where
                 mshr_entries: 128,
                 mshr_max_merge: 8,
                 miss_queue_size: 4,
-                result_fifo_entries: None,
+                // result_fifo_entries: None,
                 l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             }),

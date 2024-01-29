@@ -108,14 +108,14 @@ impl PipelinedSimdUnit {
 
     // #[inline]
     pub fn issue(&mut self, src_reg: WarpInstruction) {
-        let mut active = 0;
-        match src_reg.opcode.op {
-            crate::opcodes::Op::EXIT | crate::opcodes::Op::NOP => {}
-            // crate::opcodes::Op::NOP => {}
-            _ => {
-                active += src_reg.active_mask.count_ones();
-            }
-        }
+        // let mut active = 0;
+        // match src_reg.opcode.op {
+        //     crate::opcodes::Op::EXIT | crate::opcodes::Op::NOP => {}
+        //     // crate::opcodes::Op::NOP => {}
+        //     _ => {
+        //         active += src_reg.active_mask.count_ones();
+        //     }
+        // }
         // crate::WIP_STATS.lock().executed_instructions += active as u64;
 
         register_set::move_warp(

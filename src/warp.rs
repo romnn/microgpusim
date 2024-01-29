@@ -199,6 +199,7 @@ impl Warp {
     }
 
     #[must_use]
+    #[inline]
     pub fn functional_done(&self) -> bool {
         self.active_mask.not_any()
     }

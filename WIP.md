@@ -63,15 +63,25 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 [source](https://forums.developer.nvidia.com/t/pascal-l1-cache/49571/12)
 
+### Profiling
+
+```bash
+sudo apt-get install valgrind kcachegrind
+# valgrind --tool=callgrind path/to/your/compiled/program program_arguments
+./playground/sys/callgrind.sh /path/to/program <args>
+
+sudo apt-get install qt5-default
+sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
+kcachegrind ./playground/sys/callgrind-out.txt
+```
+
 - TODO:
 
-  - GCC version: >= 5.3.0
-  - gcc 8.4.0 vs gcc 7.5.0
-  - clang 10.0.0 vs clang 6.0.0
-  - today
+  - why does accelsim get 2x as fast for lazy fetch on read ???
 
-    - collect traces on das5 titanx
-    - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
+    - it just doesnt make sense...
+
+  - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
 
   - always perform l2 mem copy, but set skip l2 flag if above threshold
 
@@ -102,6 +112,7 @@ The Maxwell/Pascal L1 data cache had similar tag stage performance but local and
 
 - DONE:
 
+  - FAILED: collect traces on das5 titanx
   - DONE: commit and fix compilation on das and on CI
   - FAILED: add the microbenchmarks from the fractional gpu paper and make them work with virtual addresses
   - DONE: transpose: why is there no write hit rate?

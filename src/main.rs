@@ -96,15 +96,15 @@ fn main() -> eyre::Result<()> {
         == "yes";
 
     let parallelization = match (options.parallel, options.non_deterministic) {
-        (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(feature = "parallel")]
         (true, None) => gpucachesim::config::Parallelization::Deterministic,
         #[cfg(feature = "parallel")]
-        (true, Some(run_ahead)) => {
+        (_, Some(run_ahead)) => {
             gpucachesim::config::Parallelization::Nondeterministic { run_ahead }
         }
+        (false, _) => gpucachesim::config::Parallelization::Serial,
         #[cfg(not(feature = "parallel"))]
-        _ => eyre::bail!(
+        (true, _) => eyre::bail!(
             "{} was compiled with parallel simulation disabled",
             env!("CARGO_BIN_NAME")
         ),

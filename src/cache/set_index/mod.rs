@@ -148,230 +148,223 @@ pub mod ipoly {
     /// IPOLY hashing guarantees conflict-free for all 2^n strides which widely
     /// exit in GPGPU applications and also show good performance for other
     /// strides.
-    #[must_use]
-    // #[inline]
-    pub fn hash(addr: super::address, index: usize, bank_set_num: usize) -> u64 {
-        // let mut set_idx: BitArr!(for 2, in u8, Lsb0) = BitArray::ZERO;
-        // set_idx.set(0, addr_bits[7]);
-        // set_idx.set(1, addr_bits[8]);
-        // let set_idx = set_idx.load();
-
+    pub fn ipoly_16(addr: super::address, index: usize) -> u64 {
         let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
         higher_bits.store(addr);
 
-        match bank_set_num {
-            16 => {
-                let mut index_bits: BitArr!(for 4, in u8, Lsb0) = BitArray::ZERO;
-                index_bits.store(index);
-                let mut new_index_bits: BitArr!(for 4, in u8, Lsb0) = BitArray::ZERO;
+        let mut index_bits: BitArr!(for 4, in u8, Lsb0) = BitArray::ZERO;
+        index_bits.store(index);
+        let mut new_index_bits: BitArr!(for 4, in u8, Lsb0) = BitArray::ZERO;
 
-                new_index_bits.set(
-                    0,
-                    higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[6]
-                        ^ higher_bits[4]
-                        ^ higher_bits[3]
-                        ^ higher_bits[0]
-                        ^ index_bits[0],
-                );
-                new_index_bits.set(
-                    1,
-                    higher_bits[12]
-                        ^ higher_bits[8]
-                        ^ higher_bits[7]
-                        ^ higher_bits[6]
-                        ^ higher_bits[5]
-                        ^ higher_bits[3]
-                        ^ higher_bits[1]
-                        ^ higher_bits[0]
-                        ^ index_bits[1],
-                );
-                new_index_bits.set(
-                    2,
-                    higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[7]
-                        ^ higher_bits[6]
-                        ^ higher_bits[4]
-                        ^ higher_bits[2]
-                        ^ higher_bits[1]
-                        ^ index_bits[2],
-                );
-                new_index_bits.set(
-                    3,
-                    higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[7]
-                        ^ higher_bits[5]
-                        ^ higher_bits[3]
-                        ^ higher_bits[2]
-                        ^ index_bits[3],
-                );
-                new_index_bits.load()
-            }
-            32 => {
-                let mut index_bits: BitArr!(for 5, in u8, Lsb0) = BitArray::ZERO;
-                index_bits.store(index);
-                let mut new_index_bits: BitArr!(for 5, in u8, Lsb0) = BitArray::ZERO;
+        new_index_bits.set(
+            0,
+            higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[6]
+                ^ higher_bits[4]
+                ^ higher_bits[3]
+                ^ higher_bits[0]
+                ^ index_bits[0],
+        );
+        new_index_bits.set(
+            1,
+            higher_bits[12]
+                ^ higher_bits[8]
+                ^ higher_bits[7]
+                ^ higher_bits[6]
+                ^ higher_bits[5]
+                ^ higher_bits[3]
+                ^ higher_bits[1]
+                ^ higher_bits[0]
+                ^ index_bits[1],
+        );
+        new_index_bits.set(
+            2,
+            higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[7]
+                ^ higher_bits[6]
+                ^ higher_bits[4]
+                ^ higher_bits[2]
+                ^ higher_bits[1]
+                ^ index_bits[2],
+        );
+        new_index_bits.set(
+            3,
+            higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[7]
+                ^ higher_bits[5]
+                ^ higher_bits[3]
+                ^ higher_bits[2]
+                ^ index_bits[3],
+        );
+        new_index_bits.load()
+    }
 
-                new_index_bits.set(
-                    0,
-                    higher_bits[13]
-                        ^ higher_bits[12]
-                        ^ higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[6]
-                        ^ higher_bits[5]
-                        ^ higher_bits[3]
-                        ^ higher_bits[0]
-                        ^ index_bits[0],
-                );
-                new_index_bits.set(
-                    1,
-                    higher_bits[4]
-                        ^ higher_bits[13]
-                        ^ higher_bits[12]
-                        ^ higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[7]
-                        ^ higher_bits[6]
-                        ^ higher_bits[4]
-                        ^ higher_bits[1]
-                        ^ index_bits[1],
-                );
-                new_index_bits.set(
-                    2,
-                    higher_bits[14]
-                        ^ higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[7]
-                        ^ higher_bits[6]
-                        ^ higher_bits[3]
-                        ^ higher_bits[2]
-                        ^ higher_bits[0]
-                        ^ index_bits[2],
-                );
-                new_index_bits.set(
-                    3,
-                    higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[7]
-                        ^ higher_bits[4]
-                        ^ higher_bits[3]
-                        ^ higher_bits[1]
-                        ^ index_bits[3],
-                );
-                new_index_bits.set(
-                    4,
-                    higher_bits[12]
-                        ^ higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[9]
-                        ^ higher_bits[8]
-                        ^ higher_bits[5]
-                        ^ higher_bits[4]
-                        ^ higher_bits[2]
-                        ^ index_bits[4],
-                );
-                new_index_bits.load()
-            }
-            64 => {
-                let mut index_bits: BitArr!(for 6, in u8, Lsb0) = BitArray::ZERO;
-                index_bits.store(index);
-                let mut new_index_bits: BitArr!(for 6, in u8, Lsb0) = BitArray::ZERO;
+    pub fn ipoly_32(addr: super::address, index: usize) -> u64 {
+        let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+        higher_bits.store(addr);
 
-                new_index_bits.set(
-                    0,
-                    higher_bits[18]
-                        ^ higher_bits[17]
-                        ^ higher_bits[16]
-                        ^ higher_bits[15]
-                        ^ higher_bits[12]
-                        ^ higher_bits[10]
-                        ^ higher_bits[6]
-                        ^ higher_bits[5]
-                        ^ higher_bits[0]
-                        ^ index_bits[0],
-                );
-                new_index_bits.set(
-                    1,
-                    higher_bits[15]
-                        ^ higher_bits[13]
-                        ^ higher_bits[12]
-                        ^ higher_bits[11]
-                        ^ higher_bits[10]
-                        ^ higher_bits[7]
-                        ^ higher_bits[5]
-                        ^ higher_bits[1]
-                        ^ higher_bits[0]
-                        ^ index_bits[1],
-                );
-                new_index_bits.set(
-                    2,
-                    higher_bits[16]
-                        ^ higher_bits[14]
-                        ^ higher_bits[13]
-                        ^ higher_bits[12]
-                        ^ higher_bits[11]
-                        ^ higher_bits[8]
-                        ^ higher_bits[6]
-                        ^ higher_bits[2]
-                        ^ higher_bits[1]
-                        ^ index_bits[2],
-                );
-                new_index_bits.set(
-                    3,
-                    higher_bits[17]
-                        ^ higher_bits[15]
-                        ^ higher_bits[14]
-                        ^ higher_bits[13]
-                        ^ higher_bits[12]
-                        ^ higher_bits[9]
-                        ^ higher_bits[7]
-                        ^ higher_bits[3]
-                        ^ higher_bits[2]
-                        ^ index_bits[3],
-                );
-                new_index_bits.set(
-                    4,
-                    higher_bits[18]
-                        ^ higher_bits[16]
-                        ^ higher_bits[15]
-                        ^ higher_bits[14]
-                        ^ higher_bits[13]
-                        ^ higher_bits[10]
-                        ^ higher_bits[8]
-                        ^ higher_bits[4]
-                        ^ higher_bits[3]
-                        ^ index_bits[4],
-                );
-                new_index_bits.set(
-                    5,
-                    higher_bits[17]
-                        ^ higher_bits[16]
-                        ^ higher_bits[15]
-                        ^ higher_bits[14]
-                        ^ higher_bits[11]
-                        ^ higher_bits[9]
-                        ^ higher_bits[5]
-                        ^ higher_bits[4]
-                        ^ index_bits[5],
-                );
-                new_index_bits.load()
-            }
-            _ => {
-                panic!(
-        "memory_partition_indexing error: The number of channels should be 16, 32 or 64 for the hashing IPOLY index function. other bank numbers are not supported");
-            }
-        }
+        let mut index_bits: BitArr!(for 5, in u8, Lsb0) = BitArray::ZERO;
+        index_bits.store(index);
+        let mut new_index_bits: BitArr!(for 5, in u8, Lsb0) = BitArray::ZERO;
+
+        new_index_bits.set(
+            0,
+            higher_bits[13]
+                ^ higher_bits[12]
+                ^ higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[6]
+                ^ higher_bits[5]
+                ^ higher_bits[3]
+                ^ higher_bits[0]
+                ^ index_bits[0],
+        );
+        new_index_bits.set(
+            1,
+            higher_bits[4]
+                ^ higher_bits[13]
+                ^ higher_bits[12]
+                ^ higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[7]
+                ^ higher_bits[6]
+                ^ higher_bits[4]
+                ^ higher_bits[1]
+                ^ index_bits[1],
+        );
+        new_index_bits.set(
+            2,
+            higher_bits[14]
+                ^ higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[7]
+                ^ higher_bits[6]
+                ^ higher_bits[3]
+                ^ higher_bits[2]
+                ^ higher_bits[0]
+                ^ index_bits[2],
+        );
+        new_index_bits.set(
+            3,
+            higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[7]
+                ^ higher_bits[4]
+                ^ higher_bits[3]
+                ^ higher_bits[1]
+                ^ index_bits[3],
+        );
+        new_index_bits.set(
+            4,
+            higher_bits[12]
+                ^ higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[9]
+                ^ higher_bits[8]
+                ^ higher_bits[5]
+                ^ higher_bits[4]
+                ^ higher_bits[2]
+                ^ index_bits[4],
+        );
+        new_index_bits.load()
+    }
+
+    pub fn ipoly_64(addr: super::address, index: usize) -> u64 {
+        let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
+        higher_bits.store(addr);
+
+        let mut index_bits: BitArr!(for 6, in u8, Lsb0) = BitArray::ZERO;
+        index_bits.store(index);
+        let mut new_index_bits: BitArr!(for 6, in u8, Lsb0) = BitArray::ZERO;
+
+        new_index_bits.set(
+            0,
+            higher_bits[18]
+                ^ higher_bits[17]
+                ^ higher_bits[16]
+                ^ higher_bits[15]
+                ^ higher_bits[12]
+                ^ higher_bits[10]
+                ^ higher_bits[6]
+                ^ higher_bits[5]
+                ^ higher_bits[0]
+                ^ index_bits[0],
+        );
+        new_index_bits.set(
+            1,
+            higher_bits[15]
+                ^ higher_bits[13]
+                ^ higher_bits[12]
+                ^ higher_bits[11]
+                ^ higher_bits[10]
+                ^ higher_bits[7]
+                ^ higher_bits[5]
+                ^ higher_bits[1]
+                ^ higher_bits[0]
+                ^ index_bits[1],
+        );
+        new_index_bits.set(
+            2,
+            higher_bits[16]
+                ^ higher_bits[14]
+                ^ higher_bits[13]
+                ^ higher_bits[12]
+                ^ higher_bits[11]
+                ^ higher_bits[8]
+                ^ higher_bits[6]
+                ^ higher_bits[2]
+                ^ higher_bits[1]
+                ^ index_bits[2],
+        );
+        new_index_bits.set(
+            3,
+            higher_bits[17]
+                ^ higher_bits[15]
+                ^ higher_bits[14]
+                ^ higher_bits[13]
+                ^ higher_bits[12]
+                ^ higher_bits[9]
+                ^ higher_bits[7]
+                ^ higher_bits[3]
+                ^ higher_bits[2]
+                ^ index_bits[3],
+        );
+        new_index_bits.set(
+            4,
+            higher_bits[18]
+                ^ higher_bits[16]
+                ^ higher_bits[15]
+                ^ higher_bits[14]
+                ^ higher_bits[13]
+                ^ higher_bits[10]
+                ^ higher_bits[8]
+                ^ higher_bits[4]
+                ^ higher_bits[3]
+                ^ index_bits[4],
+        );
+        new_index_bits.set(
+            5,
+            higher_bits[17]
+                ^ higher_bits[16]
+                ^ higher_bits[15]
+                ^ higher_bits[14]
+                ^ higher_bits[11]
+                ^ higher_bits[9]
+                ^ higher_bits[5]
+                ^ higher_bits[4]
+                ^ index_bits[5],
+        );
+        new_index_bits.load()
     }
 
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -398,7 +391,16 @@ pub mod ipoly {
             let higher_bits = addr >> bits;
             let mut index = (addr >> self.line_size_log2) as usize;
             index &= self.num_sets - 1;
-            let set_idx = hash(higher_bits, index, self.num_sets);
+
+            let set_idx = match self.num_sets {
+                16 => ipoly_16(addr, index),
+                32 => ipoly_16(addr, index),
+                64 => ipoly_16(addr, index),
+                _ => {
+                    panic!(
+"memory_partition_indexing error: The number of channels should be 16, 32 or 64 for the hashing IPOLY index function. other bank numbers are not supported");
+                }
+            };
             assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }
@@ -555,9 +557,10 @@ pub mod pascal {
             // cbit0 = X(addr, 10, 12, 16, 20, 23, 26, 29, 30)
             // cbit1 = X(addr, 11, 12, 13, 15, 17, 20, 21, 23, 25, 26, 30)
             // cbit2 = X(addr, 12, 13, 18, 19, 22, 25, 26, 27, 30, 31)
-            let bit0 = xor!(addr_bits, 10, 12, 16, 20, 23, 26, 29, 30);
-            let bit1 = xor!(addr_bits, 11, 12, 13, 15, 17, 20, 21, 23, 25, 26, 30);
-            let bit2 = xor!(addr_bits, 12, 13, 18, 19, 22, 25, 26, 27, 30, 31);
+
+            // let bit0 = xor!(addr_bits, 10, 12, 16, 20, 23, 26, 29, 30);
+            // let bit1 = xor!(addr_bits, 11, 12, 13, 15, 17, 20, 21, 23, 25, 26, 30);
+            // let bit2 = xor!(addr_bits, 12, 13, 18, 19, 22, 25, 26, 27, 30, 31);
 
             // set index
             // cbit3 = X(addr, 7, 8, 16, 17, 23, 26, 31)
@@ -567,14 +570,71 @@ pub mod pascal {
             // cbit7 = X(addr, 14, 15, 17, 20, 21, 23, 24, 28, 31)
             // cbit8 = X(addr, 15, 16, 19, 20, 23, 24, 25, 26, 28, 29, 30, 32)
             // cbit9 = X(addr, 16, 17, 18, 19, 21, 22, 23, 25, 27, 28, 30)
-            let bit3 = xor!(addr_bits, 7, 8, 16, 17, 23, 26, 31);
+            let bit3 = addr_bits[7]
+                ^ addr_bits[8]
+                ^ addr_bits[16]
+                ^ addr_bits[17]
+                ^ addr_bits[23]
+                ^ addr_bits[26]
+                ^ addr_bits[31];
 
-            let bit4 = xor!(addr_bits, 8, 10, 12, 16, 17, 21, 24, 25, 26, 27);
-            let bit5 = xor!(addr_bits, 9, 10, 18, 25, 29, 30, 31);
-            let bit6 = xor!(addr_bits, 13, 14, 20, 23, 28, 29, 30);
-            let bit7 = xor!(addr_bits, 14, 15, 17, 20, 21, 23, 24, 28, 31);
-            let bit8 = xor!(addr_bits, 15, 16, 19, 20, 23, 24, 25, 26, 28, 29, 30, 32);
-            let bit9 = xor!(addr_bits, 16, 17, 18, 19, 21, 22, 23, 25, 27, 28, 30);
+            let bit4 = addr_bits[8]
+                ^ addr_bits[10]
+                ^ addr_bits[12]
+                ^ addr_bits[16]
+                ^ addr_bits[17]
+                ^ addr_bits[21]
+                ^ addr_bits[24]
+                ^ addr_bits[25]
+                ^ addr_bits[26]
+                ^ addr_bits[27];
+
+            let bit5 = addr_bits[9]
+                ^ addr_bits[10]
+                ^ addr_bits[18]
+                ^ addr_bits[25]
+                ^ addr_bits[29]
+                ^ addr_bits[30]
+                ^ addr_bits[31];
+            let bit6 = addr_bits[13]
+                ^ addr_bits[14]
+                ^ addr_bits[20]
+                ^ addr_bits[23]
+                ^ addr_bits[28]
+                ^ addr_bits[29]
+                ^ addr_bits[30];
+            let bit7 = addr_bits[14]
+                ^ addr_bits[15]
+                ^ addr_bits[17]
+                ^ addr_bits[20]
+                ^ addr_bits[21]
+                ^ addr_bits[23]
+                ^ addr_bits[24]
+                ^ addr_bits[28]
+                ^ addr_bits[31];
+            let bit8 = addr_bits[15]
+                ^ addr_bits[16]
+                ^ addr_bits[19]
+                ^ addr_bits[20]
+                ^ addr_bits[23]
+                ^ addr_bits[24]
+                ^ addr_bits[25]
+                ^ addr_bits[26]
+                ^ addr_bits[28]
+                ^ addr_bits[29]
+                ^ addr_bits[30]
+                ^ addr_bits[32];
+            let bit9 = addr_bits[16]
+                ^ addr_bits[17]
+                ^ addr_bits[18]
+                ^ addr_bits[19]
+                ^ addr_bits[21]
+                ^ addr_bits[22]
+                ^ addr_bits[23]
+                ^ addr_bits[25]
+                ^ addr_bits[27]
+                ^ addr_bits[28]
+                ^ addr_bits[30];
 
             let mut set_index: BitArr!(for 7, in usize, Lsb0) = BitArray::ZERO;
             set_index.set(0, bit3);

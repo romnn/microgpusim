@@ -13,15 +13,15 @@ use std::collections::{HashMap, VecDeque};
 use std::time::Instant;
 
 #[tracing::instrument]
-// #[inline]
-fn interleaved_serial_cycle<I, C>(
+#[inline]
+fn interleaved_serial_cycle<I, C, MC>(
     cycle: u64,
     active_clusters: &Vec<bool>,
-    cores: &Arc<Vec<Vec<Arc<RwLock<crate::core::Core<I>>>>>>,
+    cores: &Arc<Vec<Vec<Arc<RwLock<crate::core::Core<I, MC>>>>>>,
     sim_orders: &Arc<Vec<Arc<Mutex<VecDeque<usize>>>>>,
     mem_ports: &Arc<Vec<Vec<Arc<Mutex<crate::core::CoreMemoryConnection<C>>>>>>,
     interconn: &Arc<I>,
-    clusters: &Vec<Arc<crate::Cluster<I>>>,
+    clusters: &Vec<Arc<crate::Cluster<I, MC>>>,
     config: &config::GPU,
 ) where
     C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
@@ -64,7 +64,7 @@ fn interleaved_serial_cycle<I, C>(
 
 #[tracing::instrument]
 // #[inline]
-fn new_serial_cycle<I>(
+fn new_serial_cycle<I, MC>(
     cycle: u64,
     stats: &Arc<Mutex<stats::PerKernel>>,
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
@@ -72,15 +72,16 @@ fn new_serial_cycle<I>(
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
     running_kernels: &Arc<RwLock<Vec<Option<(usize, Arc<dyn Kernel>)>>>>,
     executed_kernels: &Arc<Mutex<HashMap<u64, Arc<dyn Kernel>>>>,
-    mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition>>>>,
-    mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit>>>>,
+    mem_sub_partitions: &Arc<Vec<Arc<Mutex<crate::mem_sub_partition::MemorySubPartition<MC>>>>>,
+    mem_partition_units: &Arc<Vec<Arc<RwLock<crate::mem_partition_unit::MemoryPartitionUnit<MC>>>>>,
     interconn: &Arc<I>,
-    clusters: &Arc<Vec<Arc<crate::Cluster<I>>>>,
-    cores: &Arc<Vec<Vec<Arc<RwLock<crate::Core<I>>>>>>,
+    clusters: &Arc<Vec<Arc<crate::Cluster<I, MC>>>>,
+    cores: &Arc<Vec<Vec<Arc<RwLock<crate::Core<I, MC>>>>>>,
     last_cluster_issue: &Arc<Mutex<usize>>,
     config: &config::GPU,
 ) where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
 {
     // it could happen that two serial cycles overlap when using spawn fifo, so we need
     for cluster in clusters.iter() {
@@ -161,9 +162,10 @@ fn new_serial_cycle<I>(
     }
 }
 
-impl<I> MockSimulator<I>
+impl<I, MC> MockSimulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
 {
     #[tracing::instrument]
     pub fn run_to_completion_parallel_nondeterministic(
@@ -779,7 +781,7 @@ where
         // receive requests sent to L2 from interconnect and push them to the
         // targeted memory sub partition.
         // Run cycle for each sub partition
-        for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
+        for (sub_id, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
             let mut mem_sub = mem_sub.try_lock();
             // move memory request from interconnect into memory partition
             // (if not backed up)
@@ -788,17 +790,18 @@ where
             // is no L2 cache in the system In the worst case, we may need
             // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
             // buffer for them
-            let device = self.config.mem_id_to_device_id(i);
+            let device = self.config.mem_id_to_device_id(sub_id);
 
             if mem_sub
                 .interconn_to_l2_queue
                 .can_fit(mem_sub_partition::NUM_SECTORS as usize)
             {
                 if let Some(packet) = self.interconn.pop(device) {
+                    assert_eq!(packet.data.sub_partition_id(), sub_id);
                     log::debug!(
                         "got new fetch {} for mem sub partition {} ({})",
                         packet.data,
-                        i,
+                        sub_id,
                         device
                     );
 
@@ -807,7 +810,11 @@ where
                     mem_sub.push(packet.data, cycle);
                 }
             } else {
-                log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
+                log::debug!(
+                    "SKIP sub partition {} ({}): DRAM full stall",
+                    sub_id,
+                    device
+                );
                 let kernel_id = self
                     .current_kernel
                     .lock()

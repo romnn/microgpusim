@@ -2,9 +2,10 @@ use crate::sync::{Arc, RwLock};
 use crate::{config, engine::cycle::Component, ic, mem_fetch, MockSimulator};
 use color_eyre::eyre;
 
-impl<I> MockSimulator<I>
+impl<I, MC> MockSimulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
+    MC: crate::mcu::MemoryController,
 {
     pub fn run_to_completion_parallel_deterministic(&mut self) -> eyre::Result<()> {
         crate::TIMINGS.lock().clear();

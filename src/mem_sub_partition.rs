@@ -12,6 +12,7 @@ pub const NUM_SECTORS: usize = 4;
 /// Sector size is 32 bytes.
 pub const SECTOR_SIZE: u32 = 32;
 
+#[inline]
 pub fn breakdown_request_to_sector_requests<'c>(
     fetch: mem_fetch::MemFetch,
     mem_controller: &'c dyn mcu::MemoryController,
@@ -27,7 +28,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
     struct SectorFetch {
         addr: address,
         physical_addr: crate::mcu::PhysicalAddress,
-        // partition_addr: address,
         sector: usize,
         byte_mask: mem_fetch::ByteMask,
         original_fetch: mem_fetch::MemFetch,
@@ -35,7 +35,7 @@ pub fn breakdown_request_to_sector_requests<'c>(
         // config: &'c config::GPU,
     }
 
-    assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+    debug_assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
 
     // impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
     impl Into<mem_fetch::MemFetch> for SectorFetch {
@@ -56,7 +56,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
                 original_fetch: Some(Box::new(self.original_fetch.clone())),
                 access,
                 physical_addr: self.physical_addr,
-                // partition_addr: self.partition_addr,
                 ..self.original_fetch
             }
         }
@@ -66,7 +65,8 @@ pub fn breakdown_request_to_sector_requests<'c>(
     let sector_size = SECTOR_SIZE as usize;
 
     if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
-        sector_requests[0] = Some(fetch.clone());
+        sector_requests[0] = Some(fetch);
+        // sector_requests[0] = Some(fetch.clone());
     } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
         // break down every sector
         // TODO ROMAN: reset the byte mask for each sector
@@ -76,13 +76,11 @@ pub fn breakdown_request_to_sector_requests<'c>(
             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
             let addr = fetch.addr() + (sector_size * sector) as u64;
             let physical_addr = mem_controller.to_physical_address(addr);
-            // let partition_addr = mem_controller.memory_partition_address(addr);
 
             let sector_fetch = SectorFetch {
                 sector,
                 addr,
                 physical_addr,
-                // partition_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
                 // mem_controller: &*self.mem_controller,
@@ -101,13 +99,11 @@ pub fn breakdown_request_to_sector_requests<'c>(
             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
             let addr = fetch.addr();
             let physical_addr = mem_controller.to_physical_address(addr);
-            // let partition_addr = mem_controller.memory_partition_address(addr);
 
             let sector_fetch = SectorFetch {
                 sector,
                 addr,
                 physical_addr,
-                // partition_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
                 // mem_controller: &*self.mem_controller,
@@ -129,13 +125,11 @@ pub fn breakdown_request_to_sector_requests<'c>(
 
                 let addr = fetch.addr() + (sector_size * sector) as u64;
                 let physical_addr = mem_controller.to_physical_address(addr);
-                // let partition_addr = mem_controller.memory_partition_address(addr);
 
                 let sector_fetch = SectorFetch {
                     sector,
                     addr,
                     physical_addr,
-                    // partition_addr,
                     byte_mask: fetch.access.byte_mask & byte_mask,
                     original_fetch: fetch.clone(),
                     // mem_controller: &*self.mem_controller,
@@ -146,7 +140,7 @@ pub fn breakdown_request_to_sector_requests<'c>(
         }
     }
     log::trace!(
-        "sector requests for {fetch}: {:?}",
+        "sector requests: {:?}",
         sector_requests
             .iter()
             .filter_map(|x| x.as_ref())
@@ -160,11 +154,13 @@ pub fn breakdown_request_to_sector_requests<'c>(
 }
 
 // pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
-pub struct MemorySubPartition {
+// pub struct MemorySubPartition {
+pub struct MemorySubPartition<MC> {
     pub id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
-    pub mem_controller: Arc<dyn mcu::MemoryController>,
+    pub mem_controller: Arc<MC>,
+    // pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
 
     /// queues
@@ -182,7 +178,8 @@ pub struct MemorySubPartition {
     request_tracker: HashSet<mem_fetch::MemFetch>,
 }
 
-impl std::fmt::Debug for MemorySubPartition {
+// impl std::fmt::Debug for MemorySubPartition {
+impl<MC> std::fmt::Debug for MemorySubPartition<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemorySubPartition").finish()
     }
@@ -190,12 +187,17 @@ impl std::fmt::Debug for MemorySubPartition {
 
 const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
 
-impl MemorySubPartition {
+// impl MemorySubPartition {
+impl<MC> MemorySubPartition<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     pub fn new(
         id: usize,
         partition_id: usize,
         config: Arc<config::GPU>,
-        mem_controller: Arc<dyn mcu::MemoryController>,
+        mem_controller: Arc<MC>,
+        // mem_controller: Arc<dyn mcu::MemoryController>,
         stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let interconn_to_l2_queue = Fifo::new(
@@ -290,12 +292,11 @@ impl MemorySubPartition {
     //         // config: &'c config::GPU,
     //     }
     //
-    //     assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
+    //     debug_assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
     //
     //     impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
     //         fn into(self) -> mem_fetch::MemFetch {
     //             let physical_addr = self.mem_controller.to_physical_address(self.addr);
-    //             let partition_addr = self.mem_controller.memory_partition_address(self.addr);
     //
     //             let mut sector_mask = mem_fetch::SectorMask::ZERO;
     //             sector_mask.set(self.sector, true);
@@ -313,7 +314,6 @@ impl MemorySubPartition {
     //                 original_fetch: Some(Box::new(self.original_fetch.clone())),
     //                 access,
     //                 physical_addr,
-    //                 partition_addr,
     //                 ..self.original_fetch
     //             }
     //         }
@@ -400,7 +400,14 @@ impl MemorySubPartition {
     // }
 
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
+        #[cfg(debug_assertions)]
         let original_fetch = fetch.clone();
+        // let original_fetch = if crate::DEBUG_PRINT {
+        //     Some(fetch.clone())
+        // } else {
+        //     None
+        // };
+
         let mut sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
             [(); NUM_SECTORS].map(|_| None);
 
@@ -415,7 +422,7 @@ impl MemorySubPartition {
             if sectored {
                 breakdown_request_to_sector_requests(
                     fetch,
-                    &self.mem_controller,
+                    &*self.mem_controller,
                     &mut sector_requests,
                 );
             } else {
@@ -442,7 +449,7 @@ impl MemorySubPartition {
             if sectored {
                 breakdown_request_to_sector_requests(
                     fetch,
-                    &self.mem_controller,
+                    &*self.mem_controller,
                     &mut sector_requests,
                 );
             } else {
@@ -466,30 +473,33 @@ impl MemorySubPartition {
         // late to change the physical address to another
         // sub partition.
 
-        let sector_sub_partitions: Vec<_> = sector_requests
-            .iter()
-            .filter_map(Option::as_ref)
-            .map(|sector| sector.sub_partition_id())
-            .collect();
+        #[cfg(debug_assertions)]
+        {
+            let sector_sub_partitions: Vec<_> = sector_requests
+                .iter()
+                .filter_map(Option::as_ref)
+                .map(|sector| sector.sub_partition_id())
+                .collect();
 
-        assert!(
-            sector_sub_partitions
-                .iter()
-                .all(|sub_id| *sub_id == original_fetch.sub_partition_id()),
-            "breakdown {} (sub partition {}) to sectors resulted in different sub partitions {:?}",
-            original_fetch,
-            original_fetch.sub_partition_id(),
-            sector_sub_partitions,
-        );
-        assert!(
-            sector_sub_partitions
-                .iter()
-                .all(|sub_id| *sub_id == self.id),
-            "breakdown {} (sub partition {}) to sectors: sub partition {} has got requests for sub partitions {:?}",
-            original_fetch, original_fetch.sub_partition_id(), 
-            self.id,
-            sector_sub_partitions,
-        );
+            debug_assert!(
+                sector_sub_partitions
+                    .iter()
+                    .all(|sub_id| *sub_id == original_fetch.sub_partition_id()),
+                "breakdown {} (sub partition {}) to sectors resulted in different sub partitions {:?}",
+                original_fetch,
+                original_fetch.sub_partition_id(),
+                sector_sub_partitions,
+            );
+            debug_assert!(
+                sector_sub_partitions
+                    .iter()
+                    .all(|sub_id| *sub_id == self.id),
+                "breakdown {} (sub partition {}) to sectors: sub partition {} has got requests for sub partitions {:?}",
+                original_fetch, original_fetch.sub_partition_id(), 
+                self.id,
+                sector_sub_partitions,
+            );
+        }
 
         for mut fetch in sector_requests
             .into_iter()
@@ -513,7 +523,7 @@ impl MemorySubPartition {
             // );
             self.request_tracker.insert(fetch.clone());
             self.num_pending_requests += 1;
-            assert!(!self.interconn_to_l2_queue.full());
+            debug_assert!(!self.interconn_to_l2_queue.full());
             fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
 
             if fetch.is_texture() {
@@ -528,7 +538,9 @@ impl MemorySubPartition {
             }
         }
     }
+}
 
+impl<MC> MemorySubPartition<MC> {
     #[must_use]
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
@@ -702,7 +714,7 @@ impl MemorySubPartition {
         let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
         if !l2_to_dram_queue.full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first().map(Packet::as_ref) {
-                assert_eq!(fetch.sub_partition_id(), self.id);
+                debug_assert_eq!(fetch.sub_partition_id(), self.id);
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
                         // L2 is enabled and access is for L2
@@ -728,10 +740,10 @@ impl MemorySubPartition {
                             if status == cache::RequestStatus::HIT {
                                 let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                                 if write_sent {
-                                    assert!(write_sent);
+                                    debug_assert!(write_sent);
                                 } else {
                                     // L2 cache replies
-                                    assert!(!read_sent);
+                                    debug_assert!(!read_sent);
                                     if fetch.access_kind() == mem_fetch::access::Kind::L1_WRBK_ACC {
                                         self.request_tracker.remove(&fetch);
 
@@ -776,8 +788,8 @@ impl MemorySubPartition {
                                 }
                             } else {
                                 // reservation fail
-                                assert!(!write_sent);
-                                assert!(!read_sent);
+                                debug_assert!(!write_sent);
+                                debug_assert!(!read_sent);
                                 // L2 cache lock-up: will try again next cycle
                             }
                         }
@@ -787,7 +799,7 @@ impl MemorySubPartition {
                     let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
 
-                    assert!(fetch.sub_partition_id() >= self.id);
+                    debug_assert!(fetch.sub_partition_id() >= self.id);
                     l2_to_dram_queue.enqueue(fetch);
                 }
             }

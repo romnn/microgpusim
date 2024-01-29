@@ -16,6 +16,24 @@ pub enum WriteAllocatePolicy {
     LAZY_FETCH_ON_READ, // L
 }
 
+impl WriteAllocatePolicy {
+    pub fn is_no_write_allocate(&self) -> bool {
+        *self == WriteAllocatePolicy::NO_WRITE_ALLOCATE
+    }
+
+    pub fn is_write_allocate(&self) -> bool {
+        *self == WriteAllocatePolicy::WRITE_ALLOCATE
+    }
+
+    pub fn is_fetch_on_write(&self) -> bool {
+        *self == WriteAllocatePolicy::FETCH_ON_WRITE
+    }
+
+    pub fn is_lazy_fetch_on_read(&self) -> bool {
+        *self == WriteAllocatePolicy::LAZY_FETCH_ON_READ
+    }
+}
+
 /// A cache write policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum WritePolicy {

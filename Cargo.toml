@@ -27,7 +27,7 @@ debug = 2 # full debug info
 opt-level = 3
 
 [profile.release]
-# lto just takes too long for now
+# link time optimization takes too long
 lto = false
 opt-level = 3
 debug = true
@@ -35,7 +35,7 @@ debug = true
 debug-assertions = false
 
 [profile.bench]
-# lto = true
+lto = false
 # warning: debug assertions negatively impact the performance of accelsim and play
 debug-assertions = false
 # codegen-units = 10
@@ -51,8 +51,9 @@ publish = false
 [features]
 # default = ["detailed-stats", "parking_lot", "parallel", "deadlock_detection"]
 # default = ["detailed-stats", "parking_lot", "parallel", "jemalloc"]
-# default = ["parking_lot", "parallel", "jemalloc"]
-default = ["parallel"]
+# default = ["parking_lot", "parallel", "jemalloc", "timings"]
+default = ["parking_lot", "parallel", "jemalloc"]
+# default = ["parallel"]
 # default = ["parallel", "timings"]
 # default = ["parking_lot", "parallel", "deadlock_detection"]
 deadlock_detection = ["parking_lot/deadlock_detection"]

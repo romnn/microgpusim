@@ -6,11 +6,12 @@ use std::collections::VecDeque;
 
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 
-#[derive(Debug)]
-pub struct Cluster<I> {
+#[derive()]
+// pub struct Cluster<I> {
+pub struct Cluster<I, MC> {
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
-    pub cores: Vec<Arc<RwLock<Core<I>>>>,
+    pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     pub config: Arc<config::GPU>,
     pub stats: Arc<Mutex<stats::PerKernel>>,
 
@@ -22,9 +23,17 @@ pub struct Cluster<I> {
     pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
 }
 
-impl<I> Cluster<I>
+impl<I, MC> std::fmt::Debug for Cluster<I, MC> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Cluster@{}", self.cluster_id)
+    }
+}
+
+// impl<I> Cluster<I>
+impl<I, MC> Cluster<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
 {
     pub fn new(
         cluster_id: usize,
@@ -33,7 +42,8 @@ where
         interconn: &Arc<I>,
         stats: &Arc<Mutex<stats::PerKernel>>,
         config: &Arc<config::GPU>,
-        mem_controller: &Arc<dyn mcu::MemoryController>,
+        mem_controller: &Arc<MC>,
+        // mem_controller: &Arc<dyn mcu::MemoryController>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = num_cores - 1;
@@ -194,7 +204,10 @@ where
     }
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
-    pub fn issue_block_to_core(&self, sim: &MockSimulator<I>, cycle: u64) -> usize {
+    pub fn issue_block_to_core(&self, sim: &MockSimulator<I, MC>, cycle: u64) -> usize
+    where
+        MC: std::fmt::Debug + crate::mcu::MemoryController,
+    {
         let num_cores = self.cores.len();
 
         log::debug!(

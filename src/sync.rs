@@ -32,17 +32,20 @@ pub mod parking_lot {
         // #[inline]
         pub fn try_lock(&self) -> parking_lot::MutexGuard<T> {
             // self.0.lock()
-
-            // todo: rename sector_chunk_size to num_sectors
             match self.0.try_lock() {
-                Err(err) => {
-                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
-                    panic!("{}", err);
+                Some(guard) => guard,
+                None => {
+                    println!("{}", std::backtrace::Backtrace::force_capture());
+                    panic!("try_lock() would block");
                 }
-                Ok(guard) => guard,
             }
             // self.0.try_lock().unwrap()
         }
+
+        // #[inline]
+        // pub fn get_mut(&self) -> &mut T {
+        //     self.0.get_mut()
+        // }
     }
 
     /// A fair mutex
@@ -75,11 +78,11 @@ pub mod parking_lot {
             // self.0.lock()
             // self.0.try_lock().unwrap()
             match self.0.try_lock() {
-                Err(err) => {
-                    println!("{}: {}", err, std::backtrace::Backtrace::force_capture());
-                    panic!("{}", err);
+                Some(guard) => guard,
+                None => {
+                    println!("{}", std::backtrace::Backtrace::force_capture());
+                    panic!("try_lock() would block");
                 }
-                Ok(guard) => guard,
             }
         }
     }

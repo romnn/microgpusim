@@ -34,7 +34,7 @@ impl State {
     }
 }
 
-impl<I> super::MockSimulator<I>
+impl<I, MC> super::MockSimulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
 {

@@ -21,7 +21,8 @@ pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
     fn next_block(&self) -> Option<model::Point>;
     fn current_block(&self) -> Option<model::Point>;
 
-    fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) -> bool;
+    // fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) -> bool;
+    fn next_threadblock_traces(&self, warps: &mut [warp::Warp], config: &config::GPU) -> bool;
 
     fn num_running_blocks(&self) -> usize;
 
@@ -187,7 +188,8 @@ pub mod trace {
             Some(model::Point::new(next_block, self.config.grid.clone()))
         }
 
-        fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) -> bool {
+        // fn next_threadblock_traces(&self, warps: &mut [warp::Ref], config: &config::GPU) -> bool {
+        fn next_threadblock_traces(&self, warps: &mut [warp::Warp], config: &config::GPU) -> bool {
             let mut instructions = 0;
             let mut trace = self.trace.try_write();
 
@@ -222,7 +224,7 @@ pub mod trace {
 
                 if !self.memory_only || instr.is_memory_instruction() {
                     let warp = warps.get_mut(warp_id).unwrap();
-                    let mut warp = warp.try_lock();
+                    // let mut warp = warp.try_lock();
                     log::trace!(
                         "block {}: adding {} to warp {}",
                         current_block,
@@ -246,9 +248,10 @@ pub mod trace {
             debug_assert!(instructions > 0);
 
             debug_assert!(
-                warps
-                    .iter()
-                    .all(|w| !w.try_lock().trace_instructions.is_empty()),
+                warps.iter().all(|w| {
+                    !w.trace_instructions.is_empty()
+                    // !w.try_lock().trace_instructions.is_empty()
+                }),
                 "all warps have at least one instruction (need at least an EXIT)"
             );
             true

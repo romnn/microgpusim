@@ -967,17 +967,17 @@ impl WarpInstruction {
             mean_transaction_size,
             accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
         );
-        if accesses.len() == warp_parts {
-            for access in accesses.iter() {
-                log::warn!(
-                    "tx: {} data size={} bytes={} num uncoalesced accesses={}",
-                    access,
-                    access.data_size(),
-                    access.byte_mask[..128].to_bit_string(),
-                    access.num_uncoalesced_accesses()
-                );
-            }
-        }
+        // if accesses.len() == warp_parts {
+        //     for access in accesses.iter() {
+        //         log::warn!(
+        //             "tx: {} data size={} bytes={} num uncoalesced accesses={}",
+        //             access,
+        //             access.data_size(),
+        //             access.byte_mask[..128].to_bit_string(),
+        //             access.num_uncoalesced_accesses()
+        //         );
+        //     }
+        // }
         // println!(
         //     "coalesced warp instruction {self} into {} transactions (transaction size={:2.2})",
         //     accesses.len(),
