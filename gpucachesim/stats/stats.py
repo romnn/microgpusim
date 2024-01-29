@@ -8,12 +8,15 @@ from typing import Sequence
 from pprint import pprint
 
 from gpucachesim.benchmarks import (
+    WRITE_ACCESS_KINDS,
     GPUConfig,
     BenchConfig,
     SimulateConfig,
     SimulateTargetConfig,
     INDEX_COLS,
     SPECIAL_DTYPES,
+    ACCESS_KINDS,
+    ACCESS_STATUSES,
 )
 import gpucachesim.stats.common as common
 
@@ -32,6 +35,13 @@ def fix_dtypes(df):
         **SPECIAL_DTYPES,
     }
     dtypes = {col: dtype for col, dtype in dtypes.items() if col in df}
+
+    def map_dtype(dtype):
+        if dtype == "object":
+            return "string"
+        return dtype
+
+    dtypes = {col: map_dtype(dtype) for col, dtype in dtypes.items()}
     return df.astype(dtypes)
 
 
@@ -121,6 +131,39 @@ class Stats(common.Stats):
         self.l1_inst_stats_df = fix_dtypes(pd.concat(l1_inst_stats_dfs))
         self.l1_tex_stats_df = fix_dtypes(pd.concat(l1_tex_stats_dfs))
         self.l1_data_stats_df = fix_dtypes(pd.concat(l1_data_stats_dfs))
+
+        if False:
+            print(self.l1_data_stats_df)
+            print(self.l1_data_stats_df.columns)
+            print(self.l1_data_stats_df.index)
+
+            # product = pd.DataFrame(
+            #     {
+            #         "access_status": ACCESS_STATUSES,
+            #         "access_kind": ACCESS_KINDS,
+            #     }
+            # )
+            product = pd.MultiIndex.from_product(
+                [ACCESS_STATUSES, ACCESS_KINDS], names=["access_status", "access_kind"]
+            )
+            product = product.to_frame().reset_index(drop=True)
+            product["is_write"] = product["access_kind"].isin(WRITE_ACCESS_KINDS)
+
+            def test(df):
+                print("aggregate")
+                print(df)
+                #     print(df.index)
+                #     print(df.columns)
+                return df
+
+            self.l1_data_stats_df = self.l1_data_stats_df.groupby(INDEX_COLS).apply(test)
+
+            raise ValueError("todo")
+        # # no_kernel = df["kernel_name"].isna() & df["kernel_name_mangled"].isna()
+        # global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
+        # hit_mask = df["access_status"].isin(["HIT", "HIT_RESERVED"])
+        # miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
+
         self.l1_const_stats_df = fix_dtypes(pd.concat(l1_const_stats_dfs))
         self.l2_data_stats_df = fix_dtypes(pd.concat(l2_data_stats_dfs))
 
@@ -287,8 +330,10 @@ class Stats(common.Stats):
         # print("ACCESS KERNEL NAME MANGLED")
         # print(accesses.index)
 
-        hits = hits.groupby(INDEX_COLS, dropna=False, sort=False)["num_accesses"].sum()
-        accesses = accesses.groupby(INDEX_COLS, dropna=False, sort=False)["num_accesses"].sum()
+        grouped = hits.groupby(INDEX_COLS, dropna=False, sort=False)
+        hits = grouped["num_accesses"].sum()
+        grouped = accesses.groupby(INDEX_COLS, dropna=False, sort=False)
+        accesses = grouped["num_accesses"].sum()
 
         # for index_col in self.result_df.index.names:
         #     print(
@@ -296,7 +341,7 @@ class Stats(common.Stats):
         #         self.result_df.index.get_level_values(index_col).dtype,
         #         self.result_df.index.get_level_values(index_col),
         #     )
-        #
+
         # self.result_df.index._sort_levels_monotonic(raise_if_incomparable=True)
         # hits._sort_levels_monotonic(raise_if_incomparable=True)
         # accesses._sort_levels_monotonic(raise_if_incomparable=True)
@@ -335,7 +380,28 @@ class Stats(common.Stats):
 
         # print("")
 
-        self.result_df["l1_hit_rate"] = (hits / accesses).fillna(0.0)
+        # print("\nHAVE:")
+        # print(self.result_df.index)
+        # for row in self.result_df.index:
+        #     print(row)
+        # print(self.result_df.index.to_frame().reset_index(drop=True).drop_duplicates())
+        #
+        # print("\nNEW:")
+        # print("hits {} accesses {}".format(len(hits), len(accesses)))
+        # assert hits.index == accesses.index
+        l1_hit_rate = (hits / accesses).fillna(0.0)
+        # if len(hits) != 0 and len(accesses) != 0:
+        #     l1_hit_rate = (hits / accesses).fillna(0.0)
+        # else:
+        #     l1_hit_rate = 0.0
+        # assert self.result_df.index.names == l1_hit_rate.index.names
+        # print(l1_hit_rate.index)
+        # for row in l1_hit_rate.index:
+        #     print(row)
+        # l1_hit_rate.index = self.result_df.index
+        # print(l1_hit_rate.index.to_frame().reset_index(drop=True).drop_duplicates())
+
+        self.result_df["l1_hit_rate"] = l1_hit_rate
 
     def _compute_l1_global_hit_rate(self):
         df = self.l1_data_stats_df
@@ -345,8 +411,6 @@ class Stats(common.Stats):
         hits = df[global_read & hit_mask]
         accesses = df[global_read & (hit_mask | miss_mask)]
 
-        # print(hits)
-        # print(accesses)
         grouped = hits.groupby(INDEX_COLS, dropna=False, sort=False)
         hits = grouped["num_accesses"].sum()
         grouped = accesses.groupby(INDEX_COLS, dropna=False, sort=False)

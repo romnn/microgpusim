@@ -46,6 +46,7 @@ pd.set_option('future.no_silent_downcasting', True)
 # pd.set_option("display.expand_frame_repr", False)
 np.set_printoptions(suppress=True, formatter={"float_kind": "{:f}".format})
 np.seterr(all="raise")
+print("pandas version: {}".format(pd. __version__))
 
 DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.original.config.yml"
 
@@ -70,7 +71,8 @@ def aggregate_benchmark_results(
         if col not in selected_df:
             selected_df[col] = np.nan
 
-    non_gpucachesim = selected_df["input_mode"].isnull()
+    # non_gpucachesim = selected_df["input_mode"].isnull()
+    non_gpucachesim = selected_df["target"] != Target.Simulate.value
 
     gold_gpucachesim = selected_df["input_mode"] == mode
     gold_gpucachesim &= selected_df["input_memory_only"] == memory_only
@@ -88,7 +90,7 @@ def aggregate_benchmark_results(
     )
 
     kernels = selected_df[gold_gpucachesim]["kernel_name"].unique().tolist()
-    print(kernels)
+    print("kernels:", kernels)
 
     # only keep gold gpucachesim and other targets
     no_kernel = selected_df["kernel_name"].isna() | (selected_df["kernel_name"] == "")
@@ -239,8 +241,12 @@ def build_parallel_table_rows(
             ]
             # + different_cols(det)
         )
+        preview_cols = [col for col in preview_cols if col in df]
 
         all_parallel = df[(nondet_mask | det_mask) & threads_mask]
+
+        # diff = set(preview_cols) - set(list(all_parallel.columns))
+        # print(diff)
 
         print("max speedup for {} threads is {}".format(
             threads, all_parallel["exec_time_sec_speedup"].max()))
@@ -272,7 +278,7 @@ def build_parallel_table_rows(
         # nondet_no_interleave = df[threads_mask & nondet_no_interleave_mask]
         # nondet_interleave = df[threads_mask & nondet_interleave_mask]
 
-        print("nu det={} num benchmark configs={}".format(len(det), num_bench_configs))
+        print("num det={} num benchmark configs={}".format(len(det), num_bench_configs))
         # print(det)
         assert len(det) == num_bench_configs
         assert len(all_nondet) == len(run_ahead_values) * num_bench_configs
@@ -305,8 +311,8 @@ def build_parallel_table_rows(
             )
             preview_cols = [col for col in preview_cols if col in df]
 
-            print("det shape", det.shape)
-            print("det", det[preview_cols][:8].T)
+            print("DETERMINISTIC {}".format(det.shape))
+            print(det[preview_cols][:8].T)
 
             # make sure we aggregate a single functional config only
             assert det["input_cores_per_cluster"].nunique() == 1
@@ -1025,7 +1031,7 @@ def emale(true_values: np.ndarray, values: np.ndarray) -> float:
     return emale
 
 
-def mape(true_values: np.ndarray, values: np.ndarray) -> float:
+def mape(true_values: np.ndarray, values: np.ndarray) -> np.array:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     return sklearn.metrics.mean_absolute_percentage_error(true_values, values)
@@ -1143,13 +1149,13 @@ def split_into_target_dfs(
     native_mask = df["target"] == Target.Profile.value
     native_df = df[native_mask]
     native_df = aggregate_mean_input_config_stats(native_df, per_kernel=per_kernel)
-    print("native", native_df.shape)
+    print("native:                            {}".format(native_df.shape))
 
     # gpucachesim
     accelsim_mask = df["target"] == Target.AccelsimSimulate.value
     accelsim_df = df[accelsim_mask]
     accelsim_df = aggregate_mean_input_config_stats(accelsim_df, per_kernel=per_kernel)
-    print("accelsim", accelsim_df.shape)
+    print("accelsim:                          {}".format(accelsim_df.shape))
 
     # gpucachesim
     serial_gpucachesim_mask = df["target"] == Target.Simulate.value
@@ -1166,7 +1172,7 @@ def split_into_target_dfs(
     serial_gpucachesim_df = aggregate_mean_input_config_stats(
         serial_gpucachesim_df, per_kernel=per_kernel
     )
-    print("serial gpucachesim", serial_gpucachesim_df.shape)
+    print("serial gpucachesim:                {}".format(serial_gpucachesim_df.shape))
 
     # gpucachesim (mem only)
     serial_gpucachesim_mem_only_mask = df["target"] == Target.Simulate.value
@@ -1183,19 +1189,20 @@ def split_into_target_dfs(
     serial_gpucachesim_mem_only_df = aggregate_mean_input_config_stats(
         serial_gpucachesim_mem_only_df, per_kernel=per_kernel
     )
-    print("serial gpucachesim mem only", serial_gpucachesim_mem_only_df.shape)
+    print("serial gpucachesim (mem only):     {}".format(serial_gpucachesim_mem_only_df.shape))
 
     # gpucachesim (exec-driven)
     serial_gpucachesim_exec_driven_mask = (
         df["target"] == Target.ExecDrivenSimulate.value
     )
-    serial_gpucachesim_exec_driven_mask &= df["input_memory_only"].isin([False, np.nan])
-    serial_gpucachesim_exec_driven_mask &= df["input_mode"].isin(["serial", np.nan])
+    # print("mask num", sum(serial_gpucachesim_exec_driven_mask))
+    # print(df.loc[serial_gpucachesim_exec_driven_mask, ["target", "input_memory_only", "input_mode"]])
+    serial_gpucachesim_exec_driven_mask &= df["input_mode"].isin(["serial", "", np.nan])
     serial_gpucachesim_exec_driven_df = df[serial_gpucachesim_exec_driven_mask]
     serial_gpucachesim_exec_driven_df = aggregate_mean_input_config_stats(
         serial_gpucachesim_exec_driven_df, per_kernel=per_kernel
     )
-    print("serial gpucachesim exec driven", serial_gpucachesim_exec_driven_df.shape)
+    print("serial gpucachesim (exec driven):  {}".format(serial_gpucachesim_exec_driven_df.shape))
 
     # gpucachesim (parallel)
     parallel_gpucachesim_mask = df["target"] == Target.Simulate.value
@@ -1212,7 +1219,7 @@ def split_into_target_dfs(
     parallel_gpucachesim_df = aggregate_mean_input_config_stats(
         parallel_gpucachesim_df, per_kernel=per_kernel
     )
-    print("parallel gpucachesim", parallel_gpucachesim_df.shape)
+    print("parallel gpucachesim:              {}".format(parallel_gpucachesim_df.shape))
 
     return TargetDataframes(
         native_df=native_df,
@@ -1566,6 +1573,10 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
     # remove non-kernel results
     selected_df = selected_df[~selected_df["kernel_name"].isna()]
 
+    # target benchmark histogram 
+    target_bench_input_count_hist = selected_df[["target", "benchmark", "input_id"]].drop_duplicates().value_counts(["target", "benchmark"], dropna=False).sort_index()
+    print(target_bench_input_count_hist)
+
     target_dfs = split_into_target_dfs(selected_df, per_kernel=True)
     native_df = target_dfs.native_df
     accelsim_df = target_dfs.accelsim_df
@@ -1573,6 +1584,7 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
     serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
     serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
 
+    
     class Metric(typing.TypedDict):
         label: str
         is_percent: bool
@@ -1662,6 +1674,24 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
                 ("l2_hit_rate", ErrorMetric.EMALE),
                 ("l2_hit_rate", ErrorMetric.MAE),
                 ("l2_hit_rate", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2D read hitrate",
+            is_percent=True,
+            error_metrics=[
+                ("l2_read_hit_rate", ErrorMetric.EMALE),
+                ("l2_read_hit_rate", ErrorMetric.MAE),
+                ("l2_read_hit_rate", ErrorMetric.Correlation),
+            ],
+        ),
+        Metric(
+            label="L2D write hitrate",
+            is_percent=True,
+            error_metrics=[
+                ("l2_write_hit_rate", ErrorMetric.EMALE),
+                ("l2_write_hit_rate", ErrorMetric.MAE),
+                ("l2_write_hit_rate", ErrorMetric.Correlation),
             ],
         )
     ]
@@ -1787,23 +1817,41 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
         ]
     )
 
-    preview_cols = [
-        "benchmark",
-        "input_id",
-        "num_global_loads",
-        "num_global_stores",
-    ] + [
-        col + suffix
-        for col, suffix in itertools.product(
-            # ["cycles"],
-            # ["dram_writes", "dram_writes_percent"],
-            # ["dram_reads", "dram_reads_percent"],
-            ["l1_accesses"],
-            # [""] + list(sim_targets.keys())
-            ["", "_accelsim", "_gpucachesim"],
-        )
-    ]
-    print(native_df[preview_cols])
+    # preview_cols = [
+    #     "benchmark",
+    #     "input_id",
+    #     "num_global_loads",
+    #     "num_global_stores",
+    # ] + [
+    #     col + suffix
+    #     for col, suffix in itertools.product(
+    #         # ["cycles"],
+    #         # ["dram_writes", "dram_writes_percent"],
+    #         # ["dram_reads", "dram_reads_percent"],
+    #         ["l1_accesses"],
+    #         # [""] + list(sim_targets.keys())
+    #         ["", "_accelsim", "_gpucachesim"],
+    #     )
+    # ]
+    # print(native_df[preview_cols])
+
+    for metric in metrics:
+        metric_cols = sorted(list(set([metric_col for metric_col, _ in metric["error_metrics"]])))
+        print("==> PREVIEW: {}".format(metric_cols))
+        preview_cols = [
+            "benchmark",
+            "input_id",
+            # "num_global_loads",
+            # "num_global_stores",
+        ] + [
+            col + suffix
+            for col, suffix in itertools.product(
+                metric_cols,
+                [""] + list(sim_targets.keys()),
+                # ["", "_accelsim", "_gpucachesim"],
+            )
+        ]
+        print(native_df[preview_cols])
 
     table = ""
     for bench in benches + [None]:
@@ -1832,6 +1880,8 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
             table += r"\hline"
         table += "\n"
 
+
+        
         for metric in metrics:
             print(bench, metric["label"])
 
@@ -2270,6 +2320,8 @@ def parallel_table(bench_name_arg, path, nsight):
         + [col + "_parallel" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
         + [col + "_serial" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
     )
+    assert "input_id" not in group_cols
+    assert "input_id_serial" not in group_cols
     aggregations = {
         **{c: "mean" for c in sorted(joined.columns)},
         **{c: agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
@@ -2316,12 +2368,15 @@ def parallel_table(bench_name_arg, path, nsight):
 
     # this is just for checking things
     def _inspect(df):
+        # print(df)
+        # print(df.columns)
+        # print(df.index)
         if not all_benchmarks:
             assert len(df["input_id_serial"].unique()) == 1
         # print("num runs", len(df["run"].unique()))
         pass
 
-    grouped.apply(_inspect)
+    grouped[joined.columns].apply(_inspect)
 
     aggregated = grouped.agg(aggregations, squeeze=False)
 
@@ -2337,34 +2392,34 @@ def parallel_table(bench_name_arg, path, nsight):
             baseline=exec_time_sec_serial, values=exec_time_sec_parallel
         ).mean()
 
-    aggregated["exec_time_sec_speedup"] = grouped.apply(compute_speedup)
+    aggregated["exec_time_sec_speedup"] = grouped[joined.columns].apply(compute_speedup)
 
     # cycles error
-    aggregated["cycles_mape"] = grouped.apply(
+    aggregated["cycles_mape"] = grouped[joined.columns].apply(
         lambda df: mape(
             true_values=df["cycles_serial"], values=df["cycles_parallel"]
         ).mean()
     )
     # l1 hit rate error
-    aggregated["l1_hit_rate_mae"] = grouped.apply(
+    aggregated["l1_hit_rate_mae"] = grouped[joined.columns].apply(
         lambda df: abs_err(
             true_values=df["l1_hit_rate_serial"], values=df["l1_hit_rate_parallel"]
         ).mean()
     )
     # # l2 hit rate error
-    aggregated["l2_hit_rate_mae"] = grouped.apply(
+    aggregated["l2_hit_rate_mae"] = grouped[joined.columns].apply(
         lambda df: abs_err(
             true_values=df["l2_hit_rate_serial"], values=df["l2_hit_rate_parallel"]
         ).mean()
     )
     # dram reads error
-    aggregated["dram_reads_smape"] = grouped.apply(
+    aggregated["dram_reads_smape"] = grouped[joined.columns].apply(
         lambda df: smape(
             true_values=df["dram_reads_serial"], values=df["dram_reads_parallel"]
         )  # .mean()
     )
     # dram writes error
-    aggregated["dram_writes_smape"] = grouped.apply(
+    aggregated["dram_writes_smape"] = grouped[joined.columns].apply(
         lambda df: smape(
             true_values=df["dram_writes_serial"], values=df["dram_writes_parallel"]
         )  # .mean()
@@ -2544,7 +2599,7 @@ def parallel_table(bench_name_arg, path, nsight):
 
         # metric name
         if is_first_metric_row:
-            table_row += r"\multirow{2}{*}{\shortstack[l]{" + str(row.metric) + r"}}"
+            table_row += r"\multirow{2}{*}{\shortstack[r]{" + str(row.metric) + r"}}"
 
         # threads
         table_row += r" & $t=" + str(row.threads) + r"$ "
@@ -2552,7 +2607,7 @@ def parallel_table(bench_name_arg, path, nsight):
         # serial value
         if row.serial_value is not None and is_first_metric_row:
             table_row += (
-                r" & \multirow{2}{*}{\shortstack[l]{"
+                r" & \multirow{2}{*}{\shortstack[r]{"
                 + bold(row.serial_value[0], row.serial_value[1])
                 + r"}} "
             )
@@ -2574,7 +2629,12 @@ def parallel_table(bench_name_arg, path, nsight):
         table_row += "\n"
         return table_row
 
-    table = ""
+    table = r"""
+{\renewcommand{\arraystretch}{1.5}%
+\begin{tabularx}{\textwidth}{zs|s|z|zz}
+& & \multicolumn{1}{c|}{Serial} & \multicolumn{1}{c|}{Deterministic} & \multicolumn{2}{c}{Nondeterministic} \\
+& & & & \multicolumn{1}{c}{$n=5$} & \multicolumn{1}{c}{$n=10$} \\ \hline
+"""
 
     # absolute_exec_time = not all_benchmarks
 
@@ -2718,6 +2778,10 @@ def parallel_table(bench_name_arg, path, nsight):
                 print(row.metric, bold_values, row.values())
                 table += write_table_row(row, bold_values)
 
+    table += r"""
+\end{tabularx}}
+\end{table}
+"""
     print(table)
     utils.copy_to_clipboard(table)
     print("copied table to clipboard")
@@ -2814,45 +2878,66 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
         print(grouped["input_id"].count())
         print("====")
 
+    non_float_cols = set([
+        col for col, dtype in benchmarks.SPECIAL_DTYPES.items()
+        if dtype not in ["float", "float64", "int", "int64"]
+    ])
+    nan_dtype = pd.NA
     fill = {
         **{col: 0.0 for col in stats_df.columns},
+        **{col: nan_dtype for col in non_float_cols},
         **{
-            "kernel_name_mangled": np.nan,
-            "kernel_name": np.nan,
-            "device": np.nan,
+            "kernel_name_mangled": nan_dtype,
+            "kernel_name": nan_dtype,
+            "device": nan_dtype,
             # test this out
-            "kernel_launch_id": np.nan,
-            "run": np.nan,
+            "kernel_launch_id": nan_dtype,
+            "run": nan_dtype,
         },
-        **{c: np.nan for c in benchmarks.ALL_BENCHMARK_INPUT_COLS},
-        **{c: np.nan for c in benchmarks.SIMULATE_INPUT_COLS},
+        **{c: nan_dtype for c in benchmarks.ALL_BENCHMARK_INPUT_COLS},
+        **{c: nan_dtype for c in benchmarks.SIMULATE_INPUT_COLS},
         **{
             "input_memory_only": False,
             "input_num_clusters": 28,
             "input_cores_per_cluster": 1,
         },
     }
-    fill = {col: dtype for col, dtype in fill.items() if col not in benchmarks.CATEGORICAL_COLS}
+    fill = {
+        col: dtype for col, dtype in fill.items()
+        if col not in benchmarks.CATEGORICAL_COLS
+    }
 
     stats_df = stats_df.fillna(fill).infer_objects(copy=False)
     assert stats_df["run"].isna().sum() == 0
 
     def add_no_kernel_exec_time(df):
         # print(df[benchmarks.PREVIEW_COLS][:4].T)
-        if df["target"].iloc[0] != Target.Simulate.value:
-            return df
+        try:
+            before = copy.deepcopy(df.dtypes)
+            if df["target"].iloc[0] != Target.Simulate.value:
+                return df
 
-        assert (
-            len(df) >= 2
-        ), "expected at least two rows: a no kernel row and at least one kernel for the config"
-        valid_kernels = ~df["kernel_name"].isna()
-        no_kernel = df[~valid_kernels]
-        assert len(no_kernel) == 1
-        num_valid_kernels = valid_kernels.sum()
-        assert num_valid_kernels >= 1
-        delta = float(no_kernel["exec_time_sec"].iloc[0]) / num_valid_kernels
-        df.loc[valid_kernels, "exec_time_sec"] += delta
-        return df
+            assert (
+                len(df) >= 2
+            ), "expected at least two rows: a no kernel row and at least one kernel for the config"
+            # print("df")
+            # print(df)
+            valid_kernels = ~df["kernel_name"].isna()
+            # print("valid_kernels")
+            # print(valid_kernels)
+            no_kernel = df[~valid_kernels]
+            # print("no kernel")
+            # print(no_kernel)
+            assert len(no_kernel) == 1
+            num_valid_kernels = valid_kernels.sum()
+            assert num_valid_kernels >= 1
+            delta = float(no_kernel["exec_time_sec"].iloc[0]) / num_valid_kernels
+            df.loc[valid_kernels, "exec_time_sec"] += delta
+            assert (df.dtypes == before).all()
+            return df
+        except Exception as e:
+            print(e)
+            return str(e)
 
     group_cols = list(
         benchmarks.BENCH_TARGET_INDEX_COLS
@@ -2860,13 +2945,18 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
         + benchmarks.SIMULATE_INPUT_COLS
         + ["run"]
     )
+    print(len(stats_df))
     group_cols = [col for col in group_cols if col in stats_df]
-    stats_df = (
-        stats_df.groupby(group_cols, dropna=False)
-        [stats_df.columns]
-        .apply(add_no_kernel_exec_time)
-        .reset_index(drop=True)
-    )
+    # pprint(group_cols)
+    # pprint(stats_df[group_cols].dtypes)
+    stats_df = stats_df .fillna({'target': "", "benchmark": "", "input_mode": ""})
+    grouped = stats_df.groupby(group_cols, dropna=False)
+    # grouped = grouped[stats_df.columns].fillna({'target': "", "benchmark": "", "input_mode": ""})
+    # print(grouped.isna())
+    # raise ValueError("grouped")
+    stats_df = grouped[stats_df.columns].apply(add_no_kernel_exec_time)
+    stats_df = stats_df.reset_index(drop=True)
+    # raise ValueError("its over")
 
     assert stats_df["run"].isna().sum() == 0
     assert stats_df["kernel_launch_id"].isna().sum() == 0
@@ -3352,6 +3442,10 @@ STAT_CONFIGS = {
 def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name_arg, profiler=profiler, path=path)
+
+    target_bench_input_count_hist = selected_df[["target", "benchmark", "input_id"]].drop_duplicates().value_counts(["target", "benchmark"], dropna=False).sort_index()
+    print(target_bench_input_count_hist)
+
     print(
         "num targets={} num benchmarks={}".format(
             len(selected_df["target"].unique()), len(selected_df["benchmark"].unique())
@@ -3390,9 +3484,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         "target", "benchmark", "input_id", "kernel_name",
         "kernel_name_mangled", "run",
     ] + benchmarks.SIMULATE_INPUT_COLS + all_input_cols
-    pprint(per_config_group_cols)
-
-    
+    # pprint(per_config_group_cols)
 
     # print(selected_df.loc[
     #     (selected_df["input_id"] == 0) & (selected_df["target"] == Target.Simulate.value),
@@ -3401,6 +3493,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     # ].T)
 
     per_config = aggregate_benchmark_results(selected_df, memory_only=mem_only)
+    print(per_config[["target", "benchmark", "input_id"]].drop_duplicates())
     per_config = per_config[
         ~(per_config["kernel_name"].isna() & per_config["kernel_name_mangled"].isna())
     ]
@@ -3419,11 +3512,12 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
     rows_per_config_grouper[per_config.columns].apply(_inspect)
     rows_per_config = rows_per_config_grouper.size()
 
-    # print(rows_per_config)
-    print(rows_per_config[rows_per_config["size"] > 1].shape)
-    # print(rows_per_config.loc[
-    #     rows_per_config["size"] > 1,per_config_group_cols].sort_values(by=per_config_group_cols)[:5].T)
-    print(rows_per_config[rows_per_config["size"] > 1][:1].T)
+    if False:
+        # print(rows_per_config)
+        print(rows_per_config[rows_per_config["size"] > 1].shape)
+        # print(rows_per_config.loc[
+        #     rows_per_config["size"] > 1,per_config_group_cols].sort_values(by=per_config_group_cols)[:5].T)
+        print(rows_per_config[rows_per_config["size"] > 1][:1].T)
     assert (
         rows_per_config["size"] == 1
     ).all(), "must have exactly one row per config/run"
@@ -3470,7 +3564,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
         if col in per_config and not col in group_cols
     }
     per_config_pivoted = per_config_gouped.agg(aggregations).reset_index()
-    print(per_config_pivoted)
+    # print(per_config_pivoted)
 
     per_config_pivoted = per_config_pivoted.pivot(
         index=["benchmark"] + all_input_cols,
@@ -3479,6 +3573,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
 
     print(" === {} === ".format(profiler))
     print(per_config_pivoted[stat_cols].T)
+
 
     def build_per_config_table(df):
         # print(df)
@@ -3604,7 +3699,7 @@ def view(path, bench_name_arg, should_plot, nsight, mem_only, verbose, strict):
             if stat_col_idx % 2 == 0:
                 table += r"\rowcolor{gray!10} "
 
-            table += r"\multirow[c]{-3}{1.5cm}{"
+            table += r"\multirow[r]{-3}{1.5cm}{\raggedleft "
             # table += r"\parbox{1.5cm}{"
             table += stat_col_label
             # table += r"}"

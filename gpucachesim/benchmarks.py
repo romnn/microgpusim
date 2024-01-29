@@ -171,6 +171,7 @@ NON_NUMERIC_COLS = {
 def _map_dtype(dtype: str) -> str:
     match dtype.lower():
         case "category" | "str":
+            # return "string"
             return "object"
         case "bool":
             return "bool"
