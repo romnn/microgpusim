@@ -1,5 +1,6 @@
 pub mod accelsim;
 pub mod gtx1080;
+pub mod old;
 
 use crate::{
     address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
@@ -38,12 +39,12 @@ pub enum CacheKind {
     Sector, // S
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct L2DCache {
     pub inner: Arc<Cache>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct L1DCache {
     /// L1 Hit Latency
     pub l1_latency: usize, // 1
@@ -96,7 +97,7 @@ impl L1DCache {
 }
 
 /// `CacheConfig` configures a generic cache
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Cache {
     pub kind: CacheKind,
     pub num_sets: usize,
@@ -114,8 +115,7 @@ pub struct Cache {
     pub mshr_max_merge: usize,
 
     pub miss_queue_size: usize,
-    pub result_fifo_entries: Option<usize>,
-
+    // pub result_fifo_entries: Option<usize>,
     /// L1D write ratio
     pub l1_cache_write_ratio_percent: usize, // 0
 
@@ -332,7 +332,7 @@ pub enum Parallelization {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ClockFrequencies {
     pub core_freq_hz: u64,
     pub interconn_freq_hz: u64,
@@ -368,7 +368,7 @@ impl ClockFrequenciesBuilder {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GPU {
     /// Log after cycle
     pub log_after_cycle: Option<u64>,
@@ -990,6 +990,31 @@ impl GPU {
 
 impl Default for GPU {
     fn default() -> Self {
+        // let mut old = GPU::old();
+        // old.shared_memory_warp_parts = 2;
+        // old.num_sub_partitions_per_memory_controller = 2;
+        //
+        // old.dram_partition_queue_interconn_to_l2 = 32;
+        // old.dram_partition_queue_l2_to_dram = 32;
+        // old.dram_partition_queue_dram_to_l2 = 32;
+        // old.dram_partition_queue_l2_to_interconn = 32;
+        //
+        // old.inst_fetch_throughput = 8;
+        //
+        // let l1 = old.data_cache_l1.as_mut().unwrap();
+        // Arc::get_mut(l1).unwrap().l1_banks = 2;
+        // let l1_inner = &mut Arc::get_mut(&mut Arc::get_mut(l1).unwrap().inner).unwrap();
+        // l1_inner.mshr_entries = 256;
+        // l1_inner.mshr_max_merge = 8;
+        // l1_inner.miss_queue_size = 16;
+        // l1_inner.data_port_width = Some(32);
+        //
+        // let l2 = old.data_cache_l2.as_mut().unwrap();
+        // let l2_inner = &mut Arc::get_mut(&mut Arc::get_mut(l2).unwrap().inner).unwrap();
+        // l2_inner.num_sets = 64;
+        // l2_inner.write_allocate_policy = cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ;
+        // return old;
+
         Self {
             log_after_cycle: None,
             parallelization: Parallelization::Serial,
@@ -1036,7 +1061,7 @@ impl Default for GPU {
                 mshr_entries: 128,
                 mshr_max_merge: 4,
                 miss_queue_size: 128,
-                result_fifo_entries: Some(2),
+                // result_fifo_entries: Some(2),
                 l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
@@ -1058,7 +1083,7 @@ impl Default for GPU {
                 mshr_entries: 2,
                 mshr_max_merge: 64,
                 miss_queue_size: 4,
-                result_fifo_entries: None,
+                // result_fifo_entries: None,
                 l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
@@ -1083,7 +1108,7 @@ impl Default for GPU {
                 mshr_entries: 2,
                 mshr_max_merge: 48,
                 miss_queue_size: 4,
-                result_fifo_entries: None,
+                // result_fifo_entries: None,
                 l1_cache_write_ratio_percent: 0,
                 data_port_width: None,
             })),
@@ -1114,14 +1139,14 @@ impl Default for GPU {
                     // set_index_function: Box::<cache::set_index::fermi::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     // mshr_kind: mshr::Kind::SECTOR_ASSOC,
-                    mshr_entries: 128,
+                    mshr_entries: 256,
                     mshr_max_merge: 8,
-                    miss_queue_size: 8,
+                    miss_queue_size: 16,
                     // miss_queue_size: 4,
-                    result_fifo_entries: None,
+                    // result_fifo_entries: Some(0),
                     l1_cache_write_ratio_percent: 0,
                     // l1_cache_write_ratio_percent: 50,
-                    data_port_width: None,
+                    data_port_width: Some(32),
                 }),
             })),
             // N:64:128:16,L:B:m:W:L,A:1024:1024,4:0,32
@@ -1141,21 +1166,21 @@ impl Default for GPU {
                     // associativity: 16,
                     // associativity: 16,
                     // num_sets: 64,
-                    num_sets: 128,
+                    num_sets: 64,
                     line_size: 128,
                     associativity: 16,
                     replacement_policy: cache::config::ReplacementPolicy::LRU,
                     write_policy: cache::config::WritePolicy::WRITE_BACK,
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
-                    write_allocate_policy: cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ,
-                    // write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
+                    // write_allocate_policy: cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ,
+                    write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
                     // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
                     // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 256,
                     mshr_max_merge: 64,
                     miss_queue_size: 16,
-                    result_fifo_entries: None, // 0 is none?
+                    // result_fifo_entries: None, // 0 is none?
                     l1_cache_write_ratio_percent: 0,
                     data_port_width: Some(32),
                 }),
@@ -1250,8 +1275,8 @@ impl Default for GPU {
             num_tensor_core_units: 0,
             scheduler: CoreSchedulerKind::GTO,
             concurrent_kernel_sm: false,
-            perfect_inst_const_cache: false, // true
-            inst_fetch_throughput: 1,
+            perfect_inst_const_cache: true, // true
+            inst_fetch_throughput: 8,
             reg_file_port_throughput: 2, // 1 for GTX1080
             fill_l2_on_memcopy: true,
             // simple_dram_model: false,
@@ -1263,7 +1288,7 @@ impl Default for GPU {
             ideal_l2: false,
             data_cache_l2_texture_only: false,
             num_memory_controllers: 12, // 8 for GTX1080
-            num_sub_partitions_per_memory_controller: 1, // 2
+            num_sub_partitions_per_memory_controller: 2, // 2
             num_dram_chips_per_memory_controller: 1,
             dram_frfcfs_sched_queue_size: 64,
             dram_return_queue_size: 64, // 116 for GTX 1080?
@@ -1328,12 +1353,57 @@ impl Default for GPU {
     }
 }
 
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct Input {
+    #[serde(rename = "mode")]
+    pub parallelism_mode: Option<String>,
+    #[serde(rename = "threads")]
+    pub parallelism_threads: Option<usize>,
+    #[serde(rename = "run_ahead")]
+    pub parallelism_run_ahead: Option<usize>,
+    pub cores_per_cluster: Option<usize>,
+    pub num_clusters: Option<usize>,
+    pub memory_only: Option<bool>,
+}
+
+impl Input {
+    pub fn is_baseline(&self, parallel: bool) -> bool {
+        let mut is_baseline = true;
+        if !parallel {
+            is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
+        }
+        is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
+        is_baseline &= matches!(self.num_clusters, Some(28) | None);
+        // is_baseline &= matches!(self.memory_only, Some(false) | None);
+        is_baseline
+    }
+}
+
+pub fn parse_input(
+    values: &indexmap::IndexMap<String, serde_yaml::Value>,
+) -> Result<Input, serde_json::Error> {
+    let values: serde_json::Value = serde_json::to_value(&values)?;
+    let input: Input = serde_json::from_value(values)?;
+    Ok(input)
+}
+
 #[cfg(test)]
 mod tests {
     use playground::bindings;
     // use pretty_assertions_sorted as diff;
     use std::ffi;
     use utils::diff;
+
+    // use super::TagArray;
+    // use crate::config;
+    // use std::sync::Arc;
+
+    #[test]
+    fn compare_old_config() {
+        let config = super::GPU::default();
+        let old = super::GPU::old();
+        diff::assert_eq!(new: config, old: old);
+    }
 
     fn parse_cache_config(config: &str) -> bindings::CacheConfig {
         use bindings::parse_cache_config as parse;
@@ -1485,38 +1555,4 @@ mod tests {
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_848), 4_026_531_840);
         assert_eq!(l1i_cache_config.mshr_addr(4_026_531_992), 4_026_531_968);
     }
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-pub struct Input {
-    #[serde(rename = "mode")]
-    pub parallelism_mode: Option<String>,
-    #[serde(rename = "threads")]
-    pub parallelism_threads: Option<usize>,
-    #[serde(rename = "run_ahead")]
-    pub parallelism_run_ahead: Option<usize>,
-    pub cores_per_cluster: Option<usize>,
-    pub num_clusters: Option<usize>,
-    pub memory_only: Option<bool>,
-}
-
-impl Input {
-    pub fn is_baseline(&self, parallel: bool) -> bool {
-        let mut is_baseline = true;
-        if !parallel {
-            is_baseline &= matches!(self.parallelism_mode.as_deref(), Some("serial") | None);
-        }
-        is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
-        is_baseline &= matches!(self.num_clusters, Some(28) | None);
-        // is_baseline &= matches!(self.memory_only, Some(false) | None);
-        is_baseline
-    }
-}
-
-pub fn parse_input(
-    values: &indexmap::IndexMap<String, serde_yaml::Value>,
-) -> Result<Input, serde_json::Error> {
-    let values: serde_json::Value = serde_json::to_value(&values)?;
-    let input: Input = serde_json::from_value(values)?;
-    Ok(input)
 }
