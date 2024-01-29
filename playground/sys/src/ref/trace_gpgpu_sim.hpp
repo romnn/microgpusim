@@ -356,6 +356,7 @@ class trace_gpgpu_sim {
   }
 
   std::set<Allocation> m_allocations;
+  std::unordered_map<std::string, std::chrono::nanoseconds> m_timings;
 
  protected:
   class trace_simt_core_cluster **m_cluster;

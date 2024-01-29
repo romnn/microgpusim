@@ -1,8 +1,11 @@
 #include "trace_shader_core_ctx.hpp"
 
+#include <chrono>
 #include <csignal>
 
 #include "fmt/format.h"
+#include "gpgpu_context.hpp"
+#include "timeit.hpp"
 #include "concrete_scheduler.hpp"
 #include "cuda_sim.hpp"
 #include "dp_unit.hpp"
@@ -773,6 +776,10 @@ void trace_shader_core_ctx::store_ack(class mem_fetch *mf) {
   m_warp[warp_id]->dec_store_req();
 }
 
+#include <mutex>
+
+std::mutex mtx;
+
 void trace_shader_core_ctx::cycle() {
   logger->debug(
       "cycle {} core ({}, {}): core cycle \tactive={}, not completed={}",
@@ -792,8 +799,22 @@ void trace_shader_core_ctx::cycle() {
   read_operands();
   issue();
   for (unsigned i = 0; i < m_config->inst_fetch_throughput; ++i) {
+    Instant start;
+    std::chrono::nanoseconds dur_ns;
+
+    start = now();
     decode();
+    dur_ns = duration(now() - start);
+    mtx.lock();
+    increment_timing(m_gpu->m_timings, "core::decode", dur_ns);
+    mtx.unlock();
+
+    start = now();
     fetch();
+    dur_ns = duration(now() - start);
+    mtx.lock();
+    increment_timing(m_gpu->m_timings, "core::fetch", dur_ns);
+    mtx.unlock();
   }
 }
 
@@ -1084,7 +1105,9 @@ void trace_shader_core_ctx::fetch() {
       // find an active warp with space in instruction buffer that is not
       // already waiting on a cache miss and get next 1-2 instructions
       // from i-cache...
+      size_t num_checked = 0;
       for (unsigned i = 0; i < m_config->max_warps_per_shader; i++) {
+        num_checked++;
         unsigned warp_id =
             (m_last_warp_fetched + 1 + i) % m_config->max_warps_per_shader;
         assert(m_warp[warp_id]->get_warp_id() == warp_id ||
@@ -1200,6 +1223,7 @@ void trace_shader_core_ctx::fetch() {
           break;
         }
       }
+      // fmt::println("play fetch: num checked={}", num_checked);
     }
   }
 

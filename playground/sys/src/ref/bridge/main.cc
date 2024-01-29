@@ -1,5 +1,5 @@
-#include <iostream>
 #include <cstdlib>
+#include <chrono>
 
 #include "../gpgpu_context.hpp"
 #include "../icnt_wrapper.hpp"
@@ -10,6 +10,7 @@
 #include "../memory_sub_partition.hpp"
 #include "../trace_simt_core_cluster.hpp"
 #include "../trace_shader_core_ctx.hpp"
+#include "../timeit.hpp"
 
 #include "playground-sys/src/bridge/main.rs.h"
 
@@ -450,6 +451,20 @@ void accelsim_bridge::run_to_completion() {
         fflush(stats_out);
       }
       break;
+    }
+  }
+
+  std::vector<std::pair<std::string, std::chrono::nanoseconds>> timings(
+      m_gpgpu_sim->m_timings.begin(), m_gpgpu_sim->m_timings.end());
+  std::sort(timings.begin(), timings.end());
+
+  if (timings.size() > 0) {
+    fmt::println("TIMINGS:");
+    for (auto &timing : timings) {
+      std::stringstream ss;
+      human_time(ss, timing.second);
+      fmt::println("\t{:<35} {:>15} ({:4.2}% total: {:>15})", timing.first, 0,
+                   0.0, ss.str());
     }
   }
 
