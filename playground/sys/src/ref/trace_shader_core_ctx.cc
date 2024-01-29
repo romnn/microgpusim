@@ -776,10 +776,6 @@ void trace_shader_core_ctx::store_ack(class mem_fetch *mf) {
   m_warp[warp_id]->dec_store_req();
 }
 
-#include <mutex>
-
-std::mutex mtx;
-
 void trace_shader_core_ctx::cycle() {
   logger->debug(
       "cycle {} core ({}, {}): core cycle \tactive={}, not completed={}",
@@ -793,28 +789,34 @@ void trace_shader_core_ctx::cycle() {
   //   return;
   // }
 
-  m_stats->shader_cycles[m_sid]++;
-  writeback();
-  execute();
-  read_operands();
-  issue();
-  for (unsigned i = 0; i < m_config->inst_fetch_throughput; ++i) {
-    Instant start;
-    std::chrono::nanoseconds dur_ns;
+  Instant start;
 
+  m_stats->shader_cycles[m_sid]++;
+
+  start = now();
+  writeback();
+  m_gpu->increment_timing("core::writeback", duration(now() - start));
+
+  start = now();
+  execute();
+  m_gpu->increment_timing("core::execute", duration(now() - start));
+
+  start = now();
+  read_operands();
+  m_gpu->increment_timing("core::operand_collector", duration(now() - start));
+
+  start = now();
+  issue();
+  m_gpu->increment_timing("core::issue", duration(now() - start));
+
+  for (unsigned i = 0; i < m_config->inst_fetch_throughput; ++i) {
     start = now();
     decode();
-    dur_ns = duration(now() - start);
-    mtx.lock();
-    increment_timing(m_gpu->m_timings, "core::decode", dur_ns);
-    mtx.unlock();
+    m_gpu->increment_timing("core::decode", duration(now() - start));
 
     start = now();
     fetch();
-    dur_ns = duration(now() - start);
-    mtx.lock();
-    increment_timing(m_gpu->m_timings, "core::fetch", dur_ns);
-    mtx.unlock();
+    m_gpu->increment_timing("core::fetch", duration(now() - start));
   }
 }
 
@@ -988,7 +990,7 @@ void trace_shader_core_ctx::decode() {
 
     if (!get_gpu()->gpgpu_ctx->accelsim_compat_mode) {
       // debug: print all valid instructions in this warp
-      m_warp[warp_id]->print_trace_instructions(false, logger);
+      // m_warp[warp_id]->print_trace_instructions(false, logger);
     }
 
     const warp_inst_t *pI1 = get_next_inst(warp_id, pc);
@@ -1782,6 +1784,10 @@ bool trace_shader_core_ctx::warp_waiting_at_barrier(unsigned warp_id) const {
 }
 
 bool trace_shader_core_ctx::warp_waiting_at_mem_barrier(unsigned warp_id) {
+  // return !m_scoreboard->has_pending_writes(warp_id);
+  // if (warp_id >= m_warp.size()) {
+  //   return false;
+  // }
   if (!m_warp[warp_id]->get_membar()) return false;
   if (!m_scoreboard->has_pending_writes(warp_id)) {
     m_warp[warp_id]->clear_membar();

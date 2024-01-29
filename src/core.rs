@@ -1,7 +1,7 @@
 use super::{
     address, barrier, cache, config, func_unit as fu, instruction::WarpInstruction,
-    interconn as ic, kernel::Kernel, mcu, mem_fetch, opcodes, operand_collector as opcoll,
-    register_set, scheduler, scoreboard, warp,
+    interconn as ic, kernel::Kernel, mem_fetch, opcodes, operand_collector as opcoll, register_set,
+    scheduler, scoreboard, warp,
 };
 use crate::sync::{Mutex, RwLock};
 
@@ -58,13 +58,38 @@ pub trait WarpIssuer {
     fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool;
 
     #[must_use]
-    fn warp_waiting_at_mem_barrier(&self, warp_id: &mut warp::Warp) -> bool;
+    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool;
+    fn warp_waiting_at_mem_barrier(&self, warp_id: &warp::Warp) -> bool;
+}
+
+// what does a warp issuer need?
+// self.pipeline_reg
+//
+#[derive()]
+pub struct CoreIssuer<'a> {
+    pub config: &'a Arc<config::GPU>,
+    pub pipeline_reg: &'a Vec<register_set::Ref>,
+    pub warp_instruction_unique_uid: &'a Arc<CachePadded<atomic::AtomicU64>>,
+    pub allocations: &'a super::allocation::Ref,
+    pub core_id: usize,
+    pub thread_block_size: usize,
+    pub current_kernel_max_blocks: usize,
+
+    pub scoreboard: &'a Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    pub barriers: &'a RwLock<barrier::BarrierSet>,
+}
+
+impl<'a> std::fmt::Debug for CoreIssuer<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CoreIssuer").finish()
+    }
 }
 
 // impl<I> WarpIssuer for Core<I>
-impl<I, MC> WarpIssuer for Core<I, MC>
-where
-    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+impl<'a> WarpIssuer for CoreIssuer<'a>
+// impl<I, MC> WarpIssuer for Core<I, MC>
+// where
+//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
@@ -89,6 +114,8 @@ where
         scheduler_id: usize,
         cycle: u64,
     ) -> eyre::Result<()> {
+        // let warp_mut = self.warps.get_mut(warp.warp_id).unwrap();
+
         let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
         let pipeline_stage_copy = pipeline_stage.clone();
         let free = if self.config.sub_core_model {
@@ -100,6 +127,7 @@ where
 
         let mut next_instr = warp.ibuffer_take().unwrap();
         warp.ibuffer_step();
+        // drop(warp);
 
         log::debug!(
             "{} by scheduler {} to pipeline[{:?}][{}] {}",
@@ -143,11 +171,15 @@ where
                 {
                     let total_cores =
                         self.config.num_simt_clusters * self.config.num_cores_per_simt_cluster;
-                    let translated_local_addresses = self.translate_local_memaddr(
+                    let translated_local_addresses = translate_local_memaddr(
                         pipe_reg_mut.threads[t].mem_req_addr[0],
+                        self.core_id,
                         thread_id,
                         total_cores,
                         pipe_reg_mut.data_size,
+                        self.thread_block_size,
+                        self.current_kernel_max_blocks,
+                        &self.config,
                     );
 
                     debug_assert!(
@@ -288,7 +320,10 @@ where
     }
 
     #[must_use]
-    fn warp_waiting_at_mem_barrier(&self, warp: &mut warp::Warp) -> bool {
+    // fn warp_waiting_at_mem_barrier(&self, warp_id: usize) -> bool {
+    fn warp_waiting_at_mem_barrier(&self, warp: &warp::Warp) -> bool {
+        // return warp.waiting_for_memory_barrier;
+
         if !warp.waiting_for_memory_barrier {
             return false;
         }
@@ -298,23 +333,27 @@ where
             .pending_writes(warp.warp_id)
             .is_empty();
 
-        if has_pending_writes {
-            true
-        } else {
-            warp.waiting_for_memory_barrier = false;
-            if self.config.flush_l1_cache {
-                // Mahmoud fixed this on Nov 2019
-                // Invalidate L1 cache
-                // Based on Nvidia Doc, at MEM barrier, we have to
-                //(1) wait for all pending writes till they are acked
-                //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
-                *self.need_l1_flush.lock() = true;
-                // todo!("cache invalidate");
-                // self.cache_invalidate();
-                // TO DO: you need to stall the SM for 5k cycles.
-            }
-            false
-        }
+        // warp.waiting_for_memory_barrier = has_pending_writes;
+        has_pending_writes
+
+        // TODO: PERF roman this requires mutable access but should be fast
+        // if has_pending_writes {
+        //     true
+        // } else {
+        //     warp.waiting_for_memory_barrier = false;
+        //     if self.config.flush_l1_cache {
+        //         // Mahmoud fixed this on Nov 2019
+        //         // Invalidate L1 cache
+        //         // Based on Nvidia Doc, at MEM barrier, we have to
+        //         //(1) wait for all pending writes till they are acked
+        //         //(2) invalidate L1 cache to ensure coherence and avoid reading stall data
+        //         *self.need_l1_flush.lock() = true;
+        //         // todo!("cache invalidate");
+        //         // self.cache_invalidate();
+        //         // TO DO: you need to stall the SM for 5k cycles.
+        //     }
+        //     false
+        // }
     }
 }
 
@@ -537,9 +576,9 @@ where
     ) -> Self {
         let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
 
-        let warps_old: Vec<_> = (0..config.max_warps_per_core())
-            .map(|_| warp::Ref::default())
-            .collect();
+        // let warps_old: Vec<_> = (0..config.max_warps_per_core())
+        //     .map(|_| warp::Ref::default())
+        //     .collect();
 
         let warps: Vec<_> = (0..config.max_warps_per_core())
             .map(|_| warp::Warp::default())
@@ -635,7 +674,7 @@ where
             core_id, // is the core id for now
             core_id,
             cluster_id,
-            warps_old.clone(), // FIXME
+            // warps_old.clone(), // FIXME
             mem_port.clone(),
             operand_collector.clone(),
             scoreboard.clone(),
@@ -657,7 +696,7 @@ where
                             sched_id,
                             cluster_id,
                             core_id,
-                            warps_old.clone(), // FIXME
+                            // warps_old.clone(), // FIXME
                             scoreboard.clone(),
                             scheduler_stats,
                             config.clone(),
@@ -674,7 +713,8 @@ where
         //     // distribute warps evenly though schedulers
         //     let sched_idx = i % config.num_schedulers_per_core;
         //     let scheduler = &mut schedulers[sched_idx];
-        //     scheduler.try_lock().add_supervised_warp(Arc::clone(warp));
+        //     // scheduler.try_lock().add_supervised_warp(Arc::clone(warp));
+        //     scheduler.try_lock().add_supervised_warp(warp);
         // }
 
         let mut functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>> = Vec::new();
@@ -882,7 +922,7 @@ where
                     let last = self.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
 
-                    let warp = self.warps[warp_id];
+                    let warp = self.warps.get(warp_id).unwrap();
                     // let warp = warp.try_lock();
                     debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
 
@@ -1061,96 +1101,100 @@ where
     }
 }
 
-impl<I, MC> Core<I, MC>
-where
-    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
-{
-    // Returns numbers of addresses in translated_addrs.
-    //
-    // Each addr points to a 4B (32-bit) word
-    #[must_use]
-    pub fn translate_local_memaddr(
-        &self,
-        local_addr: address,
-        thread_id: usize,
-        num_cores: usize,
-        data_size: u32,
-    ) -> Vec<address> {
-        // During functional execution, each thread sees its own memory space for
-        // local memory, but these need to be mapped to a shared address space for
-        // timing simulation.  We do that mapping here.
+// Returns numbers of addresses in translated_addrs.
+//
+// Each addr points to a 4B (32-bit) word
+#[must_use]
+pub fn translate_local_memaddr(
+    // &self,
+    local_addr: address,
+    core_id: usize,
+    thread_id: usize,
+    num_cores: usize,
+    data_size: u32,
+    thread_block_size: usize,
+    current_kernel_max_blocks: usize,
+    config: &config::GPU,
+) -> Vec<address> {
+    // During functional execution, each thread sees its own memory space for
+    // local memory, but these need to be mapped to a shared address space for
+    // timing simulation.  We do that mapping here.
 
-        let (thread_base, max_concurrent_threads) = if self.config.local_mem_map {
-            // Dnew = D*N + T%nTpC + nTpC*C
-            // N = nTpC*nCpS*nS (max concurent threads)
-            // C = nS*K + S (hw cta number per gpu)
-            // K = T/nTpC   (hw cta number per core)
-            // D = data index
-            // T = thread
-            // nTpC = number of threads per CTA
-            // nCpS = number of CTA per shader
-            //
-            // for a given local memory address threads in a CTA map to
-            // contiguous addresses, then distribute across memory space by CTAs
-            // from successive shader cores first, then by successive CTA in same
-            // shader core
-            let kernel_padded_threads_per_cta = self.thread_block_size;
-            // let kernel_max_cta_per_sm = self.block_status.len();
+    let (thread_base, max_concurrent_threads) = if config.local_mem_map {
+        // Dnew = D*N + T%nTpC + nTpC*C
+        // N = nTpC*nCpS*nS (max concurent threads)
+        // C = nS*K + S (hw cta number per gpu)
+        // K = T/nTpC   (hw cta number per core)
+        // D = data index
+        // T = thread
+        // nTpC = number of threads per CTA
+        // nCpS = number of CTA per shader
+        //
+        // for a given local memory address threads in a CTA map to
+        // contiguous addresses, then distribute across memory space by CTAs
+        // from successive shader cores first, then by successive CTA in same
+        // shader core
+        let kernel_padded_threads_per_cta = thread_block_size;
+        // let kernel_max_cta_per_sm = self.block_status.len();
 
-            let temp = self.core_id + num_cores * (thread_id / kernel_padded_threads_per_cta);
-            let rest = thread_id % kernel_padded_threads_per_cta;
-            let thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
-            let max_concurrent_threads =
-                kernel_padded_threads_per_cta * self.current_kernel_max_blocks * num_cores;
-            (thread_base, max_concurrent_threads)
-        } else {
-            // legacy mapping that maps the same address in the local memory
-            // space of all threads to a single contiguous address region
-            let thread_base = 4 * (self.config.max_threads_per_core * self.core_id + thread_id);
-            let max_concurrent_threads = num_cores * self.config.max_threads_per_core;
-            (thread_base, max_concurrent_threads)
-        };
-        debug_assert!(thread_base < 4 /*word size*/ * max_concurrent_threads);
+        let temp = core_id + num_cores * (thread_id / kernel_padded_threads_per_cta);
+        let rest = thread_id % kernel_padded_threads_per_cta;
+        let thread_base = 4 * (kernel_padded_threads_per_cta * temp + rest);
+        let max_concurrent_threads =
+            kernel_padded_threads_per_cta * current_kernel_max_blocks * num_cores;
+        (thread_base, max_concurrent_threads)
+    } else {
+        // legacy mapping that maps the same address in the local memory
+        // space of all threads to a single contiguous address region
+        let thread_base = 4 * (config.max_threads_per_core * core_id + thread_id);
+        let max_concurrent_threads = num_cores * config.max_threads_per_core;
+        (thread_base, max_concurrent_threads)
+    };
+    debug_assert!(thread_base < 4 /*word size*/ * max_concurrent_threads);
 
-        // If requested datasize > 4B, split into multiple 4B accesses
-        // otherwise do one sub-4 byte memory access
-        let mut translated_addresses = vec![];
+    // If requested datasize > 4B, split into multiple 4B accesses
+    // otherwise do one sub-4 byte memory access
+    let mut translated_addresses = vec![];
 
-        if data_size >= 4 {
-            // >4B access, split into 4B chunks
-            debug_assert_eq!(data_size % 4, 0); // Must be a multiple of 4B
-            let num_accesses = data_size / 4;
-            // max 32B
-            debug_assert!(
-                num_accesses <= super::instruction::MAX_ACCESSES_PER_THREAD_INSTRUCTION as u32
-            );
-            // Address must be 4B aligned - required if
-            // accessing 4B per request, otherwise access
-            // will overflow into next thread's space
-            debug_assert_eq!(local_addr % 4, 0);
-            for i in 0..num_accesses {
-                let local_word = local_addr / 4 + u64::from(i);
-                let linear_address: address = local_word * max_concurrent_threads as u64 * 4
-                    + thread_base as u64
-                    + crate::LOCAL_GENERIC_START;
-                translated_addresses.push(linear_address);
-            }
-        } else {
-            // Sub-4B access, do only one access
-            debug_assert!(data_size > 0);
-            let local_word = local_addr / 4;
-            let local_word_offset = local_addr % 4;
-            // Make sure access doesn't overflow into next 4B chunk
-            debug_assert_eq!((local_addr + u64::from(data_size) - 1) / 4, local_word);
+    if data_size >= 4 {
+        // >4B access, split into 4B chunks
+        debug_assert_eq!(data_size % 4, 0); // Must be a multiple of 4B
+        let num_accesses = data_size / 4;
+        // max 32B
+        debug_assert!(
+            num_accesses <= super::instruction::MAX_ACCESSES_PER_THREAD_INSTRUCTION as u32
+        );
+        // Address must be 4B aligned - required if
+        // accessing 4B per request, otherwise access
+        // will overflow into next thread's space
+        debug_assert_eq!(local_addr % 4, 0);
+        for i in 0..num_accesses {
+            let local_word = local_addr / 4 + u64::from(i);
             let linear_address: address = local_word * max_concurrent_threads as u64 * 4
-                + local_word_offset
                 + thread_base as u64
                 + crate::LOCAL_GENERIC_START;
             translated_addresses.push(linear_address);
         }
-        translated_addresses
+    } else {
+        // Sub-4B access, do only one access
+        debug_assert!(data_size > 0);
+        let local_word = local_addr / 4;
+        let local_word_offset = local_addr % 4;
+        // Make sure access doesn't overflow into next 4B chunk
+        debug_assert_eq!((local_addr + u64::from(data_size) - 1) / 4, local_word);
+        let linear_address: address = local_word * max_concurrent_threads as u64 * 4
+            + local_word_offset
+            + thread_base as u64
+            + crate::LOCAL_GENERIC_START;
+        translated_addresses.push(linear_address);
     }
+    translated_addresses
+}
 
+impl<I, MC> Core<I, MC>
+where
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+{
     // #[inline]
     pub fn cache_flush(&mut self) {
         let mut unit = self.load_store_unit.try_lock();
@@ -1583,8 +1627,8 @@ where
 
         // debug: print all instructions in this warp
         assert_eq!(warp.warp_id, warp_id);
-        print_trace_instructions(&warp, already_issued_trace_pc);
-        drop(warp);
+        // print_trace_instructions(&warp, already_issued_trace_pc);
+        // drop(warp);
 
         if let Some(instr1) = instr1 {
             self.decode_instruction(warp_id, instr1, 0);
@@ -1598,8 +1642,9 @@ where
     }
 
     // #[inline]
-    fn decode_instruction(&self, warp_id: usize, instr: WarpInstruction, slot: usize) {
-        let warp = self.warps.get(warp_id).unwrap();
+    // fn decode_instruction(&self, warp_id: usize, instr: WarpInstruction, slot: usize) {
+    fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
+        let warp = self.warps.get_mut(warp_id).unwrap();
         // let mut warp = warp.try_lock();
 
         log::debug!(
@@ -1618,11 +1663,34 @@ where
     fn issue(&mut self, cycle: u64) {
         // fair round robin issue between schedulers
         let num_schedulers = self.schedulers.len();
+        assert_eq!(num_schedulers, self.config.num_schedulers_per_core);
+
         for scheduler_idx in 0..num_schedulers {
             let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
-            self.schedulers[scheduler_idx]
-                .try_lock()
-                .issue_to(self, cycle);
+            let scheduler_supervised_warps: Vec<_> = self
+                .warps
+                .iter_mut()
+                .enumerate()
+                .filter(|(i, _)| scheduler_idx == i % num_schedulers)
+                .map(|(_, warp)| warp)
+                .collect();
+
+            let issuer = CoreIssuer {
+                config: &self.config,
+                pipeline_reg: &self.pipeline_reg,
+                warp_instruction_unique_uid: &self.warp_instruction_unique_uid,
+                allocations: &self.allocations,
+                core_id: self.core_id,
+                thread_block_size: self.thread_block_size,
+                current_kernel_max_blocks: self.current_kernel_max_blocks,
+                scoreboard: &self.scoreboard,
+                barriers: &self.barriers,
+            };
+            self.schedulers[scheduler_idx].try_lock().issue_to(
+                &issuer,
+                scheduler_supervised_warps,
+                cycle,
+            );
         }
         self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
     }
@@ -1675,7 +1743,7 @@ where
             //
             self.operand_collector.try_lock().writeback(&mut ready);
             self.scoreboard.try_write().release_all(&ready);
-            let warp = self.warps[ready.warp_id];
+            let warp = self.warps.get_mut(ready.warp_id).unwrap();
             // let warp = warp.try_lock();
             warp.num_instr_in_pipeline -= 1;
             drop(warp);
@@ -1724,7 +1792,7 @@ where
                 issue_inst
             );
 
-            fu.cycle(cycle);
+            fu.cycle(&mut self.warps, cycle);
             fu.active_lanes_in_pipeline();
 
             log::debug!(
@@ -1908,7 +1976,7 @@ where
             // crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
 
             // self.warps[warp_id].try_lock().init(
-            let warp = self.warps[warp_id];
+            let warp = self.warps.get_mut(warp_id).unwrap();
             // let warp = warp.try_lock();
             warp.init(
                 block_hw_id as u64,

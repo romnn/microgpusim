@@ -18,9 +18,8 @@ use std::sync::Arc;
 pub const MAX_ALU_LATENCY: usize = 512;
 pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
 
-pub trait SimdFunctionUnit:
-    crate::engine::cycle::Component + Send + Sync + std::fmt::Display + 'static
-{
+// crate::engine::cycle::Component + Send + Sync + std::fmt::Display + 'static
+pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
     fn issue(&mut self, source_reg: WarpInstruction);
 
@@ -35,6 +34,8 @@ pub trait SimdFunctionUnit:
     fn is_issue_partitioned(&self) -> bool;
     fn issue_reg_id(&self) -> usize;
     fn stallable(&self) -> bool;
+
+    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64);
 }
 
 #[derive()]

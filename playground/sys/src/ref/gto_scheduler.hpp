@@ -20,5 +20,5 @@ class gto_scheduler : public scheduler_unit {
     m_last_supervised_issued = m_supervised_warps.begin();
   }
 
-  virtual const char *name() { return "gto_scheduler"; }
+  virtual const char *name() { return "gto scheduler"; }
 };

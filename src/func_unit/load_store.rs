@@ -25,7 +25,9 @@ pub struct LoadStoreUnit<MC> {
     next_writeback: Option<WarpInstruction>,
     /// Response fifo queue
     pub response_fifo: VecDeque<MemFetch>,
-    warps: Vec<warp::Ref>,
+    /// Warps
+    // pub warps: Vec<warp::Warp>,
+    // warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     /// Config
     config: Arc<config::GPU>,
@@ -121,7 +123,8 @@ where
         id: usize,
         core_id: usize,
         cluster_id: usize,
-        warps: Vec<warp::Ref>,
+        // warps: Vec<warp::Ref>,
+        // warps: Vec<warp::Ref>,
         mem_port: ic::Port<mem_fetch::MemFetch>,
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         scoreboard: Arc<RwLock<Scoreboard>>,
@@ -200,7 +203,7 @@ where
             core_id,
             cluster_id,
             data_l1,
-            warps,
+            // warps,
             next_writeback: None,
             next_global: None,
             pending_writes: HashMap::new(),
@@ -223,6 +226,7 @@ where
     // #[inline]
     fn memory_cycle(
         &mut self,
+        warps: &mut [warp::Warp],
         rc_fail: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
         cycle: u64,
@@ -312,9 +316,9 @@ where
                         debug_assert!(pending[out_reg] > 0);
                     }
                 } else if dispatch_instr.is_store() {
-                    self.warps[dispatch_instr.warp_id]
-                        .try_lock()
-                        .num_outstanding_stores += 1;
+                    // let warp = self.warps[dispatch_instr.warp_id];
+                    // let warp = warp.try_lock();
+                    warps[dispatch_instr.warp_id].num_outstanding_stores += 1;
                 }
 
                 let instr = self.inner.dispatch_reg.as_mut().unwrap();
@@ -342,8 +346,8 @@ where
         } else {
             debug_assert_ne!(dispatch_instr.cache_operator, None);
             stall_cond = crate::timeit!(
-                "process_memory_access_queue_l1cache",
-                self.process_memory_access_queue_l1cache(cycle)
+                "core::execute::process_memory_access_queue_l1cache",
+                self.process_memory_access_queue_l1cache(warps, cycle)
             );
         }
 
@@ -375,7 +379,11 @@ where
         dispatch_instr.mem_access_queue.is_empty()
     }
 
-    fn process_memory_access_queue_l1cache(&mut self, cycle: u64) -> MemStageStallKind {
+    fn process_memory_access_queue_l1cache(
+        &mut self,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    ) -> MemStageStallKind {
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         let Some(instr) = &mut self.inner.dispatch_reg else {
             return MemStageStallKind::NO_RC_FAIL;
@@ -459,7 +467,8 @@ where
                             1
                         };
 
-                        let mut warp = self.warps[instr.warp_id].try_lock();
+                        let warp = warps.get_mut(instr.warp_id).unwrap();
+                        // let warp = warp.try_lock();
                         for _ in 0..inc_ack {
                             warp.num_outstanding_stores += 1;
                         }
@@ -538,7 +547,7 @@ impl<MC> LoadStoreUnit<MC> {
         self.response_fifo.push_back(fetch);
     }
 
-    pub fn writeback(&mut self, cycle: u64) {
+    pub fn writeback(&mut self, warps: &mut [warp::Warp], cycle: u64) {
         log::debug!(
             "{} (arb={}, writeback clients={})",
             style(format!("load store unit: cycle {cycle} writeback")).magenta(),
@@ -620,9 +629,11 @@ impl<MC> LoadStoreUnit<MC> {
                             //                                m_next_wb.active_count());
                         }
 
-                        self.warps[pipe_reg.warp_id]
-                            .try_lock()
-                            .num_instr_in_pipeline -= 1;
+                        // let warp = self.warps[pipe_reg.warp_id];
+                        // let warp = warp.try_lock();
+
+                        let warp = warps.get_mut(pipe_reg.warp_id).unwrap();
+                        warp.num_instr_in_pipeline -= 1;
                         self.next_writeback = Some(pipe_reg);
                         serviced_client = Some(next_client_id);
                     }
@@ -701,6 +712,7 @@ impl<MC> LoadStoreUnit<MC> {
     // #[inline]
     fn shared_cycle(
         &mut self,
+        _warps: &mut [warp::Warp],
         stall_kind: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
         _cycle: u64,
@@ -750,6 +762,7 @@ impl<MC> LoadStoreUnit<MC> {
     // #[inline]
     fn constant_cycle(
         &mut self,
+        _warps: &mut [warp::Warp],
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
         _cycle: u64,
@@ -762,6 +775,7 @@ impl<MC> LoadStoreUnit<MC> {
     // #[inline]
     fn texture_cycle(
         &mut self,
+        _warps: &mut [warp::Warp],
         _rc_fail: &mut MemStageStallKind,
         _kind: &mut MemStageAccessKind,
         _cycle: u64,
@@ -769,19 +783,21 @@ impl<MC> LoadStoreUnit<MC> {
         true
     }
 
-    fn store_ack(&self, fetch: &mem_fetch::MemFetch) {
+    fn store_ack(&self, warps: &mut [warp::Warp], fetch: &mem_fetch::MemFetch) {
         debug_assert!(
             fetch.kind == mem_fetch::Kind::WRITE_ACK
                 || (self.config.perfect_mem && fetch.is_write())
         );
-        // let mut warp = self.warps[fetch.warp_id].try_borrow_mut().unwrap();
-        let mut warp = self.warps[fetch.warp_id].try_lock();
+        // let mut warp = self.warps[fetch.warp_id];
+        // let mut warp = warp.try_lock();
+        let warp = warps.get_mut(fetch.warp_id).unwrap();
         warp.num_outstanding_stores -= 1;
     }
 
     #[allow(dead_code)]
     fn process_cache_access(
         &mut self,
+        warps: &mut [warp::Warp],
         _cache: (),
         _addr: address,
         instr: &mut WarpInstruction,
@@ -801,7 +817,9 @@ impl<MC> LoadStoreUnit<MC> {
             };
 
             // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
-            let mut warp = self.warps[instr.warp_id].try_lock();
+            // let mut warp = self.warps[instr.warp_id].try_lock();
+            let warp = warps.get_mut(instr.warp_id).unwrap();
+            // let warp = warp.try_lock();
             for _ in 0..inc_ack {
                 warp.num_outstanding_stores += 1;
             }
@@ -843,7 +861,7 @@ impl<MC> LoadStoreUnit<MC> {
         stall_cond
     }
 
-    fn l1_latency_queue_cycle(&mut self, cycle: u64) {
+    fn l1_latency_queue_cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank_id in 0..l1_config.l1_banks {
             if let Some(fetch) = &self.l1_latency_queue[bank_id][0] {
@@ -884,7 +902,7 @@ impl<MC> LoadStoreUnit<MC> {
                         fetch.set_reply();
 
                         for _ in 0..dec_ack {
-                            self.store_ack(&fetch);
+                            self.store_ack(warps, &fetch);
                         }
                     }
 
@@ -935,7 +953,7 @@ impl<MC> LoadStoreUnit<MC> {
                             fetch.set_reply();
 
                             for _ in 0..dec_ack {
-                                self.store_ack(&fetch);
+                                self.store_ack(warps, &fetch);
                             }
                         }
                     }
@@ -970,7 +988,7 @@ impl<MC> LoadStoreUnit<MC> {
                     {
                         fetch.set_reply();
                         for _ in 0..dec_ack {
-                            self.store_ack(&fetch);
+                            self.store_ack(warps, &fetch);
                         }
                     }
                 }
@@ -1043,7 +1061,7 @@ impl<MC> LoadStoreUnit<MC> {
                     //     fetch.set_reply();
                     //
                     //     for _ in 0..dec_ack {
-                    //         self.store_ack(&fetch);
+                    //         self.store_ack(warps, &fetch);
                     //     }
                     // }
                 }
@@ -1154,14 +1172,14 @@ where
         // load store unit is stallable
         true
     }
-}
+    // }
 
-// impl crate::engine::cycle::Component for LoadStoreUnit {
-impl<MC> crate::engine::cycle::Component for LoadStoreUnit<MC>
-where
-    MC: crate::mcu::MemoryController,
-{
-    fn cycle(&mut self, cycle: u64) {
+    // impl crate::engine::cycle::Component for LoadStoreUnit {
+    // impl<MC> crate::engine::cycle::Component for LoadStoreUnit<MC>
+    // where
+    //     MC: crate::mcu::MemoryController,
+    // {
+    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
             self.inner.id,
@@ -1180,7 +1198,7 @@ where
                 .collect::<Vec<_>>(),
         );
 
-        self.writeback(cycle);
+        self.writeback(warps, cycle);
 
         let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);
@@ -1226,7 +1244,7 @@ where
                     if fetch.kind == mem_fetch::Kind::WRITE_ACK
                         || (self.config.perfect_mem && fetch.is_write())
                     {
-                        self.store_ack(fetch);
+                        self.store_ack(warps, fetch);
                         self.response_fifo.pop_front();
                     } else {
                         // L1 cache is write evict:
@@ -1272,16 +1290,19 @@ where
             data_l1.cycle(cycle);
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
             debug_assert!(cache_config.l1_latency > 0);
-            crate::timeit!("l1_latency_queue_cycle", self.l1_latency_queue_cycle(cycle));
+            crate::timeit!(
+                "core::execute::l1_latency_queue_cycle",
+                self.l1_latency_queue_cycle(warps, cycle)
+            );
         }
 
         let mut stall_kind = MemStageStallKind::NO_RC_FAIL;
         let mut access_kind = MemStageAccessKind::C_MEM;
         let mut done = true;
-        done &= self.shared_cycle(&mut stall_kind, &mut access_kind, cycle);
-        done &= self.constant_cycle(&mut stall_kind, &mut access_kind, cycle);
-        done &= self.texture_cycle(&mut stall_kind, &mut access_kind, cycle);
-        done &= self.memory_cycle(&mut stall_kind, &mut access_kind, cycle);
+        done &= self.shared_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
+        done &= self.constant_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
+        done &= self.texture_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
+        done &= self.memory_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
 
         if !done {
             // log stall types and return
@@ -1333,12 +1354,17 @@ where
 
                         self.scoreboard.try_write().release_all(&dispatch_reg);
                     }
-                    self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
+                    // self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
+                    let warp = warps.get_mut(warp_id).unwrap();
+                    // let warp = warp.try_lock();
+                    warp.num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
-                self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
+                let warp = warps.get_mut(warp_id).unwrap();
+                // let warp = warp.try_lock();
+                warp.num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
                 // check for deadlocks due to scoreboard:

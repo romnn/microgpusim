@@ -148,6 +148,10 @@ void barrier_set_t::warp_exit(unsigned warp_id) {
 
 // assertions
 bool barrier_set_t::warp_waiting_at_barrier(unsigned warp_id) const {
+  // if (warp_id < m_warp_at_barrier.size()) {
+  //   return m_warp_at_barrier.test(warp_id);
+  // }
+  // return false;
   return m_warp_at_barrier.test(warp_id);
 }
 

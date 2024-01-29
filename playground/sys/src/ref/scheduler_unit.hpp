@@ -167,13 +167,18 @@ class scheduler_unit {
                     greedy_value->get_dynamic_warp_id());
 
       // std::sort(temp.begin(), temp.end(), priority_func);
+
+      std::vector<unsigned> sorted_ids;
       std::stable_sort(temp.begin(), temp.end(), priority_func);
       typename std::vector<T>::iterator iter = temp.begin();
       for (unsigned count = 0; count < num_warps_to_add; ++count, ++iter) {
+        sorted_ids.push_back((*iter)->get_dynamic_warp_id());
         if (*iter != greedy_value) {
           result_list.push_back(*iter);
         }
       }
+      logger->debug("sorted: {}", fmt::join(sorted_ids, ", "));
+
     } else if (ORDERED_PRIORITY_FUNC_ONLY == ordering) {
       // std::sort(temp.begin(), temp.end(), priority_func);
       std::stable_sort(temp.begin(), temp.end(), priority_func);
@@ -232,6 +237,10 @@ class scheduler_unit {
   // This is the prioritized warp list that is looped over each cycle to
   // determine which warp gets to issue.
   std::vector<trace_shd_warp_t *> m_next_cycle_prioritized_warps;
+  std::vector<unsigned> m_next_cycle_prioritized_warps_lockstep_compat_warp_ids;
+  std::vector<unsigned>
+      m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids;
+
   // The m_supervised_warps list is all the warps this scheduler is supposed to
   // arbitrate between.  This is useful in systems where there is more than
   // one warp scheduler. In a single scheduler system, this is simply all

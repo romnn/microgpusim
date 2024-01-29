@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set};
+use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set, warp};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct SPUnit {
@@ -102,10 +102,15 @@ impl fu::SimdFunctionUnit for SPUnit {
     fn clock_multiplier(&self) -> usize {
         1
     }
-}
 
-impl crate::engine::cycle::Component for SPUnit {
-    fn cycle(&mut self, cycle: u64) {
+    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
+        use crate::engine::cycle::Component;
         self.inner.cycle(cycle);
     }
 }
+
+// impl crate::engine::cycle::Component for SPUnit {
+//     fn cycle(&mut self, cycle: u64) {
+//         self.inner.cycle(cycle);
+//     }
+// }

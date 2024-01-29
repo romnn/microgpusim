@@ -736,6 +736,19 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                     "checking for diff after cycle {box_cycle} (box cycle={box_cycle}, play cycle={play_cycle})",
                 );
 
+                // find the bad core and scheduler
+                for (core_id, per_core) in box_sim_state.scheduler_per_core.iter().enumerate() {
+                    for (scheduler_id, scheduler) in per_core.iter().enumerate() {
+                        let box_prio = &scheduler.prioritized_warp_ids;
+                        let play_prio = &play_sim_state.scheduler_per_core[core_id][scheduler_id]
+                            .prioritized_warp_ids;
+                        if box_prio != play_prio {
+                            println!("CORE {core_id} SCHEDULER {scheduler_id} MISMATCH:");
+                            diff::assert_eq!(box: box_prio, play: play_prio);
+                        }
+                    }
+                }
+
                 if use_full_diff {
                     full_diff::assert_eq!(&box_sim_state, &play_sim_state);
                 } else {

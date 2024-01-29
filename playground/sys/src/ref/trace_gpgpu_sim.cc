@@ -7,6 +7,7 @@
 #include "fmt/format.h"
 #include "hal.hpp"
 #include "io.hpp"
+#include "timeit.hpp"
 #include "cache_sub_stats.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -195,6 +196,9 @@ void trace_gpgpu_sim::simple_cycle() {
   logger->info("=============== cycle {} ===============", gpu_sim_cycle);
   logger->info("");
 
+  Instant start;
+  Instant start_total = now();
+
   int clock_mask = next_clock_domain();
   bool simulate_clock_domains =
       m_shader_config->gpgpu_ctx->accelsim_compat_mode;
@@ -203,8 +207,11 @@ void trace_gpgpu_sim::simple_cycle() {
   }
 
   if (!simulate_clock_domains || clock_mask & CORE) {
-    for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++)
+    Instant start = now();
+    for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       m_cluster[i]->icnt_cycle();
+    }
+    increment_timing("cycle::interconn", duration(now() - start));
   }
 
   unsigned partiton_replys_in_parallel_per_cycle = 0;
@@ -213,6 +220,8 @@ void trace_gpgpu_sim::simple_cycle() {
   if (!simulate_clock_domains || clock_mask & ICNT) {
     logger->debug("POP from {} memory sub partitions",
                   m_memory_config->m_n_mem_sub_partition);
+
+    Instant start = now();
 
     for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
       logger->debug("checking sub partition[{}]:", i);
@@ -254,11 +263,14 @@ void trace_gpgpu_sim::simple_cycle() {
         m_memory_sub_partition[i]->pop();
       }
     }
+
+    increment_timing("cycle::subpartitions", duration(now() - start));
   }
   partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
 
   if (!simulate_clock_domains || clock_mask & DRAM) {
     logger->debug("cycle for {} drams", m_memory_config->m_n_mem);
+    Instant start = now();
     for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
       if (m_memory_config->simple_dram_model) {
         m_memory_partition_unit[i]->simple_dram_model_cycle();
@@ -267,12 +279,15 @@ void trace_gpgpu_sim::simple_cycle() {
         m_memory_partition_unit[i]->dram_cycle();
       }
     }
+    increment_timing("cycle::dram", duration(now() - start));
   }
 
   unsigned partiton_reqs_in_parallel_per_cycle = 0;
   if (!simulate_clock_domains || clock_mask & L2) {
     logger->debug("moving mem requests from interconn to {} mem partitions",
                   m_memory_config->m_n_mem_sub_partition);
+    Instant start = now();
+
     for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition; i++) {
       // move memory request from interconnect into memory partition (if not
       // backed up) Note:This needs to be called in DRAM clock domain if there
@@ -294,6 +309,7 @@ void trace_gpgpu_sim::simple_cycle() {
       }
       m_memory_sub_partition[i]->cache_cycle(gpu_sim_cycle + gpu_tot_sim_cycle);
     }
+    increment_timing("cycle::l2", duration(now() - start));
   }
 
   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
@@ -311,6 +327,8 @@ void trace_gpgpu_sim::simple_cycle() {
   if (!simulate_clock_domains || clock_mask & CORE) {
     logger->debug("core cycle for {} clusters",
                   m_shader_config->n_simt_clusters);
+    start = now();
+
     for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
       if (m_cluster[i]->get_not_completed() || get_more_cta_left()) {
         m_cluster[i]->core_cycle();
@@ -320,6 +338,9 @@ void trace_gpgpu_sim::simple_cycle() {
           gpu_occupancy.aggregate_warp_slot_filled,
           gpu_occupancy.aggregate_theoretical_warp_slots);
     }
+
+    increment_timing("cycle::core", duration(now() - start));
+
     float temp = 0;
     for (unsigned i = 0; i < m_shader_config->num_shader(); i++) {
       temp += m_shader_stats->m_pipeline_duty_cycle[i];
@@ -329,7 +350,10 @@ void trace_gpgpu_sim::simple_cycle() {
 
     gpu_sim_cycle++;
 
+    start = now();
     issue_block2core();
+    increment_timing("cycle::issue_block_to_core", duration(now() - start));
+
     decrement_kernel_latency();
 
     // Depending on configuration, invalidate the caches once all threads
@@ -374,6 +398,8 @@ void trace_gpgpu_sim::simple_cycle() {
         }
       }
     }
+
+    increment_timing("cycle::total", duration(now() - start_total));
   }
 }
 

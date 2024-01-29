@@ -1,14 +1,14 @@
 #include "timeit.hpp"
 
-void increment_timing(
-    std::unordered_map<std::string, std::chrono::nanoseconds>& timings,
-    std::string key, std::chrono::nanoseconds value) {
-  auto result = timings.insert({key, value});
-  if (!result.second) {
-    // element was already present: increment the value at the key
-    result.first->second = result.first->second + value;
-  }
-}
+// void increment_timing(
+//     std::unordered_map<std::string, std::chrono::nanoseconds>& timings,
+//     std::string key, std::chrono::nanoseconds value) {
+//   auto result = timings.insert({key, value});
+//   if (!result.second) {
+//     // element was already present: increment the value at the key
+//     result.first->second = result.first->second + value;
+//   }
+// }
 
 std::ostream& human_time(std::ostream& os, std::chrono::nanoseconds ns) {
   using namespace std;

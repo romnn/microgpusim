@@ -28,15 +28,18 @@ enum ExecUnitKind {
     SPECIALIZED = 7,
 }
 
-pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
-    fn issue_to(&mut self, core: &dyn WarpIssuer, cycle: u64);
+// pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
+pub trait Scheduler: Send + Sync + std::fmt::Debug {
+    fn issue_to(&mut self, core: &dyn WarpIssuer, warps: Vec<&mut warp::Warp>, cycle: u64);
 
-    fn add_supervised_warp(&mut self, warp: warp::Ref);
+    // fn add_supervised_warp(&mut self, warp: warp::Ref);
+    // fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
 
-    fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
+    fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)>;
+    // fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
 
-    /// Order warps based on scheduling policy.
-    fn order_warps(&mut self, core: &dyn WarpIssuer);
+    // Order warps based on scheduling policy.
+    // fn order_warps(&mut self, core: &dyn WarpIssuer, warps: &[&warp::Warp]);
 }
 
 impl std::fmt::Debug for &dyn WarpIssuer {
@@ -45,25 +48,34 @@ impl std::fmt::Debug for &dyn WarpIssuer {
     }
 }
 
+impl std::fmt::Debug for &mut dyn WarpIssuer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WarpIssuer").finish()
+    }
+}
+
 #[derive(Debug)]
 pub struct Base {
+    // pub struct Base<'a> {
     id: usize,
     cluster_id: usize,
     core_id: usize,
 
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
-    next_cycle_prioritized_warps: VecDeque<(usize, warp::Ref)>,
+    // next_cycle_prioritized_warps: VecDeque<(usize, warp::Warp)>,
+    prioritized_warps_ids: Vec<(usize, usize)>,
+    // next_cycle_prioritized_warps: VecDeque<(usize, warp::Ref)>,
 
     // Supervised warps keeps all warps this scheduler can arbitrate between.
     //
     // This is useful in systems where there is more than one warp scheduler.
     // In a single scheduler system, this is simply all the warps
     // assigned to this core.
-    supervised_warps: VecDeque<warp::Ref>,
-    supervised_warps_sorted: Vec<(usize, warp::Ref)>,
-    warps: Vec<warp::Ref>,
-
+    // supervised_warps: VecDeque<&'a warp::Warp>,
+    // supervised_warps: VecDeque<warp::Ref>,
+    // supervised_warps_sorted: Vec<(usize, warp::Ref)>,
+    // warps: Vec<warp::Ref>,
     /// This is the iterator pointer to the last supervised warp issued
     last_supervised_issued_idx: usize,
     num_issued_last_cycle: usize,
@@ -75,24 +87,27 @@ pub struct Base {
 }
 
 impl Base {
+    // impl<'a> Base<'a> {
     pub fn new(
         id: usize,
         cluster_id: usize,
         core_id: usize,
-        warps: Vec<warp::Ref>,
+        // warps: Vec<warp::Ref>,
         scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
+        // let supervised_warps = VecDeque::with_capacity(config.max_warps_per_core());
+        // let supervised_warps_sorted = Vec::with_capacity(config.max_warps_per_core());
         Self {
             id,
             cluster_id,
             core_id,
-            next_cycle_prioritized_warps: VecDeque::new(),
-            supervised_warps: VecDeque::new(),
-            supervised_warps_sorted: Vec::with_capacity(config.max_warps_per_core()),
+            prioritized_warps_ids: Vec::new(),
+            // supervised_warps,
+            // supervised_warps_sorted,
             last_supervised_issued_idx: 0,
-            warps,
+            // warps,
             num_issued_last_cycle: 0,
             stats,
             scoreboard,
@@ -100,8 +115,8 @@ impl Base {
         }
     }
 
-    fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)> {
-        &self.next_cycle_prioritized_warps
+    fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)> {
+        &self.prioritized_warps_ids
     }
 
     #[tracing::instrument(name = "scheduler_issue")]
@@ -133,16 +148,34 @@ impl Base {
         }
     }
 
-    fn issue_to(&mut self, core: &dyn WarpIssuer, cycle: u64) {
+    fn issue_to(
+        &mut self,
+        core: &dyn WarpIssuer,
+        warps: Vec<(usize, &mut warp::Warp)>,
+        cycle: u64,
+    ) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
         let mut valid_inst = false;
         let mut ready_inst = false;
         let mut issued_inst = false;
 
-        for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
+        // for (next_warp_supervised_idx, next_warp_rc) in &self.next_cycle_prioritized_warps {
+
+        // self.prioritized_warps_ids.clear();
+        // self.prioritized_warps_ids.extend(
+        //     warps
+        //         .iter()
+        //         .map(|(_, warp)| (warp.warp_id, warp.dynamic_warp_id)),
+        // );
+        // if self.core_id == 0 {
+        //     dbg!(&self.prioritized_warps_ids);
+        // }
+
+        for (next_warp_supervised_idx, next_warp) in warps {
             // don't consider warps that are not yet valid
-            let mut next_warp = next_warp_rc.try_lock();
+            // let mut next_warp = next_warp_rc.try_lock();
+            // let next_warp = *next_warp;
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
 
             if next_warp.done_exit() {
@@ -186,7 +219,8 @@ impl Base {
 
                 if next_warp.waiting()
                     || core.warp_waiting_at_barrier(warp_id)
-                    || core.warp_waiting_at_mem_barrier(&mut next_warp)
+                    // || core.warp_waiting_at_mem_barrier(warp_id)
+                || core.warp_waiting_at_mem_barrier(&next_warp)
                 {
                     log::debug!(
                         "warp (warp_id={}, dynamic_warp_id={}) is waiting [functional_done={}, barrier={}, mem_barrier={}]",
@@ -194,23 +228,27 @@ impl Base {
                         dyn_warp_id,
                         next_warp.functional_done(),
                         core.warp_waiting_at_barrier(warp_id),
-                        core.warp_waiting_at_mem_barrier(&mut next_warp),
+                        // core.warp_waiting_at_mem_barrier(warp_id),
+                        core.warp_waiting_at_mem_barrier(&next_warp),
                     );
                 }
             }
 
-            let warp = self.warps.get(warp_id).unwrap();
+            // let warp = self.warps.get(warp_id).unwrap();
+            //
+            // // todo: what is the difference? why dont we just use next_warp?
+            // debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
+            // drop(next_warp);
 
-            // todo: what is the difference? why dont we just use next_warp?
-            debug_assert!(Arc::ptr_eq(warp, next_warp_rc));
-            drop(next_warp);
+            // let mut warp: &&mut warp::Warp = next_warp;
+            // let warp = next_warp_rc;
+            // let mut warp = warp.try_lock();
 
-            let mut warp = warp.try_lock();
-
-            while !(warp.waiting()
+            while !(next_warp.waiting()
                 || core.warp_waiting_at_barrier(warp_id)
-                || core.warp_waiting_at_mem_barrier(&mut warp)
-                || warp.ibuffer_empty())
+                || core.warp_waiting_at_mem_barrier(&next_warp)
+                // || core.warp_waiting_at_mem_barrier(warp_id)
+                || next_warp.ibuffer_empty())
                 && checked < max_issue
                 && checked <= num_issued
                 && num_issued < max_issue
@@ -218,12 +256,12 @@ impl Base {
                 let mut warp_inst_issued = false;
                 checked += 1;
 
-                let Some(instr) = warp.ibuffer_peek() else {
+                let Some(instr) = next_warp.ibuffer_peek() else {
                     continue;
                 };
                 log::debug!(
                     "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction ({}, op={:?})",
-                    warp_id, dyn_warp_id, warp.next, instr, instr.opcode.category
+                    warp_id, dyn_warp_id, next_warp.next, instr, instr.opcode.category
                 );
 
                 valid_inst = true;
@@ -245,7 +283,8 @@ impl Base {
                 );
                 ready_inst = true;
 
-                debug_assert!(warp.has_instr_in_pipeline());
+                // debug_assert!(warp.has_instr_in_pipeline());
+                debug_assert!(next_warp.num_instr_in_pipeline > 0);
 
                 match instr.opcode.category {
                     ArchOp::LOAD_OP
@@ -254,7 +293,7 @@ impl Base {
                     | ArchOp::TENSOR_CORE_LOAD_OP
                     | ArchOp::TENSOR_CORE_STORE_OP => {
                         if self.issue(
-                            &mut warp,
+                            next_warp,
                             PipelineStage::ID_OC_MEM,
                             ExecUnitKind::MEM,
                             prev_issued_exec_unit,
@@ -321,7 +360,8 @@ impl Base {
 
                         if let Some((stage, unit)) = issue_target {
                             if self.issue(
-                                &mut warp,
+                                // &mut warp,
+                                next_warp,
                                 stage,
                                 unit,
                                 prev_issued_exec_unit,
@@ -383,7 +423,8 @@ impl Base {
 
                         if let Some((stage, unit)) = issue_target {
                             if self.issue(
-                                &mut warp,
+                                // &mut warp,
+                                next_warp,
                                 stage,
                                 unit,
                                 prev_issued_exec_unit,
@@ -423,7 +464,7 @@ impl Base {
                 }
             }
             if num_issued > 0 {
-                self.last_supervised_issued_idx = *next_warp_supervised_idx;
+                self.last_supervised_issued_idx = next_warp_supervised_idx;
                 self.num_issued_last_cycle = num_issued;
                 let mut stats = self.stats.lock();
                 if num_issued == 1 {
@@ -487,14 +528,13 @@ mod tests {
 
     impl From<&dyn super::Scheduler> for testing::state::Scheduler {
         fn from(scheduler: &dyn super::Scheduler) -> Self {
-            let prioritized_warp_ids: Vec<_> = scheduler
-                .prioritized_warps()
-                .iter()
-                .map(|(_idx, warp)| {
-                    let warp = warp.try_lock();
-                    (warp.warp_id, warp.dynamic_warp_id)
-                })
-                .collect();
+            let prioritized_warp_ids: Vec<_> = scheduler.prioritized_warp_ids().clone();
+            // .iter()
+            // .map(|(_idx, warp)| {
+            //     let warp = warp.try_lock();
+            //     (warp.warp_id, warp.dynamic_warp_id)
+            // })
+            // .collect();
             Self {
                 prioritized_warp_ids,
             }

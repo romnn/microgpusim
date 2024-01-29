@@ -134,7 +134,15 @@ bool Scoreboard::checkCollision(unsigned wid, const class inst_t *inst) const {
 }
 
 bool Scoreboard::has_pending_writes(unsigned wid) const {
+  // if (wid < reg_table.size()) {
+  //   return !reg_table[wid].empty();
+  // }
+  // return false;
   return !reg_table[wid].empty();
+}
+
+unsigned Scoreboard::num_pending_writes(unsigned wid) const {
+  return reg_table[wid].size();
 }
 
 const std::set<unsigned int> &Scoreboard::get_pending_writes(

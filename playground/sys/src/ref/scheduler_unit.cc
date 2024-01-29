@@ -18,7 +18,7 @@
 trace_shd_warp_t &scheduler_unit::warp(int i) { return *((*m_warp)[i]); }
 
 void scheduler_unit::cycle() {
-  logger->debug("{}::scheduler_unit[{}]::cycle()", name(), m_id);
+  logger->debug("{}[{}][core {}]::cycle()", name(), m_id, m_shader->m_sid);
   bool valid_inst =
       false;  // there was one warp with a valid instruction to
               // issue (didn't require flush due to control hazard)
@@ -26,52 +26,91 @@ void scheduler_unit::cycle() {
                              // waiting for pending register writes
   bool issued_inst = false;  // of these we issued one
 
-  if (logger->should_log(spdlog::level::trace)) {
-    std::vector<unsigned> tmp_warp_ids;
-    std::vector<trace_shd_warp_t *>::const_iterator iter;
+  // if (logger->should_log(spdlog::level::debug)) {
+  //   std::vector<unsigned> tmp_warp_ids;
+  //   std::vector<trace_shd_warp_t *>::const_iterator iter;
+  //
+  //   for (iter = m_next_cycle_prioritized_warps.begin();
+  //        iter != m_next_cycle_prioritized_warps.end(); iter++) {
+  //     tmp_warp_ids.push_back((*iter)->get_warp_id());
+  //   }
+  //   logger->debug("{}::scheduler_unit[{}] BEFORE: prioritized warp ids:
+  //   [{}]",
+  //                 name(), m_id, fmt::join(tmp_warp_ids, ", "));
+  //
+  //   tmp_warp_ids.clear();
+  //   for (iter = m_next_cycle_prioritized_warps.begin();
+  //        iter != m_next_cycle_prioritized_warps.end(); iter++) {
+  //     tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
+  //   }
+  //   logger->debug(
+  //       "{}::scheduler_unit[{}] BEFORE: prioritized dynamic warp ids: [{}]",
+  //       name(), m_id, fmt::join(tmp_warp_ids, ", "));
+  // }
 
-    for (iter = m_next_cycle_prioritized_warps.begin();
-         iter != m_next_cycle_prioritized_warps.end(); iter++) {
-      tmp_warp_ids.push_back((*iter)->get_warp_id());
-    }
-    logger->debug(
-        "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: [{}]",
-        name(), m_id, fmt::join(tmp_warp_ids, ", "));
+  logger->debug(
+      "{}[{}, core {}]: BEFORE: prioritized warp ids: [{}]", name(), m_id,
+      m_shader->m_sid,
+      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ", "));
+  logger->debug(
+      "{}[{}, core {}]: BEFORE: prioritized dynamic warp ids: [{}]", name(),
+      m_id, m_shader->m_sid,
 
-    tmp_warp_ids.clear();
-    for (iter = m_next_cycle_prioritized_warps.begin();
-         iter != m_next_cycle_prioritized_warps.end(); iter++) {
-      tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
-    }
-    logger->debug(
-        "{}::scheduler_unit[{}] BEFORE: m_next_cycle_prioritized_warps: [{}]",
-        name(), m_id, fmt::join(tmp_warp_ids, ", "));
-  }
+      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
+                ", "));
 
+  // TODO REMOVE
+  // fmt::println(
+  //     "{}[{}, core {}]: PLAY BEFORE: prioritized warp ids: [{}]", name(),
+  //     m_id, m_shader->m_sid,
+  //     fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ",
+  //     "));
+
+  logger->debug("{}[{}, core {}]: last issued from {}", name(), m_id,
+                m_shader->m_sid,
+                (*m_last_supervised_issued)->get_dynamic_warp_id());
   order_warps();
 
-  if (logger->should_log(spdlog::level::trace)) {
-    std::vector<unsigned> tmp_warp_ids;
-    std::vector<trace_shd_warp_t *>::const_iterator iter;
+  // if (logger->should_log(spdlog::level::debug)) {
+  // std::vector<unsigned> tmp_warp_ids;
+  std::vector<trace_shd_warp_t *>::const_iterator iter;
 
-    tmp_warp_ids.clear();
-    for (iter = m_next_cycle_prioritized_warps.begin();
-         iter != m_next_cycle_prioritized_warps.end(); iter++) {
-      tmp_warp_ids.push_back((*iter)->get_warp_id());
-    }
-    logger->debug(
-        "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: [{}]",
-        name(), m_id, fmt::join(tmp_warp_ids, ", "));
-
-    tmp_warp_ids.clear();
-    for (iter = m_next_cycle_prioritized_warps.begin();
-         iter != m_next_cycle_prioritized_warps.end(); iter++) {
-      tmp_warp_ids.push_back((*iter)->get_dynamic_warp_id());
-    }
-    logger->debug(
-        "{}::scheduler_unit[{}] AFTER: m_next_cycle_prioritized_warps: [{}]",
-        name(), m_id, fmt::join(tmp_warp_ids, ", "));
+  m_next_cycle_prioritized_warps_lockstep_compat_warp_ids.clear();
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    m_next_cycle_prioritized_warps_lockstep_compat_warp_ids.push_back(
+        (*iter)->get_warp_id());
   }
+  logger->debug(
+      "{}[{}, core {}]: AFTER: prioritized warp ids: [{}]", name(), m_id,
+      m_shader->m_sid,
+      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ", "));
+
+  m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids.clear();
+  for (iter = m_next_cycle_prioritized_warps.begin();
+       iter != m_next_cycle_prioritized_warps.end(); iter++) {
+    m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids.push_back(
+        (*iter)->get_dynamic_warp_id());
+  }
+  logger->debug(
+      "{}[{}, core {}]: AFTER: prioritized dynamic warp ids: [{}]", name(),
+      m_id, m_shader->m_sid,
+      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
+                ", "));
+  // }
+
+  // TODO REMOVE
+  // fmt::println(
+  //     "{}[{}, core {}]: PLAY AFTER: prioritized warp ids: [{}]", name(),
+  //     m_id, m_shader->m_sid,
+  //     fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ",
+  //     "));
+
+  // this is for compatibility with lockstep testing
+  // m_next_cycle_prioritized_warps_lockstep_compat.clear();
+  // copy(m_next_cycle_prioritized_warps.begin(),
+  //      m_next_cycle_prioritized_warps.end(),
+  //      back_inserter(m_next_cycle_prioritized_warps_lockstep_compat));
 
   for (std::vector<trace_shd_warp_t *>::iterator iter =
            m_next_cycle_prioritized_warps.begin();

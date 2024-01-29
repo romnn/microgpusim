@@ -179,10 +179,10 @@ impl Warp {
         self.functional_done() && self.stores_done() && self.num_instr_in_pipeline == 0
     }
 
-    #[must_use]
-    pub fn has_instr_in_pipeline(&self) -> bool {
-        self.num_instr_in_pipeline > 0
-    }
+    // #[must_use]
+    // pub fn has_instr_in_pipeline(&self) -> bool {
+    //     self.num_instr_in_pipeline > 0
+    // }
 
     #[must_use]
     pub fn stores_done(&self) -> bool {

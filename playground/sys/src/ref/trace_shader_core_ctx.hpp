@@ -261,6 +261,7 @@ class trace_shader_core_ctx {
   const shader_core_config *get_config() const { return m_config; }
 
   std::shared_ptr<spdlog::logger> logger;
+  std::vector<trace_shd_warp_t *> m_warp;  // per warp information array
 
  protected:
   class trace_gpgpu_sim *m_gpu;
@@ -312,7 +313,6 @@ class trace_shader_core_ctx {
   int m_last_warp_fetched;
 
   // decode/dispatch
-  std::vector<trace_shd_warp_t *> m_warp;  // per warp information array
   barrier_set_t m_barriers;
   ifetch_buffer_t m_inst_fetch_buffer;
   std::vector<register_set> m_pipeline_reg;

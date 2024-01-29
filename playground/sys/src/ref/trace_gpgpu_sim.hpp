@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "gpgpu_sim_config.hpp"
 #include "icnt_wrapper.hpp"
 #include "memory_partition_unit.hpp"
@@ -355,8 +357,19 @@ class trace_gpgpu_sim {
     m_functional_sim_kernel = NULL;
   }
 
+  void increment_timing(std::string key, std::chrono::nanoseconds value) {
+    m_timings_mutex.lock();
+    auto result = m_timings.insert({key, value});
+    if (!result.second) {
+      // element was already present: increment the value at the key
+      result.first->second = result.first->second + value;
+    }
+    m_timings_mutex.unlock();
+  }
+
   std::set<Allocation> m_allocations;
   std::unordered_map<std::string, std::chrono::nanoseconds> m_timings;
+  std::mutex m_timings_mutex;
 
  protected:
   class trace_simt_core_cluster **m_cluster;
