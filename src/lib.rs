@@ -1271,7 +1271,8 @@ where
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
                 let core = core.read();
-                let ldst_unit = core.load_store_unit.lock();
+                // let ldst_unit = core.load_store_unit.lock();
+                let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
                     let num_lines_used = l1_cache.num_used_lines();
                     let num_lines = l1_cache.num_total_lines();
@@ -1349,7 +1350,8 @@ where
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
                 let core = core.read();
-                let ldst_unit = core.load_store_unit.lock();
+                // let ldst_unit = core.load_store_unit.lock();
+                let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
                     l1_cache.write_state(&mut csv_writer)?;
                 }
@@ -1455,7 +1457,8 @@ where
                 kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
             }
 
-            let ldst_unit = &core.load_store_unit.try_lock();
+            // let ldst_unit = &core.load_store_unit.try_lock();
+            let ldst_unit = &core.load_store_unit;
             let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
             for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
                 let kernel_stats = stats.get_mut(Some(kernel_launch_id));

@@ -56,8 +56,9 @@ where
                 let core_id = core.core_id;
 
                 // core: functional units
-                for (fu_id, _fu) in core.functional_units.iter().enumerate() {
-                    let issue_port = core.issue_ports[fu_id];
+                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                    // let issue_port = core.issue_ports[fu_id];
+                    let issue_port = fu.issue_port();
                     let issue_reg: register_set::RegisterSet =
                         core.pipeline_reg[issue_port as usize].try_lock().clone();
                     assert_eq!(issue_port, issue_reg.stage);

@@ -1,5 +1,7 @@
 use super::asserts;
-use crate::{cache, config, interconn as ic, mem_fetch, register_set, testing};
+use crate::{
+    cache, config, func_unit::SimdFunctionUnit, interconn as ic, mem_fetch, register_set, testing,
+};
 use color_eyre::eyre;
 use pretty_assertions_sorted as full_diff;
 use trace_model::ToBitString;
@@ -61,17 +63,35 @@ fn gather_simulation_state(
             // this is the one we will use (unless the assertion is ever false)
             let core_id = core.core_id;
 
+            let load_store_unit = &core.load_store_unit;
+            // let functional_units = core.functional_units.iter().chain([ldst_unit]);
+            let functional_units_iter = core
+                .functional_units
+                .iter()
+                .map(|fu| fu.as_ref() as &dyn SimdFunctionUnit)
+                .chain([load_store_unit as &dyn SimdFunctionUnit]);
+
             // core: functional units
-            for (fu_id, _fu) in core.functional_units.iter().enumerate() {
-                let issue_port = core.issue_ports[fu_id];
+            // for (fu_id, _fu) in core.functional_units.iter().enumerate() {
+            for fu in functional_units_iter {
+                // let issue_port = core.issue_ports[fu_id];
+                let issue_port = fu.issue_port();
                 let issue_reg: register_set::RegisterSet =
                     core.pipeline_reg[issue_port as usize].try_lock().clone();
                 assert_eq!(issue_port, issue_reg.stage);
 
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(issue_reg.into());
             }
-            for (_fu_id, fu) in core.functional_units.iter().enumerate() {
-                let fu = fu.lock();
+
+            // for (_fu_id, fu) in core.functional_units.iter().enumerate() {
+            let functional_units_iter = core
+                .functional_units
+                .iter()
+                .map(|fu| fu.as_ref() as &dyn SimdFunctionUnit)
+                .chain([load_store_unit as &dyn SimdFunctionUnit]);
+
+            for fu in functional_units_iter {
+                // let fu = fu.lock();
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(
                     testing::state::RegisterSet {
                         name: fu.id().to_string(),
@@ -92,14 +112,16 @@ fn gather_simulation_state(
             box_sim_state.scheduler_per_core[core_id] = core
                 .schedulers
                 .iter()
-                .map(|scheduler| scheduler.lock().deref().into())
+                .map(|scheduler| scheduler.deref().into())
+                // .map(|scheduler| scheduler.lock().deref().into())
                 .collect();
 
             // core: load store unit
-            let ldst_unit = core.load_store_unit.lock();
+            // let ldst_unit = core.load_store_unit.lock();
+            // let ldst_unit = &core.load_store_unit;
 
             // core: pending register writes
-            box_sim_state.pending_register_writes_per_core[core_id] = ldst_unit
+            box_sim_state.pending_register_writes_per_core[core_id] = load_store_unit
                 .pending_writes
                 .clone()
                 .into_iter()
@@ -118,7 +140,7 @@ fn gather_simulation_state(
 
             box_sim_state.pending_register_writes_per_core[core_id].sort();
 
-            box_sim_state.l1_latency_queue_per_core[core_id] = ldst_unit
+            box_sim_state.l1_latency_queue_per_core[core_id] = load_store_unit
                 .l1_latency_queue
                 .iter()
                 .enumerate()
@@ -133,7 +155,7 @@ fn gather_simulation_state(
                 })
                 .collect::<Vec<_>>();
 
-            if let Some(l1_data_cache) = ldst_unit.data_l1.as_ref() {
+            if let Some(l1_data_cache) = load_store_unit.data_l1.as_ref() {
                 let l1_data_cache = l1_data_cache
                     .as_any()
                     .downcast_ref::<cache::Data<

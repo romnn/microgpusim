@@ -1,6 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set, scoreboard, warp,
+    config, core::PipelineStage, func_unit as fu, instruction::WarpInstruction, opcodes,
+    register_set, scoreboard, warp,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -62,6 +63,10 @@ impl fu::SimdFunctionUnit for SFU {
 
     fn id(&self) -> &str {
         &self.inner.name
+    }
+
+    fn issue_port(&self) -> PipelineStage {
+        PipelineStage::OC_EX_SFU
     }
 
     fn is_issue_partitioned(&self) -> bool {

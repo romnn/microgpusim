@@ -1,6 +1,8 @@
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{
-    address, cache, config, func_unit as fu,
+    address, cache, config,
+    core::PipelineStage,
+    func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
     interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
     register_set::{self},
@@ -1112,6 +1114,10 @@ where
 
     fn id(&self) -> &str {
         &self.inner.name
+    }
+
+    fn issue_port(&self) -> PipelineStage {
+        PipelineStage::OC_EX_MEM
     }
 
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {

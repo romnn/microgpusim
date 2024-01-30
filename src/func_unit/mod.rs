@@ -10,7 +10,9 @@ pub use load_store::LoadStoreUnit;
 pub use sfu::SFU;
 pub use sp::SPUnit;
 
-use crate::{config, instruction::WarpInstruction, register_set, scoreboard, warp};
+use crate::{
+    config, core::PipelineStage, instruction::WarpInstruction, register_set, scoreboard, warp,
+};
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
 use std::sync::Arc;
@@ -21,6 +23,7 @@ pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
 // crate::engine::cycle::Component + Send + Sync + std::fmt::Display + 'static
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
+    fn issue_port(&self) -> PipelineStage;
     fn issue(&mut self, source_reg: WarpInstruction);
 
     // accessors

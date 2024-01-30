@@ -3,6 +3,7 @@ use super::{
     interconn as ic, kernel::Kernel, mem_fetch, opcodes, operand_collector as opcoll, register_set,
     scheduler, scoreboard, warp,
 };
+use crate::func_unit::SimdFunctionUnit;
 use crate::sync::{Mutex, RwLock};
 
 use barrier::Barrier;
@@ -69,9 +70,9 @@ pub trait WarpIssuer {
 //
 #[derive()]
 pub struct CoreIssuer<'a> {
-    pub config: &'a Arc<config::GPU>,
-    pub pipeline_reg: &'a Vec<register_set::Ref>,
-    pub warp_instruction_unique_uid: &'a Arc<CachePadded<atomic::AtomicU64>>,
+    pub config: &'a config::GPU,
+    pub pipeline_reg: &'a [register_set::Ref],
+    pub warp_instruction_unique_uid: &'a CachePadded<atomic::AtomicU64>,
     pub allocations: &'a super::allocation::Ref,
     pub core_id: usize,
     pub thread_block_size: usize,
@@ -80,7 +81,8 @@ pub struct CoreIssuer<'a> {
     // pub scoreboard: &'a Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
     // pub scoreboard: &'a Arc<dyn scoreboard::Access<WarpInstruction>>,
     pub scoreboard: &'a mut dyn scoreboard::Access<WarpInstruction>,
-    pub barriers: &'a RwLock<barrier::BarrierSet>,
+    pub barriers: &'a mut barrier::BarrierSet,
+    // pub barriers: &'a RwLock<barrier::BarrierSet>,
 }
 
 impl<'a> std::fmt::Debug for CoreIssuer<'a> {
@@ -287,13 +289,15 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
 
         if warp.done() && warp.functional_done() {
             warp.ibuffer_flush();
-            self.barriers.try_write().warp_exited(pipe_reg_ref.warp_id);
+            self.barriers
+                // .try_write()
+                .warp_exited(pipe_reg_ref.warp_id);
         }
 
         if pipe_reg_ref.opcode.category == opcodes::ArchOp::BARRIER_OP {
             //   m_warp[warp_id]->store_info_of_last_inst_at_barrier(*pipe_reg);
             self.barriers
-                .try_write()
+                // .try_write()
                 .warp_reached_barrier(warp.block_id, &pipe_reg_ref);
         } else if pipe_reg_ref.opcode.category == opcodes::ArchOp::MEMORY_BARRIER_OP {
             warp.waiting_for_memory_barrier = true;
@@ -325,7 +329,9 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
 
     #[must_use]
     fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool {
-        self.barriers.try_read().is_waiting_at_barrier(warp_id)
+        self.barriers
+            // .try_read()
+            .is_waiting_at_barrier(warp_id)
     }
 
     #[must_use]
@@ -517,7 +523,8 @@ pub struct Core<I, MC> {
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
-    pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<MC>>>,
+    pub load_store_unit: fu::LoadStoreUnit<MC>,
+    // pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<MC>>>,
     pub active_thread_mask: BitArr!(for crate::MAX_THREADS_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for crate::MAX_THREADS_PER_SM),
     pub dynamic_warp_id: usize,
@@ -542,13 +549,17 @@ pub struct Core<I, MC> {
     pub thread_state: Vec<Option<ThreadState>>,
     // pub scoreboard: Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
     pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
-    pub barriers: RwLock<barrier::BarrierSet>,
+    pub barriers: barrier::BarrierSet,
+    // pub barriers: RwLock<barrier::BarrierSet>,
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
+    // pub operand_collector: Box<opcoll::RegisterFileUnit>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
-    pub issue_ports: Vec<PipelineStage>,
-    pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
-    pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
+    // pub issue_ports: Vec<PipelineStage>,
+    // pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
+    pub functional_units: Vec<Box<dyn fu::SimdFunctionUnit>>,
+    pub schedulers: Vec<Box<dyn scheduler::Scheduler>>,
+    // pub schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>>,
     pub scheduler_issue_priority: usize,
 
     /// Custom callback handler that is called when a fetch is returned to its issuer.
@@ -691,15 +702,17 @@ where
             mem_controller.clone(),
             stats.clone(),
         );
-        let load_store_unit = Arc::new(Mutex::new(load_store_unit));
+        // let load_store_unit = Arc::new(Mutex::new(load_store_unit));
+        // let load_store_unit = Box::new(load_store_unit);
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
-        let schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
-            .num_schedulers_per_core)
+        // let schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
+        let schedulers: Vec<Box<dyn scheduler::Scheduler>> = (0..config.num_schedulers_per_core)
             .map(|sched_id| {
                 let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
-                let scheduler: Arc<Mutex<dyn scheduler::Scheduler>> = match scheduler_kind {
+                // let scheduler: Arc<Mutex<dyn scheduler::Scheduler>> = match scheduler_kind {
+                let scheduler: Box<dyn scheduler::Scheduler> = match scheduler_kind {
                     config::SchedulerKind::GTO => {
                         let gto = scheduler::gto::Scheduler::new(
                             sched_id,
@@ -710,7 +723,8 @@ where
                             scheduler_stats,
                             config.clone(),
                         );
-                        Arc::new(Mutex::new(gto))
+                        // Arc::new(Mutex::new(gto))
+                        Box::new(gto)
                     }
                     scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
                 };
@@ -726,79 +740,83 @@ where
         //     scheduler.try_lock().add_supervised_warp(warp);
         // }
 
-        let mut functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>> = Vec::new();
-        let mut issue_ports = Vec::new();
-        let mut dispatch_ports = Vec::new();
+        // let mut functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>> = Vec::new();
+        let mut functional_units: Vec<Box<dyn fu::SimdFunctionUnit>> = Vec::new();
+        // let mut issue_ports = Vec::new();
+        // let mut dispatch_ports = Vec::new();
 
         // single precision units
         for issue_reg_id in 0..config.num_sp_units {
-            functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
+            // functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
+            functional_units.push(Box::new(fu::sp::SPUnit::new(
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
                 issue_reg_id,
-            ))));
-            dispatch_ports.push(PipelineStage::ID_OC_SP);
-            issue_ports.push(PipelineStage::OC_EX_SP);
+            )));
+            // dispatch_ports.push(PipelineStage::ID_OC_SP);
+            // issue_ports.push(PipelineStage::OC_EX_SP);
         }
 
         // double precision units
         for issue_reg_id in 0..config.num_dp_units {
-            functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
+            // functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
+            functional_units.push(Box::new(fu::DPUnit::new(
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
                 issue_reg_id,
-            ))));
-            dispatch_ports.push(PipelineStage::ID_OC_DP);
-            issue_ports.push(PipelineStage::OC_EX_DP);
+            )));
+            // dispatch_ports.push(PipelineStage::ID_OC_DP);
+            // issue_ports.push(PipelineStage::OC_EX_DP);
         }
 
         // integer units
         for issue_reg_id in 0..config.num_int_units {
-            functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
+            // functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
+            functional_units.push(Box::new(fu::IntUnit::new(
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
                 issue_reg_id,
-            ))));
-            dispatch_ports.push(PipelineStage::ID_OC_INT);
-            issue_ports.push(PipelineStage::OC_EX_INT);
+            )));
+            // dispatch_ports.push(PipelineStage::ID_OC_INT);
+            // issue_ports.push(PipelineStage::OC_EX_INT);
         }
 
         // special function units
         for issue_reg_id in 0..config.num_sfu_units {
-            functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
+            // functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
+            functional_units.push(Box::new(fu::SFU::new(
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 &stats,
                 issue_reg_id,
-            ))));
-            dispatch_ports.push(PipelineStage::ID_OC_SFU);
-            issue_ports.push(PipelineStage::OC_EX_SFU);
+            )));
+            // dispatch_ports.push(PipelineStage::ID_OC_SFU);
+            // issue_ports.push(PipelineStage::OC_EX_SFU);
         }
 
         // load store unit
-        functional_units.push(load_store_unit.clone());
-        dispatch_ports.push(PipelineStage::OC_EX_MEM);
-        issue_ports.push(PipelineStage::OC_EX_MEM);
+        // functional_units.push(load_store_unit);
+        // dispatch_ports.push(PipelineStage::OC_EX_MEM);
+        // issue_ports.push(PipelineStage::OC_EX_MEM);
 
-        debug_assert_eq!(functional_units.len(), issue_ports.len());
-        debug_assert_eq!(functional_units.len(), dispatch_ports.len());
+        // debug_assert_eq!(functional_units.len(), issue_ports.len());
+        // debug_assert_eq!(functional_units.len(), dispatch_ports.len());
 
-        let barriers = RwLock::new(
-            barrier::Builder {
-                // config.max_warps_per_core(),
-                max_blocks_per_core: config.max_concurrent_blocks_per_core,
-                max_barriers_per_block: config.max_barriers_per_block,
-                warp_size: config.warp_size,
-            }
-            .build(),
-        );
+        // let barriers = RwLock::new(
+        let barriers = barrier::Builder {
+            // config.max_warps_per_core(),
+            max_blocks_per_core: config.max_concurrent_blocks_per_core,
+            max_barriers_per_block: config.max_barriers_per_block,
+            warp_size: config.warp_size,
+        }
+        .build();
 
         Self {
             core_id,
@@ -839,7 +857,7 @@ where
             schedulers,
             scheduler_issue_priority: 0,
             functional_units,
-            issue_ports,
+            // issue_ports,
             fetch_return_callback: None,
         }
     }
@@ -1108,6 +1126,134 @@ where
             self.instr_l1_cache.cycle(cycle);
         }
     }
+
+    #[tracing::instrument]
+    // #[inline]
+    fn execute(&mut self, cycle: u64) {
+        let core_id = self.id();
+        log::debug!(
+            "{}",
+            style(format!("cycle {cycle:03} core {core_id:?} execute: ")).red()
+        );
+
+        for (_, res_bus) in self.result_busses.iter_mut().enumerate() {
+            // note: in rust, shift left is semantically equal to "towards the zero index"
+            res_bus.shift_left(1);
+            // log::debug!(
+            //     "res bus {:03}[:128]: {}",
+            //     i,
+            //     &res_bus.to_bit_string()[0..128]
+            // );
+        }
+
+        // let functional_units_iter: &dyn Iterator<Item = &mut dyn SimdFunctionUnit> = &self
+        // let functional_units_iter = &mut self
+        let functional_units_iter = self
+            .functional_units
+            .iter_mut()
+            .map(|fu| fu.as_mut() as &mut dyn SimdFunctionUnit)
+            .chain([&mut self.load_store_unit as &mut dyn SimdFunctionUnit]);
+
+        // for (fu_id, fu) in functional_units_iter.enumerate() {
+        // for fu in functional_units_iter.enumerate() {
+        // for fu in &mut *functional_units_iter {
+        for fu in functional_units_iter {
+            // let mut fu = fu.try_lock();
+
+            // TODO: just give the functional unit a reference to the issue port?
+            // let issue_port = self.issue_ports[fu_id];
+            // NOTE: the fu id is NO LONGER global
+            let fu_id = fu.id().to_string();
+            let issue_port = fu.issue_port();
+            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
+
+            log::debug!(
+                "fu[{:03}] {:<10} before \t{:?}={}",
+                &fu_id,
+                fu.to_string(),
+                issue_port,
+                issue_inst
+            );
+
+            fu.cycle(&mut *self.scoreboard, &mut self.warps, cycle);
+            fu.active_lanes_in_pipeline();
+
+            log::debug!(
+                "fu[{:03}] {:<10} after \t{:?}={}",
+                &fu_id,
+                fu.to_string(),
+                issue_port,
+                issue_inst
+            );
+
+            let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
+            let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
+                issue_inst
+                    .get_ready_sub_core_mut(fu.issue_reg_id())
+                    .map(|(_, r)| r)
+            } else {
+                issue_inst.get_ready_mut().map(|(_, r)| r)
+            };
+
+            let Some(ready_reg) = ready_reg else {
+                continue;
+            };
+
+            log::trace!("occupied: {}", fu.occupied().to_bit_string());
+            log::trace!(
+                "{} checking {}: fu[{:03}] can issue={:?} latency={:?}",
+                style(format!("cycle {cycle:03} core {core_id:?}: execute:",)).red(),
+                crate::Optional(ready_reg.as_ref()),
+                fu_id,
+                ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
+                ready_reg.as_ref().map(|instr| instr.latency),
+            );
+
+            if let Some(ref instr) = ready_reg {
+                if fu.can_issue(instr) {
+                    let schedule_wb_now = !fu.stallable();
+                    let result_bus = self
+                        .result_busses
+                        .iter_mut()
+                        .find(|bus| !bus[instr.latency]);
+
+                    log::debug!(
+                        "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}) ready for issue to fu[{:03}]={}",
+                        style(format!(
+                            "cycle {cycle:03} core {core_id:?}: execute:",
+                        ))
+                        .red(),
+                        instr,
+                        partition_issue,
+                        schedule_wb_now,
+                        result_bus.is_some(),
+                        ready_reg.as_ref().map(|reg| reg.latency),
+                        fu_id,
+                        fu,
+                    );
+
+                    let mut issued = true;
+                    match result_bus {
+                        Some(result_bus) if schedule_wb_now => {
+                            debug_assert!(instr.latency < fu::MAX_ALU_LATENCY);
+                            result_bus.set(instr.latency, true);
+                            // println!("execute {} [latency={}]", instr, instr.latency);
+                            fu.issue(ready_reg.take().unwrap());
+                        }
+                        _ if !schedule_wb_now => {
+                            // println!("execute {} [latency={}]", instr, instr.latency);
+                            fu.issue(ready_reg.take().unwrap());
+                        }
+                        _ => {
+                            // stall issue (cannot reserve result bus)
+                            issued = false;
+                        }
+                    }
+                    log::debug!("execute: issue={}", issued);
+                }
+            }
+        }
+    }
 }
 
 // Returns numbers of addresses in translated_addrs.
@@ -1206,20 +1352,23 @@ where
 {
     // #[inline]
     pub fn cache_flush(&mut self) {
-        let mut unit = self.load_store_unit.try_lock();
-        unit.flush();
+        self.load_store_unit.flush();
+        // let mut unit = self.load_store_unit.try_lock();
+        // unit.flush();
     }
 
     // #[inline]
     pub fn cache_invalidate(&mut self) {
-        let mut unit = self.load_store_unit.try_lock();
-        unit.invalidate();
+        self.load_store_unit.invalidate();
+        // let mut unit = self.load_store_unit.try_lock();
+        // unit.invalidate();
     }
 
     #[must_use]
     // #[inline]
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
-        self.load_store_unit.try_lock().response_buffer_full()
+        self.load_store_unit.response_buffer_full()
+        // self.load_store_unit.try_lock().response_buffer_full()
     }
 
     #[must_use]
@@ -1433,7 +1582,7 @@ where
         );
 
         self.barriers
-            .try_write()
+            // .try_write()
             .allocate(free_block_hw_id as u64, warps);
 
         self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
@@ -1573,7 +1722,9 @@ where
         // this is the last thread that exited
         if self.block_status[block_hw_id] == 0 {
             // deallocate barriers for this block
-            self.barriers.try_write().deallocate(block_hw_id as u64);
+            self.barriers
+                // .try_write()
+                .deallocate(block_hw_id as u64);
 
             // increment the number of completed blocks
             self.num_active_blocks -= 1;
@@ -1693,13 +1844,10 @@ where
                 thread_block_size: self.thread_block_size,
                 current_kernel_max_blocks: self.current_kernel_max_blocks,
                 scoreboard: &mut *self.scoreboard,
-                barriers: &self.barriers,
+                barriers: &mut self.barriers,
             };
-            self.schedulers[scheduler_idx].try_lock().issue_to(
-                &mut issuer,
-                scheduler_supervised_warps,
-                cycle,
-            );
+            // self.schedulers[scheduler_idx].try_lock().issue_to(
+            self.schedulers[scheduler_idx].issue_to(&mut issuer, scheduler_supervised_warps, cycle);
         }
         self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
     }
@@ -1765,120 +1913,6 @@ where
             //   m_last_inst_gpu_tot_sim_cycle = m_gpu->gpu_tot_sim_cycle;
             // preg = m_pipeline_reg[EX_WB].get_ready();
             //   pipe_reg = (preg == NULL) ? NULL : *preg;
-        }
-    }
-
-    #[tracing::instrument]
-    // #[inline]
-    fn execute(&mut self, cycle: u64) {
-        let core_id = self.id();
-        log::debug!(
-            "{}",
-            style(format!("cycle {cycle:03} core {core_id:?} execute: ")).red()
-        );
-
-        for (_, res_bus) in self.result_busses.iter_mut().enumerate() {
-            // note: in rust, shift left is semantically equal to "towards the zero index"
-            res_bus.shift_left(1);
-            // log::debug!(
-            //     "res bus {:03}[:128]: {}",
-            //     i,
-            //     &res_bus.to_bit_string()[0..128]
-            // );
-        }
-
-        for (fu_id, fu) in self.functional_units.iter_mut().enumerate() {
-            let mut fu = fu.try_lock();
-
-            // TODO: just give the functional unit a reference to the issue port?
-            let issue_port = self.issue_ports[fu_id];
-            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
-
-            log::debug!(
-                "fu[{:03}] {:<10} before \t{:?}={}",
-                &fu_id,
-                fu.to_string(),
-                issue_port,
-                issue_inst
-            );
-
-            fu.cycle(&mut *self.scoreboard, &mut self.warps, cycle);
-            fu.active_lanes_in_pipeline();
-
-            log::debug!(
-                "fu[{:03}] {:<10} after \t{:?}={}",
-                &fu_id,
-                fu.to_string(),
-                issue_port,
-                issue_inst
-            );
-
-            let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
-            let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
-                issue_inst
-                    .get_ready_sub_core_mut(fu.issue_reg_id())
-                    .map(|(_, r)| r)
-            } else {
-                issue_inst.get_ready_mut().map(|(_, r)| r)
-            };
-
-            let Some(ready_reg) = ready_reg else {
-                continue;
-            };
-
-            log::trace!("occupied: {}", fu.occupied().to_bit_string());
-            log::trace!(
-                "{} checking {}: fu[{:03}] can issue={:?} latency={:?}",
-                style(format!("cycle {cycle:03} core {core_id:?}: execute:",)).red(),
-                crate::Optional(ready_reg.as_ref()),
-                fu_id,
-                ready_reg.as_ref().map(|instr| fu.can_issue(instr)),
-                ready_reg.as_ref().map(|instr| instr.latency),
-            );
-
-            if let Some(ref instr) = ready_reg {
-                if fu.can_issue(instr) {
-                    let schedule_wb_now = !fu.stallable();
-                    let result_bus = self
-                        .result_busses
-                        .iter_mut()
-                        .find(|bus| !bus[instr.latency]);
-
-                    log::debug!(
-                        "{} {} (partition issue={}, schedule wb now={}, resbus={}, latency={:?}) ready for issue to fu[{:03}]={}",
-                        style(format!(
-                            "cycle {cycle:03} core {core_id:?}: execute:",
-                        ))
-                        .red(),
-                        instr,
-                        partition_issue,
-                        schedule_wb_now,
-                        result_bus.is_some(),
-                        ready_reg.as_ref().map(|reg| reg.latency),
-                        fu_id,
-                        fu,
-                    );
-
-                    let mut issued = true;
-                    match result_bus {
-                        Some(result_bus) if schedule_wb_now => {
-                            debug_assert!(instr.latency < fu::MAX_ALU_LATENCY);
-                            result_bus.set(instr.latency, true);
-                            // println!("execute {} [latency={}]", instr, instr.latency);
-                            fu.issue(ready_reg.take().unwrap());
-                        }
-                        _ if !schedule_wb_now => {
-                            // println!("execute {} [latency={}]", instr, instr.latency);
-                            fu.issue(ready_reg.take().unwrap());
-                        }
-                        _ => {
-                            // stall issue (cannot reserve result bus)
-                            issued = false;
-                        }
-                    }
-                    log::debug!("execute: issue={}", issued);
-                }
-            }
         }
     }
 
@@ -2032,7 +2066,7 @@ where
             .blue(),
             self.is_active(),
             self.not_completed(),
-            self.load_store_unit.lock().response_fifo.len()
+            self.load_store_unit.response_fifo.len() // self.load_store_unit.lock().response_fifo.len()
         );
 
         // // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
@@ -2052,7 +2086,8 @@ where
                 fetch_return_cb(cycle, &fetch);
             }
             match target {
-                FetchResponseTarget::LoadStoreUnit => self.load_store_unit.try_lock().fill(fetch),
+                FetchResponseTarget::LoadStoreUnit => self.load_store_unit.fill(fetch),
+                // FetchResponseTarget::LoadStoreUnit => self.load_store_unit.try_lock().fill(fetch),
                 FetchResponseTarget::ICache => self.instr_l1_cache.fill(fetch, time),
             }
         }
