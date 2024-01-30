@@ -1,14 +1,12 @@
 use super::{config, core::PipelineStage, instruction::WarpInstruction, register_set};
+use crate::sync::Arc;
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use itertools::Itertools;
 use register_set::Access;
+use std::collections::{HashMap, VecDeque};
 use trace_model::ToBitString;
 use utils::box_slice;
-
-use std::collections::{HashMap, VecDeque};
-
-use crate::sync::{Arc, Mutex};
 
 pub const MAX_REG_OPERANDS: usize = 32;
 
@@ -44,7 +42,7 @@ pub struct Operand {
     pub collector_unit_id: Option<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CollectorUnit {
     free: bool,
     kind: Kind,
@@ -651,12 +649,16 @@ impl DispatchUnit {
 
     pub fn find_ready<'a>(
         &mut self,
-        collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
+        // collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
+        collector_units: &'a [CollectorUnit],
+        set_collector_unit_ids: &'a [usize],
+        // collector_units: &'a [CollectorUnit],
         pipeline_reg: &[register_set::RegisterSet],
-    ) -> Option<&'a Arc<Mutex<CollectorUnit>>> {
+        // ) -> Option<&'a CollectorUnit> {
+    ) -> Option<usize> {
         // With sub-core enabled round robin starts with the next cu assigned to a
         // different sub-core than the one that dispatched last
-        let num_collector_units = collector_units.len();
+        let num_collector_units = set_collector_unit_ids.len();
         let cus_per_scheduler = num_collector_units / self.num_warp_schedulers;
         let rr_increment = if self.sub_core_model {
             cus_per_scheduler - (self.last_cu % cus_per_scheduler)
@@ -666,7 +668,7 @@ impl DispatchUnit {
 
         log::debug!("dispatch unit {:?}[{}]: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, self.id, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
 
-        debug_assert_eq!(num_collector_units, collector_units.len());
+        debug_assert_eq!(num_collector_units, set_collector_unit_ids.len());
         for i in 0..num_collector_units {
             let i = (self.last_cu + i + rr_increment) % num_collector_units;
             // log::trace!(
@@ -675,16 +677,20 @@ impl DispatchUnit {
             //     i,
             // );
 
-            if collector_units[i].try_lock().ready(pipeline_reg) {
+            // if collector_units[i].try_lock().ready(pipeline_reg) {
+            let collector_unit_id = set_collector_unit_ids[i];
+            let collector_unit = &collector_units[collector_unit_id];
+
+            if collector_unit.ready(pipeline_reg) {
                 self.last_cu = i;
                 log::debug!(
                     "dispatch unit {:?}[{}]: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
                     self.id,
                     i,
-                    collector_units[i].try_lock().kind
+                    collector_units[i].kind
                 );
-                return collector_units.get(i);
+                return Some(collector_unit_id);
             }
         }
         log::debug!(
@@ -728,7 +734,8 @@ pub enum Kind {
     GEN_CUS,
 }
 
-pub type CuSets = HashMap<Kind, Vec<Arc<Mutex<CollectorUnit>>>>;
+// pub type CuSets = HashMap<Kind, Vec<CollectorUnit>>;
+pub type CuSets = HashMap<Kind, Vec<usize>>;
 
 // operand collector based register file unit
 #[derive(Debug, Clone)]
@@ -745,8 +752,9 @@ pub struct RegisterFileUnit {
 
     pub arbiter: Arbiter,
     pub in_ports: VecDeque<InputPort>,
-    pub collector_units: Vec<Arc<Mutex<CollectorUnit>>>,
+    pub collector_units: Vec<CollectorUnit>,
     pub collector_unit_sets: CuSets,
+    // pub collector_unit_sets: CuSets,
     pub dispatch_units: Vec<DispatchUnit>,
 }
 
@@ -803,12 +811,12 @@ impl RegisterFileUnit {
             self.num_banks_per_scheduler,
         );
         let mut reg_id = 0;
-        for (cu_id, cu) in self.collector_units.iter().enumerate() {
+        for (cu_id, cu) in self.collector_units.iter_mut().enumerate() {
             if self.sub_core_model {
                 let coll_units_per_scheduler = num_collector_units / self.num_warp_schedulers;
                 reg_id = cu_id / coll_units_per_scheduler;
             }
-            let mut cu = cu.try_lock();
+            // let mut cu = cu.try_lock();
             cu.init(
                 cu_id,
                 self.num_banks,
@@ -851,7 +859,8 @@ impl RegisterFileUnit {
         for read in read_ops.values() {
             let cu_id = read.collector_unit_id.unwrap();
             assert!(cu_id < self.collector_units.len());
-            let mut cu = self.collector_units[cu_id].try_lock();
+            // let mut cu = self.collector_units[cu_id].try_lock();
+            let cu = &mut self.collector_units[cu_id];
             if let Some(operand) = read.operand {
                 cu.collect_operand(operand);
             }
@@ -919,9 +928,10 @@ impl RegisterFileUnit {
                         debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
-                    for collector_unit in &cu_set[cu_lower_bound..cu_upper_bound] {
-                        let mut collector_unit = collector_unit.try_lock();
+                    for collector_unit_id in &cu_set[cu_lower_bound..cu_upper_bound] {
+                        // let mut collector_unit = collector_unit.try_lock();
 
+                        let collector_unit = &mut self.collector_units[*collector_unit_id];
                         if collector_unit.free {
                             log::debug!(
                                 "{} cu={:?}",
@@ -948,8 +958,13 @@ impl RegisterFileUnit {
     pub fn dispatch_ready_cu(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
         for dispatch_unit in &mut self.dispatch_units {
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
-            if let Some(collector_unit) = dispatch_unit.find_ready(set, pipeline_reg) {
-                collector_unit.try_lock().dispatch(pipeline_reg);
+            // let collector_unit = dispatch_unit
+            if let Some(collector_unit_id) =
+                dispatch_unit.find_ready(&self.collector_units, set, pipeline_reg)
+            {
+                let collector_unit = &mut self.collector_units[collector_unit_id];
+                collector_unit.dispatch(pipeline_reg);
+                // collector_unit.try_lock().dispatch(pipeline_reg);
             }
         }
     }
@@ -963,8 +978,11 @@ impl RegisterFileUnit {
         let set = self.collector_unit_sets.entry(kind).or_default();
 
         for id in 0..num_collector_units {
-            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind, id)));
-            set.push(Arc::clone(&unit));
+            // let unit = Arc::new(Mutex::new(CollectorUnit::new(kind, id)));
+            let unit = CollectorUnit::new(kind, id);
+            set.push(id);
+            // set.push(unit);
+            // set.push(Arc::clone(&unit));
             self.collector_units.push(unit);
         }
         // each collector set gets dedicated dispatch units.
@@ -1133,7 +1151,8 @@ mod test {
                 .collector_units
                 .iter()
                 // .map(|cu| cu.try_lock().deref().into())
-                .map(|cu| testing::state::CollectorUnit::new(&*cu.try_lock(), pipeline_reg))
+                // .map(|cu| testing::state::CollectorUnit::new(&*cu.try_lock(), pipeline_reg))
+                .map(|cu| testing::state::CollectorUnit::new(cu, pipeline_reg))
                 .collect();
             let ports = opcoll
                 .in_ports

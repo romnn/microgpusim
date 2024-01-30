@@ -272,6 +272,8 @@ pub mod trace {
                 .join(&config.trace_file)
                 .with_extension("msgpack");
 
+            let buffer_memory = TRACE_BUF_SIZE * std::mem::size_of::<model::MemAccessTraceEntry>();
+            assert!(buffer_memory as u64 <= 1 * crate::config::GB);
             let (trace_tx, trace_rx) = crossbeam::channel::bounded(TRACE_BUF_SIZE);
 
             // spawn a decoder thread
