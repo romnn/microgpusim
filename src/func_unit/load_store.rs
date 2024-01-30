@@ -37,7 +37,8 @@ pub struct LoadStoreUnit<MC> {
     /// Statistics
     pub stats: Arc<Mutex<stats::PerKernel>>,
     /// Scoreboard
-    scoreboard: Arc<RwLock<Scoreboard>>,
+    // scoreboard: Arc<Scoreboard>,
+    // scoreboard: Arc<RwLock<Scoreboard>>,
     /// Next global access
     next_global: Option<MemFetch>,
     /// Pending writes per register
@@ -127,7 +128,7 @@ where
         // warps: Vec<warp::Ref>,
         mem_port: ic::Port<mem_fetch::MemFetch>,
         operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
-        scoreboard: Arc<RwLock<Scoreboard>>,
+        // scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
@@ -213,7 +214,7 @@ where
             config,
             mem_controller: Arc::clone(&mem_controller),
             stats,
-            scoreboard,
+            // scoreboard,
             operand_collector,
             num_writeback_clients: WritebackClient::COUNT,
             writeback_arb: 0,
@@ -547,7 +548,12 @@ impl<MC> LoadStoreUnit<MC> {
         self.response_fifo.push_back(fetch);
     }
 
-    pub fn writeback(&mut self, warps: &mut [warp::Warp], cycle: u64) {
+    pub fn writeback(
+        &mut self,
+        scoreboard: &mut dyn Access<WarpInstruction>,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    ) {
         log::debug!(
             "{} (arb={}, writeback clients={})",
             style(format!("load store unit: cycle {cycle} writeback")).magenta(),
@@ -573,9 +579,9 @@ impl<MC> LoadStoreUnit<MC> {
 
                     if next_writeback.memory_space == Some(MemorySpace::Shared) {
                         // shared
-                        self.scoreboard
-                            .try_write()
-                            .release(next_writeback.warp_id, *out_reg);
+                        // self.scoreboard
+                        //     .try_write()
+                        scoreboard.release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
                         let pending = self
@@ -595,9 +601,9 @@ impl<MC> LoadStoreUnit<MC> {
 
                         if *still_pending == 0 {
                             pending.remove(out_reg);
-                            self.scoreboard
-                                .write()
-                                .release(next_writeback.warp_id, *out_reg);
+                            // self.scoreboard
+                            //     .write()
+                            scoreboard.release(next_writeback.warp_id, *out_reg);
                             instr_completed = true;
                         }
                     }
@@ -861,7 +867,12 @@ impl<MC> LoadStoreUnit<MC> {
         stall_cond
     }
 
-    fn l1_latency_queue_cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
+    fn l1_latency_queue_cycle(
+        &mut self,
+        scoreboard: &mut dyn Access<WarpInstruction>,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    ) {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank_id in 0..l1_config.l1_banks {
             if let Some(fetch) = &self.l1_latency_queue[bank_id][0] {
@@ -939,7 +950,8 @@ impl<MC> LoadStoreUnit<MC> {
                                 if *still_pending == 0 {
                                     pending.remove(out_reg);
                                     log::trace!("l1 latency queue release registers");
-                                    self.scoreboard.try_write().release(instr.warp_id, *out_reg);
+                                    scoreboard.release(instr.warp_id, *out_reg);
+                                    // self.scoreboard.try_write().release(instr.warp_id, *out_reg);
                                     completed = true;
                                 }
                             }
@@ -1041,7 +1053,8 @@ impl<MC> LoadStoreUnit<MC> {
                             if *still_pending == 0 {
                                 pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
-                                self.scoreboard.try_write().release(instr.warp_id, *out_reg);
+                                scoreboard.release(instr.warp_id, *out_reg);
+                                // self.scoreboard.try_write().release(instr.warp_id, *out_reg);
                                 completed = true;
                             }
                         }
@@ -1179,7 +1192,12 @@ where
     // where
     //     MC: crate::mcu::MemoryController,
     // {
-    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
+    fn cycle(
+        &mut self,
+        scoreboard: &mut dyn Access<WarpInstruction>,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    ) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
             self.inner.id,
@@ -1198,7 +1216,7 @@ where
                 .collect::<Vec<_>>(),
         );
 
-        self.writeback(warps, cycle);
+        self.writeback(scoreboard, warps, cycle);
 
         let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);
@@ -1292,7 +1310,7 @@ where
             debug_assert!(cache_config.l1_latency > 0);
             crate::timeit!(
                 "core::execute::l1_latency_queue_cycle",
-                self.l1_latency_queue_cycle(warps, cycle)
+                self.l1_latency_queue_cycle(scoreboard, warps, cycle)
             );
         }
 
@@ -1352,7 +1370,8 @@ where
                     if !has_pending_requests {
                         crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
 
-                        self.scoreboard.try_write().release_all(&dispatch_reg);
+                        scoreboard.release_all(&dispatch_reg);
+                        // self.scoreboard.try_write().release_all(&dispatch_reg);
                     }
                     // self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                     let warp = warps.get_mut(warp_id).unwrap();

@@ -267,7 +267,7 @@ fn main() -> eyre::Result<()> {
         let total = value.total();
         let percent = total.as_secs_f64() / norm_time.as_secs_f64();
         eprintln!(
-            "\t{:<35} {: >15} ({: >4.2}% total: {: >15})",
+            "\t{:<55} {: >15} ({: >4.2}% total: {: >15})",
             label,
             format!("{:?}", mean),
             percent * 100.0,

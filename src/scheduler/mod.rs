@@ -30,7 +30,7 @@ enum ExecUnitKind {
 
 // pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
 pub trait Scheduler: Send + Sync + std::fmt::Debug {
-    fn issue_to(&mut self, core: &dyn WarpIssuer, warps: Vec<&mut warp::Warp>, cycle: u64);
+    fn issue_to(&mut self, core: &mut dyn WarpIssuer, warps: Vec<&mut warp::Warp>, cycle: u64);
 
     // fn add_supervised_warp(&mut self, warp: warp::Ref);
     // fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
@@ -80,8 +80,7 @@ pub struct Base {
     last_supervised_issued_idx: usize,
     num_issued_last_cycle: usize,
 
-    scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-
+    // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     config: Arc<config::GPU>,
     stats: Arc<Mutex<stats::scheduler::Scheduler>>,
 }
@@ -93,7 +92,7 @@ impl Base {
         cluster_id: usize,
         core_id: usize,
         // warps: Vec<warp::Ref>,
-        scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
+        // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
@@ -110,7 +109,7 @@ impl Base {
             // warps,
             num_issued_last_cycle: 0,
             stats,
-            scoreboard,
+            // scoreboard,
             config,
         }
     }
@@ -128,7 +127,7 @@ impl Base {
         stage: PipelineStage,
         unit: ExecUnitKind,
         prev_issued_exec_unit: ExecUnitKind,
-        core: &dyn WarpIssuer,
+        core: &mut dyn WarpIssuer,
         cycle: u64,
     ) -> bool {
         // if let ExecUnitKind::SFU = unit {
@@ -150,7 +149,7 @@ impl Base {
 
     fn issue_to(
         &mut self,
-        core: &dyn WarpIssuer,
+        core: &mut dyn WarpIssuer,
         warps: Vec<(usize, &mut warp::Warp)>,
         cycle: u64,
     ) {
@@ -265,7 +264,9 @@ impl Base {
                 );
 
                 valid_inst = true;
-                if self.scoreboard.try_read().has_collision(warp_id, instr) {
+                // if self.scoreboard.try_read().has_collision(warp_id, instr) {
+                // if scoreboard.has_collision(warp_id, instr) {
+                if core.has_collision(warp_id, instr) {
                     log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) {}",
                         warp_id,

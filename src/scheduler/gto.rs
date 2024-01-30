@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{config, core::WarpIssuer, scoreboard::Scoreboard, warp};
-use std::collections::VecDeque;
+// use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct Scheduler {
@@ -16,12 +16,15 @@ impl Scheduler {
         cluster_id: usize,
         core_id: usize,
         // warps: Vec<warp::Ref>,
-        scoreboard: Arc<RwLock<Scoreboard>>,
+        // scoreboard: Arc<RwLock<Scoreboard>>,
         stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
         // let inner = super::Base::new(id, cluster_id, core_id, warps, scoreboard, stats, config);
-        let inner = super::Base::new(id, cluster_id, core_id, scoreboard, stats, config);
+        let inner = super::Base::new(
+            id, cluster_id, core_id, // scoreboard,
+            stats, config,
+        );
         Self { inner }
     }
 }
@@ -76,7 +79,7 @@ impl super::Scheduler for Scheduler {
     //     self.inner.prioritized_warps()
     // }
 
-    fn issue_to(&mut self, core: &dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
+    fn issue_to(&mut self, core: &mut dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
         log::debug!(
             // eprintln!(
             "gto scheduler[{}, core {}]: BEFORE: prioritized warp ids: {:?}",

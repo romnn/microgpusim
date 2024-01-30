@@ -45,7 +45,7 @@ type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
 pub trait WarpIssuer {
     fn issue_warp(
-        &self,
+        &mut self,
         stage: PipelineStage,
         warp: &mut warp::Warp,
         scheduler_id: usize,
@@ -53,6 +53,8 @@ pub trait WarpIssuer {
     ) -> eyre::Result<()>;
 
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool;
+
+    fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool;
 
     #[must_use]
     fn warp_waiting_at_barrier(&self, warp_id: usize) -> bool;
@@ -75,7 +77,9 @@ pub struct CoreIssuer<'a> {
     pub thread_block_size: usize,
     pub current_kernel_max_blocks: usize,
 
-    pub scoreboard: &'a Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    // pub scoreboard: &'a Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    // pub scoreboard: &'a Arc<dyn scoreboard::Access<WarpInstruction>>,
+    pub scoreboard: &'a mut dyn scoreboard::Access<WarpInstruction>,
     pub barriers: &'a RwLock<barrier::BarrierSet>,
 }
 
@@ -106,9 +110,13 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
         }
     }
 
+    fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
+        self.scoreboard.has_collision(warp_id, instr)
+    }
+
     #[tracing::instrument(name = "core_issue_warp")]
     fn issue_warp(
-        &self,
+        &mut self,
         stage: PipelineStage,
         warp: &mut warp::Warp,
         scheduler_id: usize,
@@ -302,7 +310,8 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
             pipe_reg_ref
         );
 
-        self.scoreboard.try_write().reserve_all(&pipe_reg_ref);
+        self.scoreboard.reserve_all(&pipe_reg_ref);
+        // self.scoreboard.try_write().reserve_all(&pipe_reg_ref);
 
         *pipe_reg = Some(pipe_reg_ref);
 
@@ -329,7 +338,7 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
         }
         let has_pending_writes = !self
             .scoreboard
-            .try_read()
+            // .try_read()
             .pending_writes(warp.warp_id)
             .is_empty();
 
@@ -531,7 +540,8 @@ pub struct Core<I, MC> {
     // pub warps: Vec<warp::Ref>,
     pub warps: Vec<warp::Warp>,
     pub thread_state: Vec<Option<ThreadState>>,
-    pub scoreboard: Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    // pub scoreboard: Arc<RwLock<dyn scoreboard::Access<WarpInstruction>>>,
+    pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
     pub barriers: RwLock<barrier::BarrierSet>,
     pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub pipeline_reg: Vec<register_set::Ref>,
@@ -608,13 +618,12 @@ where
         );
         instr_l1_cache.set_top_port(mem_port.clone());
 
-        let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
-            &scoreboard::Config {
-                core_id,
-                cluster_id,
-                max_warps: config.max_warps_per_core(),
-            },
-        )));
+        // let scoreboard = Arc::new(RwLock::new(scoreboard::Scoreboard::new(
+        let scoreboard = Box::new(scoreboard::Scoreboard::new(&scoreboard::Config {
+            core_id,
+            cluster_id,
+            max_warps: config.max_warps_per_core(),
+        }));
 
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
@@ -677,7 +686,7 @@ where
             // warps_old.clone(), // FIXME
             mem_port.clone(),
             operand_collector.clone(),
-            scoreboard.clone(),
+            // scoreboard.clone(),
             config.clone(),
             mem_controller.clone(),
             stats.clone(),
@@ -686,7 +695,7 @@ where
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
-        let mut schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
+        let schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
             .num_schedulers_per_core)
             .map(|sched_id| {
                 let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
@@ -697,7 +706,7 @@ where
                             cluster_id,
                             core_id,
                             // warps_old.clone(), // FIXME
-                            scoreboard.clone(),
+                            // scoreboard.clone(),
                             scheduler_stats,
                             config.clone(),
                         );
@@ -938,7 +947,7 @@ where
 
                     let has_pending_writes = !self
                         .scoreboard
-                        .try_read()
+                        // .try_read()
                         .pending_writes(warp_id)
                         .is_empty();
 
@@ -1675,7 +1684,7 @@ where
                 .map(|(_, warp)| warp)
                 .collect();
 
-            let issuer = CoreIssuer {
+            let mut issuer = CoreIssuer {
                 config: &self.config,
                 pipeline_reg: &self.pipeline_reg,
                 warp_instruction_unique_uid: &self.warp_instruction_unique_uid,
@@ -1683,11 +1692,11 @@ where
                 core_id: self.core_id,
                 thread_block_size: self.thread_block_size,
                 current_kernel_max_blocks: self.current_kernel_max_blocks,
-                scoreboard: &self.scoreboard,
+                scoreboard: &mut *self.scoreboard,
                 barriers: &self.barriers,
             };
             self.schedulers[scheduler_idx].try_lock().issue_to(
-                &issuer,
+                &mut issuer,
                 scheduler_supervised_warps,
                 cycle,
             );
@@ -1742,7 +1751,8 @@ where
             // no stalling).
             //
             self.operand_collector.try_lock().writeback(&mut ready);
-            self.scoreboard.try_write().release_all(&ready);
+            self.scoreboard.release_all(&ready);
+            // self.scoreboard.try_write().release_all(&ready);
             let warp = self.warps.get_mut(ready.warp_id).unwrap();
             // let warp = warp.try_lock();
             warp.num_instr_in_pipeline -= 1;
@@ -1792,7 +1802,7 @@ where
                 issue_inst
             );
 
-            fu.cycle(&mut self.warps, cycle);
+            fu.cycle(&mut *self.scoreboard, &mut self.warps, cycle);
             fu.active_lanes_in_pipeline();
 
             log::debug!(

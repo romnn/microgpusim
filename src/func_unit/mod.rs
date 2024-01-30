@@ -10,7 +10,7 @@ pub use load_store::LoadStoreUnit;
 pub use sfu::SFU;
 pub use sp::SPUnit;
 
-use crate::{config, instruction::WarpInstruction, register_set, warp};
+use crate::{config, instruction::WarpInstruction, register_set, scoreboard, warp};
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
 use std::sync::Arc;
@@ -35,7 +35,12 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn issue_reg_id(&self) -> usize;
     fn stallable(&self) -> bool;
 
-    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64);
+    fn cycle(
+        &mut self,
+        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    );
 }
 
 #[derive()]

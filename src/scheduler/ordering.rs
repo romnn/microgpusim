@@ -83,8 +83,8 @@ impl super::Base {
         warps: Vec<&'a mut warp::Warp>,
         // warps: &'b [&'a mut warp::Warp],
         ordering: Ordering,
-        core: &dyn crate::core::WarpIssuer,
-        mut priority_func: F,
+        _core: &dyn crate::core::WarpIssuer,
+        priority_func: F,
     ) -> Vec<(usize, &'a mut warp::Warp)>
     where
         F: FnMut(&(usize, &mut warp::Warp), &(usize, &mut warp::Warp)) -> std::cmp::Ordering,
@@ -140,41 +140,41 @@ impl super::Base {
             // .map(|(idx, warp)| (idx, *warp))
             .collect();
 
-        use crate::scoreboard::Access;
-        let (_first_idx, first_warp) = &warps_sorted[0];
-        let (_second_idx, second_warp) = &warps_sorted[1];
-        log::warn!(
-            "first: {:?} done={} waiting={} at barrier={} at mem barrier={} (has barrier={} outstanding stores={})",
-            (first_warp.warp_id, first_warp.dynamic_warp_id),
-            first_warp.done_exit(),
-            first_warp.waiting(),
-            core.warp_waiting_at_barrier(first_warp.warp_id),
-            // core.warp_waiting_at_mem_barrier(first_warp.warp_id),
-            core.warp_waiting_at_mem_barrier(first_warp),
-            first_warp.waiting_for_memory_barrier,
-            self.scoreboard.try_read().pending_writes(first_warp.warp_id).len()
-        );
-        log::warn!(
-            "second: {:?} done={} waiting={} at barrier={} at mem barrier={} (has barrier={} outstanding stores={})",
-            (second_warp.warp_id, second_warp.dynamic_warp_id),
-            second_warp.done_exit(),
-            second_warp.waiting(),
-            core.warp_waiting_at_barrier(second_warp.warp_id),
-            // core.warp_waiting_at_mem_barrier(second_warp.warp_id),
-            core.warp_waiting_at_mem_barrier(second_warp),
-            second_warp.waiting_for_memory_barrier,
-            self.scoreboard.try_read().pending_writes(second_warp.warp_id).len()
-        );
-
-        log::warn!(
-            "{:?} vs {:?}: {:?}",
-            (first_warp.warp_id, first_warp.dynamic_warp_id),
-            (second_warp.warp_id, second_warp.dynamic_warp_id),
-            // (warps_sorted[0].0, warps_sorted[0].1.dynamic_warp_id),
-            // (warps_sorted[1].0, warps_sorted[1].1.dynamic_warp_id),
-            priority_func(&warps_sorted[0], &warps_sorted[1]),
-            // sort_warps_by_oldest_dynamic_id(&warps[0], &warps[1], core)
-        );
+        // use crate::scoreboard::Access;
+        // let (_first_idx, first_warp) = &warps_sorted[0];
+        // let (_second_idx, second_warp) = &warps_sorted[1];
+        // log::warn!(
+        //     "first: {:?} done={} waiting={} at barrier={} at mem barrier={} (has barrier={} outstanding stores={})",
+        //     (first_warp.warp_id, first_warp.dynamic_warp_id),
+        //     first_warp.done_exit(),
+        //     first_warp.waiting(),
+        //     core.warp_waiting_at_barrier(first_warp.warp_id),
+        //     // core.warp_waiting_at_mem_barrier(first_warp.warp_id),
+        //     core.warp_waiting_at_mem_barrier(first_warp),
+        //     first_warp.waiting_for_memory_barrier,
+        //     self.scoreboard.try_read().pending_writes(first_warp.warp_id).len()
+        // );
+        // log::warn!(
+        //     "second: {:?} done={} waiting={} at barrier={} at mem barrier={} (has barrier={} outstanding stores={})",
+        //     (second_warp.warp_id, second_warp.dynamic_warp_id),
+        //     second_warp.done_exit(),
+        //     second_warp.waiting(),
+        //     core.warp_waiting_at_barrier(second_warp.warp_id),
+        //     // core.warp_waiting_at_mem_barrier(second_warp.warp_id),
+        //     core.warp_waiting_at_mem_barrier(second_warp),
+        //     second_warp.waiting_for_memory_barrier,
+        //     self.scoreboard.try_read().pending_writes(second_warp.warp_id).len()
+        // );
+        //
+        // log::warn!(
+        //     "{:?} vs {:?}: {:?}",
+        //     (first_warp.warp_id, first_warp.dynamic_warp_id),
+        //     (second_warp.warp_id, second_warp.dynamic_warp_id),
+        //     // (warps_sorted[0].0, warps_sorted[0].1.dynamic_warp_id),
+        //     // (warps_sorted[1].0, warps_sorted[1].1.dynamic_warp_id),
+        //     priority_func(&warps_sorted[0], &warps_sorted[1]),
+        //     // sort_warps_by_oldest_dynamic_id(&warps[0], &warps[1], core)
+        // );
 
         // warps.clone().into_iter().enumerate().copied().collect();
         // .iter().enumerate()..collect();

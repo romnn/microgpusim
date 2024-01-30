@@ -1,5 +1,7 @@
 use crate::sync::{Arc, Mutex};
-use crate::{config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set, warp};
+use crate::{
+    config, func_unit as fu, instruction::WarpInstruction, opcodes, register_set, scoreboard, warp,
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct DPUnit {
@@ -98,7 +100,12 @@ impl fu::SimdFunctionUnit for DPUnit {
     // }
 
     // impl crate::engine::cycle::Component for DPUnit {
-    fn cycle(&mut self, warps: &mut [warp::Warp], cycle: u64) {
+    fn cycle(
+        &mut self,
+        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
+        warps: &mut [warp::Warp],
+        cycle: u64,
+    ) {
         use crate::engine::cycle::Component;
         self.inner.cycle(cycle);
     }
