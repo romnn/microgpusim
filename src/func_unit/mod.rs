@@ -25,6 +25,8 @@ pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
     fn issue_port(&self) -> PipelineStage;
+    fn result_port(&self) -> Option<PipelineStage>;
+
     fn issue(&mut self, instr: WarpInstruction, stats: &mut stats::PerKernel);
 
     // accessors
@@ -45,13 +47,14 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
+        result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     );
 }
 
 #[derive()]
 pub struct PipelinedSimdUnit {
-    pub result_port: Option<register_set::Ref>,
+    // pub result_port: Option<register_set::Ref>,
     pub id: usize,
     pub name: String,
     pub pipeline_depth: usize,
@@ -79,7 +82,7 @@ impl PipelinedSimdUnit {
     pub fn new(
         id: usize,
         name: String,
-        result_port: Option<register_set::Ref>,
+        // result_port: Option<register_set::Ref>,
         depth: usize,
         config: Arc<config::GPU>,
         issue_reg_id: usize,
@@ -88,7 +91,7 @@ impl PipelinedSimdUnit {
         Self {
             id,
             name,
-            result_port,
+            // result_port,
             pipeline_depth: depth,
             pipeline_reg,
             issue_reg_id,
@@ -148,11 +151,11 @@ impl PipelinedSimdUnit {
     pub fn can_issue(&self, instr: &WarpInstruction) -> bool {
         self.dispatch_reg.is_none() && !self.occupied[instr.latency]
     }
-}
+    // }
 
-impl crate::engine::cycle::Component for PipelinedSimdUnit {
+    // impl crate::engine::cycle::Component for PipelinedSimdUnit {
     // #[inline]
-    fn cycle(&mut self, cycle: u64) {
+    pub fn cycle(&mut self, result_port: Option<&mut register_set::RegisterSet>, cycle: u64) {
         log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
             self.id,
@@ -166,11 +169,11 @@ impl crate::engine::cycle::Component for PipelinedSimdUnit {
             self.pipeline_reg.len(),
         );
 
-        if let Some(result_port) = &mut self.result_port {
+        if let Some(result_port) = result_port {
             if let Some(pipe_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
                 // let mut result_port = result_port.borrow_mut();
-                let mut result_port = result_port.try_lock();
+                // let mut result_port = result_port.try_lock();
                 // let msg = format!(
                 //     "{}: move pipeline[0] to result port {:?}",
                 //     self.name, result_port.stage

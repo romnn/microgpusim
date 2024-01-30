@@ -13,7 +13,7 @@ pub struct SPUnit {
 impl SPUnit {
     pub fn new(
         id: usize,
-        result_port: register_set::Ref,
+        // result_port: register_set::Ref,
         config: Arc<config::GPU>,
         // _stats: &Arc<Mutex<stats::PerKernel>>,
         issue_reg_id: usize,
@@ -22,7 +22,7 @@ impl SPUnit {
         let inner = fu::PipelinedSimdUnit::new(
             id,
             "SPUnit".to_string(),
-            Some(result_port),
+            // Some(result_port),
             pipeline_depth,
             config.clone(),
             issue_reg_id,
@@ -75,6 +75,10 @@ impl fu::SimdFunctionUnit for SPUnit {
         PipelineStage::OC_EX_SP
     }
 
+    fn result_port(&self) -> Option<PipelineStage> {
+        Some(PipelineStage::EX_WB)
+    }
+
     fn is_issue_partitioned(&self) -> bool {
         true
     }
@@ -116,10 +120,11 @@ impl fu::SimdFunctionUnit for SPUnit {
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
+        result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
-        use crate::engine::cycle::Component;
-        self.inner.cycle(cycle);
+        // use crate::engine::cycle::Component;
+        self.inner.cycle(result_port, cycle);
     }
 }
 

@@ -142,7 +142,7 @@ where
         let inner = fu::PipelinedSimdUnit::new(
             id,
             "LdstUnit".to_string(),
-            None,
+            // None,
             pipeline_depth,
             config.clone(),
             0,
@@ -1131,6 +1131,10 @@ where
         PipelineStage::OC_EX_MEM
     }
 
+    fn result_port(&self) -> Option<PipelineStage> {
+        None
+    }
+
     fn pipeline(&self) -> &Vec<Option<WarpInstruction>> {
         &self.inner.pipeline_reg
     }
@@ -1215,6 +1219,7 @@ where
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
+        result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
         log::debug!(

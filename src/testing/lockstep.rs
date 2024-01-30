@@ -77,7 +77,8 @@ fn gather_simulation_state(
                 // let issue_port = core.issue_ports[fu_id];
                 let issue_port = fu.issue_port();
                 let issue_reg: register_set::RegisterSet =
-                    core.pipeline_reg[issue_port as usize].try_lock().clone();
+                    core.pipeline_reg[issue_port as usize].clone();
+                // core.pipeline_reg[issue_port as usize].try_lock().clone();
                 assert_eq!(issue_port, issue_reg.stage);
 
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(issue_reg.into());
@@ -106,7 +107,9 @@ fn gather_simulation_state(
                     fu.occupied().to_bit_string();
             }
             // core: operand collector
-            box_sim_state.operand_collector_per_core[core_id] = Some((&core.register_file).into());
+            let register_file =
+                testing::state::OperandCollector::new(&core.register_file, &core.pipeline_reg);
+            box_sim_state.operand_collector_per_core[core_id] = Some(register_file);
             // Some(core.operand_collector.try_lock().deref().into());
             // core: schedulers
             box_sim_state.scheduler_per_core[core_id] = core

@@ -1,4 +1,4 @@
-use super::{config, instruction::WarpInstruction, register_set};
+use super::{config, core::PipelineStage, instruction::WarpInstruction, register_set};
 use bitvec::{array::BitArray, BitArr};
 use console::style;
 use itertools::Itertools;
@@ -53,7 +53,8 @@ pub struct CollectorUnit {
     warp_id: Option<usize>,
     warp_instr: Option<WarpInstruction>,
     /// pipeline register to issue to when ready
-    output_register: Option<register_set::Ref>,
+    // output_register: Option<register_set::Ref>,
+    output_register: Option<PipelineStage>,
     src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
     not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
     num_banks: usize,
@@ -105,14 +106,17 @@ impl CollectorUnit {
     }
 
     #[must_use]
-    pub fn ready(&self) -> bool {
+    // pub fn ready(&self, output_register: Option<&register_set::RegisterSet>) -> bool {
+    // pub fn ready(&self, output_register: Option<&register_set::RegisterSet>) -> bool {
+    pub fn ready(&self, pipeline_stage: &[register_set::RegisterSet]) -> bool {
         if self.free {
             return false;
         }
-        let Some(output_register) = self.output_register.as_ref() else {
+        let Some(output_register) = self.output_register else {
             return false;
         };
-        let output_register = output_register.try_lock();
+        let output_register = &pipeline_stage[output_register as usize];
+        // let output_register = output_register.try_lock();
         let has_free_register = if self.sub_core_model {
             output_register.has_free_sub_core(self.reg_id)
         } else {
@@ -145,11 +149,13 @@ impl CollectorUnit {
     //     }
     // }
 
-    pub fn dispatch(&mut self) {
+    pub fn dispatch(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
+        // , output_register: &mut Option<register_set::RegisterSet>) {
         debug_assert!(self.not_ready.not_any());
 
         let output_register = self.output_register.take().unwrap();
-        let mut output_register = output_register.try_lock();
+        let output_register = &mut pipeline_reg[output_register as usize];
+        // let mut output_register = output_register.try_lock();
         let warp_instr = self.warp_instr.take();
 
         // TODO HOTFIX: workaround
@@ -187,14 +193,15 @@ impl CollectorUnit {
         self.free = true;
         self.warp_id = None;
         // self.reg_id = 0;
-        self.output_register = None;
+        // self.output_register = None;
         self.src_operands.fill(None);
     }
 
     fn allocate(
         &mut self,
-        input_reg_set: &register_set::Ref,
-        output_reg_set: &register_set::Ref,
+        input_reg_set: &mut register_set::RegisterSet,
+        // output_reg_set: &mut register_set::RegisterSet,
+        output_reg_id: PipelineStage,
     ) -> bool {
         log::debug!(
             "{}",
@@ -205,11 +212,15 @@ impl CollectorUnit {
         debug_assert!(self.not_ready.not_any());
 
         self.free = false;
-        self.output_register = Some(Arc::clone(output_reg_set));
-        let mut input_reg_set = input_reg_set.try_lock();
+        // self.output_register = None;
+        // self.output_register = Some(Arc::clone(output_reg_set));
+        self.output_register = Some(output_reg_id);
+
+        // let mut input_reg_set = input_reg_set.try_lock();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
-            self.warp_id = Some(ready_reg.warp_id); // todo: do we need warp id??
+            // todo: do we need warp id??
+            self.warp_id = Some(ready_reg.warp_id);
 
             log::debug!(
                 "operand collector::allocate({:?}) => src arch reg = {:?}",
@@ -641,6 +652,7 @@ impl DispatchUnit {
     pub fn find_ready<'a>(
         &mut self,
         collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
+        pipeline_reg: &[register_set::RegisterSet],
     ) -> Option<&'a Arc<Mutex<CollectorUnit>>> {
         // With sub-core enabled round robin starts with the next cu assigned to a
         // different sub-core than the one that dispatched last
@@ -663,7 +675,7 @@ impl DispatchUnit {
             //     i,
             // );
 
-            if collector_units[i].try_lock().ready() {
+            if collector_units[i].try_lock().ready(pipeline_reg) {
                 self.last_cu = i;
                 log::debug!(
                     "dispatch unit {:?}[{}]: FOUND ready: chose collector unit {} ({:?})",
@@ -738,11 +750,13 @@ pub struct RegisterFileUnit {
     pub dispatch_units: Vec<DispatchUnit>,
 }
 
-pub type PortVec = Vec<register_set::Ref>;
+// pub type PortVec = Vec<register_set::Ref>;
+pub type PortVec = Vec<PipelineStage>;
 
 pub trait OperandCollector {
     fn writeback(&mut self, instr: &mut WarpInstruction) -> bool;
 }
+
 impl RegisterFileUnit {
     pub fn new(config: Arc<config::GPU>) -> Self {
         let arbiter = Arbiter::default();
@@ -812,14 +826,14 @@ impl RegisterFileUnit {
         self.initialized = true;
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
         log::debug!("{}", style("operand collector::step()").green());
-        self.dispatch_ready_cu();
+        self.dispatch_ready_cu(pipeline_reg);
         self.allocate_reads();
 
         debug_assert!(!self.in_ports.is_empty());
         for port_num in 0..self.in_ports.len() {
-            self.allocate_cu(port_num);
+            self.allocate_cu(pipeline_reg, port_num);
         }
         self.process_banks();
     }
@@ -862,7 +876,7 @@ impl RegisterFileUnit {
         }
     }
 
-    pub fn allocate_cu(&mut self, port_num: usize) {
+    pub fn allocate_cu(&mut self, pipeline_reg: &mut [register_set::RegisterSet], port_num: usize) {
         let port = &self.in_ports[port_num];
         log::debug!(
             "{}",
@@ -875,8 +889,12 @@ impl RegisterFileUnit {
 
         debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
 
-        for (input_port, output_port) in port.in_ports.iter().zip(port.out_ports.iter()) {
-            if input_port.try_lock().has_ready() {
+        for (input_port_id, output_port_id) in port.in_ports.iter().zip(port.out_ports.iter()) {
+            let input_port = &mut pipeline_reg[*input_port_id as usize];
+            // let output_port = &mut pipeline_reg[*output_port_id as usize];
+
+            // if input_port.try_lock().has_ready() {
+            if input_port.has_ready() {
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
                     let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
@@ -887,13 +905,15 @@ impl RegisterFileUnit {
                     if self.sub_core_model {
                         // sub core model only allocates on the subset of CUs assigned
                         // to the scheduler that issued
-                        let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
+                        let (reg_id, _) = input_port.get_ready().unwrap();
+                        // let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
                         debug_assert!(
                             cu_set.len() % self.num_warp_schedulers == 0
                                 && cu_set.len() >= self.num_warp_schedulers
                         );
                         let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
+                        let schd_id = input_port.scheduler_id(reg_id).unwrap();
+                        // let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
                         cu_lower_bound = schd_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
                         debug_assert!(cu_upper_bound <= cu_set.len());
@@ -909,7 +929,8 @@ impl RegisterFileUnit {
                                 collector_unit.kind
                             );
 
-                            allocated = collector_unit.allocate(input_port, output_port);
+                            allocated = collector_unit.allocate(input_port, *output_port_id);
+                            // allocated = collector_unit.allocate(input_port, output_port);
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
@@ -924,11 +945,11 @@ impl RegisterFileUnit {
         }
     }
 
-    pub fn dispatch_ready_cu(&mut self) {
+    pub fn dispatch_ready_cu(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
         for dispatch_unit in &mut self.dispatch_units {
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
-            if let Some(collector_unit) = dispatch_unit.find_ready(set) {
-                collector_unit.try_lock().dispatch();
+            if let Some(collector_unit) = dispatch_unit.find_ready(set, pipeline_reg) {
+                collector_unit.try_lock().dispatch(pipeline_reg);
             }
         }
     }
@@ -1010,7 +1031,7 @@ impl OperandCollector for RegisterFileUnit {
 
 #[cfg(test)]
 mod test {
-    use crate::testing;
+    use crate::{register_set, testing};
     use std::ops::Deref;
     use trace_model::ToBitString;
 
@@ -1030,8 +1051,10 @@ mod test {
         }
     }
 
-    impl From<&super::InputPort> for testing::state::Port {
-        fn from(port: &super::InputPort) -> Self {
+    // impl From<&super::InputPort> for testing::state::Port {
+    //     fn from(port: &super::InputPort) -> Self {
+    impl testing::state::Port {
+        pub fn new(port: super::InputPort, pipeline_reg: &[register_set::RegisterSet]) -> Self {
             Self {
                 ids: port
                     .collector_unit_ids
@@ -1042,19 +1065,22 @@ mod test {
                 in_ports: port
                     .in_ports
                     .iter()
-                    .map(|p| p.try_lock().clone().into())
+                    // .map(|p| p.try_lock().clone().into())
+                    .map(|p| pipeline_reg[*p as usize].clone().into())
                     .collect(),
                 out_ports: port
                     .out_ports
                     .iter()
-                    .map(|p| p.try_lock().clone().into())
+                    .map(|p| pipeline_reg[*p as usize].clone().into())
                     .collect(),
             }
         }
     }
 
-    impl From<&super::CollectorUnit> for testing::state::CollectorUnit {
-        fn from(cu: &super::CollectorUnit) -> Self {
+    // impl From<&super::CollectorUnit> for testing::state::CollectorUnit {
+    //     fn from(cu: &super::CollectorUnit) -> Self {
+    impl testing::state::CollectorUnit {
+        pub fn new(cu: &super::CollectorUnit, pipeline_reg: &[register_set::RegisterSet]) -> Self {
             Self {
                 warp_id: cu.warp_id(),
                 warp_instr: cu.warp_instr.clone().map(Into::into),
@@ -1062,7 +1088,8 @@ mod test {
                 output_register: cu
                     .output_register
                     .as_ref()
-                    .map(|r| r.try_lock().deref().clone().into()),
+                    .map(|r| pipeline_reg[*r as usize].clone().into()),
+                // .map(|r| r.try_lock().deref().clone().into()),
                 // src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
                 not_ready: cu.not_ready.to_bit_string(),
                 reg_id: cu.reg_id,
@@ -1094,15 +1121,26 @@ mod test {
         }
     }
 
-    impl From<&super::RegisterFileUnit> for testing::state::OperandCollector {
-        fn from(opcoll: &super::RegisterFileUnit) -> Self {
+    // impl From<&super::RegisterFileUnit> for testing::state::OperandCollector {
+    //     fn from(opcoll: &super::RegisterFileUnit) -> Self {
+    impl testing::state::OperandCollector {
+        pub fn new(
+            opcoll: &super::RegisterFileUnit,
+            pipeline_reg: &[register_set::RegisterSet],
+        ) -> Self {
             let dispatch_units = opcoll.dispatch_units.iter().map(Into::into).collect();
             let collector_units = opcoll
                 .collector_units
                 .iter()
-                .map(|cu| cu.try_lock().deref().into())
+                // .map(|cu| cu.try_lock().deref().into())
+                .map(|cu| testing::state::CollectorUnit::new(&*cu.try_lock(), pipeline_reg))
                 .collect();
-            let ports = opcoll.in_ports.iter().map(Into::into).collect();
+            let ports = opcoll
+                .in_ports
+                .iter()
+                // .map(Into::into)
+                .map(|port| testing::state::Port::new(port.clone(), pipeline_reg))
+                .collect();
             let arbiter = (&opcoll.arbiter).into();
             Self {
                 ports,

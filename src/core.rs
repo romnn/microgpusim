@@ -75,7 +75,7 @@ pub trait WarpIssuer {
 #[derive()]
 pub struct CoreIssuer<'a> {
     pub config: &'a config::GPU,
-    pub pipeline_reg: &'a [register_set::Ref],
+    pub pipeline_reg: &'a mut [register_set::RegisterSet],
     pub warp_instruction_unique_uid: &'a CachePadded<atomic::AtomicU64>,
     pub allocations: &'a super::allocation::Ref,
     pub core_id: usize,
@@ -103,7 +103,8 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
 {
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
-        let pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
+        // let pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
+        let pipeline_stage = &self.pipeline_reg[stage as usize];
 
         if self.config.sub_core_model {
             pipeline_stage
@@ -130,7 +131,8 @@ impl<'a> WarpIssuer for CoreIssuer<'a>
     ) -> eyre::Result<()> {
         // let warp_mut = self.warps.get_mut(warp.warp_id).unwrap();
 
-        let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
+        // let mut pipeline_stage = self.pipeline_reg[stage as usize].try_lock();
+        let pipeline_stage = &mut self.pipeline_reg[stage as usize];
         let pipeline_stage_copy = pipeline_stage.clone();
         let free = if self.config.sub_core_model {
             pipeline_stage.get_free_sub_core_mut(scheduler_id)
@@ -567,7 +569,8 @@ pub struct Core<I, MC> {
     // pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
     pub register_file: RegisterFileUnit,
     // pub operand_collector: Box<opcoll::RegisterFileUnit>,
-    pub pipeline_reg: Vec<register_set::Ref>,
+    // pub pipeline_reg: Vec<register_set::Ref>,
+    pub pipeline_reg: Vec<register_set::RegisterSet>,
     pub result_busses: Vec<ResultBus>,
     // pub issue_ports: Vec<PipelineStage>,
     // pub functional_units: Vec<Arc<Mutex<dyn fu::SimdFunctionUnit>>>,
@@ -697,15 +700,16 @@ where
             .map(|_| BitArray::ZERO)
             .collect();
 
-        let pipeline_reg: Vec<_> = pipeline_reg
-            .into_iter()
-            .map(|reg| Arc::new(Mutex::new(reg)))
-            .collect();
+        // let pipeline_reg: Vec<_> = pipeline_reg
+        //     .into_iter()
+        //     .map(|reg| Arc::new(Mutex::new(reg)))
+        //     .collect();
 
         let mut register_file = RegisterFileUnit::new(config.clone());
 
         // configure generic collectors
-        Self::init_operand_collector(&mut register_file, &config, &pipeline_reg);
+        Self::init_operand_collector(&mut register_file, &config);
+        // , &pipeline_reg);
 
         // let operand_collector = Arc::new(Mutex::new(operand_collector));
 
@@ -769,7 +773,7 @@ where
             // functional_units.push(Arc::new(Mutex::new(fu::sp::SPUnit::new(
             functional_units.push(Box::new(fu::sp::SPUnit::new(
                 issue_reg_id,
-                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                // Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 // &global_stats,
                 issue_reg_id,
@@ -783,7 +787,7 @@ where
             // functional_units.push(Arc::new(Mutex::new(fu::DPUnit::new(
             functional_units.push(Box::new(fu::DPUnit::new(
                 issue_reg_id,
-                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                // Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 // &global_stats,
                 issue_reg_id,
@@ -797,7 +801,7 @@ where
             // functional_units.push(Arc::new(Mutex::new(fu::IntUnit::new(
             functional_units.push(Box::new(fu::IntUnit::new(
                 issue_reg_id,
-                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                // Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 // &global_stats,
                 issue_reg_id,
@@ -811,7 +815,7 @@ where
             // functional_units.push(Arc::new(Mutex::new(fu::SFU::new(
             functional_units.push(Box::new(fu::SFU::new(
                 issue_reg_id,
-                Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
+                // Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
                 // &global_stats,
                 issue_reg_id,
@@ -1207,14 +1211,17 @@ where
             // NOTE: the fu id is NO LONGER global
             let fu_id = fu.id().to_string();
             let issue_port = fu.issue_port();
-            let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
+            let result_port = fu.result_port();
+
+            // let issue_inst = &self.pipeline_reg[issue_port as usize];
+            // let mut issue_inst = self.pipeline_reg[issue_port as usize].try_lock();
 
             log::debug!(
                 "fu[{:03}] {:<10} before \t{:?}={}",
                 &fu_id,
                 fu.to_string(),
                 issue_port,
-                issue_inst
+                &self.pipeline_reg[issue_port as usize]
             );
 
             fu.cycle(
@@ -1222,6 +1229,7 @@ where
                 &mut *self.scoreboard,
                 &mut self.warps,
                 &mut self.stats,
+                result_port.map(|port| &mut self.pipeline_reg[port as usize]),
                 cycle,
             );
             fu.active_lanes_in_pipeline();
@@ -1231,10 +1239,12 @@ where
                 &fu_id,
                 fu.to_string(),
                 issue_port,
-                issue_inst
+                &self.pipeline_reg[issue_port as usize]
             );
 
             let partition_issue = self.config.sub_core_model && fu.is_issue_partitioned();
+
+            let issue_inst = &mut self.pipeline_reg[issue_port as usize];
             let ready_reg: Option<&mut Option<WarpInstruction>> = if partition_issue {
                 issue_inst
                     .get_ready_sub_core_mut(fu.issue_reg_id())
@@ -1648,7 +1658,8 @@ where
     fn init_operand_collector(
         register_file: &mut RegisterFileUnit,
         config: &config::GPU,
-        pipeline_reg: &[register_set::Ref],
+        // pipeline_reg: &[register_set::RegisterSet],
+        // pipeline_reg: &[register_set::Ref],
     ) {
         register_file.add_cu_set(
             operand_collector::Kind::GEN_CUS,
@@ -1661,21 +1672,38 @@ where
             let mut out_ports = operand_collector::PortVec::new();
             let mut cu_sets: Vec<operand_collector::Kind> = Vec::new();
 
-            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize]));
-            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize]));
-            in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize]));
-            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize]));
-            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize]));
-            out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize]));
+            // in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize]));
+            // in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize]));
+            // in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize]));
+            // out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize]));
+            // out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize]));
+            // out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize]));
+            //
+            // if config.num_dp_units > 0 {
+            //     in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize]));
+            //     out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize]));
+            // }
+            // if config.num_int_units > 0 {
+            //     in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize]));
+            //     out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize]));
+            // }
+
+            in_ports.push(PipelineStage::ID_OC_SP);
+            in_ports.push(PipelineStage::ID_OC_SFU);
+            in_ports.push(PipelineStage::ID_OC_MEM);
+            out_ports.push(PipelineStage::OC_EX_SP);
+            out_ports.push(PipelineStage::OC_EX_SFU);
+            out_ports.push(PipelineStage::OC_EX_MEM);
 
             if config.num_dp_units > 0 {
-                in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize]));
-                out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize]));
+                in_ports.push(PipelineStage::ID_OC_DP);
+                out_ports.push(PipelineStage::OC_EX_DP);
             }
             if config.num_int_units > 0 {
-                in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize]));
-                out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize]));
+                in_ports.push(PipelineStage::ID_OC_INT);
+                out_ports.push(PipelineStage::OC_EX_INT);
             }
+
             cu_sets.push(operand_collector::Kind::GEN_CUS);
             register_file.add_port(in_ports, out_ports, cu_sets);
         }
@@ -1712,8 +1740,11 @@ where
             }
 
             for _ in 0..config.operand_collector_num_in_ports_sp {
-                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize])];
-                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize])];
+                // let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize])];
+                // let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize])];
+                let in_ports = vec![PipelineStage::ID_OC_SP];
+                let out_ports = vec![PipelineStage::OC_EX_SP];
+
                 let cu_sets = vec![
                     operand_collector::Kind::SP_CUS,
                     operand_collector::Kind::GEN_CUS,
@@ -1723,8 +1754,11 @@ where
             }
 
             for _ in 0..config.operand_collector_num_in_ports_dp {
-                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize])];
-                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize])];
+                // let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize])];
+                // let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize])];
+                let in_ports = vec![PipelineStage::ID_OC_DP];
+                let out_ports = vec![PipelineStage::OC_EX_DP];
+
                 let cu_sets = vec![
                     operand_collector::Kind::DP_CUS,
                     operand_collector::Kind::GEN_CUS,
@@ -1734,8 +1768,12 @@ where
             }
 
             for _ in 0..config.operand_collector_num_in_ports_sfu {
-                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize])];
-                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize])];
+                // let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize])];
+                // let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize])];
+
+                let in_ports = vec![PipelineStage::ID_OC_SFU];
+                let out_ports = vec![PipelineStage::OC_EX_SFU];
+
                 let cu_sets = vec![
                     operand_collector::Kind::SFU_CUS,
                     operand_collector::Kind::GEN_CUS,
@@ -1745,8 +1783,11 @@ where
             }
 
             for _ in 0..config.operand_collector_num_in_ports_mem {
-                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize])];
-                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize])];
+                // let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize])];
+                // let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize])];
+                let in_ports = vec![PipelineStage::ID_OC_MEM];
+                let out_ports = vec![PipelineStage::OC_EX_MEM];
+
                 let cu_sets = vec![
                     operand_collector::Kind::MEM_CUS,
                     operand_collector::Kind::GEN_CUS,
@@ -1756,8 +1797,11 @@ where
             }
 
             for _ in 0..config.operand_collector_num_in_ports_int {
-                let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize])];
-                let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize])];
+                // let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize])];
+                // let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize])];
+                let in_ports = vec![PipelineStage::ID_OC_INT];
+                let out_ports = vec![PipelineStage::OC_EX_INT];
+
                 let cu_sets = vec![
                     operand_collector::Kind::INT_CUS,
                     operand_collector::Kind::GEN_CUS,
@@ -1900,7 +1944,7 @@ where
 
             let mut issuer = CoreIssuer {
                 config: &self.config,
-                pipeline_reg: &self.pipeline_reg,
+                pipeline_reg: &mut self.pipeline_reg,
                 warp_instruction_unique_uid: &self.warp_instruction_unique_uid,
                 allocations: &self.allocations,
                 core_id: self.core_id,
@@ -1919,15 +1963,15 @@ where
     // #[inline]
     fn writeback(&mut self, cycle: u64) {
         // from the functional units
-        let mut exec_writeback_pipeline =
-            self.pipeline_reg[PipelineStage::EX_WB as usize].try_lock();
+        let id = self.id();
+        let exec_writeback_pipeline = &mut self.pipeline_reg[PipelineStage::EX_WB as usize];
+        // self.pipeline_reg[PipelineStage::EX_WB as usize].try_lock();
+
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: writeback: ex wb pipeline={}",
-                cycle,
-                self.id(),
-                exec_writeback_pipeline
+                cycle, id, exec_writeback_pipeline
             ))
             .cyan()
         );
@@ -2178,7 +2222,7 @@ where
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(
                 "core::operand collector",
-                self.register_file.step() // self.operand_collector.try_lock().step()
+                self.register_file.step(&mut self.pipeline_reg) // self.operand_collector.try_lock().step()
             );
         }
 

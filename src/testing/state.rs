@@ -435,6 +435,7 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
             .ports()
             .into_iter()
             .map(Port::from)
+            // .map(|port| Port::from(port, pipeline_reg))
             .filter(|port| {
                 let ids = port.ids.clone().into_iter();
                 let ids: HashSet<_> = ids.collect();
@@ -449,12 +450,14 @@ impl<'a> From<playground::operand_collector::OperandCollector<'a>> for OperandCo
                 }
             })
             .collect();
+
         let collector_units = opcoll
             .collector_units()
             .into_iter()
             .map(CollectorUnit::from)
             .filter(|unit| !skip.contains(&unit.kind))
             .collect();
+
         let dispatch_units = opcoll
             .dispatch_units()
             .map(DispatchUnit::from)

@@ -1,7 +1,7 @@
 use super::instruction::WarpInstruction;
 use crate::sync::{Arc, Mutex};
 
-pub type Ref = Arc<Mutex<RegisterSet>>;
+// pub type Ref = Arc<Mutex<RegisterSet>>;
 
 /// Register set that can hold multiple instructions.
 #[derive(Debug, Clone, PartialEq, Eq)]

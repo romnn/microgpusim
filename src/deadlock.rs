@@ -60,7 +60,8 @@ where
                     // let issue_port = core.issue_ports[fu_id];
                     let issue_port = fu.issue_port();
                     let issue_reg: register_set::RegisterSet =
-                        core.pipeline_reg[issue_port as usize].try_lock().clone();
+                        core.pipeline_reg[issue_port as usize].clone();
+                    // core.pipeline_reg[issue_port as usize].try_lock().clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
                     state.functional_unit_pipelines[core_id].push(issue_reg);
