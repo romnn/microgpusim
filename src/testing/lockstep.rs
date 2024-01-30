@@ -26,6 +26,8 @@ fn gather_simulation_state(
     box_sim: &mut crate::MockSimulator<IC, MCU>,
     // box_sim: &mut validate::simulate::config::GTX1080,
     play_sim: &mut playground::Accelsim,
+    box_cycle: u64,
+    _play_cycle: u64,
 ) -> (testing::state::Simulation, testing::state::Simulation) {
     let num_schedulers = box_sim.config.num_schedulers_per_core;
     let num_clusters = box_sim.config.num_simt_clusters;
@@ -37,12 +39,12 @@ fn gather_simulation_state(
 
     let num_partitions = box_sim.mem_partition_units.len();
     let num_sub_partitions = box_sim.mem_sub_partitions.len();
-    let _num_l1_banks = box_sim
-        .config
-        .data_cache_l1
-        .as_ref()
-        .map(|l1| l1.l1_banks)
-        .unwrap_or(1);
+
+    let l1_config = box_sim.config.data_cache_l1.as_ref();
+    let num_l1_banks = l1_config.map(|l1| l1.l1_banks).unwrap_or(0);
+    let l1_latency = l1_config.map(|l1| l1.l1_latency).unwrap_or(0);
+
+    assert!(num_l1_banks > 0);
     let mut box_sim_state = testing::state::Simulation::new(
         num_clusters,
         cores_per_cluster,
@@ -147,14 +149,35 @@ fn gather_simulation_state(
                 .l1_latency_queue
                 .iter()
                 .enumerate()
-                .map(|(bank_id, latency_queue)| {
-                    (
-                        bank_id,
-                        latency_queue
-                            .iter()
-                            .map(|fetch| fetch.clone().map(Into::into))
-                            .collect(),
-                    )
+                .map(|(bank_id, new_latency_queue)| {
+                    // let mut latency_queue = vec![None; l1_latency];
+                    // for (ready_cycle, fetch) in new_latency_queue.clone() {
+                    //     //
+                    //     let baseline_cycle = box_cycle.max(
+                    //         new_latency_queue
+                    //             .front()
+                    //             .map(|(cycle, _)| *cycle)
+                    //             .unwrap_or(0),
+                    //     );
+                    //     let remaining = ready_cycle.saturating_sub(box_cycle);
+                    //     dbg!(ready_cycle, box_cycle, remaining);
+                    //
+                    //     assert!(remaining <= l1_latency as u64);
+                    //     // if the slot is "l1 latency" from now, it should
+                    //     // be all the way at the back
+                    //     // let slot = (l1_latency - 1) - remaining as usize;
+                    //     let slot = remaining as usize;
+                    //     assert!(slot < l1_latency);
+                    //
+                    //     latency_queue[slot] = Some(fetch.clone().into());
+                    // }
+                    // (bank_id, latency_queue)
+
+                    let latency_queue = new_latency_queue
+                        .iter()
+                        .map(|fetch| fetch.clone().map(Into::into))
+                        .collect();
+                    (bank_id, latency_queue)
                 })
                 .collect::<Vec<_>>();
 
@@ -662,7 +685,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             if should_check {
                 start = Instant::now();
                 let (box_sim_state, play_sim_state) =
-                    gather_simulation_state(&mut box_sim, &mut play_sim);
+                    gather_simulation_state(&mut box_sim, &mut play_sim, box_cycle, play_cycle);
                 gather_state_time += start.elapsed();
 
                 start = Instant::now();
@@ -761,7 +784,9 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                     "checking for diff after cycle {box_cycle} (box cycle={box_cycle}, play cycle={play_cycle})",
                 );
 
+                // this is useful for debugging scheduler issues
                 // find the bad core and scheduler
+                #[cfg(debug_assertions)]
                 for (core_id, per_core) in box_sim_state.scheduler_per_core.iter().enumerate() {
                     for (scheduler_id, scheduler) in per_core.iter().enumerate() {
                         let box_prio = &scheduler.prioritized_warp_ids;
@@ -770,6 +795,24 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
                         if box_prio != play_prio {
                             println!("CORE {core_id} SCHEDULER {scheduler_id} MISMATCH:");
                             diff::assert_eq!(box: box_prio, play: play_prio);
+                        }
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                for (core_id, per_core) in
+                    box_sim_state.l1_latency_queue_per_core.iter().enumerate()
+                {
+                    for (bank_id, queue) in per_core.iter() {
+                        let (play_bank_id, play_queue) =
+                            &play_sim_state.l1_latency_queue_per_core[core_id][*bank_id];
+                        assert_eq!(play_bank_id, bank_id);
+                        if queue != play_queue {
+                            println!(" box core {} l1 bank {}: {:?}", core_id, bank_id, queue);
+                            println!(
+                                "play core {} l1 bank {}: {:?}",
+                                core_id, bank_id, play_queue
+                            );
                         }
                     }
                 }

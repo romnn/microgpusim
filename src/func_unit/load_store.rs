@@ -18,7 +18,6 @@ use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
 
 #[allow(clippy::module_name_repetitions)]
-// pub struct LoadStoreUnit {
 pub struct LoadStoreUnit<MC> {
     /// Core ID
     core_id: usize,
@@ -28,21 +27,11 @@ pub struct LoadStoreUnit<MC> {
     next_writeback: Option<WarpInstruction>,
     /// Response fifo queue
     pub response_fifo: VecDeque<MemFetch>,
-    /// Warps
-    // pub warps: Vec<warp::Warp>,
-    // warps: Vec<warp::Ref>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     /// Config
     config: Arc<config::GPU>,
     /// Memory controller
-    // mem_controller: Arc<dyn mcu::MemoryController>,
     mem_controller: Arc<MC>,
-    /// Statistics
-    // pub stats: Arc<Mutex<stats::PerKernel>>,
-    // pub stats: stats::PerKernel,
-    /// Scoreboard
-    // scoreboard: Arc<Scoreboard>,
-    // scoreboard: Arc<RwLock<Scoreboard>>,
     /// Next global access
     next_global: Option<MemFetch>,
     /// Pending writes per register
@@ -50,15 +39,13 @@ pub struct LoadStoreUnit<MC> {
 
     /// L1 tag latency queue
     pub l1_latency_queue: Box<[Box<[Option<mem_fetch::MemFetch>]>]>,
+    // pub l1_latency_queue: Box<[VecDeque<(u64, mem_fetch::MemFetch)>]>,
     /// L1 hit latency queue
     pub l1_hit_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
     /// Memory port
     pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
-
-    /// Operand collector
-    // operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
 
     /// Round-robin write-back arbiter.
     ///
@@ -72,7 +59,6 @@ pub struct LoadStoreUnit<MC> {
         Option<Box<dyn Fn(u64, &mem_fetch::MemFetch, cache::RequestStatus) + Send + Sync>>,
 }
 
-// impl std::fmt::Display for LoadStoreUnit {
 impl<MC> std::fmt::Display for LoadStoreUnit<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.inner.name)
@@ -118,50 +104,32 @@ enum MemStageStallKind {
     WB_CACHE_RSRV_FAIL,
 }
 
-// impl LoadStoreUnit {
 impl<MC> LoadStoreUnit<MC>
 where
     MC: mcu::MemoryController,
 {
-    // pub fn new<MC>(
     pub fn new(
         id: usize,
         core_id: usize,
         cluster_id: usize,
-        // warps: Vec<warp::Ref>,
-        // warps: Vec<warp::Ref>,
         mem_port: ic::Port<mem_fetch::MemFetch>,
-        // operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
-        // scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
-        // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
-        // stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
         let inner = fu::PipelinedSimdUnit::new(
             id,
             "LdstUnit".to_string(),
-            // None,
             pipeline_depth,
             config.clone(),
             0,
         );
         debug_assert!(config.shared_memory_latency > 1);
 
-        let mut l1_latency_queue = box_slice![box_slice![None; 0]; 0];
-
-        let data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
+        let data_l1: Option<Box<dyn cache::Cache<_>>> =
             if let Some(l1_config) = &config.data_cache_l1 {
-                // initialize latency queue
-                debug_assert!(l1_config.l1_latency > 0);
-                l1_latency_queue =
-                    box_slice![box_slice![None; l1_config.l1_latency]; l1_config.l1_banks];
-
                 // initialize l1 data cache
                 let cache_stats = stats::cache::PerKernel::default();
-                // let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
-                // let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
 
                 let cache_controller = cache::controller::pascal::L1DataCacheController::new(
                     cache::Config::new(l1_config.inner.as_ref(), config.accelsim_compat),
@@ -171,11 +139,9 @@ where
 
                 let mut data_cache: cache::data::Data<
                     MC,
-                    // Arc<dyn mcu::MemoryController>,
                     cache::controller::pascal::L1DataCacheController,
                     stats::cache::PerKernel,
                 > = cache::data::Builder {
-                    // name: format!("ldst-unit-{cluster_id}-{core_id}-L1-DATA-CACHE"),
                     name: format!(
                         "ldst-unit-{cluster_id}-{core_id}-{}",
                         style("L1D-CACHE").green()
@@ -185,8 +151,6 @@ where
                     stats: cache_stats,
                     config: Arc::clone(&config),
                     mem_controller: mem_controller.clone(),
-                    // &(mem_controller as Arc<dyn mcu::MemoryController>),
-                    // mem_controller: Arc::clone(&mem_controller),
                     cache_controller,
                     cache_config: Arc::clone(&l1_config.inner),
                     write_alloc_type: AccessKind::L1_WR_ALLOC_R,
@@ -194,7 +158,6 @@ where
                 }
                 .build();
                 data_cache.set_top_port(mem_port.clone());
-                // let _: &dyn cache::Cache<stats::cache::PerKernel> = &data_cache;
 
                 Some(Box::new(data_cache))
             } else {
@@ -203,14 +166,27 @@ where
 
         debug_assert!(data_l1.is_some());
 
+        let l1_banks = config
+            .data_cache_l1
+            .as_ref()
+            .map(|l1_config| l1_config.l1_banks)
+            .unwrap_or(0);
+
+        let l1_latency = config
+            .data_cache_l1
+            .as_ref()
+            .map(|l1_config| l1_config.l1_latency)
+            .unwrap_or(0);
+
+        let l1_latency_queue = box_slice![box_slice![None; l1_latency]; l1_banks];
+        // let l1_latency_queue = box_slice![VecDeque::new(); l1_banks];
+
         let l1_hit_latency_queue = VecDeque::new();
-        // let stats = stats::PerKernel::new(config.as_ref().into());
 
         Self {
             core_id,
             cluster_id,
             data_l1,
-            // warps,
             next_writeback: None,
             next_global: None,
             pending_writes: HashMap::new(),
@@ -219,9 +195,6 @@ where
             inner,
             config,
             mem_controller: Arc::clone(&mem_controller),
-            // stats,
-            // scoreboard,
-            // operand_collector,
             num_writeback_clients: WritebackClient::COUNT,
             writeback_arb: 0,
             l1_latency_queue,
@@ -290,24 +263,7 @@ where
         if bypass_l1 {
             // bypass L1 cache
             debug_assert_eq!(dispatch_instr.is_store(), access.is_write);
-            // debug_assert_eq!(access.req_size_bytes, dispatch_instr.data_size);
-            // let control_size = if dispatch_instr.is_store() {
-            //     mem_fetch::WRITE_PACKET_SIZE
-            // } else {
-            //     mem_fetch::READ_PACKET_SIZE
-            // };
-            // let size = access.req_size_bytes + u32::from(control_size);
-            // debug_assert_eq!(access.size(), size);
 
-            // // if self.fetch_interconn.full(
-            // if false
-            // // if self.interconn_full(
-            // // size,
-            // // dispatch_instr.is_store() || dispatch_instr.is_atomic(),
-            // {
-            //     // stall_cond = MemStageStallKind::ICNT_RC_FAIL;
-            //     panic!("interconn full");
-            // } else {
             let mut mem_port = self.mem_port.lock();
 
             let packet_size = if dispatch_instr.is_store() || dispatch_instr.is_atomic() {
@@ -323,8 +279,6 @@ where
                         debug_assert!(pending[out_reg] > 0);
                     }
                 } else if dispatch_instr.is_store() {
-                    // let warp = self.warps[dispatch_instr.warp_id];
-                    // let warp = warp.try_lock();
                     warps[dispatch_instr.warp_id].num_outstanding_stores += 1;
                 }
 
@@ -431,6 +385,7 @@ where
                             .collect::<Vec<_>>(),
                         self.l1_latency_queue[bank_id]
                             .iter()
+                            // .map(|(cycle, fetch)| format!("{}<-{}", cycle, fetch))
                             .map(Option::as_ref)
                             .map(crate::Optional)
                             .collect::<Vec<_>>(),
@@ -439,7 +394,15 @@ where
 
                 let slot_idx = l1d_config.l1_latency - 1;
                 let slot = &mut self.l1_latency_queue[bank_id][slot_idx];
-                if slot.is_none() {
+                let has_slot = slot.is_none();
+
+                // let ready_cycle = cycle + l1d_config.l1_latency as u64;
+                // let has_slot = self.l1_latency_queue[bank_id]
+                //     .back()
+                //     .map(|(recent_ready_cycle, _)| *recent_ready_cycle < ready_cycle)
+                //     .unwrap_or(true);
+
+                if has_slot {
                     let is_store = instr.is_store();
                     let access = instr.mem_access_queue.pop_back().unwrap();
 
@@ -465,6 +428,7 @@ where
                     fetch.inject_cycle = Some(cycle);
 
                     let data_size = fetch.data_size();
+                    // self.l1_latency_queue[bank_id].push_back((ready_cycle, fetch));
                     *slot = Some(fetch);
 
                     if is_store {
@@ -484,10 +448,8 @@ where
                     stall_cond = MemStageStallKind::BK_CONF;
                     if let Some(ref mut l1_cache) = self.data_l1 {
                         let stats = l1_cache.per_kernel_stats_mut();
-                        // if let Some(kernel_launch_id) = access.kernel_launch_id() {
                         let kernel_stats = stats.get_mut(access.kernel_launch_id());
                         kernel_stats.num_l1_cache_bank_conflicts += 1;
-                        // }
                     }
 
                     // do not try again, just break from the loop and try the next cycle
@@ -578,7 +540,6 @@ impl<MC> LoadStoreUnit<MC> {
                 next_writeback.memory_space,
             );
 
-            // if self.operand_collector.try_lock().writeback(next_writeback) {
             if operand_collector.writeback(next_writeback) {
                 let mut next_writeback = self.next_writeback.take().unwrap();
 
@@ -588,8 +549,6 @@ impl<MC> LoadStoreUnit<MC> {
 
                     if next_writeback.memory_space == Some(MemorySpace::Shared) {
                         // shared
-                        // self.scoreboard
-                        //     .try_write()
                         scoreboard.release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
@@ -610,15 +569,12 @@ impl<MC> LoadStoreUnit<MC> {
 
                         if *still_pending == 0 {
                             pending.remove(out_reg);
-                            // self.scoreboard
-                            //     .write()
                             scoreboard.release(next_writeback.warp_id, *out_reg);
                             instr_completed = true;
                         }
                     }
                 }
                 if instr_completed {
-                    // let mut stats = self.stats.lock();
                     crate::warp_inst_complete(&mut next_writeback, &mut *stats);
                 }
             }
@@ -640,13 +596,8 @@ impl<MC> LoadStoreUnit<MC> {
                 WritebackClient::SharedMemory => {
                     if let Some(pipe_reg) = self.inner.pipeline_reg[0].take() {
                         if pipe_reg.is_atomic() {
-                            // pipe_reg.do_atomic();
-                            // m_core->decrement_atomic_count(m_next_wb.warp_id(),
-                            //                                m_next_wb.active_count());
+                            todo!("atomics");
                         }
-
-                        // let warp = self.warps[pipe_reg.warp_id];
-                        // let warp = warp.try_lock();
 
                         let warp = warps.get_mut(pipe_reg.warp_id).unwrap();
                         warp.num_instr_in_pipeline -= 1;
@@ -687,9 +638,7 @@ impl<MC> LoadStoreUnit<MC> {
                             .magenta(),
                         );
                         if next_global.is_atomic() {
-                            // m_core->decrement_atomic_count(
-                            //     m_next_global->get_wid(),
-                            //     m_next_global->get_access_warp_mask().count());
+                            todo!("atomics");
                         }
 
                         self.next_writeback = next_global.instr;
@@ -804,8 +753,6 @@ impl<MC> LoadStoreUnit<MC> {
             fetch.kind == mem_fetch::Kind::WRITE_ACK
                 || (self.config.perfect_mem && fetch.is_write())
         );
-        // let mut warp = self.warps[fetch.warp_id];
-        // let mut warp = warp.try_lock();
         let warp = warps.get_mut(fetch.warp_id).unwrap();
         warp.num_outstanding_stores -= 1;
     }
@@ -832,10 +779,7 @@ impl<MC> LoadStoreUnit<MC> {
                 1
             };
 
-            // let mut warp = self.warps[instr.warp_id].try_borrow_mut().unwrap();
-            // let mut warp = self.warps[instr.warp_id].try_lock();
             let warp = warps.get_mut(instr.warp_id).unwrap();
-            // let warp = warp.try_lock();
             for _ in 0..inc_ack {
                 warp.num_outstanding_stores += 1;
             }
@@ -887,6 +831,16 @@ impl<MC> LoadStoreUnit<MC> {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
         for bank_id in 0..l1_config.l1_banks {
             if let Some(fetch) = &self.l1_latency_queue[bank_id][0] {
+                // let Some((ready_cycle, fetch)) = self.l1_latency_queue[bank_id].front() else {
+                //     // no fetch available
+                //     continue;
+                // };
+                //
+                // if cycle <= *ready_cycle {
+                //     // not ready yet
+                //     continue;
+                // }
+
                 let mut events = Vec::new();
 
                 let l1_cache = self.data_l1.as_mut().unwrap();
@@ -916,6 +870,7 @@ impl<MC> LoadStoreUnit<MC> {
 
                 if access_status == cache::RequestStatus::HIT {
                     debug_assert!(!read_sent);
+                    // let (_, mut fetch) = self.l1_latency_queue[bank_id].pop_front().unwrap();
                     let mut fetch = self.l1_latency_queue[bank_id][0].take().unwrap();
 
                     // For write hit in WB policy
@@ -962,22 +917,11 @@ impl<MC> LoadStoreUnit<MC> {
                                     pending.remove(out_reg);
                                     log::trace!("l1 latency queue release registers");
                                     scoreboard.release(instr.warp_id, *out_reg);
-                                    // self.scoreboard.try_write().release(instr.warp_id, *out_reg);
                                     completed = true;
                                 }
                             }
                             if completed {
-                                // let mut stats = self.stats.lock();
                                 crate::warp_inst_complete(instr, &mut *stats);
-                            }
-                        }
-
-                        // For write hit in WB policy
-                        if instr.is_store() && !write_sent {
-                            fetch.set_reply();
-
-                            for _ in 0..dec_ack {
-                                self.store_ack(warps, &fetch);
                             }
                         }
                     }
@@ -996,12 +940,6 @@ impl<MC> LoadStoreUnit<MC> {
                     let write_policy = l1_config.inner.write_policy;
                     let should_fetch = write_allocate_policy.is_fetch_on_write()
                         || write_allocate_policy.is_lazy_fetch_on_read();
-                    // let should_fetch = matches!(
-                    //     l1_config.inner.write_allocate_policy,
-                    //     cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
-                    //         | cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ
-                    // );
-                    // if l1_config.inner.write_policy != cache::config::WritePolicy::WRITE_THROUGH
 
                     let write_allocate_sent = cache::event::was_writeallocate_sent(&events);
 
@@ -1018,9 +956,6 @@ impl<MC> LoadStoreUnit<MC> {
                 }
             }
 
-            // if self.l1_latency_queue[bank_id][0].is_none() {
-            //     self.l1_latency_queue[bank_id].rotate_left(1);
-            // }
             for stage in 0..l1_config.l1_latency - 1 {
                 if self.l1_latency_queue[bank_id][stage].is_none() {
                     self.l1_latency_queue[bank_id][stage] =
@@ -1066,30 +1001,13 @@ impl<MC> LoadStoreUnit<MC> {
                                 pending.remove(out_reg);
                                 log::trace!("l1 latency queue release registers");
                                 scoreboard.release(instr.warp_id, *out_reg);
-                                // self.scoreboard.try_write().release(instr.warp_id, *out_reg);
                                 completed = true;
                             }
                         }
                         if completed {
-                            // let mut stats = self.stats.lock();
                             crate::warp_inst_complete(instr, &mut *stats);
                         }
                     }
-
-                    // let dec_ack = if l1_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                    //     fetch.data_size() / mem_sub_partition::SECTOR_SIZE
-                    // } else {
-                    //     1
-                    // };
-                    //
-                    // // For write hit in WB policy
-                    // if instr.is_store() && !write_sent {
-                    //     fetch.set_reply();
-                    //
-                    //     for _ in 0..dec_ack {
-                    //         self.store_ack(warps, &fetch);
-                    //     }
-                    // }
                 }
                 _ => {}
             }
@@ -1110,11 +1028,7 @@ impl<MC> LoadStoreUnit<MC> {
 }
 
 impl<MC> fu::SimdFunctionUnit for LoadStoreUnit<MC>
-// impl fu::SimdFunctionUnit for LoadStoreUnit
-// impl<I> fu::SimdFunctionUnit for LoadStoreUnit<I>
 where
-    //     I: ic::MemFetchInterface,
-    // MC: Send + Sync + 'static,
     MC: crate::mcu::MemoryController,
 {
     fn active_lanes_in_pipeline(&self) -> usize {
@@ -1162,17 +1076,13 @@ where
             }
         }
 
-        // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
-            // let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(Some(instr.kernel_launch_id));
             let active_count = instr.active_thread_count() as u64;
             kernel_stats
                 .instructions
                 .inc(None, mem_space, instr.is_store(), active_count);
         }
-
-        // m_core->incmem_stat(m_core->get_config()->warp_size, 1);
 
         self.inner.issue(instr);
     }
@@ -1206,20 +1116,14 @@ where
         // load store unit is stallable
         true
     }
-    // }
 
-    // impl crate::engine::cycle::Component for LoadStoreUnit {
-    // impl<MC> crate::engine::cycle::Component for LoadStoreUnit<MC>
-    // where
-    //     MC: crate::mcu::MemoryController,
-    // {
     fn cycle(
         &mut self,
         operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
-        result_port: Option<&mut register_set::RegisterSet>,
+        _result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
         log::debug!(
@@ -1392,22 +1296,17 @@ where
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
                     if !has_pending_requests {
-                        // let mut stats = self.stats.lock();
                         crate::warp_inst_complete(&mut dispatch_reg, &mut *stats);
 
                         scoreboard.release_all(&dispatch_reg);
-                        // self.scoreboard.try_write().release_all(&dispatch_reg);
                     }
-                    // self.warps[warp_id].try_lock().num_instr_in_pipeline -= 1;
                     let warp = warps.get_mut(warp_id).unwrap();
-                    // let warp = warp.try_lock();
                     warp.num_instr_in_pipeline -= 1;
                     simd_unit.dispatch_reg = None;
                 }
             } else {
                 // stores exit pipeline here
                 let warp = warps.get_mut(warp_id).unwrap();
-                // let warp = warp.try_lock();
                 warp.num_instr_in_pipeline -= 1;
                 let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
@@ -1415,7 +1314,6 @@ where
                 //
                 // make sure stores do not use destination registers
                 assert_eq!(dispatch_reg.outputs().count(), 0);
-                // let mut stats = self.stats.lock();
                 crate::warp_inst_complete(&mut dispatch_reg, &mut *stats);
             }
         }

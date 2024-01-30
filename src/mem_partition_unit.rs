@@ -1,45 +1,34 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, arbitration, config, dram, ic::Packet, mcu, mem_fetch,
+    address, arbitration, config, dram, ic::Packet, mem_fetch,
     mem_sub_partition::MemorySubPartition,
 };
 use console::style;
 use std::collections::VecDeque;
 use trace_model::ToBitString;
 
-// pub struct MemoryPartitionUnit {
 pub struct MemoryPartitionUnit<MC> {
     id: usize,
     dram: dram::DRAM,
     pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
     pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<MC>>>>,
-    // pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition>>>,
-    // phantom: std::marker::PhantomData<MC>,
     pub arbiter: Box<dyn arbitration::Arbiter>,
 
     config: Arc<config::GPU>,
     stats: stats::PerKernel,
 }
 
-// impl std::fmt::Debug for MemoryPartitionUnit {
 impl<MC> std::fmt::Debug for MemoryPartitionUnit<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryPartitionUnit").finish()
     }
 }
 
-// impl MemoryPartitionUnit {
 impl<MC> MemoryPartitionUnit<MC>
 where
     MC: crate::mcu::MemoryController,
 {
-    pub fn new(
-        partition_id: usize,
-        config: Arc<config::GPU>,
-        // mem_controller: Arc<dyn mcu::MemoryController>,
-        mem_controller: Arc<MC>,
-        // stats: Arc<Mutex<stats::PerKernel>>,
-    ) -> Self {
+    pub fn new(partition_id: usize, config: Arc<config::GPU>, mem_controller: Arc<MC>) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
             .map(|local_sub_id| {
@@ -50,8 +39,6 @@ where
                     partition_id,
                     Arc::clone(&config),
                     mem_controller.clone(),
-                    // Arc::clone(&mem_controller),
-                    // Arc::clone(&stats),
                 )))
             })
             .collect();
@@ -68,7 +55,6 @@ where
             dram_latency_queue: VecDeque::new(),
             arbiter,
             sub_partitions,
-            // phantom: std::marker::PhantomData,
         }
     }
 
@@ -78,8 +64,8 @@ where
         stats
     }
 
-    // #[inline]
-    pub fn handle_memcpy_to_gpu(
+    #[deprecated = "accelsim compat mode"]
+    pub fn memcpy_to_gpu_accelsim_compat(
         &self,
         addr: address,
         global_subpart_id: usize,
@@ -98,10 +84,7 @@ where
     }
 }
 
-impl<MC> MemoryPartitionUnit<MC>
-// where
-//     MC: crate::mcu::MemoryController,
-{
+impl<MC> MemoryPartitionUnit<MC> {
     #[must_use]
     // #[inline]
     pub fn busy(&self) -> bool {
@@ -115,13 +98,6 @@ impl<MC> MemoryPartitionUnit<MC>
         local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
         local_id
     }
-
-    // #[inline]
-    // pub fn cache_cycle(&mut self, cycle: u64) {
-    //     for mem_sub in &mut self.sub_partitions {
-    //         mem_sub.try_lock().cycle(cycle);
-    //     }
-    // }
 
     // #[inline]
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {

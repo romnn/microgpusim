@@ -1979,7 +1979,8 @@ where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
     MC: mcu::MemoryController,
 {
-    fn copy_chunk_to_gpu(&self, write_addr: address, time: u64) {
+    #[deprecated = "accelsim compat mode"]
+    fn handle_memcpy_to_gpu_accelsim_compat(&self, write_addr: address, time: u64) {
         let num_sub_partitions = self.config.num_sub_partitions_per_memory_controller;
         let tlx_addr = self.mem_controller.to_physical_address(write_addr);
         let partition_id = tlx_addr.sub_partition / num_sub_partitions as u64;
@@ -2001,7 +2002,7 @@ where
             sector_mask.to_bit_string()
         );
 
-        partition.try_read().handle_memcpy_to_gpu(
+        partition.try_read().memcpy_to_gpu_accelsim_compat(
             write_addr,
             tlx_addr.sub_partition as usize,
             &sector_mask,
@@ -2430,80 +2431,12 @@ where
     /// Simulate memory copy to simulated device.
     #[allow(clippy::needless_pass_by_value)]
     #[must_use]
-    pub fn memcopy_to_gpu(
-        &mut self,
-        addr: address,
-        num_bytes: u64,
-        // name: Option<String>,
-        mut cycle: u64,
-        // force: bool,
-    ) -> u64 {
-        // {:<20}
+    pub fn memcopy_to_gpu(&mut self, addr: address, num_bytes: u64, mut cycle: u64) -> u64 {
         log::info!(
             "CUDA mem copy: {:>15} ({:>5} f32) to address {addr:>20}",
-            // name.as_deref().unwrap_or("<unnamed>"),
             human_bytes::human_bytes(num_bytes as f64),
             num_bytes / 4,
         );
-        // let alloc_range = addr..(addr + num_bytes);
-        // self.allocations.write().insert(alloc_range, name);
-
-        // let print_cache = |sim: &Self| {
-        //     let mut num_total_lines = 0;
-        //     let mut num_total_lines_used = 0;
-        //     let num_sub_partitions = sim.mem_sub_partitions.len();
-        //     for sub in sim.mem_sub_partitions.iter() {
-        //         let sub = sub.lock();
-        //         if let Some(ref l2_cache) = sub.l2_cache {
-        //             let num_lines_used = l2_cache.num_used_lines();
-        //             let num_lines = l2_cache.num_total_lines();
-        //             eprintln!(
-        //                 "sub {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
-        //                 sub.id,
-        //                 num_sub_partitions,
-        //                 num_lines_used,
-        //                 num_lines,
-        //                 num_lines_used as f32 / num_lines as f32 * 100.0,
-        //                 human_bytes::human_bytes(num_lines_used as f64 * 128.0),
-        //             );
-        //             num_total_lines += num_lines;
-        //             num_total_lines_used += num_lines_used;
-        //         }
-        //     }
-        //     eprintln!(
-        //         "Total L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
-        //         num_total_lines_used,
-        //         num_total_lines,
-        //         num_total_lines_used as f32 / num_total_lines as f32 * 100.0,
-        //         human_bytes::human_bytes(num_total_lines_used as f64 * 128.0),
-        //     );
-        //     let stats = sim.stats();
-        //     for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
-        //         eprintln!(
-        //             "L2D[kernel {}]: {:#?}",
-        //             kernel_launch_id,
-        //             &kernel_stats.l2d_stats.reduce()
-        //         );
-        //     }
-        //     eprintln!("L2D[no kernel]: {:#?}", &stats.no_kernel.l2d_stats.reduce());
-        //     eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
-        // };
-
-        // let write_l2_cache_state = |sim: &Self, path: &Path| -> eyre::Result<()> {
-        //     // open csv writer
-        //     let writer = utils::fs::open_writable(path)?;
-        //     let mut csv_writer = csv::WriterBuilder::new()
-        //         .flexible(false)
-        //         .from_writer(writer);
-        //
-        //     for sub in sim.mem_sub_partitions.iter() {
-        //         let sub = sub.lock();
-        //         if let Some(ref l2_cache) = sub.l2_cache {
-        //             l2_cache.write_state(&mut csv_writer)?;
-        //         }
-        //     }
-        //     Ok(())
-        // };
 
         if self.config.fill_l2_on_memcopy {
             if self.config.accelsim_compat {
@@ -2512,7 +2445,7 @@ where
                 let chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
                 for chunk in 0..chunks {
                     let write_addr = addr + (chunk as u64 * chunk_size);
-                    self.copy_chunk_to_gpu(write_addr, cycle);
+                    self.handle_memcpy_to_gpu_accelsim_compat(write_addr, cycle);
                 }
             } else {
                 if let Some(ref l2_cache) = self.config.data_cache_l2 {

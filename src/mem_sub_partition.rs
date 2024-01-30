@@ -24,20 +24,16 @@ pub fn breakdown_request_to_sector_requests<'c>(
         fetch.access.sector_mask.to_bit_string()
     );
 
-    // struct SectorFetch<'c> {
     struct SectorFetch {
         addr: address,
         physical_addr: crate::mcu::PhysicalAddress,
         sector: usize,
         byte_mask: mem_fetch::ByteMask,
         original_fetch: mem_fetch::MemFetch,
-        // mem_controller: &'c dyn mcu::MemoryController,
-        // config: &'c config::GPU,
     }
 
     debug_assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
 
-    // impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
     impl Into<mem_fetch::MemFetch> for SectorFetch {
         fn into(self) -> mem_fetch::MemFetch {
             let mut sector_mask = mem_fetch::SectorMask::ZERO;
@@ -66,7 +62,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
 
     if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
         sector_requests[0] = Some(fetch);
-        // sector_requests[0] = Some(fetch.clone());
     } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
         // break down every sector
         // TODO ROMAN: reset the byte mask for each sector
@@ -83,7 +78,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
                 physical_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
-                // mem_controller: &*self.mem_controller,
             };
             sector_requests[sector] = Some(sector_fetch.into());
         }
@@ -106,7 +100,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
                 physical_addr,
                 byte_mask: fetch.access.byte_mask & byte_mask,
                 original_fetch: fetch.clone(),
-                // mem_controller: &*self.mem_controller,
             };
 
             sector_requests[sector] = Some(sector_fetch.into());
@@ -132,7 +125,6 @@ pub fn breakdown_request_to_sector_requests<'c>(
                     physical_addr,
                     byte_mask: fetch.access.byte_mask & byte_mask,
                     original_fetch: fetch.clone(),
-                    // mem_controller: &*self.mem_controller,
                 };
 
                 sector_requests[sector] = Some(sector_fetch.into());
@@ -153,18 +145,14 @@ pub fn breakdown_request_to_sector_requests<'c>(
     );
 }
 
-// pub struct MemorySubPartition<Q = Fifo<mem_fetch::MemFetch>> {
-// pub struct MemorySubPartition {
 pub struct MemorySubPartition<MC> {
     pub id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<MC>,
-    // pub mem_controller: Arc<dyn mcu::MemoryController>,
-    // stats: Arc<Mutex<stats::PerKernel>>,
+
     stats: stats::PerKernel,
 
-    /// queues
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     // pub interconn_to_l2_queue: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>,
     pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
@@ -179,7 +167,6 @@ pub struct MemorySubPartition<MC> {
     request_tracker: HashSet<mem_fetch::MemFetch>,
 }
 
-// impl std::fmt::Debug for MemorySubPartition {
 impl<MC> std::fmt::Debug for MemorySubPartition<MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemorySubPartition").finish()
@@ -188,7 +175,6 @@ impl<MC> std::fmt::Debug for MemorySubPartition<MC> {
 
 const NO_FETCHES: VecDeque<mem_fetch::MemFetch> = VecDeque::new();
 
-// impl MemorySubPartition {
 impl<MC> MemorySubPartition<MC>
 where
     MC: crate::mcu::MemoryController,
@@ -198,40 +184,23 @@ where
         partition_id: usize,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
-        // mem_controller: Arc<dyn mcu::MemoryController>,
-        // stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
-        let interconn_to_l2_queue = Fifo::new(
-            // "icnt-to-L2",
-            Some(0),
-            Some(config.dram_partition_queue_interconn_to_l2),
-        );
+        let interconn_to_l2_queue =
+            Fifo::new(Some(0), Some(config.dram_partition_queue_interconn_to_l2));
         let l2_to_dram_queue = Arc::new(Mutex::new(Fifo::new(
-            // "L2-to-dram",
             Some(0),
             Some(config.dram_partition_queue_l2_to_dram),
         )));
-        let dram_to_l2_queue = Fifo::new(
-            // "dram-to-L2",
-            Some(0),
-            Some(config.dram_partition_queue_dram_to_l2),
-        );
-        let l2_to_interconn_queue = Fifo::new(
-            // "L2-to-icnt",
-            Some(0),
-            Some(config.dram_partition_queue_l2_to_interconn),
-        );
+        let dram_to_l2_queue = Fifo::new(Some(0), Some(config.dram_partition_queue_dram_to_l2));
+        let l2_to_interconn_queue =
+            Fifo::new(Some(0), Some(config.dram_partition_queue_l2_to_interconn));
 
         let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             match &config.data_cache_l2 {
                 Some(l2_config) => {
-                    // let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
-                    // let cache_stats = stats::cache::PerKernel::default();
                     let mut data_l2 = cache::DataL2::new(
                         format!("mem-sub-{:03}-{}", id, style("L2-CACHE").blue()),
                         id,
-                        // partition_id,
-                        // cache_stats,
                         config.clone(),
                         mem_controller.clone(),
                         l2_config.clone(),
@@ -276,6 +245,7 @@ where
         stats
     }
 
+    #[deprecated = "accelsim compat mode"]
     pub fn force_l2_tag_update(
         &mut self,
         addr: address,
@@ -289,133 +259,6 @@ where
         }
     }
 
-    // fn breakdown_request_to_sector_requests(
-    //     &self,
-    //     fetch: mem_fetch::MemFetch,
-    //     sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
-    // ) {
-    //     log::trace!(
-    //         "breakdown to sector requests for {fetch} with data size {} sector mask={}",
-    //         fetch.data_size(),
-    //         fetch.access.sector_mask.to_bit_string()
-    //     );
-    //
-    //     struct SectorFetch<'c> {
-    //         addr: address,
-    //         sector: usize,
-    //         byte_mask: mem_fetch::ByteMask,
-    //         original_fetch: mem_fetch::MemFetch,
-    //         mem_controller: &'c dyn mcu::MemoryController,
-    //         // config: &'c config::GPU,
-    //     }
-    //
-    //     debug_assert_ne!(fetch.access_kind(), mem_fetch::access::Kind::INST_ACC_R);
-    //
-    //     impl<'a> Into<mem_fetch::MemFetch> for SectorFetch<'a> {
-    //         fn into(self) -> mem_fetch::MemFetch {
-    //             let physical_addr = self.mem_controller.to_physical_address(self.addr);
-    //
-    //             let mut sector_mask = mem_fetch::SectorMask::ZERO;
-    //             sector_mask.set(self.sector, true);
-    //
-    //             let access = mem_fetch::access::MemAccess {
-    //                 addr: self.addr,
-    //                 req_size_bytes: SECTOR_SIZE,
-    //                 byte_mask: self.byte_mask,
-    //                 sector_mask,
-    //                 ..self.original_fetch.access.clone()
-    //             };
-    //
-    //             mem_fetch::MemFetch {
-    //                 uid: mem_fetch::generate_uid(),
-    //                 original_fetch: Some(Box::new(self.original_fetch.clone())),
-    //                 access,
-    //                 physical_addr,
-    //                 ..self.original_fetch
-    //             }
-    //         }
-    //     }
-    //
-    //     let num_sectors = NUM_SECTORS as usize;
-    //     let sector_size = SECTOR_SIZE as usize;
-    //
-    //     if fetch.data_size() == SECTOR_SIZE && fetch.access.sector_mask.count_ones() == 1 {
-    //         sector_requests[0] = Some(fetch.clone());
-    //     } else if fetch.data_size() == MAX_MEMORY_ACCESS_SIZE {
-    //         // break down every sector
-    //         // TODO ROMAN: reset the byte mask for each sector
-    //         // let mut byte_mask = mem_fetch::ByteMask::ZERO;
-    //         for sector in 0..num_sectors {
-    //             let mut byte_mask = mem_fetch::ByteMask::ZERO;
-    //             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-    //             let sector_fetch = SectorFetch {
-    //                 sector,
-    //                 addr: fetch.addr() + (sector_size * sector) as u64,
-    //                 byte_mask: fetch.access.byte_mask & byte_mask,
-    //                 original_fetch: fetch.clone(),
-    //                 mem_controller: &*self.mem_controller,
-    //             };
-    //             sector_requests[sector] = Some(sector_fetch.into());
-    //         }
-    //     } else if fetch.data_size() == 64
-    //         && (fetch.access.sector_mask.all() || fetch.access.sector_mask.not_any())
-    //     {
-    //         // This is for constant cache
-    //         let addr_is_cache_line_aligned = fetch.addr() % MAX_MEMORY_ACCESS_SIZE as u64 == 0;
-    //         let sector_start = if addr_is_cache_line_aligned { 0 } else { 2 };
-    //
-    //         let mut byte_mask = mem_fetch::ByteMask::ZERO;
-    //         for sector in sector_start..(sector_start + 2) {
-    //             byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-    //
-    //             let sector_fetch = SectorFetch {
-    //                 sector,
-    //                 addr: fetch.addr(),
-    //                 byte_mask: fetch.access.byte_mask & byte_mask,
-    //                 original_fetch: fetch.clone(),
-    //                 mem_controller: &*self.mem_controller,
-    //             };
-    //
-    //             sector_requests[sector] = Some(sector_fetch.into());
-    //         }
-    //     } else if fetch.data_size() > MAX_MEMORY_ACCESS_SIZE {
-    //         panic!(
-    //             "fetch {fetch} has data size={} (max data size is {MAX_MEMORY_ACCESS_SIZE })",
-    //             fetch.data_size()
-    //         );
-    //     } else {
-    //         // access sectors individually
-    //         for sector in 0..num_sectors {
-    //             if fetch.access.sector_mask[sector as usize] {
-    //                 let mut byte_mask = mem_fetch::ByteMask::ZERO;
-    //                 byte_mask[sector * sector_size..(sector + 1) * sector_size].fill(true);
-    //
-    //                 let sector_fetch = SectorFetch {
-    //                     sector,
-    //                     addr: fetch.addr() + (sector_size * sector) as u64,
-    //                     byte_mask: fetch.access.byte_mask & byte_mask,
-    //                     original_fetch: fetch.clone(),
-    //                     mem_controller: &*self.mem_controller,
-    //                 };
-    //
-    //                 sector_requests[sector] = Some(sector_fetch.into());
-    //             }
-    //         }
-    //     }
-    //     log::trace!(
-    //         "sector requests for {fetch}: {:?}",
-    //         sector_requests
-    //             .iter()
-    //             .filter_map(|x| x.as_ref())
-    //             .map(ToString::to_string)
-    //             .collect::<Vec<_>>(),
-    //     );
-    //     debug_assert!(
-    //         sector_requests.iter().any(|req| req.is_some()),
-    //         "no fetch sent"
-    //     );
-    // }
-
     pub fn push(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         #[cfg(debug_assertions)]
         let original_fetch = fetch.clone();
@@ -428,7 +271,6 @@ where
         let mut sector_requests: [Option<mem_fetch::MemFetch>; NUM_SECTORS] =
             [(); NUM_SECTORS].map(|_| None);
 
-        // let l2_config = self.config.data_cache_l2.as_ref().unwrap();
         if self.config.accelsim_compat {
             let sectored = self
                 .config
@@ -561,6 +403,7 @@ impl<MC> MemorySubPartition<MC> {
     #[must_use]
     pub fn busy(&self) -> bool {
         !self.request_tracker.is_empty()
+        // num pending requests does not always work i think
         // self.num_pending_requests > 0
     }
 

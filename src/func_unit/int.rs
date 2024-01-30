@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{
     config, core::PipelineStage, func_unit as fu, instruction::WarpInstruction, opcodes,
     operand_collector::OperandCollector, register_set, scoreboard, warp,
@@ -11,18 +11,11 @@ pub struct IntUnit {
 }
 
 impl IntUnit {
-    pub fn new(
-        id: usize,
-        // result_port: register_set::Ref,
-        config: Arc<config::GPU>,
-        // _stats: &Arc<Mutex<stats::PerKernel>>,
-        issue_reg_id: usize,
-    ) -> Self {
+    pub fn new(id: usize, config: Arc<config::GPU>, issue_reg_id: usize) -> Self {
         let pipeline_depth = config.max_int_latency;
         let inner = fu::PipelinedSimdUnit::new(
             id,
             "IntUnit".to_string(),
-            // Some(result_port),
             pipeline_depth,
             config.clone(),
             issue_reg_id,
@@ -92,8 +85,7 @@ impl fu::SimdFunctionUnit for IntUnit {
         active
     }
 
-    // fn issue(&mut self, source_reg: &mut RegisterSet) {
-    fn issue(&mut self, source_reg: WarpInstruction, stats: &mut stats::PerKernel) {
+    fn issue(&mut self, source_reg: WarpInstruction, _stats: &mut stats::PerKernel) {
         // let ready_reg = source_reg.get_ready(self.config.sub_core_model, self.issue_reg_id);
         // m_core->incexecstat((*ready_reg));
         // ready_reg.op_pipe = SP__OP;
@@ -116,20 +108,13 @@ impl fu::SimdFunctionUnit for IntUnit {
 
     fn cycle(
         &mut self,
-        operand_collector: &mut dyn OperandCollector,
-        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
-        warps: &mut [warp::Warp],
-        stats: &mut stats::PerKernel,
+        _operand_collector: &mut dyn OperandCollector,
+        _scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
+        _warps: &mut [warp::Warp],
+        _stats: &mut stats::PerKernel,
         result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
-        // use crate::engine::cycle::Component;
         self.inner.cycle(result_port, cycle);
     }
 }
-
-// impl crate::engine::cycle::Component for IntUnit {
-//     fn cycle(&mut self, cycle: u64) {
-//         self.inner.cycle(cycle);
-//     }
-// }

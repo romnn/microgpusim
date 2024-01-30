@@ -1,24 +1,19 @@
-use super::{config, interconn as ic, mcu, mem_fetch, Core, MockSimulator};
+use super::{config, interconn as ic, mem_fetch, Core, MockSimulator};
+use crate::sync::{atomic, Arc, Mutex, RwLock};
 use console::style;
 use crossbeam::utils::CachePadded;
-
 use std::collections::VecDeque;
 
-use crate::sync::{atomic, Arc, Mutex, RwLock};
-
 #[derive()]
-// pub struct Cluster<I> {
 pub struct Cluster<I, MC> {
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     pub config: Arc<config::GPU>,
-    // pub stats: Arc<Mutex<stats::PerKernel>>,
     pub interconn: Arc<I>,
 
     pub core_sim_order: Arc<Mutex<VecDeque<usize>>>,
     pub block_issue_next_core: Mutex<usize>,
-    // pub response_fifo: VecDeque<mem_fetch::MemFetch>,
     pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
 }
 
@@ -28,7 +23,6 @@ impl<I, MC> std::fmt::Debug for Cluster<I, MC> {
     }
 }
 
-// impl<I> Cluster<I>
 impl<I, MC> Cluster<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
@@ -39,10 +33,8 @@ where
         warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
         allocations: &super::allocation::Ref,
         interconn: &Arc<I>,
-        // stats: &Arc<Mutex<stats::PerKernel>>,
         config: &Arc<config::GPU>,
         mem_controller: &Arc<MC>,
-        // mem_controller: &Arc<dyn mcu::MemoryController>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let block_issue_next_core = num_cores - 1;
@@ -56,7 +48,6 @@ where
                     Arc::clone(allocations),
                     Arc::clone(warp_instruction_unique_uid),
                     Arc::clone(interconn),
-                    // Arc::clone(stats),
                     Arc::clone(config),
                     Arc::clone(mem_controller),
                 );
@@ -67,7 +58,6 @@ where
             cluster_id,
             warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
-            // stats: stats.clone(),
             interconn: interconn.clone(),
             cores,
             core_sim_order: Arc::new(Mutex::new(core_sim_order)),
