@@ -13,8 +13,7 @@ pub struct Cluster<I, MC> {
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::PerKernel>>,
-
+    // pub stats: Arc<Mutex<stats::PerKernel>>,
     pub interconn: Arc<I>,
 
     pub core_sim_order: Arc<Mutex<VecDeque<usize>>>,
@@ -40,7 +39,7 @@ where
         warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
         allocations: &super::allocation::Ref,
         interconn: &Arc<I>,
-        stats: &Arc<Mutex<stats::PerKernel>>,
+        // stats: &Arc<Mutex<stats::PerKernel>>,
         config: &Arc<config::GPU>,
         mem_controller: &Arc<MC>,
         // mem_controller: &Arc<dyn mcu::MemoryController>,
@@ -57,7 +56,7 @@ where
                     Arc::clone(allocations),
                     Arc::clone(warp_instruction_unique_uid),
                     Arc::clone(interconn),
-                    Arc::clone(stats),
+                    // Arc::clone(stats),
                     Arc::clone(config),
                     Arc::clone(mem_controller),
                 );
@@ -68,7 +67,7 @@ where
             cluster_id,
             warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
-            stats: stats.clone(),
+            // stats: stats.clone(),
             interconn: interconn.clone(),
             cores,
             core_sim_order: Arc::new(Mutex::new(core_sim_order)),

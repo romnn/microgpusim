@@ -180,7 +180,8 @@ where
             Ok::<_, eyre::Report>(())
         })?;
 
-        self.stats.lock().no_kernel.sim.cycles = cycle;
+        self.stats.no_kernel.sim.cycles = cycle;
+        // self.stats.lock().no_kernel.sim.cycles = cycle;
         if let Some(log_after_cycle) = self.log_after_cycle {
             if log_after_cycle >= cycle {
                 eprintln!("WARNING: log after {log_after_cycle} cycles but simulation ended after {cycle} cycles");

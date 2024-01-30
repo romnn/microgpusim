@@ -161,7 +161,8 @@ pub struct MemorySubPartition<MC> {
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<MC>,
     // pub mem_controller: Arc<dyn mcu::MemoryController>,
-    pub stats: Arc<Mutex<stats::PerKernel>>,
+    // stats: Arc<Mutex<stats::PerKernel>>,
+    stats: stats::PerKernel,
 
     /// queues
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
@@ -198,7 +199,7 @@ where
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
-        stats: Arc<Mutex<stats::PerKernel>>,
+        // stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let interconn_to_l2_queue = Fifo::new(
             // "icnt-to-L2",
@@ -224,12 +225,13 @@ where
         let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             match &config.data_cache_l2 {
                 Some(l2_config) => {
-                    let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
+                    // let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
+                    // let cache_stats = stats::cache::PerKernel::default();
                     let mut data_l2 = cache::DataL2::new(
                         format!("mem-sub-{:03}-{}", id, style("L2-CACHE").blue()),
                         id,
                         // partition_id,
-                        cache_stats,
+                        // cache_stats,
                         config.clone(),
                         mem_controller.clone(),
                         l2_config.clone(),
@@ -240,6 +242,7 @@ where
                 None => None,
             };
 
+        let stats = stats::PerKernel::new(config.as_ref().into());
         Self {
             id,
             partition_id,
@@ -257,6 +260,20 @@ where
             request_tracker: HashSet::new(),
             num_pending_requests: 0,
         }
+    }
+
+    pub fn stats(&self) -> stats::PerKernel {
+        let mut stats = self.stats.clone();
+
+        // add l2d stats
+        if let Some(ref l2d) = self.l2_cache {
+            let l2d = l2d.per_kernel_stats().clone();
+            for (kernel_launch_id, cache_stats) in l2d.into_iter().enumerate() {
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+                kernel_stats.l2d_stats[self.id] += cache_stats.clone();
+            }
+        }
+        stats
     }
 
     pub fn force_l2_tag_update(

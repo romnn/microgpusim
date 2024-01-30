@@ -136,7 +136,7 @@ where
     pub fn new(
         name: String,
         sub_partition_id: usize,
-        stats: Arc<Mutex<stats::cache::PerKernel>>,
+        // stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
@@ -166,6 +166,7 @@ where
             linear_set_index_function,
             // cache_controller: default_cache_controller,
         };
+        let stats = stats::cache::PerKernel::default();
         let inner = super::data::Builder {
             name,
             id: sub_partition_id,
@@ -210,8 +211,13 @@ where
     }
 
     // #[inline]
-    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
         &self.inner.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.inner.stats
     }
 
     fn controller(&self) -> &dyn cache::CacheController {

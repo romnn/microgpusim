@@ -147,9 +147,24 @@ pub struct PerKernel {
     pub no_kernel: Cache,
 }
 
-impl AsRef<Vec<Cache>> for PerKernel {
-    fn as_ref(&self) -> &Vec<Cache> {
-        &self.inner
+impl std::ops::AddAssign for PerKernel {
+    fn add_assign(&mut self, other: Self) {
+        let num_cores = self.inner.len().max(other.inner.len());
+        self.inner.resize(num_cores, Cache::default());
+
+        for (i, c) in other.inner.into_iter().enumerate() {
+            self.inner[i] += c;
+        }
+        self.no_kernel += other.no_kernel;
+    }
+}
+
+impl std::iter::IntoIterator for PerKernel {
+    type Item = Cache;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
     }
 }
 
@@ -165,11 +180,15 @@ impl PerKernel {
         }
     }
 
-    // #[inline]
-    #[must_use]
-    pub fn reduce(self) -> Cache {
-        todo!()
+    pub fn into_inner(self) -> Vec<Cache> {
+        self.inner
     }
+
+    // // #[inline]
+    // #[must_use]
+    // pub fn reduce(self) -> Cache {
+    //     todo!()
+    // }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -723,34 +742,40 @@ impl Cache {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerCache {
     pub kernel_info: super::KernelInfo,
-    pub inner: Box<[Cache]>,
+    /// cache statistics per core
+    pub per_core: Box<[Cache]>,
 }
 
 impl std::ops::Deref for PerCache {
     type Target = Box<[Cache]>;
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.per_core
     }
 }
 
 impl std::ops::DerefMut for PerCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+        &mut self.per_core
     }
 }
 
 impl std::ops::AddAssign for PerCache {
     fn add_assign(&mut self, other: Self) {
-        for (cache, other_cache) in self.inner.iter_mut().zip(other.iter()) {
-            *cache += other_cache.clone();
+        assert_eq!(self.per_core.len(), other.per_core.len());
+        // let num_cores = self.inner.len().max(other.inner.len());
+        for (i, c) in other.per_core.to_vec().into_iter().enumerate() {
+            self.per_core[i] += c;
         }
+        // for (cache, other_cache) in self.inner.iter_mut().zip(other.iter()) {
+        //     *cache += other_cache.clone();
+        // }
     }
 }
 
 impl<T: Into<Cache>> FromIterator<T> for PerCache {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Self {
-            inner: iter.into_iter().map(Into::into).collect(),
+            per_core: iter.into_iter().map(Into::into).collect(),
             kernel_info: super::KernelInfo::default(),
         }
     }
@@ -758,30 +783,22 @@ impl<T: Into<Cache>> FromIterator<T> for PerCache {
 
 impl PerCache {
     #[must_use]
-    pub fn from(size: usize) -> Self {
+    pub fn new(num_cores: usize) -> Self {
         Self {
             kernel_info: super::KernelInfo::default(),
-            inner: utils::box_slice![Cache::default(); size],
-        }
-    }
-
-    #[must_use]
-    pub fn new(size: usize) -> Self {
-        Self {
-            kernel_info: super::KernelInfo::default(),
-            inner: utils::box_slice![Cache::default(); size],
+            per_core: utils::box_slice![Cache::default(); num_cores],
         }
     }
 
     #[must_use]
     pub fn into_inner(self) -> Box<[Cache]> {
-        self.inner
+        self.per_core
     }
 
     #[must_use]
     pub fn into_csv_rows(self, full: bool) -> Vec<CsvRow> {
         let mut rows: Vec<_> = Vec::new();
-        for (cache_id, cache) in self.inner.iter().cloned().enumerate() {
+        for (cache_id, cache) in self.per_core.to_vec().into_iter().enumerate() {
             for ((allocation_id, access), num_accesses) in cache.inner {
                 let need_row = rows.is_empty();
                 if !full && !need_row && num_accesses < 1 {
@@ -826,7 +843,7 @@ impl PerCache {
     }
 
     pub fn shave(&mut self) {
-        for stats in &mut *self.inner {
+        for stats in &mut *self.per_core {
             stats.shave();
         }
     }
@@ -839,7 +856,7 @@ impl PerCache {
     #[must_use]
     pub fn reduce(&self) -> Cache {
         let mut out = Cache::default();
-        for stats in &*self.inner {
+        for stats in &*self.per_core {
             out += stats.clone();
         }
         out
@@ -847,14 +864,12 @@ impl PerCache {
 
     #[must_use]
     pub fn merge_allocations(self) -> PerCache {
-        PerCache {
-            inner: self
-                .inner
-                .iter()
-                .cloned()
-                .map(Cache::merge_allocations)
-                .collect(),
-            ..self
-        }
+        let per_core = self
+            .per_core
+            .to_vec()
+            .into_iter()
+            .map(Cache::merge_allocations)
+            .collect();
+        PerCache { per_core, ..self }
     }
 }

@@ -60,60 +60,16 @@ impl AsMut<Vec<Stats>> for PerKernel {
     }
 }
 
-impl PerKernel {
-    #[must_use]
-    pub fn new(config: Config) -> Self {
-        let no_kernel = Stats::new(&config);
-        Self {
-            config,
-            no_kernel,
-            inner: Vec::new(),
+impl std::ops::AddAssign for PerKernel {
+    fn add_assign(&mut self, mut other: Self) {
+        let num_kernel = self.inner.len().max(other.inner.len());
+        self.inner.resize(num_kernel, Stats::new(&self.config));
+
+        for (i, s) in other.inner.drain(..).enumerate() {
+            self.inner[i] += s;
         }
-    }
 
-    // #[inline]
-    // pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
-    //     if idx >= self.inner.len() {
-    //         self.inner.resize_with(idx + 1, || Stats::new(&self.config));
-    //     }
-    //     &mut self.inner[idx]
-    // }
-
-    pub fn get_mut(&mut self, idx: Option<usize>) -> &mut Stats {
-        match idx {
-            None => &mut self.no_kernel,
-            Some(idx) => {
-                if idx >= self.inner.len() {
-                    self.inner.resize_with(idx + 1, || Stats::new(&self.config));
-                }
-                &mut self.inner[idx]
-            }
-        }
-    }
-
-    // #[inline]
-    #[must_use]
-    pub fn reduce(self) -> Stats {
-        let mut reduced = Stats::new(&self.config);
-        for per_kernel_stats in self.inner {
-            reduced += per_kernel_stats;
-        }
-        reduced
-    }
-}
-
-impl std::ops::AddAssign for Stats {
-    fn add_assign(&mut self, other: Self) {
-        self.accesses += other.accesses;
-        self.instructions += other.instructions;
-        self.sim += other.sim;
-        self.dram += other.dram;
-        self.l1i_stats += other.l1i_stats;
-        self.l1c_stats += other.l1c_stats;
-        self.l1t_stats += other.l1t_stats;
-        self.l1d_stats += other.l1d_stats;
-        self.l2d_stats += other.l2d_stats;
-        self.stall_dram_full += other.stall_dram_full;
+        self.no_kernel += other.no_kernel;
     }
 }
 
@@ -162,6 +118,48 @@ impl std::ops::IndexMut<&KernelInfo> for PerKernel {
     }
 }
 
+impl PerKernel {
+    #[must_use]
+    pub fn new(config: Config) -> Self {
+        let no_kernel = Stats::new(&config);
+        Self {
+            config,
+            no_kernel,
+            inner: Vec::new(),
+        }
+    }
+
+    // #[inline]
+    // pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
+    //     if idx >= self.inner.len() {
+    //         self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+    //     }
+    //     &mut self.inner[idx]
+    // }
+
+    pub fn get_mut(&mut self, idx: Option<usize>) -> &mut Stats {
+        match idx {
+            None => &mut self.no_kernel,
+            Some(idx) => {
+                if idx >= self.inner.len() {
+                    self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+                }
+                &mut self.inner[idx]
+            }
+        }
+    }
+
+    // #[inline]
+    #[must_use]
+    pub fn reduce(self) -> Stats {
+        let mut reduced = Stats::new(&self.config);
+        for per_kernel_stats in self.inner {
+            reduced += per_kernel_stats;
+        }
+        reduced
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stats {
     /// Number of memory fetches sent from SMs to the interconnect.
@@ -184,6 +182,21 @@ pub struct Stats {
     pub l2d_stats: PerCache,
     // where should those go? stall reasons? per core?
     pub stall_dram_full: u64,
+}
+
+impl std::ops::AddAssign for Stats {
+    fn add_assign(&mut self, other: Self) {
+        self.accesses += other.accesses;
+        self.instructions += other.instructions;
+        self.sim += other.sim;
+        self.dram += other.dram;
+        self.l1i_stats += other.l1i_stats;
+        self.l1c_stats += other.l1c_stats;
+        self.l1t_stats += other.l1t_stats;
+        self.l1d_stats += other.l1d_stats;
+        self.l2d_stats += other.l2d_stats;
+        self.stall_dram_full += other.stall_dram_full;
+    }
 }
 
 impl Stats {

@@ -19,7 +19,8 @@ pub struct Builder<MC, CC, S> {
     /// SM ID or subpartition ID depending on cache type
     pub id: usize,
     pub kind: cache::base::Kind,
-    pub stats: Arc<Mutex<S>>,
+    // pub stats: Arc<Mutex<S>>,
+    pub stats: S,
     // pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub mem_controller: Arc<MC>,
     pub cache_controller: CC,
@@ -126,13 +127,14 @@ where
             } else {
                 panic!("write_miss_write_allocate_naive bad reason");
             };
-            let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            // let mut stats = self.inner.stats.lock();
+            let num_accesses = self.inner.num_accesses_stat(&fetch);
+            let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(failure),
-                self.inner.num_accesses_stat(&fetch),
+                num_accesses,
                 // if self.inner.cache_config.accelsim_compat {
                 //     1
                 // } else {
@@ -289,14 +291,15 @@ where
         );
         if !self.inner.miss_queue_can_fit(1) {
             // cannot handle request this cycle, might need to generate two requests
-            let mut stats = self.inner.stats.lock();
+            // let mut stats = self.inner.stats.lock();
             // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            let num_accesses = self.inner.num_accesses_stat(&fetch);
+            let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                self.inner.num_accesses_stat(&fetch),
+                num_accesses,
                 // if self.inner.cache_config.accelsim_compat {
                 //     1
                 // } else {
@@ -409,8 +412,8 @@ where
 
         if self.inner.miss_queue_full() {
             // cannot handle request this cycle
-            let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            // let mut stats = self.inner.stats.lock();
+            let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
 
             kernel_stats.inc(
                 fetch.allocation_id(),
@@ -641,8 +644,10 @@ where
                     // this almost never happens
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
-                    let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    // let mut stats = self.inner.stats.lock();
+
+                    let num_accesses = self.inner.num_accesses_stat(&fetch);
+                    let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
                     // let count = if self.inner.cache_config.accelsim_compat ||  {
                     //         1
                     //     } else {
@@ -654,7 +659,7 @@ where
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
-                        self.inner.num_accesses_stat(&fetch),
+                        num_accesses,
                     );
                 }
             }
@@ -663,15 +668,17 @@ where
                 None => {
                     // the only reason for reservation fail here is LINE_ALLOC_FAIL
                     // (i.e all lines are reserved)
-                    let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    // let mut stats = self.inner.stats.lock();
+
+                    let num_accsesses = self.inner.num_accesses_stat(&fetch);
+                    let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
                         cache::AccessStat::ReservationFailure(
                             cache::ReservationFailure::LINE_ALLOC_FAIL,
                         ),
-                        self.inner.num_accesses_stat(&fetch),
+                        num_accsesses,
                         // if self.inner.cache_config.accelsim_compat {
                         //     1
                         // } else {
@@ -756,8 +763,8 @@ where
         _probe_status: cache::RequestStatus,
     ) -> cache::RequestStatus {
         if self.inner.miss_queue_full() {
-            let mut stats = self.inner.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            // let mut stats = self.inner.stats.lock();
+            let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
@@ -895,14 +902,16 @@ where
         );
 
         if self.inner.miss_queue_full() {
-            let mut stats = self.inner.stats.lock();
+            // let mut stats = self.inner.stats.lock();
             // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+
+            let num_accesses = self.inner.num_accesses_stat(&fetch);
+            let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 cache::AccessStat::ReservationFailure(cache::ReservationFailure::MISS_QUEUE_FULL),
-                self.inner.num_accesses_stat(&fetch),
+                num_accesses,
                 // if self.inner.cache_config.accelsim_compat {
                 //     1
                 // } else {
@@ -961,8 +970,13 @@ where
         self
     }
 
-    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
         &self.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.stats
     }
 
     fn controller(&self) -> &dyn cache::CacheController {
@@ -1087,13 +1101,14 @@ where
             }
         }
 
-        let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(kernel_launch_id);
+        // let mut stats = self.inner.stats.lock();
+        let num_accesses = self.inner.num_accesses_stat(&fetch);
+        let kernel_stats = self.inner.stats.get_mut(kernel_launch_id);
         kernel_stats.inc(
             allocation_id,
             access_kind,
             cache::AccessStat::Status(access_stat),
-            self.inner.num_accesses_stat(&fetch),
+            num_accesses,
             // if self.inner.cache_config.accelsim_compat {
             //     1
             // } else {

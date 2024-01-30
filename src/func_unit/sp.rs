@@ -15,7 +15,7 @@ impl SPUnit {
         id: usize,
         result_port: register_set::Ref,
         config: Arc<config::GPU>,
-        _stats: &Arc<Mutex<stats::PerKernel>>,
+        // _stats: &Arc<Mutex<stats::PerKernel>>,
         issue_reg_id: usize,
     ) -> Self {
         let pipeline_depth = config.max_sp_latency;
@@ -89,7 +89,7 @@ impl fu::SimdFunctionUnit for SPUnit {
     }
 
     // fn issue(&mut self, source_reg: &mut RegisterSet) {
-    fn issue(&mut self, source_reg: WarpInstruction) {
+    fn issue(&mut self, source_reg: WarpInstruction, stats: &mut stats::PerKernel) {
         // let ready_reg = source_reg.get_ready(self.config.sub_core_model, self.issue_reg_id);
         // m_core->incexecstat((*ready_reg));
         // ready_reg.op_pipe = SP__OP;
@@ -115,6 +115,7 @@ impl fu::SimdFunctionUnit for SPUnit {
         operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
+        stats: &mut stats::PerKernel,
         cycle: u64,
     ) {
         use crate::engine::cycle::Component;

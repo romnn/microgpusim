@@ -25,7 +25,7 @@ pub type OccupiedSlots = BitArr!(for MAX_ALU_LATENCY);
 pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn id(&self) -> &str;
     fn issue_port(&self) -> PipelineStage;
-    fn issue(&mut self, source_reg: WarpInstruction);
+    fn issue(&mut self, instr: WarpInstruction, stats: &mut stats::PerKernel);
 
     // accessors
     fn clock_multiplier(&self) -> usize {
@@ -44,6 +44,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
         operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
+        stats: &mut stats::PerKernel,
         cycle: u64,
     );
 }

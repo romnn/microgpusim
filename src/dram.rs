@@ -18,17 +18,19 @@ pub struct Config {
 
 #[derive()]
 pub struct DRAM {
-    config: Config,
+    pub config: Config,
     // config: Arc<config::GPU>,
     // mrqq: FifoQueue<Request>,
     // scheduler: FrfcfsScheduler,
-    stats: Arc<Mutex<stats::PerKernel>>,
+    // stats: Arc<Mutex<stats::PerKernel>>,
+    pub stats: stats::PerKernel,
 }
 
 //
 
 impl DRAM {
-    pub fn new(config: &config::GPU, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
+    // pub fn new(config: &config::GPU, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
+    pub fn new(config: &config::GPU, stats: stats::PerKernel) -> Self {
         // let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         // let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
         Self {
@@ -56,8 +58,8 @@ impl DRAM {
         let bank = fetch.physical_addr.bank as usize;
 
         // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-        let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        // let mut stats = self.stats.lock();
+        let kernel_stats = self.stats.get_mut(fetch.kernel_launch_id());
         log::info!(
             "dram access: {} ({:?}) data size={} uid={}",
             fetch,

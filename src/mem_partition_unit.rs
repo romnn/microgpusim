@@ -18,8 +18,7 @@ pub struct MemoryPartitionUnit<MC> {
     pub arbiter: Box<dyn arbitration::Arbiter>,
 
     config: Arc<config::GPU>,
-    #[allow(dead_code)]
-    stats: Arc<Mutex<stats::PerKernel>>,
+    stats: stats::PerKernel,
 }
 
 // impl std::fmt::Debug for MemoryPartitionUnit {
@@ -39,7 +38,7 @@ where
         config: Arc<config::GPU>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
-        stats: Arc<Mutex<stats::PerKernel>>,
+        // stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
         let sub_partitions: Vec<_> = (0..num_sub_partitions)
@@ -52,11 +51,12 @@ where
                     Arc::clone(&config),
                     mem_controller.clone(),
                     // Arc::clone(&mem_controller),
-                    Arc::clone(&stats),
+                    // Arc::clone(&stats),
                 )))
             })
             .collect();
 
+        let stats = stats::PerKernel::new(config.as_ref().into());
         let dram = dram::DRAM::new(&config, stats.clone());
         let arb_config: arbitration::Config = (&(*config)).into();
         let arbiter = Box::new(arbitration::ArbitrationUnit::new(&arb_config));
@@ -70,6 +70,12 @@ where
             sub_partitions,
             // phantom: std::marker::PhantomData,
         }
+    }
+
+    pub fn stats(&self) -> stats::PerKernel {
+        let mut stats = self.stats.clone();
+        stats += self.dram.stats.clone();
+        stats
     }
 
     // #[inline]

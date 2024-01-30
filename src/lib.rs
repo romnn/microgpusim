@@ -315,7 +315,8 @@ pub struct DebugState {
 
 #[derive()]
 pub struct MockSimulator<I, MC> {
-    stats: Arc<Mutex<stats::PerKernel>>,
+    stats: stats::PerKernel,
+    // stats: Arc<Mutex<stats::PerKernel>>,
     config: Arc<config::GPU>,
     mem_controller: Arc<MC>,
     // mem_controller: Arc<dyn mcu::MemoryController>,
@@ -361,25 +362,25 @@ impl<I, MC> std::fmt::Debug for MockSimulator<I, MC> {
     }
 }
 
-pub trait FromConfig {
-    fn from_config(config: &config::GPU) -> Self;
-}
-
-impl FromConfig for stats::Config {
-    fn from_config(config: &config::GPU) -> Self {
-        let num_total_cores = config.total_cores();
-        let num_mem_units = config.num_memory_controllers;
-        let num_sub_partitions = config.total_sub_partitions();
-        let num_dram_banks = config.dram_timing_options.num_banks;
-
-        Self {
-            num_total_cores,
-            num_mem_units,
-            num_sub_partitions,
-            num_dram_banks,
-        }
-    }
-}
+// pub trait FromConfig {
+//     fn from_config(config: &config::GPU) -> Self;
+// }
+//
+// impl FromConfig for stats::Config {
+//     fn from_config(config: &config::GPU) -> Self {
+//         let num_total_cores = config.total_cores();
+//         let num_mem_units = config.num_memory_controllers;
+//         let num_sub_partitions = config.total_sub_partitions();
+//         let num_dram_banks = config.dram_timing_options.num_banks;
+//
+//         Self {
+//             num_total_cores,
+//             num_mem_units,
+//             num_sub_partitions,
+//             num_dram_banks,
+//         }
+//     }
+// }
 
 impl<I, MC> MockSimulator<I, MC>
 where
@@ -390,9 +391,9 @@ where
     where
         MC: mcu::MemoryController,
     {
-        let stats = Arc::new(Mutex::new(stats::PerKernel::new(
-            stats::Config::from_config(&config),
-        )));
+        // stats::Config::from_config(&config),
+        let stats = stats::PerKernel::new(config.as_ref().into());
+        // let stats = Arc::new(Mutex::new(stats));
 
         // let mem_controller: Arc<dyn mcu::MemoryController> = if config.accelsim_compat {
         //     Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap())
@@ -411,7 +412,7 @@ where
                     partition_id,
                     Arc::clone(&config),
                     mem_controller.clone(),
-                    Arc::clone(&stats),
+                    // Arc::clone(&stats),
                 );
                 // Arc::new(RwLock::new(unit)) as Arc<RwLock<dyn MemoryPartitionUnit>>
                 Arc::new(RwLock::new(unit))
@@ -435,7 +436,7 @@ where
                     &warp_instruction_unique_uid,
                     &allocations,
                     &interconn,
-                    &stats,
+                    // &stats,
                     &config,
                     &mem_controller,
                     // &(Arc::clone(&mem_controller) as Arc<dyn mcu::MemoryController>),
@@ -899,8 +900,8 @@ where
                         .lock()
                         .as_ref()
                         .map(|kernel| kernel.id() as usize);
-                    let mut stats = self.stats.lock();
-                    let kernel_stats = stats.get_mut(kernel_id);
+                    // let mut stats = self.stats.lock();
+                    let kernel_stats = self.stats.get_mut(kernel_id);
                     kernel_stats.stall_dram_full += 1;
                     // }
                 }
@@ -1403,11 +1404,38 @@ where
 
     /// Collect simulation statistics.
     pub fn stats(&self) -> stats::PerKernel {
-        let mut stats: stats::PerKernel = self.stats.lock().clone();
+        let mut stats = self.stats.clone();
+        // let mut stats: stats::PerKernel = self.stats.lock().clone();
 
+        let cores: Vec<_> = self
+            .clusters
+            .iter()
+            .flat_map(|cluster| cluster.cores.clone())
+            .collect();
+
+        // collect statistics from cores
+        for core in cores.iter() {
+            let core = core.try_read();
+            stats += core.stats();
+        }
+
+        // collect statistics from mem sub partitions
+        for sub in &self.mem_sub_partitions {
+            let sub = sub.try_lock();
+            stats += sub.stats();
+        }
+
+        // collect statistics from mem partitions
+        for partition in &self.mem_partition_units {
+            let partition = partition.try_read();
+            stats += partition.stats();
+        }
+
+        // Set the release mode
         let is_release_build = !is_debug();
         stats.no_kernel.sim.is_release_build = is_release_build;
 
+        // Set the kernel info, which is only known at the top level.
         for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
             if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
                 let kernel_info = stats::KernelInfo {
@@ -1435,47 +1463,49 @@ where
                 }
             }
         }
-        macro_rules! per_kernel_cache_stats {
-            ($cache:expr) => {{
-                $cache
-                    .per_kernel_stats()
-                    .try_lock()
-                    .as_ref()
-                    .iter()
-                    .enumerate()
-            }};
-        }
 
-        let cores = self
-            .clusters
-            .iter()
-            .flat_map(|cluster| cluster.cores.clone());
-        for core in cores {
-            let core = core.try_read();
-            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
-                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-                kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
-            }
+        // // TODO: move this to different places?
+        // // e.g. instr, l1 to core stats()
+        // // e.g. l2 to sub partitions?
+        // macro_rules! per_kernel_cache_stats {
+        //     ($cache:expr) => {{
+        //         $cache
+        //             .per_kernel_stats()
+        //             // .try_lock()
+        //             .clone()
+        //             .into_iter()
+        //             // .as_ref()
+        //             // .iter()
+        //             .enumerate()
+        //     }};
+        // }
+        //
+        // for core in cores.iter() {
+        //     let core = core.try_read();
+        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
+        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+        //         kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
+        //     }
+        //
+        //     // let ldst_unit = &core.load_store_unit.try_lock();
+        //     let ldst_unit = &core.load_store_unit;
+        //     let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
+        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
+        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+        //         kernel_stats.l1d_stats[core.core_id] = cache_stats.clone();
+        //     }
+        // }
 
-            // let ldst_unit = &core.load_store_unit.try_lock();
-            let ldst_unit = &core.load_store_unit;
-            let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
-                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-                kernel_stats.l1d_stats[core.core_id] = cache_stats.clone();
-            }
-        }
-
-        for sub in &self.mem_sub_partitions {
-            let sub = sub.try_lock();
-            let l2_cache = sub.l2_cache.as_ref().unwrap();
-            for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(l2_cache) {
-                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-                kernel_stats.l2d_stats[sub.id] = cache_stats.clone();
-            }
-            stats.no_kernel.l2d_stats[sub.id] =
-                l2_cache.per_kernel_stats().try_lock().no_kernel.clone();
-        }
+        // for sub in &self.mem_sub_partitions {
+        //     let sub = sub.try_lock();
+        //     let l2_cache = sub.l2_cache.as_ref().unwrap();
+        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(l2_cache) {
+        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+        //         kernel_stats.l2d_stats[sub.id] = cache_stats.clone();
+        //     }
+        //     stats.no_kernel.l2d_stats[sub.id] = l2_cache.per_kernel_stats().no_kernel.clone();
+        //     // l2_cache.per_kernel_stats().try_lock().no_kernel.clone();
+        // }
         stats
     }
 
@@ -1862,7 +1892,8 @@ where
                 self.kernels_left()
             );
         }
-        self.stats.lock().no_kernel.sim.cycles = cycle;
+        self.stats.no_kernel.sim.cycles = cycle;
+        // self.stats.lock().no_kernel.sim.cycles = cycle;
 
         if let Some(log_after_cycle) = self.log_after_cycle {
             if log_after_cycle >= cycle {
@@ -1917,8 +1948,8 @@ where
         // *kernel.completed_time.lock() = Some(completion_time);
         // *kernel.completed_cycle.lock() = Some(cycle);
 
-        let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(Some(kernel.id() as usize));
+        // let mut stats = self.stats.lock();
+        let kernel_stats = self.stats.get_mut(Some(kernel.id() as usize));
 
         kernel_stats.sim.is_release_build = !is_debug();
         // let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);

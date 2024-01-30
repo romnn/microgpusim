@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{
     address, cache, config, interconn as ic, mem_fetch,
     mem_sub_partition::SECTOR_SIZE,
@@ -59,7 +59,8 @@ pub struct Base<B, CC, S> {
     pub kind: Kind,
     // Is L1 cache
     // pub is_l1: bool,
-    pub stats: Arc<Mutex<S>>,
+    // pub stats: Arc<Mutex<S>>,
+    pub stats: S,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
 
@@ -78,7 +79,8 @@ pub struct Builder<CC, S> {
     pub name: String,
     pub id: usize,
     pub kind: Kind,
-    pub stats: Arc<Mutex<S>>,
+    // pub stats: Arc<Mutex<S>>,
+    pub stats: S,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
     pub accelsim_compat: bool,
@@ -115,6 +117,8 @@ where
         let miss_queue = VecDeque::with_capacity(self.cache_config.miss_queue_size);
 
         // let is_l1 = self.name.to_uppercase().contains("L1D");
+
+        // stats::cache::PerKernel
         Base {
             name: self.name,
             id: self.id,
@@ -227,13 +231,14 @@ where
             }
 
             self.mshrs.add(mshr_addr, fetch.clone());
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            // let mut stats = self.stats.lock();
+            let num_accesses = self.num_accesses_stat(&fetch);
+            let kernel_stats = self.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 super::AccessStat::Status(super::RequestStatus::MSHR_HIT),
-                self.num_accesses_stat(&fetch),
+                num_accesses,
                 // if self.cache_config.accelsim_compat {
                 //     1
                 // } else {
@@ -311,13 +316,14 @@ where
                 super::AccessStat::ReservationFailure(super::ReservationFailure::MSHR_ENTRY_FAIL)
             };
 
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+            // let mut stats = self.stats.lock();
+            let num_accesses = self.num_accesses_stat(&fetch);
+            let kernel_stats = self.stats.get_mut(fetch.kernel_launch_id());
             kernel_stats.inc(
                 fetch.allocation_id(),
                 fetch.access_kind(),
                 access_stat,
-                self.num_accesses_stat(&fetch),
+                num_accesses,
                 // if self.cache_config.accelsim_compat {
                 //     1
                 // } else {

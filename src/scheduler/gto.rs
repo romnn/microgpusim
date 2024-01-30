@@ -17,13 +17,13 @@ impl Scheduler {
         core_id: usize,
         // warps: Vec<warp::Ref>,
         // scoreboard: Arc<RwLock<Scoreboard>>,
-        stats: Arc<Mutex<stats::scheduler::Scheduler>>,
+        // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
         // let inner = super::Base::new(id, cluster_id, core_id, warps, scoreboard, stats, config);
         let inner = super::Base::new(
             id, cluster_id, core_id, // scoreboard,
-            stats, config,
+            config,
         );
         Self { inner }
     }

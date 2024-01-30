@@ -367,6 +367,22 @@ impl ClockFrequenciesBuilder {
     }
 }
 
+impl Into<stats::Config> for &GPU {
+    fn into(self) -> stats::Config {
+        let num_total_cores = self.total_cores();
+        let num_mem_units = self.num_memory_controllers;
+        let num_sub_partitions = self.total_sub_partitions();
+        let num_dram_banks = self.dram_timing_options.num_banks;
+
+        stats::Config {
+            num_total_cores,
+            num_mem_units,
+            num_sub_partitions,
+            num_dram_banks,
+        }
+    }
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct GPU {

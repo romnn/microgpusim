@@ -66,7 +66,7 @@ fn interleaved_serial_cycle<I, C, MC>(
 // #[inline]
 fn new_serial_cycle<I, MC>(
     cycle: u64,
-    stats: &Arc<Mutex<stats::PerKernel>>,
+    // stats: &Arc<Mutex<stats::PerKernel>>,
     need_issue_lock: &Arc<RwLock<Vec<Vec<(bool, bool)>>>>,
     last_issued_kernel: &Arc<Mutex<usize>>,
     block_issue_next_core: &Arc<Vec<Mutex<usize>>>,
@@ -308,7 +308,7 @@ where
                                         let interconn = Arc::clone(&self.interconn);
                                         let clusters = Arc::clone(&clusters);
 
-                                        let stats = Arc::clone(&self.stats);
+                                        // let stats = Arc::clone(&self.stats);
                                         let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
                                         let mem_partition_units = Arc::clone(&mem_partition_units);
                                         let config = Arc::clone(&self.config);
@@ -423,7 +423,7 @@ where
                                                         "serial::cycle",
                                                         new_serial_cycle(
                                                             cycle + i as u64,
-                                                            &stats,
+                                                            // &stats,
                                                             &need_issue,
                                                             &last_issued_kernel,
                                                             &block_issue_next_core,
@@ -551,7 +551,7 @@ where
                         let interconn = Arc::clone(&self.interconn);
                         let clusters = Arc::clone(&clusters);
 
-                        let stats = Arc::clone(&self.stats);
+                        // let stats = Arc::clone(&self.stats);
                         let mem_sub_partitions = Arc::clone(&mem_sub_partitions);
                         let mem_partition_units = Arc::clone(&mem_partition_units);
                         let config = Arc::clone(&self.config);
@@ -603,7 +603,7 @@ where
                                 "serial::cycle",
                                 new_serial_cycle(
                                     cycle + i as u64,
-                                    &stats,
+                                    // &stats,
                                     &need_issue,
                                     &last_issued_kernel,
                                     &block_issue_next_core,
@@ -723,7 +723,8 @@ where
                 );
             }
 
-            self.stats.lock().no_kernel.sim.cycles = cycle;
+            self.stats.no_kernel.sim.cycles = cycle;
+            // self.stats.lock().no_kernel.sim.cycles = cycle;
 
             if let Some(log_after_cycle) = self.log_after_cycle {
                 if log_after_cycle >= cycle {
@@ -820,8 +821,8 @@ where
                     .lock()
                     .as_ref()
                     .map(|kernel| kernel.id() as usize);
-                let mut stats = self.stats.lock();
-                let kernel_stats = stats.get_mut(kernel_id);
+                // let mut stats = self.stats.lock();
+                let kernel_stats = self.stats.get_mut(kernel_id);
                 kernel_stats.stall_dram_full += 1;
             }
             // we borrow all of sub here, which is a problem for the cyclic reference in l2

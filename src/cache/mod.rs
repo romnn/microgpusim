@@ -139,7 +139,11 @@ pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Per-kenrel cache statistics.
-    fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
+    fn per_kernel_stats(&self) -> &S;
+
+    /// Per-kenrel cache statistics.
+    fn per_kernel_stats_mut(&mut self) -> &mut S;
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
 
     /// Cache controller
     fn controller(&self) -> &dyn CacheController;

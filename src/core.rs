@@ -8,7 +8,7 @@ use super::{
     register_set, scheduler, scoreboard, warp,
 };
 use crate::func_unit::SimdFunctionUnit;
-use crate::sync::{Mutex, RwLock};
+use crate::sync::Mutex;
 
 use barrier::Barrier;
 use bitvec::{array::BitArray, BitArr};
@@ -418,7 +418,8 @@ type InterconnBuffer<T> = VecDeque<ic::Packet<(usize, T, u32)>>;
 #[allow(clippy::module_name_repetitions)]
 pub struct CoreMemoryConnection<C> {
     pub config: Arc<config::GPU>,
-    pub stats: Arc<Mutex<stats::PerKernel>>,
+    // pub stats: Arc<Mutex<stats::PerKernel>>,
+    pub stats: stats::PerKernel,
     pub cluster_id: usize,
     // pub interconn: Arc<dyn ic::Interconnect<P>>,
     pub buffer: C,
@@ -463,8 +464,8 @@ where
         // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
         let access_kind = fetch.access_kind();
         debug_assert_eq!(fetch.is_write(), access_kind.is_write());
-        let mut stats = self.stats.lock();
-        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        // let mut stats = self.stats.lock();
+        let kernel_stats = self.stats.get_mut(fetch.kernel_launch_id());
         kernel_stats
             .accesses
             .inc(fetch.allocation_id(), access_kind, 1);
@@ -518,7 +519,13 @@ pub struct Core<I, MC> {
     pub core_id: usize,
     pub cluster_id: usize,
     pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
-    pub stats: Arc<Mutex<stats::PerKernel>>,
+    // pub stats: Arc<Mutex<stats::PerKernel>>,
+    /// Core statistics per kernel.
+    ///
+    /// Stats are private so that consumers use the stats() method,
+    /// which aggregates stats for the functional units and mem port.
+    stats: stats::PerKernel,
+
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<MC>,
     // pub mem_controller: Arc<dyn mcu::MemoryController>,
@@ -597,7 +604,7 @@ where
         allocations: super::allocation::Ref,
         warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
         interconn: Arc<I>,
-        stats: Arc<Mutex<stats::PerKernel>>,
+        // global_stats: Arc<Mutex<stats::PerKernel>>,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
@@ -608,18 +615,22 @@ where
         //     .map(|_| warp::Ref::default())
         //     .collect();
 
+        let stats = stats::PerKernel::new(config.as_ref().into());
+
         let warps: Vec<_> = (0..config.max_warps_per_core())
             .map(|_| warp::Warp::default())
             .collect();
 
+        // let global_stats = Arc::new(Mutex::new(stats.clone()));
         let mem_port = Arc::new(Mutex::new(CoreMemoryConnection {
             cluster_id,
-            stats: Arc::clone(&stats),
+            stats: stats.clone(),
+            // stats: Arc::clone(&global_stats),
             config: Arc::clone(&config),
             buffer: InterconnBuffer::<mem_fetch::MemFetch>::new(),
         }));
 
-        let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
+        // let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
         let mut instr_l1_cache = cache::ReadOnly::new(
             core_id,
             format!(
@@ -630,7 +641,8 @@ where
             ),
             cache::base::Kind::OnChip,
             // cluster_id,
-            cache_stats,
+            // cache_stats,
+            // config,
             config.inst_cache_l1.as_ref().unwrap().clone(),
             config.accelsim_compat,
         );
@@ -707,7 +719,7 @@ where
             // scoreboard.clone(),
             config.clone(),
             mem_controller.clone(),
-            stats.clone(),
+            // global_stats.clone(),
         );
         // let load_store_unit = Arc::new(Mutex::new(load_store_unit));
         // let load_store_unit = Box::new(load_store_unit);
@@ -717,7 +729,7 @@ where
         // let schedulers: Vec<Arc<Mutex<dyn scheduler::Scheduler>>> = (0..config
         let schedulers: Vec<Box<dyn scheduler::Scheduler>> = (0..config.num_schedulers_per_core)
             .map(|sched_id| {
-                let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
+                // let scheduler_stats = Arc::new(Mutex::new(stats::scheduler::Scheduler::default()));
                 // let scheduler: Arc<Mutex<dyn scheduler::Scheduler>> = match scheduler_kind {
                 let scheduler: Box<dyn scheduler::Scheduler> = match scheduler_kind {
                     config::SchedulerKind::GTO => {
@@ -727,7 +739,7 @@ where
                             core_id,
                             // warps_old.clone(), // FIXME
                             // scoreboard.clone(),
-                            scheduler_stats,
+                            // scheduler_stats,
                             config.clone(),
                         );
                         // Arc::new(Mutex::new(gto))
@@ -759,7 +771,7 @@ where
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
-                &stats,
+                // &global_stats,
                 issue_reg_id,
             )));
             // dispatch_ports.push(PipelineStage::ID_OC_SP);
@@ -773,7 +785,7 @@ where
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
-                &stats,
+                // &global_stats,
                 issue_reg_id,
             )));
             // dispatch_ports.push(PipelineStage::ID_OC_DP);
@@ -787,7 +799,7 @@ where
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
-                &stats,
+                // &global_stats,
                 issue_reg_id,
             )));
             // dispatch_ports.push(PipelineStage::ID_OC_INT);
@@ -801,7 +813,7 @@ where
                 issue_reg_id,
                 Arc::clone(&pipeline_reg[PipelineStage::EX_WB as usize]),
                 Arc::clone(&config),
-                &stats,
+                // &global_stats,
                 issue_reg_id,
             )));
             // dispatch_ports.push(PipelineStage::ID_OC_SFU);
@@ -867,6 +879,29 @@ where
             // issue_ports,
             fetch_return_callback: None,
         }
+    }
+
+    pub fn stats(&self) -> stats::PerKernel {
+        let mut stats = self.stats.clone();
+
+        // add l1i stats
+        let l1i = self.instr_l1_cache.per_kernel_stats().clone();
+        for (kernel_launch_id, cache_stats) in l1i.into_iter().enumerate() {
+            let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+            kernel_stats.l1i_stats[self.core_id] += cache_stats.clone();
+        }
+
+        // add l1d stats
+        if let Some(ref l1d) = self.load_store_unit.data_l1 {
+            let l1d = l1d.per_kernel_stats().clone();
+            for (kernel_launch_id, cache_stats) in l1d.into_iter().enumerate() {
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+                kernel_stats.l1d_stats[self.core_id] += cache_stats.clone();
+            }
+        }
+
+        stats += self.mem_port.lock().stats.clone();
+        stats
     }
 
     // #[inline]
@@ -1186,6 +1221,7 @@ where
                 &mut self.register_file,
                 &mut *self.scoreboard,
                 &mut self.warps,
+                &mut self.stats,
                 cycle,
             );
             fu.active_lanes_in_pipeline();
@@ -1250,11 +1286,11 @@ where
                             debug_assert!(instr.latency < fu::MAX_ALU_LATENCY);
                             result_bus.set(instr.latency, true);
                             // println!("execute {} [latency={}]", instr, instr.latency);
-                            fu.issue(ready_reg.take().unwrap());
+                            fu.issue(ready_reg.take().unwrap(), &mut self.stats);
                         }
                         _ if !schedule_wb_now => {
                             // println!("execute {} [latency={}]", instr, instr.latency);
-                            fu.issue(ready_reg.take().unwrap());
+                            fu.issue(ready_reg.take().unwrap(), &mut self.stats);
                         }
                         _ => {
                             // stall issue (cannot reserve result bus)
@@ -1933,7 +1969,7 @@ where
             // let warp = warp.try_lock();
             warp.num_instr_in_pipeline -= 1;
             drop(warp);
-            warp_inst_complete(&mut ready, &self.stats);
+            warp_inst_complete(&mut ready, &mut self.stats);
 
             //   m_gpu->gpu_sim_insn_last_update_sid = m_sid;
             //   m_gpu->gpu_sim_insn_last_update = m_gpu->gpu_sim_cycle;
@@ -2004,8 +2040,8 @@ where
             kernel.next_threadblock_traces(selected_warps, &self.config)
         );
         if have_block {
-            let mut stats = self.stats.lock();
-            let kernel_stats = stats.get_mut(Some(kernel.id() as usize));
+            // let mut stats = self.stats.lock();
+            let kernel_stats = self.stats.get_mut(Some(kernel.id() as usize));
             kernel_stats.sim.num_blocks += 1;
         }
         log::debug!(
@@ -2155,9 +2191,10 @@ where
 }
 
 #[allow(unused_variables)]
-pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerKernel>) {
+// pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &Mutex<stats::PerKernel>) {
+pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &mut stats::PerKernel) {
     // TODO: use per core stats
-    let mut stats = stats.lock();
+    // let mut stats = stats.lock();
     let kernel_stats = stats.get_mut(Some(instr.kernel_launch_id as usize));
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
     // crate::WIP_STATS.lock().warp_instructions += 1;

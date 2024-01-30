@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex, RwLock};
+use crate::sync::Arc;
 use crate::{
     address, cache, config,
     core::PipelineStage,
@@ -38,7 +38,8 @@ pub struct LoadStoreUnit<MC> {
     // mem_controller: Arc<dyn mcu::MemoryController>,
     mem_controller: Arc<MC>,
     /// Statistics
-    pub stats: Arc<Mutex<stats::PerKernel>>,
+    // pub stats: Arc<Mutex<stats::PerKernel>>,
+    // pub stats: stats::PerKernel,
     /// Scoreboard
     // scoreboard: Arc<Scoreboard>,
     // scoreboard: Arc<RwLock<Scoreboard>>,
@@ -135,7 +136,7 @@ where
         config: Arc<config::GPU>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
-        stats: Arc<Mutex<stats::PerKernel>>,
+        // stats: Arc<Mutex<stats::PerKernel>>,
     ) -> Self {
         let pipeline_depth = config.shared_memory_latency;
         let inner = fu::PipelinedSimdUnit::new(
@@ -158,7 +159,8 @@ where
                     box_slice![box_slice![None; l1_config.l1_latency]; l1_config.l1_banks];
 
                 // initialize l1 data cache
-                let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
+                let cache_stats = stats::cache::PerKernel::default();
+                // let cache_stats = Arc::new(Mutex::new(stats::cache::PerKernel::default()));
                 // let mem_controller = crate::mcu::MemoryControllerUnit::new(&config).unwrap();
 
                 let cache_controller = cache::controller::pascal::L1DataCacheController::new(
@@ -202,6 +204,7 @@ where
         debug_assert!(data_l1.is_some());
 
         let l1_hit_latency_queue = VecDeque::new();
+        // let stats = stats::PerKernel::new(config.as_ref().into());
 
         Self {
             core_id,
@@ -216,7 +219,7 @@ where
             inner,
             config,
             mem_controller: Arc::clone(&mem_controller),
-            stats,
+            // stats,
             // scoreboard,
             // operand_collector,
             num_writeback_clients: WritebackClient::COUNT,
@@ -479,8 +482,8 @@ where
                     }
                 } else {
                     stall_cond = MemStageStallKind::BK_CONF;
-                    if let Some(ref l1_cache) = self.data_l1 {
-                        let mut stats = l1_cache.per_kernel_stats().lock();
+                    if let Some(ref mut l1_cache) = self.data_l1 {
+                        let stats = l1_cache.per_kernel_stats_mut();
                         // if let Some(kernel_launch_id) = access.kernel_launch_id() {
                         let kernel_stats = stats.get_mut(access.kernel_launch_id());
                         kernel_stats.num_l1_cache_bank_conflicts += 1;
@@ -556,6 +559,7 @@ impl<MC> LoadStoreUnit<MC> {
         operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
+        stats: &mut stats::PerKernel,
         cycle: u64,
     ) {
         log::debug!(
@@ -614,7 +618,8 @@ impl<MC> LoadStoreUnit<MC> {
                     }
                 }
                 if instr_completed {
-                    crate::warp_inst_complete(&mut next_writeback, &self.stats);
+                    // let mut stats = self.stats.lock();
+                    crate::warp_inst_complete(&mut next_writeback, &mut *stats);
                 }
             }
         }
@@ -744,8 +749,8 @@ impl<MC> LoadStoreUnit<MC> {
         }
 
         if dispatch_instr.dispatch_delay_cycles > 0 {
-            if let Some(ref l1_cache) = self.data_l1 {
-                let mut stats = l1_cache.per_kernel_stats().lock();
+            if let Some(ref mut l1_cache) = self.data_l1 {
+                let stats = l1_cache.per_kernel_stats_mut();
                 let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
                 kernel_stats.num_shared_mem_bank_accesses += 1;
             }
@@ -757,8 +762,8 @@ impl<MC> LoadStoreUnit<MC> {
         if has_stall {
             *kind = MemStageAccessKind::S_MEM;
             *stall_kind = MemStageStallKind::BK_CONF;
-            if let Some(ref l1_cache) = self.data_l1 {
-                let mut stats = l1_cache.per_kernel_stats().lock();
+            if let Some(ref mut l1_cache) = self.data_l1 {
+                let stats = l1_cache.per_kernel_stats_mut();
                 let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
                 kernel_stats.num_shared_mem_bank_conflicts += 1;
             }
@@ -876,6 +881,7 @@ impl<MC> LoadStoreUnit<MC> {
         &mut self,
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
+        stats: &mut stats::PerKernel,
         cycle: u64,
     ) {
         let l1_config = self.config.data_cache_l1.as_ref().unwrap();
@@ -961,7 +967,8 @@ impl<MC> LoadStoreUnit<MC> {
                                 }
                             }
                             if completed {
-                                crate::warp_inst_complete(instr, &self.stats);
+                                // let mut stats = self.stats.lock();
+                                crate::warp_inst_complete(instr, &mut *stats);
                             }
                         }
 
@@ -1064,7 +1071,8 @@ impl<MC> LoadStoreUnit<MC> {
                             }
                         }
                         if completed {
-                            crate::warp_inst_complete(instr, &self.stats);
+                            // let mut stats = self.stats.lock();
+                            crate::warp_inst_complete(instr, &mut *stats);
                         }
                     }
 
@@ -1131,7 +1139,7 @@ where
         &self.inner.occupied
     }
 
-    fn issue(&mut self, instr: WarpInstruction) {
+    fn issue(&mut self, instr: WarpInstruction, stats: &mut stats::PerKernel) {
         // record how many pending register writes/memory accesses there are for this
         // instruction
         if instr.is_load() && instr.memory_space != Some(MemorySpace::Shared) {
@@ -1152,7 +1160,7 @@ where
 
         // m_core->mem_instruction_stats(*inst);
         if let Some(mem_space) = instr.memory_space {
-            let mut stats = self.stats.lock();
+            // let mut stats = self.stats.lock();
             let kernel_stats = stats.get_mut(Some(instr.kernel_launch_id));
             let active_count = instr.active_thread_count() as u64;
             kernel_stats
@@ -1206,6 +1214,7 @@ where
         operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
+        stats: &mut stats::PerKernel,
         cycle: u64,
     ) {
         log::debug!(
@@ -1226,7 +1235,7 @@ where
                 .collect::<Vec<_>>(),
         );
 
-        self.writeback(operand_collector, scoreboard, warps, cycle);
+        self.writeback(operand_collector, scoreboard, warps, stats, cycle);
 
         let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);
@@ -1320,7 +1329,7 @@ where
             debug_assert!(cache_config.l1_latency > 0);
             crate::timeit!(
                 "core::execute::l1_latency_queue_cycle",
-                self.l1_latency_queue_cycle(scoreboard, warps, cycle)
+                self.l1_latency_queue_cycle(scoreboard, warps, stats, cycle)
             );
         }
 
@@ -1378,7 +1387,8 @@ where
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
                     if !has_pending_requests {
-                        crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
+                        // let mut stats = self.stats.lock();
+                        crate::warp_inst_complete(&mut dispatch_reg, &mut *stats);
 
                         scoreboard.release_all(&dispatch_reg);
                         // self.scoreboard.try_write().release_all(&dispatch_reg);
@@ -1400,7 +1410,8 @@ where
                 //
                 // make sure stores do not use destination registers
                 assert_eq!(dispatch_reg.outputs().count(), 0);
-                crate::warp_inst_complete(&mut dispatch_reg, &self.stats);
+                // let mut stats = self.stats.lock();
+                crate::warp_inst_complete(&mut dispatch_reg, &mut *stats);
             }
         }
     }

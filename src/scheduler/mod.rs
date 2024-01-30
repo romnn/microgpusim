@@ -82,7 +82,8 @@ pub struct Base {
 
     // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     config: Arc<config::GPU>,
-    stats: Arc<Mutex<stats::scheduler::Scheduler>>,
+    stats: stats::scheduler::Scheduler,
+    // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
 }
 
 impl Base {
@@ -93,11 +94,13 @@ impl Base {
         core_id: usize,
         // warps: Vec<warp::Ref>,
         // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
-        stats: Arc<Mutex<stats::scheduler::Scheduler>>,
+        // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
         // let supervised_warps = VecDeque::with_capacity(config.max_warps_per_core());
         // let supervised_warps_sorted = Vec::with_capacity(config.max_warps_per_core());
+        // let stats = stats::PerKernel::new(config.as_ref().into());
+        let stats = stats::scheduler::Scheduler::default();
         Self {
             id,
             cluster_id,
@@ -467,27 +470,27 @@ impl Base {
             if num_issued > 0 {
                 self.last_supervised_issued_idx = next_warp_supervised_idx;
                 self.num_issued_last_cycle = num_issued;
-                let mut stats = self.stats.lock();
+                // let mut stats = self.stats.lock();
                 if num_issued == 1 {
-                    stats.num_single_issue += 1;
+                    self.stats.num_single_issue += 1;
                 } else {
-                    stats.num_dual_issue += 1;
+                    self.stats.num_dual_issue += 1;
                 }
                 break;
             }
         }
 
         // issue stall statistics
-        let mut stats = self.stats.lock();
+        // let mut stats = self.stats.lock();
         if !valid_inst {
             // idle or control hazard
-            stats.issue_raw_hazard_stall += 1;
+            self.stats.issue_raw_hazard_stall += 1;
         } else if !ready_inst {
             // waiting for RAW hazards (possibly due to memory)
-            stats.issue_control_hazard_stall += 1;
+            self.stats.issue_control_hazard_stall += 1;
         } else if !issued_inst {
             // pipeline stalled
-            stats.issue_pipeline_stall += 1;
+            self.stats.issue_pipeline_stall += 1;
         }
     }
 }

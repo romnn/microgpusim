@@ -21,7 +21,7 @@ impl ReadOnly {
         id: usize,
         name: String,
         kind: cache::base::Kind,
-        stats: Arc<Mutex<stats::cache::PerKernel>>,
+        // stats: Arc<Mutex<stats::cache::PerKernel>>,
         readonly_cache_config: Arc<config::Cache>,
         accelsim_compat: bool,
     ) -> Self {
@@ -38,6 +38,8 @@ impl ReadOnly {
             },
             accelsim_compat,
         );
+        // let stats = stats::cache::PerKernel::new(config.as_ref().into());
+        let stats = stats::cache::PerKernel::default();
         let inner = cache::base::Builder {
             name,
             id,
@@ -82,8 +84,13 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
     }
 
     // #[inline]
-    fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
         &self.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.stats
     }
 
     fn controller(&self) -> &dyn cache::CacheController {
@@ -163,8 +170,8 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
 
         match probe {
             None => {
-                let mut stats = self.inner.stats.lock();
-                let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                // let mut stats = self.inner.stats.lock();
+                let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
                 kernel_stats.inc(
                     fetch.allocation_id(),
                     fetch.access_kind(),
@@ -184,8 +191,8 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
                 if self.inner.miss_queue_full() {
                     access_status = cache::RequestStatus::RESERVATION_FAIL;
 
-                    let mut stats = self.inner.stats.lock();
-                    let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+                    // let mut stats = self.inner.stats.lock();
+                    let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
                     kernel_stats.inc(
                         fetch.allocation_id(),
                         fetch.access_kind(),
@@ -214,8 +221,8 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
             }
         }
 
-        let mut stats = self.inner.stats.lock();
-        let kernel_stats = stats.get_mut(fetch.kernel_launch_id());
+        // let mut stats = self.inner.stats.lock();
+        let kernel_stats = self.inner.stats.get_mut(fetch.kernel_launch_id());
         let access_stat = if self.inner.cache_config.accelsim_compat {
             cache::select_status_accelsim_compat(probe_status, access_status)
         } else {
