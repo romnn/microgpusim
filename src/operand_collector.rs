@@ -740,6 +740,9 @@ pub struct RegisterFileUnit {
 
 pub type PortVec = Vec<register_set::Ref>;
 
+pub trait OperandCollector {
+    fn writeback(&mut self, instr: &mut WarpInstruction) -> bool;
+}
 impl RegisterFileUnit {
     pub fn new(config: Arc<config::GPU>) -> Self {
         let arbiter = Arbiter::default();
@@ -930,7 +933,34 @@ impl RegisterFileUnit {
         }
     }
 
-    pub fn writeback(&mut self, instr: &mut WarpInstruction) -> bool {
+    pub fn add_cu_set(
+        &mut self,
+        kind: Kind,
+        num_collector_units: usize,
+        num_dispatch_units: usize,
+    ) {
+        let set = self.collector_unit_sets.entry(kind).or_default();
+
+        for id in 0..num_collector_units {
+            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind, id)));
+            set.push(Arc::clone(&unit));
+            self.collector_units.push(unit);
+        }
+        // each collector set gets dedicated dispatch units.
+        for id in 0..num_dispatch_units {
+            let dispatch_unit = DispatchUnit::new(kind, id);
+            self.dispatch_units.push(dispatch_unit);
+        }
+    }
+
+    pub fn add_port(&mut self, input: PortVec, output: PortVec, cu_sets: Vec<Kind>) {
+        self.in_ports
+            .push_back(InputPort::new(input, output, cu_sets));
+    }
+}
+
+impl OperandCollector for RegisterFileUnit {
+    fn writeback(&mut self, instr: &mut WarpInstruction) -> bool {
         let regs: Vec<u32> = instr.dest_arch_reg.iter().filter_map(|reg| *reg).collect();
         log::trace!(
             "operand collector: writeback {} with destination registers {:?}",
@@ -975,31 +1005,6 @@ impl RegisterFileUnit {
             }
         }
         true
-    }
-
-    pub fn add_cu_set(
-        &mut self,
-        kind: Kind,
-        num_collector_units: usize,
-        num_dispatch_units: usize,
-    ) {
-        let set = self.collector_unit_sets.entry(kind).or_default();
-
-        for id in 0..num_collector_units {
-            let unit = Arc::new(Mutex::new(CollectorUnit::new(kind, id)));
-            set.push(Arc::clone(&unit));
-            self.collector_units.push(unit);
-        }
-        // each collector set gets dedicated dispatch units.
-        for id in 0..num_dispatch_units {
-            let dispatch_unit = DispatchUnit::new(kind, id);
-            self.dispatch_units.push(dispatch_unit);
-        }
-    }
-
-    pub fn add_port(&mut self, input: PortVec, output: PortVec, cu_sets: Vec<Kind>) {
-        self.in_ports
-            .push_back(InputPort::new(input, output, cu_sets));
     }
 }
 

@@ -4,9 +4,10 @@ use crate::{
     core::PipelineStage,
     func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr, operand_collector as opcoll,
+    interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr,
+    operand_collector::OperandCollector,
     register_set::{self},
-    scoreboard::{Access, Scoreboard},
+    scoreboard::{self, Access},
     warp,
 };
 use utils::box_slice;
@@ -56,7 +57,7 @@ pub struct LoadStoreUnit<MC> {
     inner: fu::PipelinedSimdUnit,
 
     /// Operand collector
-    operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
+    // operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
 
     /// Round-robin write-back arbiter.
     ///
@@ -129,7 +130,7 @@ where
         // warps: Vec<warp::Ref>,
         // warps: Vec<warp::Ref>,
         mem_port: ic::Port<mem_fetch::MemFetch>,
-        operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
+        // operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
         // scoreboard: Arc<RwLock<Scoreboard>>,
         config: Arc<config::GPU>,
         // mem_controller: Arc<dyn mcu::MemoryController>,
@@ -217,7 +218,7 @@ where
             mem_controller: Arc::clone(&mem_controller),
             stats,
             // scoreboard,
-            operand_collector,
+            // operand_collector,
             num_writeback_clients: WritebackClient::COUNT,
             writeback_arb: 0,
             l1_latency_queue,
@@ -552,7 +553,8 @@ impl<MC> LoadStoreUnit<MC> {
 
     pub fn writeback(
         &mut self,
-        scoreboard: &mut dyn Access<WarpInstruction>,
+        operand_collector: &mut dyn OperandCollector,
+        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         cycle: u64,
     ) {
@@ -572,7 +574,8 @@ impl<MC> LoadStoreUnit<MC> {
                 next_writeback.memory_space,
             );
 
-            if self.operand_collector.try_lock().writeback(next_writeback) {
+            // if self.operand_collector.try_lock().writeback(next_writeback) {
+            if operand_collector.writeback(next_writeback) {
                 let mut next_writeback = self.next_writeback.take().unwrap();
 
                 let mut instr_completed = false;
@@ -1200,6 +1203,7 @@ where
     // {
     fn cycle(
         &mut self,
+        operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         cycle: u64,
@@ -1222,7 +1226,7 @@ where
                 .collect::<Vec<_>>(),
         );
 
-        self.writeback(scoreboard, warps, cycle);
+        self.writeback(operand_collector, scoreboard, warps, cycle);
 
         let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);

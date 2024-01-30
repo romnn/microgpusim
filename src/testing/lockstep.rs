@@ -106,8 +106,8 @@ fn gather_simulation_state(
                     fu.occupied().to_bit_string();
             }
             // core: operand collector
-            box_sim_state.operand_collector_per_core[core_id] =
-                Some(core.operand_collector.try_lock().deref().into());
+            box_sim_state.operand_collector_per_core[core_id] = Some((&core.register_file).into());
+            // Some(core.operand_collector.try_lock().deref().into());
             // core: schedulers
             box_sim_state.scheduler_per_core[core_id] = core
                 .schedulers

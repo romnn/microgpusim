@@ -1,7 +1,11 @@
 use super::{
-    address, barrier, cache, config, func_unit as fu, instruction::WarpInstruction,
-    interconn as ic, kernel::Kernel, mem_fetch, opcodes, operand_collector as opcoll, register_set,
-    scheduler, scoreboard, warp,
+    address, barrier, cache, config, func_unit as fu,
+    instruction::WarpInstruction,
+    interconn as ic,
+    kernel::Kernel,
+    mem_fetch, opcodes,
+    operand_collector::{self, OperandCollector, RegisterFileUnit},
+    register_set, scheduler, scoreboard, warp,
 };
 use crate::func_unit::SimdFunctionUnit;
 use crate::sync::{Mutex, RwLock};
@@ -522,6 +526,7 @@ pub struct Core<I, MC> {
     pub current_kernel_max_blocks: usize,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
+    // check this again
     pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
     pub load_store_unit: fu::LoadStoreUnit<MC>,
     // pub load_store_unit: Arc<Mutex<fu::LoadStoreUnit<MC>>>,
@@ -539,6 +544,7 @@ pub struct Core<I, MC> {
     // pub block_status: [usize; MAX_CTA_PER_SM],
     pub block_status: Box<[usize]>,
 
+    // allocations are managed by the driver API, hence we need mutex.
     pub allocations: super::allocation::Ref,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
@@ -551,7 +557,8 @@ pub struct Core<I, MC> {
     pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
     pub barriers: barrier::BarrierSet,
     // pub barriers: RwLock<barrier::BarrierSet>,
-    pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
+    // pub operand_collector: Arc<Mutex<opcoll::RegisterFileUnit>>,
+    pub register_file: RegisterFileUnit,
     // pub operand_collector: Box<opcoll::RegisterFileUnit>,
     pub pipeline_reg: Vec<register_set::Ref>,
     pub result_busses: Vec<ResultBus>,
@@ -683,12 +690,12 @@ where
             .map(|reg| Arc::new(Mutex::new(reg)))
             .collect();
 
-        let mut operand_collector = opcoll::RegisterFileUnit::new(config.clone());
+        let mut register_file = RegisterFileUnit::new(config.clone());
 
         // configure generic collectors
-        Self::init_operand_collector(&mut operand_collector, &config, &pipeline_reg);
+        Self::init_operand_collector(&mut register_file, &config, &pipeline_reg);
 
-        let operand_collector = Arc::new(Mutex::new(operand_collector));
+        // let operand_collector = Arc::new(Mutex::new(operand_collector));
 
         let load_store_unit = fu::LoadStoreUnit::new(
             core_id, // is the core id for now
@@ -696,7 +703,7 @@ where
             cluster_id,
             // warps_old.clone(), // FIXME
             mem_port.clone(),
-            operand_collector.clone(),
+            // operand_collector.clone(),
             // scoreboard.clone(),
             config.clone(),
             mem_controller.clone(),
@@ -852,7 +859,7 @@ where
             result_busses,
             scoreboard,
             barriers,
-            operand_collector,
+            register_file,
             thread_state,
             schedulers,
             scheduler_issue_priority: 0,
@@ -1175,7 +1182,12 @@ where
                 issue_inst
             );
 
-            fu.cycle(&mut *self.scoreboard, &mut self.warps, cycle);
+            fu.cycle(
+                &mut self.register_file,
+                &mut *self.scoreboard,
+                &mut self.warps,
+                cycle,
+            );
             fu.active_lanes_in_pipeline();
 
             log::debug!(
@@ -1598,20 +1610,20 @@ where
 {
     // #[inline]
     fn init_operand_collector(
-        operand_collector: &mut opcoll::RegisterFileUnit,
+        register_file: &mut RegisterFileUnit,
         config: &config::GPU,
         pipeline_reg: &[register_set::Ref],
     ) {
-        operand_collector.add_cu_set(
-            opcoll::Kind::GEN_CUS,
+        register_file.add_cu_set(
+            operand_collector::Kind::GEN_CUS,
             config.operand_collector_num_units_gen,
             config.operand_collector_num_out_ports_gen,
         );
 
         for _i in 0..config.operand_collector_num_in_ports_gen {
-            let mut in_ports = opcoll::PortVec::new();
-            let mut out_ports = opcoll::PortVec::new();
-            let mut cu_sets: Vec<opcoll::Kind> = Vec::new();
+            let mut in_ports = operand_collector::PortVec::new();
+            let mut out_ports = operand_collector::PortVec::new();
+            let mut cu_sets: Vec<operand_collector::Kind> = Vec::new();
 
             in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize]));
             in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize]));
@@ -1628,84 +1640,99 @@ where
                 in_ports.push(Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize]));
                 out_ports.push(Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize]));
             }
-            cu_sets.push(opcoll::Kind::GEN_CUS);
-            operand_collector.add_port(in_ports, out_ports, cu_sets);
+            cu_sets.push(operand_collector::Kind::GEN_CUS);
+            register_file.add_port(in_ports, out_ports, cu_sets);
         }
 
         if config.enable_specialized_operand_collector {
             for (kind, num_collector_units, num_dispatch_units) in [
                 (
-                    opcoll::Kind::SP_CUS,
+                    operand_collector::Kind::SP_CUS,
                     config.operand_collector_num_units_sp,
                     config.operand_collector_num_out_ports_sp,
                 ),
                 (
-                    opcoll::Kind::DP_CUS,
+                    operand_collector::Kind::DP_CUS,
                     config.operand_collector_num_units_dp,
                     config.operand_collector_num_out_ports_dp,
                 ),
                 (
-                    opcoll::Kind::SFU_CUS,
+                    operand_collector::Kind::SFU_CUS,
                     config.operand_collector_num_units_sfu,
                     config.operand_collector_num_out_ports_sfu,
                 ),
                 (
-                    opcoll::Kind::MEM_CUS,
+                    operand_collector::Kind::MEM_CUS,
                     config.operand_collector_num_units_mem,
                     config.operand_collector_num_out_ports_mem,
                 ),
                 (
-                    opcoll::Kind::INT_CUS,
+                    operand_collector::Kind::INT_CUS,
                     config.operand_collector_num_units_int,
                     config.operand_collector_num_out_ports_int,
                 ),
             ] {
-                operand_collector.add_cu_set(kind, num_collector_units, num_dispatch_units);
+                register_file.add_cu_set(kind, num_collector_units, num_dispatch_units);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_sp {
                 let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SP as usize])];
                 let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SP as usize])];
-                let cu_sets = vec![opcoll::Kind::SP_CUS, opcoll::Kind::GEN_CUS];
+                let cu_sets = vec![
+                    operand_collector::Kind::SP_CUS,
+                    operand_collector::Kind::GEN_CUS,
+                ];
 
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                register_file.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_dp {
                 let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_DP as usize])];
                 let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_DP as usize])];
-                let cu_sets = vec![opcoll::Kind::DP_CUS, opcoll::Kind::GEN_CUS];
+                let cu_sets = vec![
+                    operand_collector::Kind::DP_CUS,
+                    operand_collector::Kind::GEN_CUS,
+                ];
 
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                register_file.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_sfu {
                 let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_SFU as usize])];
                 let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_SFU as usize])];
-                let cu_sets = vec![opcoll::Kind::SFU_CUS, opcoll::Kind::GEN_CUS];
+                let cu_sets = vec![
+                    operand_collector::Kind::SFU_CUS,
+                    operand_collector::Kind::GEN_CUS,
+                ];
 
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                register_file.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_mem {
                 let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_MEM as usize])];
                 let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_MEM as usize])];
-                let cu_sets = vec![opcoll::Kind::MEM_CUS, opcoll::Kind::GEN_CUS];
+                let cu_sets = vec![
+                    operand_collector::Kind::MEM_CUS,
+                    operand_collector::Kind::GEN_CUS,
+                ];
 
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                register_file.add_port(in_ports, out_ports, cu_sets);
             }
 
             for _ in 0..config.operand_collector_num_in_ports_int {
                 let in_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::ID_OC_INT as usize])];
                 let out_ports = vec![Arc::clone(&pipeline_reg[PipelineStage::OC_EX_INT as usize])];
-                let cu_sets = vec![opcoll::Kind::INT_CUS, opcoll::Kind::GEN_CUS];
+                let cu_sets = vec![
+                    operand_collector::Kind::INT_CUS,
+                    operand_collector::Kind::GEN_CUS,
+                ];
 
-                operand_collector.add_port(in_ports, out_ports, cu_sets);
+                register_file.add_port(in_ports, out_ports, cu_sets);
             }
         }
 
         // this must be called after we add the collector unit sets!
-        operand_collector.init(config.num_reg_banks);
+        register_file.init(config.num_reg_banks);
     }
 
     // #[inline]
@@ -1898,7 +1925,8 @@ where
             // To handle this case, we ignore the return value (thus allowing
             // no stalling).
             //
-            self.operand_collector.try_lock().writeback(&mut ready);
+            // self.register_file.try_lock().writeback(&mut ready);
+            self.register_file.writeback(&mut ready);
             self.scoreboard.release_all(&ready);
             // self.scoreboard.try_write().release_all(&ready);
             let warp = self.warps.get_mut(ready.warp_id).unwrap();
@@ -2114,7 +2142,7 @@ where
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(
                 "core::operand collector",
-                self.operand_collector.try_lock().step()
+                self.register_file.step() // self.operand_collector.try_lock().step()
             );
         }
 

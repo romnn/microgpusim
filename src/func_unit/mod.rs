@@ -11,7 +11,8 @@ pub use sfu::SFU;
 pub use sp::SPUnit;
 
 use crate::{
-    config, core::PipelineStage, instruction::WarpInstruction, register_set, scoreboard, warp,
+    config, core::PipelineStage, instruction::WarpInstruction, operand_collector::OperandCollector,
+    register_set, scoreboard, warp,
 };
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
@@ -40,6 +41,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
 
     fn cycle(
         &mut self,
+        operand_collector: &mut dyn OperandCollector,
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         cycle: u64,
