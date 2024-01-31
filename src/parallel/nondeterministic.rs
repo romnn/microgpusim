@@ -335,7 +335,7 @@ where
                                                 .all(|(_, k)| k.no_more_blocks_to_run());
 
                                             let core_active =
-                                                !(kernels_completed && core.not_completed() == 0);
+                                                !(kernels_completed && core.num_active_threads() == 0);
 
                                             if core_active {
                                                 crate::timeit!(

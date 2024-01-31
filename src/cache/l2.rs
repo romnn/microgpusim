@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{address, cache, config, interconn as ic, mcu, mem_fetch};
 use color_eyre::eyre;
 use mem_fetch::access::Kind as AccessKind;
@@ -6,27 +6,16 @@ use std::collections::VecDeque;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone)]
-// pub struct L2DataCacheController<MC, CC> {
-// pub struct L2DataCacheController<MC> {
 pub struct L2DataCacheController {
     accelsim_compat: bool,
     memory_controller: Arc<dyn mcu::MemoryController>,
-    // memory_controller: MC,
     linear_set_index_function: cache::set_index::linear::SetIndex,
     ipoly_set_index_function: cache::set_index::ipoly::SetIndex,
     pseudo_random_set_index_function: cache::set_index::pascal::L2PseudoRandomSetIndex,
     cache_config: cache::Config,
-    // cache_config: Arc<config::L2DCache>,
-    // cache_controller: CC,
 }
 
-// impl<MC, CC> cache::CacheController for L2DataCacheController<MC, CC>
-// impl<MC> cache::CacheController for L2DataCacheController<MC>
-impl cache::CacheController for L2DataCacheController
-// where
-//     MC: mcu::MemoryController,
-// CC: cache::CacheController,
-{
+impl cache::CacheController for L2DataCacheController {
     // #[inline]
     fn tag(&self, addr: address) -> address {
         // For generality, the tag includes both index and tag.
@@ -128,7 +117,6 @@ pub struct DataL2<MC> {
     >,
 }
 
-// impl DataL2 {
 impl<MC> DataL2<MC>
 where
     MC: crate::mcu::MemoryController,
@@ -136,9 +124,7 @@ where
     pub fn new(
         name: String,
         sub_partition_id: usize,
-        // stats: Arc<Mutex<stats::cache::PerKernel>>,
         config: Arc<config::GPU>,
-        // mem_controller: Arc<dyn mcu::MemoryController>,
         mem_controller: Arc<MC>,
         l2_cache_config: Arc<config::L2DCache>,
     ) -> Self {
@@ -194,7 +180,6 @@ impl<MC> DataL2<MC> {
     }
 }
 
-// impl crate::engine::cycle::Component for DataL2 {
 impl<MC> crate::engine::cycle::Component for DataL2<MC> {
     fn cycle(&mut self, cycle: u64) {
         self.inner.cycle(cycle);
@@ -211,7 +196,6 @@ where
     }
 
     // #[inline]
-    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
     fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
         &self.inner.inner.stats
     }
@@ -250,20 +234,6 @@ where
     fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.next_access()
     }
-
-    // This is a gapping hole we are poking in the system to quickly handle
-    // filling the cache on cudamemcopies. We don't care about anything other than
-    // L2 state after the memcopy - so just force the tag array to act as though
-    // something is read or written without doing anything else.
-    // #[inline]
-    // fn force_tag_access(&mut self, addr: address, time: u64, sector_mask: &mem_fetch::SectorMask) {
-    //     let byte_mask = mem_fetch::ByteMask::ZERO;
-    //     let is_write = true;
-    //     self.inner
-    //         .inner
-    //         .tag_array
-    //         .fill_on_fill(addr, sector_mask, &byte_mask, is_write, allocation_id, time);
-    // }
 
     /// Access read only cache.
     ///

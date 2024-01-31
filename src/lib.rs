@@ -606,7 +606,7 @@ where
         // dbg!(self.more_blocks_to_run());
 
         for cluster in &self.clusters {
-            if cluster.not_completed() > 0 {
+            if cluster.num_active_threads() > 0 {
                 return true;
             }
         }
@@ -939,7 +939,7 @@ where
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
             for (cluster_id, cluster) in self.clusters.iter().enumerate() {
                 log::debug!("cluster {} cycle {}", cluster_id, cycle);
-                let cores_completed = cluster.not_completed() == 0;
+                let cores_completed = cluster.num_active_threads() == 0;
                 let kernels_completed = self
                     .running_kernels
                     .read()
@@ -1072,59 +1072,7 @@ where
             // Depending on configuration, invalidate the caches
             // once all of threads are completed.
 
-            let mut not_completed = 0;
-            let mut all_threads_complete = true;
-            if self.config.flush_l1_cache {
-                log::debug!("flushing l1 caches");
-                for cluster in &mut self.clusters {
-                    let cluster_id = cluster.cluster_id;
-                    let cluster_not_completed = cluster.not_completed();
-                    log::trace!(
-                        "cluster {}: {} threads not completed",
-                        cluster_id,
-                        cluster_not_completed
-                    );
-                    if cluster_not_completed == 0 {
-                        cluster.cache_invalidate();
-                    } else {
-                        not_completed += cluster_not_completed;
-                        all_threads_complete = false;
-                    }
-                }
-                log::trace!(
-                    "all threads completed: {} ({} not completed)",
-                    all_threads_complete,
-                    not_completed
-                );
-            }
-
-            if self.config.flush_l2_cache {
-                if !self.config.flush_l1_cache {
-                    for cluster in &mut self.clusters {
-                        if cluster.not_completed() > 0 {
-                            all_threads_complete = false;
-                            break;
-                        }
-                    }
-                }
-
-                if let Some(l2_config) = &self.config.data_cache_l2 {
-                    if all_threads_complete {
-                        log::debug!("flushing l2 caches");
-                        if l2_config.inner.total_lines() > 0 {
-                            for (i, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
-                                let mut mem_sub = mem_sub.try_lock();
-                                let num_dirty_lines_flushed = mem_sub.flush_l2();
-                                log::debug!(
-                                    "dirty lines flushed from L2 {} is {:?}",
-                                    i,
-                                    num_dirty_lines_flushed
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+            self.flush_caches(cycle);
 
             #[cfg(feature = "timings")]
             TIMINGS
@@ -1140,13 +1088,104 @@ where
         cycle
     }
 
+    pub fn flush_caches(&mut self, cycle: u64) {
+        let mut not_completed = 0;
+        if self.config.flush_l1_cache {
+            #[cfg(feature = "timings")]
+            let start = std::time::Instant::now();
+
+            let mut clusters_flushed = 0;
+            // let mut lines_flushed = 0;
+            for cluster in &mut self.clusters {
+                let cluster_id = cluster.cluster_id;
+                let cluster_not_completed = cluster.num_active_threads();
+                log::trace!(
+                    "cluster {}: {} threads not completed",
+                    cluster_id,
+                    cluster_not_completed
+                );
+                if cluster_not_completed == 0 {
+                    cluster.cache_invalidate();
+                    clusters_flushed += 1;
+                } else {
+                    not_completed += cluster_not_completed;
+                }
+            }
+            #[cfg(feature = "timings")]
+            TIMINGS
+                .lock()
+                .entry("cycle::flush_l1")
+                .or_default()
+                .add(start.elapsed());
+
+            log::trace!(
+                "l1 flush: {}/{} clusters flushed ({} threads not completed)",
+                clusters_flushed,
+                self.clusters.len(),
+                1 + not_completed
+            );
+        }
+
+        match &self.config.data_cache_l2 {
+            Some(l2_config) if self.config.flush_l2_cache => {
+                let mut all_threads_complete = not_completed == 0;
+                #[cfg(feature = "timings")]
+                let start = std::time::Instant::now();
+                if !self.config.flush_l1_cache {
+                    for cluster in &mut self.clusters {
+                        if cluster.num_active_threads() > 0 {
+                            all_threads_complete = false;
+                            break;
+                        }
+                    }
+                }
+
+                let should_flush = if self.config.accelsim_compat {
+                    assert!(l2_config.inner.total_lines() > 0);
+                    all_threads_complete && l2_config.inner.total_lines() > 0
+                } else {
+                    all_threads_complete
+                };
+
+                let mut num_flushed = 0;
+                if should_flush {
+                    for mem_sub in self.mem_sub_partitions.iter_mut() {
+                        let mut mem_sub = mem_sub.try_lock();
+                        mem_sub.flush_l2();
+                        num_flushed += 1;
+                        // let num_dirty_lines_flushed = mem_sub.flush_l2();
+                        // log::debug!(
+                        //     "dirty lines flushed from L2 {} is {:?}",
+                        //     i,
+                        //     num_dirty_lines_flushed
+                        // );
+                    }
+                }
+
+                #[cfg(feature = "timings")]
+                TIMINGS
+                    .lock()
+                    .entry("cycle::flush_l2")
+                    .or_default()
+                    .add(start.elapsed());
+
+                log::trace!(
+                    "l2 flush: flushed {}/{} sub partitions",
+                    num_flushed,
+                    self.mem_sub_partitions.len(),
+                );
+            }
+            _ => {}
+        }
+    }
+
     #[allow(dead_code)]
     fn debug_non_exit(&self) {
         log::trace!(
             "all clusters completed: {}",
             self.clusters
                 .iter()
-                .any(|cluster| cluster.not_completed() > 0)
+                .any(|cluster| cluster.num_active_threads() > 0)
         );
         for core in self
             .clusters
@@ -1436,7 +1475,7 @@ where
         stats.no_kernel.sim.is_release_build = is_release_build;
 
         // Set the kernel info, which is only known at the top level.
-        for (kernel_launch_id, kernel_stats) in stats.as_mut().iter_mut().enumerate() {
+        for (kernel_launch_id, kernel_stats) in stats.iter_mut().enumerate() {
             if let Some(kernel) = &self.executed_kernels.lock().get(&(kernel_launch_id as u64)) {
                 let kernel_info = stats::KernelInfo {
                     name: kernel.config().unmangled_name.clone(),
@@ -2347,11 +2386,15 @@ where
         // .collect();
 
         eprintln!(
-            "have {} valid memcopies",
+            "have {}/{} valid memcopies (requested={} occupied={} cache size={})",
             valid_prefill_memcopies
                 .iter()
                 .filter(|(_, num_bytes, _)| *num_bytes > 64)
                 .count(),
+            allocations.len() + copies.len(),
+            human_bytes::human_bytes(copies.iter().map(|copy| copy.num_bytes).sum::<u64>() as f64),
+            human_bytes::human_bytes(cache_bytes_used as f64),
+            human_bytes::human_bytes(l2_cache_size_bytes as f64),
             // .filter_map(|(_, num_bytes)| if *num_bytes > 64 {
             //     Some(*num_bytes)
             // } else {

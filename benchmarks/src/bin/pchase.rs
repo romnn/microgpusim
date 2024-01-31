@@ -305,7 +305,7 @@ where
     //     l1d_stats.num_reservation_fails()
     // );
 
-    let num_kernels_launched = stats.inner.len();
+    let num_kernels_launched = stats.num_kernels();
     assert_eq!(num_kernels_launched, 1);
 
     drop(sim);

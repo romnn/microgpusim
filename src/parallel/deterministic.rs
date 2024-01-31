@@ -67,7 +67,7 @@ where
                             .all(|(_, k)| k.no_more_blocks_to_run());
 
                         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
-                            let cores_completed = cluster.not_completed() == 0;
+                            let cores_completed = cluster.num_active_threads() == 0;
                             let cluster_active = !(cores_completed && kernels_completed);
                             active_clusters[cluster_id] = cluster_active;
 
@@ -114,47 +114,48 @@ where
                     }
 
                     self.issue_block_to_core(cycle);
+                    self.flush_caches(cycle);
 
-                    let mut all_threads_complete = true;
-                    if self.config.flush_l1_cache {
-                        for cluster in &mut self.clusters {
-                            if cluster.not_completed() == 0 {
-                                cluster.cache_invalidate();
-                            } else {
-                                all_threads_complete = false;
-                            }
-                        }
-                    }
-
-                    if self.config.flush_l2_cache {
-                        if !self.config.flush_l1_cache {
-                            for cluster in &mut self.clusters {
-                                if cluster.not_completed() > 0 {
-                                    all_threads_complete = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if let Some(l2_config) = &self.config.data_cache_l2 {
-                            if all_threads_complete {
-                                log::debug!("flushed L2 caches...");
-                                if l2_config.inner.total_lines() > 0 {
-                                    for (i, mem_sub) in
-                                        self.mem_sub_partitions.iter_mut().enumerate()
-                                    {
-                                        let mut mem_sub = mem_sub.try_lock();
-                                        let num_dirty_lines_flushed = mem_sub.flush_l2();
-                                        log::debug!(
-                                            "dirty lines flushed from L2 {} is {:?}",
-                                            i,
-                                            num_dirty_lines_flushed
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // let mut all_threads_complete = true;
+                    // if self.config.flush_l1_cache {
+                    //     for cluster in &mut self.clusters {
+                    //         if cluster.num_active_threads() == 0 {
+                    //             cluster.cache_invalidate();
+                    //         } else {
+                    //             all_threads_complete = false;
+                    //         }
+                    //     }
+                    // }
+                    //
+                    // if self.config.flush_l2_cache {
+                    //     if !self.config.flush_l1_cache {
+                    //         for cluster in &mut self.clusters {
+                    //             if cluster.num_active_threads() > 0 {
+                    //                 all_threads_complete = false;
+                    //                 break;
+                    //             }
+                    //         }
+                    //     }
+                    //
+                    //     if let Some(l2_config) = &self.config.data_cache_l2 {
+                    //         if all_threads_complete {
+                    //             log::debug!("flushed L2 caches...");
+                    //             if l2_config.inner.total_lines() > 0 {
+                    //                 for (i, mem_sub) in
+                    //                     self.mem_sub_partitions.iter_mut().enumerate()
+                    //                 {
+                    //                     let mut mem_sub = mem_sub.try_lock();
+                    //                     let num_dirty_lines_flushed = mem_sub.flush_l2();
+                    //                     log::debug!(
+                    //                         "dirty lines flushed from L2 {} is {:?}",
+                    //                         i,
+                    //                         num_dirty_lines_flushed
+                    //                     );
+                    //                 }
+                    //             }
+                    //         }
+                    //     }
+                    // }
 
                     cycle += 1;
                     // self.set_cycle(cycle);

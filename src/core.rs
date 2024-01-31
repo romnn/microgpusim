@@ -1021,7 +1021,9 @@ where
             .functional_units
             .iter_mut()
             .map(|fu| fu.as_mut() as &mut dyn SimdFunctionUnit)
-            .chain([&mut self.load_store_unit as &mut dyn SimdFunctionUnit]);
+            .chain(std::iter::once(
+                &mut self.load_store_unit as &mut dyn SimdFunctionUnit,
+            ));
 
         for fu in functional_units_iter {
             let fu_id = fu.id().to_string();
@@ -1225,6 +1227,10 @@ where
         self.load_store_unit.flush();
     }
 
+    // pub fn is_cache_flushed(&mut self) {
+    //     self.load_store_unit.is_flushed();
+    // }
+
     // #[inline]
     pub fn cache_invalidate(&mut self) {
         self.load_store_unit.invalidate();
@@ -1259,7 +1265,7 @@ where
 
     #[must_use]
     // #[inline]
-    pub fn not_completed(&self) -> usize {
+    pub fn num_active_threads(&self) -> usize {
         self.num_active_threads
     }
 
@@ -1931,7 +1937,7 @@ where
             ))
             .blue(),
             self.is_active(),
-            self.not_completed(),
+            self.num_active_threads(),
             self.load_store_unit.response_fifo.len()
         );
 

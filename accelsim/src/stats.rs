@@ -80,17 +80,9 @@ impl std::fmt::Display for Stats {
     }
 }
 
-// macro_rules! key {
-//     ($stat:expr) => {
-//         ("final_kernel".to_string(), 0, $stat.to_string())
-//     };
-// }
-
 #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
 fn convert_cache_stats(
     kernel_info: stats::KernelInfo,
-    // kernel_name: &str,
-    // kernel_launch_id: usize,
     cache_name: &str,
     stats: &Stats,
 ) -> stats::PerCache {
@@ -137,7 +129,6 @@ fn convert_cache_stats(
     }
 }
 
-// impl TryFrom<Stats> for stats::Stats {
 impl TryFrom<Stats> for stats::PerKernel {
     type Error = eyre::Report;
 
@@ -149,7 +140,7 @@ impl TryFrom<Stats> for stats::PerKernel {
             .map(|(kernel_name, kernel_launch_id, _)| (kernel_name, kernel_launch_id))
             .dedup()
             .collect();
-        let inner = kernels
+        let kernel_stats = kernels
             .into_iter()
             .map(|(kernel_name, kernel_launch_id)| {
                 let kernel_info = stats::KernelInfo {
@@ -286,7 +277,7 @@ impl TryFrom<Stats> for stats::PerKernel {
             .collect();
 
         Ok(Self {
-            inner,
+            kernel_stats,
             no_kernel: stats::Stats::empty(),
             config: stats::Config {
                 num_total_cores: 1,

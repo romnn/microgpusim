@@ -56,7 +56,6 @@ fn gather_simulation_state(
     box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock();
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-        // let cluster = cluster.try_read();
         for (core_id, core) in cluster.cores.iter().enumerate() {
             let core = core.try_read();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
@@ -66,35 +65,29 @@ fn gather_simulation_state(
             let core_id = core.core_id;
 
             let load_store_unit = &core.load_store_unit;
-            // let functional_units = core.functional_units.iter().chain([ldst_unit]);
             let functional_units_iter = core
                 .functional_units
                 .iter()
                 .map(|fu| fu.as_ref() as &dyn SimdFunctionUnit)
-                .chain([load_store_unit as &dyn SimdFunctionUnit]);
+                .chain(std::iter::once(load_store_unit as &dyn SimdFunctionUnit));
 
             // core: functional units
-            // for (fu_id, _fu) in core.functional_units.iter().enumerate() {
             for fu in functional_units_iter {
-                // let issue_port = core.issue_ports[fu_id];
                 let issue_port = fu.issue_port();
                 let issue_reg: register_set::RegisterSet =
                     core.pipeline_reg[issue_port as usize].clone();
-                // core.pipeline_reg[issue_port as usize].try_lock().clone();
                 assert_eq!(issue_port, issue_reg.stage);
 
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(issue_reg.into());
             }
 
-            // for (_fu_id, fu) in core.functional_units.iter().enumerate() {
             let functional_units_iter = core
                 .functional_units
                 .iter()
                 .map(|fu| fu.as_ref() as &dyn SimdFunctionUnit)
-                .chain([load_store_unit as &dyn SimdFunctionUnit]);
+                .chain(std::iter::once(load_store_unit as &dyn SimdFunctionUnit));
 
             for fu in functional_units_iter {
-                // let fu = fu.lock();
                 box_sim_state.functional_unit_pipelines_per_core[core_id].push(
                     testing::state::RegisterSet {
                         name: fu.id().to_string(),
@@ -112,18 +105,12 @@ fn gather_simulation_state(
             let register_file =
                 testing::state::OperandCollector::new(&core.register_file, &core.pipeline_reg);
             box_sim_state.operand_collector_per_core[core_id] = Some(register_file);
-            // Some(core.operand_collector.try_lock().deref().into());
             // core: schedulers
             box_sim_state.scheduler_per_core[core_id] = core
                 .schedulers
                 .iter()
                 .map(|scheduler| scheduler.deref().into())
-                // .map(|scheduler| scheduler.lock().deref().into())
                 .collect();
-
-            // core: load store unit
-            // let ldst_unit = core.load_store_unit.lock();
-            // let ldst_unit = &core.load_store_unit;
 
             // core: pending register writes
             box_sim_state.pending_register_writes_per_core[core_id] = load_store_unit
@@ -185,7 +172,6 @@ fn gather_simulation_state(
                 let l1_data_cache = l1_data_cache
                     .as_any()
                     .downcast_ref::<cache::Data<
-                        // Arc<dyn crate::mcu::MemoryController>,
                         MCU,
                         cache::controller::pascal::L1DataCacheController,
                         stats::cache::PerKernel,

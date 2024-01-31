@@ -73,7 +73,7 @@ pub fn simulate_bench_config(
     // dbg!(&wip_stats);
     // dbg!(wip_stats.warp_instructions as f32 / wip_stats.num_warps as f32);
     // dbg!(&stats.inner.len());
-    for kernel_stats in &stats.inner {
+    for kernel_stats in stats.iter() {
         // dbg!(&kernel_stats.sim);
         // dbg!(&kernel_stats.l1d_stats);
         // dbg!(&kernel_stats.l1d_stats.reduce());
@@ -109,7 +109,7 @@ pub fn simulate_bench_config(
 
     // let reduced = stats.clone().reduce();
     // dbg!(&reduced.dram.reduce());
-    let num_kernels_launched = stats.inner.len();
+    let num_kernels_launched = stats.num_kernels();
     dbg!(num_kernels_launched);
 
     // *wip_stats = gpucachesim::WIPStats::default();
@@ -219,7 +219,7 @@ pub async fn simulate(
 
         let full = false;
         let stats: Vec<_> = stats
-            .inner
+            .kernel_stats
             .into_iter()
             .chain(std::iter::once(stats.no_kernel))
             .collect();
@@ -387,7 +387,7 @@ pub mod exec {
 
             let full = false;
             let stats: Vec<_> = stats
-                .inner
+                .kernel_stats
                 .into_iter()
                 .chain(std::iter::once(stats.no_kernel))
                 .collect();

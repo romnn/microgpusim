@@ -407,8 +407,10 @@ impl<MC> MemorySubPartition<MC> {
         // self.num_pending_requests > 0
     }
 
-    pub fn flush_l2(&mut self) -> Option<usize> {
-        self.l2_cache.as_mut().map(|l2| l2.flush())
+    pub fn flush_l2(&mut self) {
+        if let Some(ref mut l2_cache) = self.l2_cache {
+            l2_cache.flush();
+        }
     }
 
     pub fn invalidate_l2(&mut self) {

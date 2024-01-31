@@ -82,10 +82,10 @@ where
             .count()
     }
 
-    pub fn not_completed(&self) -> usize {
+    pub fn num_active_threads(&self) -> usize {
         self.cores
             .iter()
-            .map(|core| core.try_read().not_completed())
+            .map(|core| core.try_read().num_active_threads())
             .sum()
     }
 
@@ -186,6 +186,12 @@ where
         }
     }
 
+    // pub fn is_cache_flushed(&self) {
+    //     for core in &self.cores {
+    //         core.read().flushed();
+    //     }
+    // }
+
     pub fn cache_invalidate(&self) {
         for core in &self.cores {
             core.write().cache_invalidate();
@@ -222,7 +228,7 @@ where
                 core.current_kernel.try_lock().as_ref().map(Arc::clone);
             let should_select_new_kernel = if let Some(ref current) = current_kernel {
                 // if no more blocks left, get new kernel once current block completes
-                current.no_more_blocks_to_run() && core.not_completed() == 0
+                current.no_more_blocks_to_run() && core.num_active_threads() == 0
             } else {
                 // core was not assigned a kernel yet
                 true

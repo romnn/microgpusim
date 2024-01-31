@@ -77,9 +77,9 @@ kcachegrind ./playground/sys/callgrind-out.txt
 
 - TODO:
 
-  - why does accelsim get 2x as fast for lazy fetch on read ???
+  - the csv simulation stats have kernel launch id zero (instead of nan) for no kernel
 
-    - it just doesnt make sense...
+  - DONE: why does accelsim get 2x as fast for lazy fetch on read ???
 
   - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
 

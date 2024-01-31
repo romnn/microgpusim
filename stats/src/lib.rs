@@ -43,30 +43,28 @@ pub struct Config {
 /// Stats at index `i` correspond to the kernel with launch id `i`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PerKernel {
-    pub inner: Vec<Stats>,
+    pub kernel_stats: Vec<Stats>,
     pub no_kernel: Stats,
     pub config: Config,
 }
 
-impl AsRef<Vec<Stats>> for PerKernel {
-    fn as_ref(&self) -> &Vec<Stats> {
-        &self.inner
-    }
-}
+impl IntoIterator for PerKernel {
+    type Item = Stats;
+    type IntoIter = std::vec::IntoIter<Stats>;
 
-impl AsMut<Vec<Stats>> for PerKernel {
-    fn as_mut(&mut self) -> &mut Vec<Stats> {
-        &mut self.inner
+    fn into_iter(self) -> Self::IntoIter {
+        self.kernel_stats.into_iter()
     }
 }
 
 impl std::ops::AddAssign for PerKernel {
     fn add_assign(&mut self, mut other: Self) {
-        let num_kernel = self.inner.len().max(other.inner.len());
-        self.inner.resize(num_kernel, Stats::new(&self.config));
+        let num_kernel = self.kernel_stats.len().max(other.kernel_stats.len());
+        self.kernel_stats
+            .resize(num_kernel, Stats::new(&self.config));
 
-        for (i, s) in other.inner.drain(..).enumerate() {
-            self.inner[i] += s;
+        for (i, s) in other.kernel_stats.drain(..).enumerate() {
+            self.kernel_stats[i] += s;
         }
 
         self.no_kernel += other.no_kernel;
@@ -76,13 +74,13 @@ impl std::ops::AddAssign for PerKernel {
 impl std::ops::Index<usize> for PerKernel {
     type Output = Stats;
     fn index(&self, idx: usize) -> &Self::Output {
-        &self.inner[idx]
+        &self.kernel_stats[idx]
     }
 }
 
 impl std::ops::IndexMut<usize> for PerKernel {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.inner[idx]
+        &mut self.kernel_stats[idx]
     }
 }
 
@@ -125,35 +123,43 @@ impl PerKernel {
         Self {
             config,
             no_kernel,
-            inner: Vec::new(),
+            kernel_stats: Vec::new(),
         }
     }
 
-    // #[inline]
-    // pub fn get_mut(&mut self, idx: usize) -> &mut Stats {
-    //     if idx >= self.inner.len() {
-    //         self.inner.resize_with(idx + 1, || Stats::new(&self.config));
-    //     }
-    //     &mut self.inner[idx]
-    // }
+    pub fn len(&self) -> usize {
+        self.kernel_stats.len()
+    }
+
+    pub fn num_kernels(&self) -> usize {
+        self.kernel_stats.len()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<Stats> {
+        self.kernel_stats.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<Stats> {
+        self.kernel_stats.iter_mut()
+    }
 
     pub fn get_mut(&mut self, idx: Option<usize>) -> &mut Stats {
         match idx {
             None => &mut self.no_kernel,
             Some(idx) => {
-                if idx >= self.inner.len() {
-                    self.inner.resize_with(idx + 1, || Stats::new(&self.config));
+                if idx >= self.kernel_stats.len() {
+                    self.kernel_stats
+                        .resize_with(idx + 1, || Stats::new(&self.config));
                 }
-                &mut self.inner[idx]
+                &mut self.kernel_stats[idx]
             }
         }
     }
 
-    // #[inline]
     #[must_use]
     pub fn reduce(self) -> Stats {
         let mut reduced = Stats::new(&self.config);
-        for per_kernel_stats in self.inner {
+        for per_kernel_stats in self.kernel_stats {
             reduced += per_kernel_stats;
         }
         reduced

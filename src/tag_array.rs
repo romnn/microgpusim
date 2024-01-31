@@ -239,11 +239,8 @@ where
 
     // #[inline]
     fn invalidate(&mut self) {
-        log::trace!("tag_array::invalidate()");
         for line in &mut self.lines {
             for sector in 0..NUM_SECTORS {
-                // let mut sector_mask = mem_fetch::SectorMask::ZERO;
-                // sector_mask.set(i as usize, true);
                 line.set_status(cache::block::Status::INVALID, sector);
             }
         }

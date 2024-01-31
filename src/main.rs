@@ -174,6 +174,8 @@ fn main() -> eyre::Result<()> {
     dbg!(&config.simulate_clock_domains);
     dbg!(&config.perfect_inst_const_cache);
     dbg!(&config.fill_l2_on_memcopy);
+    dbg!(&config.flush_l1_cache);
+    dbg!(&config.flush_l2_cache);
 
     let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
     let stats = sim.stats();
@@ -191,55 +193,17 @@ fn main() -> eyre::Result<()> {
     eprintln!("DRAM[no-kernel]: {:#?}", &stats.no_kernel.dram.reduce());
     eprintln!("ACCESSES[no-kernel]: {:#?}", &stats.no_kernel.accesses,);
 
-    for (kernel_launch_id, kernel_stats) in stats.as_ref().iter().enumerate() {
+    for (kernel_launch_id, kernel_stats) in stats.iter().enumerate() {
         eprintln!(
             "\n ===== kernel launch {kernel_launch_id:<3}: {}  =====\n",
             kernel_stats.sim.kernel_name
         );
-        eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
-        eprintln!("SIM: {:#?}", &kernel_stats.sim);
-        eprintln!("INSTRUCTIONS: {:#?}", &kernel_stats.instructions);
-        eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
-
-        let l1i_stats = kernel_stats.l1i_stats.reduce();
-        eprintln!("L1I: {:#?}", &l1i_stats);
-        eprintln!(
-            "L1I hit rate: {:4.2}% ({} hits / {} accesses)",
-            &l1i_stats.hit_rate() * 100.0,
-            &l1i_stats.num_hits(),
-            &l1i_stats.num_accesses(),
-        );
-
-        let l1d_stats = kernel_stats.l1d_stats.reduce();
-        eprintln!("L1D: {:#?}", &l1d_stats);
-        eprintln!(
-            "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
-            &l1d_stats.global_hit_rate() * 100.0,
-            &l1d_stats.num_global_hits(),
-            &l1d_stats.num_global_accesses(),
-        );
-
-        let l2d_stats = kernel_stats.l2d_stats.reduce();
-        eprintln!("L2D: {:#?}", &l2d_stats);
-        eprintln!(
-            "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
-            &l2d_stats.global_hit_rate() * 100.0,
-            &l2d_stats.num_global_hits(),
-            &l2d_stats.num_global_accesses(),
-        );
-        eprintln!(
-            "L2D read hit rate: {:4.2}% ({} read hits / {} reads)",
-            &l2d_stats.global_read_hit_rate() * 100.0,
-            &l2d_stats.num_global_read_hits(),
-            &l2d_stats.num_global_reads(),
-        );
-        eprintln!(
-            "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
-            &l2d_stats.global_write_hit_rate() * 100.0,
-            &l2d_stats.num_global_write_hits(),
-            &l2d_stats.num_global_writes(),
-        );
+        print_kernel_stats(kernel_stats);
     }
+    let all_kernel_stats = stats.clone().reduce();
+    eprintln!("\n ===== combined =====\n",);
+    print_kernel_stats(&all_kernel_stats);
+
     let timings: Vec<_> = gpucachesim::TIMINGS
         .lock()
         .clone()
@@ -267,7 +231,7 @@ fn main() -> eyre::Result<()> {
         let total = value.total();
         let percent = total.as_secs_f64() / norm_time.as_secs_f64();
         eprintln!(
-            "\t{:<55} {: >15} ({: >4.2}% total: {: >15})",
+            "\t{:<55} {: >15} ({: >5.2}% total: {:<25})",
             label,
             format!("{:?}", mean),
             percent * 100.0,
@@ -276,4 +240,50 @@ fn main() -> eyre::Result<()> {
     }
     eprintln!("completed in {:?}", total_time);
     Ok(())
+}
+
+fn print_kernel_stats(kernel_stats: &stats::Stats) {
+    eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
+    eprintln!("SIM: {:#?}", &kernel_stats.sim);
+    eprintln!("INSTRUCTIONS: {:#?}", &kernel_stats.instructions);
+    eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
+
+    let l1i_stats = kernel_stats.l1i_stats.reduce();
+    eprintln!("L1I: {:#?}", &l1i_stats);
+    eprintln!(
+        "L1I hit rate: {:4.2}% ({} hits / {} accesses)",
+        &l1i_stats.hit_rate() * 100.0,
+        &l1i_stats.num_hits(),
+        &l1i_stats.num_accesses(),
+    );
+
+    let l1d_stats = kernel_stats.l1d_stats.reduce();
+    eprintln!("L1D: {:#?}", &l1d_stats);
+    eprintln!(
+        "L1D hit rate: {:4.2}% ({} hits / {} accesses)",
+        &l1d_stats.global_hit_rate() * 100.0,
+        &l1d_stats.num_global_hits(),
+        &l1d_stats.num_global_accesses(),
+    );
+
+    let l2d_stats = kernel_stats.l2d_stats.reduce();
+    eprintln!("L2D: {:#?}", &l2d_stats);
+    eprintln!(
+        "L2D hit rate: {:4.2}% ({} hits / {} accesses)",
+        &l2d_stats.global_hit_rate() * 100.0,
+        &l2d_stats.num_global_hits(),
+        &l2d_stats.num_global_accesses(),
+    );
+    eprintln!(
+        "L2D read hit rate: {:4.2}% ({} read hits / {} reads)",
+        &l2d_stats.global_read_hit_rate() * 100.0,
+        &l2d_stats.num_global_read_hits(),
+        &l2d_stats.num_global_reads(),
+    );
+    eprintln!(
+        "L2D write hit rate: {:4.2}% ({} write hits / {} writes)",
+        &l2d_stats.global_write_hit_rate() * 100.0,
+        &l2d_stats.num_global_write_hits(),
+        &l2d_stats.num_global_writes(),
+    );
 }

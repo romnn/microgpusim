@@ -351,7 +351,6 @@ void tag_array::flush() {
 }
 
 void tag_array::invalidate() {
-  logger->trace("tag_array::invalidate()");
   if (!m_is_used) return;
 
   for (unsigned i = 0; i < m_config.get_num_lines(); i++)

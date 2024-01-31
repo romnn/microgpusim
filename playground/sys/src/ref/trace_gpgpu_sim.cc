@@ -361,19 +361,23 @@ void trace_gpgpu_sim::simple_cycle() {
     unsigned not_completed = 1;
     bool all_threads_complete = true;
     if (m_config.gpgpu_flush_l1_cache) {
-      logger->debug("flushing l1 caches");
+      unsigned num_flushed = 0;
       for (unsigned i = 0; i < m_shader_config->n_simt_clusters; i++) {
         unsigned cluster_not_completed = m_cluster[i]->get_not_completed();
-        logger->trace("cluster {}: {} not completed", i, cluster_not_completed);
+        logger->trace("cluster {}: {} threads not completed", i,
+                      cluster_not_completed);
         if (cluster_not_completed == 0) {
           m_cluster[i]->cache_invalidate();
+          num_flushed++;
         } else {
           not_completed += cluster_not_completed;
           all_threads_complete = false;
         }
       }
-      logger->trace("all threads completed: {} ({} not completed)",
-                    all_threads_complete, not_completed);
+      // fmt::println(
+      logger->trace(
+          "l1 flush: {}/{} clusters flushed ({} threads not completed)",
+          num_flushed, m_shader_config->n_simt_clusters, not_completed);
     }
 
     if (m_config.gpgpu_flush_l2_cache) {
@@ -386,17 +390,22 @@ void trace_gpgpu_sim::simple_cycle() {
         }
       }
 
+      unsigned num_flushed = 0;
       if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
-        logger->debug("flushing l2 caches");
         if (m_memory_config->m_L2_config.get_num_lines()) {
           int dlc = 0;
           for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
+            num_flushed++;
             assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
             logger->debug("dirty lines flushed from L2 {} is {}", i, dlc);
           }
         }
       }
+
+      // fmt::println("l2 flush: flushed {}/{} sub partitions", num_flushed,
+      logger->trace("l2 flush: flushed {}/{} sub partitions", num_flushed,
+                    m_memory_config->m_n_mem);
     }
 
     increment_timing("cycle::total", duration(now() - start_total));

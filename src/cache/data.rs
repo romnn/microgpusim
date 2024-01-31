@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::DEBUG_PRINT;
 use crate::{
     address, cache, config, interconn as ic, mem_fetch,
@@ -1172,16 +1172,16 @@ where
         self.inner.waiting_for_fill(fetch)
     }
 
+    fn flush(&mut self) -> usize {
+        self.inner.flush()
+    }
+
     fn invalidate(&mut self) {
         self.inner.invalidate();
     }
 
     fn invalidate_addr(&mut self, addr: address) {
         self.inner.invalidate_addr(addr);
-    }
-
-    fn flush(&mut self) -> usize {
-        self.inner.flush()
     }
 
     fn num_used_lines(&self) -> usize {

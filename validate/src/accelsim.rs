@@ -402,9 +402,9 @@ pub fn process_stats(
 
     let mut per_kernel_stats: stats::PerKernel = stats.try_into()?;
 
-    let num_kernels = per_kernel_stats.as_ref().len();
+    let num_kernels = per_kernel_stats.num_kernels();
     let per_kernel_dur = dur.as_millis() / num_kernels as u128;
-    for kernel_stats in per_kernel_stats.as_mut().iter_mut() {
+    for kernel_stats in per_kernel_stats.iter_mut() {
         kernel_stats.sim.elapsed_millis = per_kernel_dur;
     }
 
@@ -412,6 +412,6 @@ pub fn process_stats(
     // converted_stats.sim.elapsed_millis = dur.as_millis();
 
     let full = false;
-    crate::stats::write_stats_as_csv(stats_dir, &per_kernel_stats.inner, repetition, full)?;
+    crate::stats::write_stats_as_csv(stats_dir, &per_kernel_stats.kernel_stats, repetition, full)?;
     Ok(())
 }

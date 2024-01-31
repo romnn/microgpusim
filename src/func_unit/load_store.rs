@@ -500,13 +500,13 @@ impl<MC> LoadStoreUnit<MC> {
     }
 
     pub fn flush(&mut self) {
-        if let Some(l1) = &mut self.data_l1 {
+        if let Some(ref mut l1) = self.data_l1 {
             l1.flush();
         }
     }
 
     pub fn invalidate(&mut self) {
-        if let Some(l1) = &mut self.data_l1 {
+        if let Some(ref mut l1) = self.data_l1 {
             l1.invalidate();
         }
     }

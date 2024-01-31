@@ -1335,7 +1335,7 @@ impl Default for GPU {
             // memory_partition_indexing: MemoryPartitionIndexingScheme::IPoly,
             compute_capability_major: 6,
             compute_capability_minor: 1,
-            flush_l1_cache: false,
+            flush_l1_cache: true,
             flush_l2_cache: false,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config

@@ -1791,17 +1791,18 @@ bool trace_shader_core_ctx::warp_waiting_at_mem_barrier(unsigned warp_id) {
   if (!m_warp[warp_id]->get_membar()) return false;
   if (!m_scoreboard->has_pending_writes(warp_id)) {
     m_warp[warp_id]->clear_membar();
-    if (m_gpu->get_config().flush_l1()) {
-      // Mahmoud fixed this on Nov 2019
-      // Invalidate L1 cache
-      // Based on Nvidia Doc, at MEM barrier, we have to
-      //(1) wait for all pending writes till they are acked
-      //(2) invalidate L1 cache to ensure coherence and avoid reading
-      // stall
-      // data
-      cache_invalidate();
-      // TO DO: you need to stall the SM for 5k cycles.
-    }
+    // ROMAN: remove this for now as this is very out of place
+    // if (m_gpu->get_config().flush_l1()) {
+    //   // Mahmoud fixed this on Nov 2019
+    //   // Invalidate L1 cache
+    //   // Based on Nvidia Doc, at MEM barrier, we have to
+    //   //(1) wait for all pending writes till they are acked
+    //   //(2) invalidate L1 cache to ensure coherence and avoid reading
+    //   // stall
+    //   // data
+    //   cache_invalidate();
+    //   // TO DO: you need to stall the SM for 5k cycles.
+    // }
     return false;
   }
   return true;
