@@ -7,6 +7,18 @@ def flatten(l):
     return [item for ll in l for item in ll]
 
 
+def dedup(l):
+    return list(dict.fromkeys(l))
+
+
+def two_closest_divisors(n):
+    assert isinstance(n, int)
+    a = int(np.round(np.sqrt(n)))
+    while n % a > 0:
+        a -= 1
+    return a, n // a
+
+
 def round_up_to_next_power_of_two(x):
     exp = np.ceil(np.log2(x)) if x > 0 else 1
     return np.power(2, exp)

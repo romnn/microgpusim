@@ -77,6 +77,9 @@ BENCHMARK_INPUT_COL_LABELS = {
     "input_dim": "Dimensions",
     "input_variant": "Variant",
     "input_size": "Size",
+    # this is required for per kernel output
+    "kernel_name": "Kernel",
+    "kernel_launch_id": "Kernel ID",
 }
 
 BENCHMARK_INPUT_COLS = {

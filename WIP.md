@@ -79,8 +79,6 @@ kcachegrind ./playground/sys/callgrind-out.txt
 
   - the csv simulation stats have kernel launch id zero (instead of nan) for no kernel
 
-  - DONE: why does accelsim get 2x as fast for lazy fetch on read ???
-
   - DEBUG: cache prefill with the simulator comparison to match simulator, there is this special curve to it
 
   - always perform l2 mem copy, but set skip l2 flag if above threshold
@@ -96,8 +94,6 @@ kcachegrind ./playground/sys/callgrind-out.txt
 
   - add averaged section for each parallel table and then a final overall table separately
 
-  - overall correlation plots revamped
-
   - make the basic plots look good for pascal pchase and write it down
   - run the same for older fermi or maxwell gpu on das5 and write it down
 
@@ -111,6 +107,21 @@ kcachegrind ./playground/sys/callgrind-out.txt
     - this prob wont be interesting for l1, but maybe l2?
 
 - DONE:
+
+  - DONE: fix ipoly hash function
+  - DONE: update babelstream plots with option to output per kernel stats
+  - DONE: static dispatch in l2d cache controller..
+  - DONE: fix babelstream plots and table
+  - DONE: test the lazy fetch on read policy if the performance is similar
+  - FAIL improve the l1 latency queue cycle
+  - DONE: remove dead code/cleanup
+  - DONE: check if we can remove locks from the pipeline registers
+  - DONE: make stats per kernel and combine them in the stats() in liib
+  - DONE: make operand collector a reference
+  - DONE: make barriers a reference
+  - DONE: make scoreboard a reference
+  - DONE: why does accelsim get 2x as fast for lazy fetch on read ???
+  - SKIP: overall correlation plots revamped
 
   - FAILED: collect traces on das5 titanx
   - DONE: commit and fix compilation on das and on CI

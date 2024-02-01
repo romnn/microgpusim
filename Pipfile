@@ -39,6 +39,7 @@ python-sat = {extras = ["aiger", "approxmc", "pblib"], version = "*"}
 pycryptosat = "*"
 logicmin = "*"
 pyeda = "*"
+pyarrow = "*"
 
 [dev-packages]
 invoke = "*"

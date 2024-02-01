@@ -10,6 +10,7 @@ import matplotlib.patches as mpatches
 
 from gpucachesim import MB, KB
 import gpucachesim.plot as plot
+import gpucachesim.utils as utils
 
 pd.options.display.float_format = "{:.2f}".format
 pd.set_option("display.max_rows", 1000)
@@ -113,9 +114,10 @@ def cache(
         )
         match mem.lower():
             case "l2":
-                partitions, sets = (12, 128)
-                # partitions, sets = (24, 64)
-                nx, ny = 6, 2
+                # partitions, sets = (12, 128)
+                partitions, sets = (24, 64)
+                nx, ny = utils.two_closest_divisors(partitions)
+                # nx, ny = 6, 2
                 assert nx * ny == partitions
                 sector_size = 32
                 line_size = 128
@@ -126,7 +128,8 @@ def cache(
 
             case "l1":
                 partitions, sets = (28, 4)
-                nx, ny = 7, 4
+                nx, ny = utils.two_closest_divisors(partitions)
+                # nx, ny = 7, 4
                 assert nx * ny == partitions
                 sector_size = 32
                 line_size = 128
@@ -149,10 +152,23 @@ def cache(
         df["assoc_id"] = df["line_id"] % assoc
         print(df)
 
-        assert len(df["partition"].unique()) == partitions
-        assert len(df["line_id"].unique()) == sets * assoc
-        assert len(df["set_id"].unique()) == sets
-        assert len(df["assoc_id"].unique()) == assoc
+        unique_partitions = df["partition"].unique()
+        unique_lines = df["line_id"].unique()
+        unique_sets = df["set_id"].unique()
+        unique_assoc_ids = df["assoc_id"].unique()
+
+        print("partitions:", unique_partitions)
+        assert len(unique_partitions) == partitions
+
+        print("lines:", unique_lines)
+        assert len(unique_lines) == sets * assoc
+
+        print("sets:", unique_sets)
+        assert len(unique_sets) == sets
+
+        print("assoc:", unique_assoc_ids)
+        assert len(unique_assoc_ids) == assoc
+
         assert len(df[["partition", "line_id", "sector"]].drop_duplicates()) == cache_size / sector_size
 
         status_values = ["INVALID", "RESERVED", "VALID", "MODIFIED"]
