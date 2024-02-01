@@ -49,12 +49,10 @@ pub struct Data<MC, CC, S> {
 }
 
 impl<MC, CC, S> Builder<MC, CC, S>
-// impl<CC, S> Builder<CC, S>
 where
     CC: Clone,
 {
     pub fn build(self) -> Data<MC, CC, S> {
-        // pub fn build(self) -> Data<CC, S> {
         let inner = super::base::Builder {
             name: self.name,
             id: self.id,

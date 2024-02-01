@@ -393,9 +393,9 @@ pub mod ipoly {
             index &= self.num_sets - 1;
 
             let set_idx = match self.num_sets {
-                16 => ipoly_16(addr, index),
-                32 => ipoly_16(addr, index),
-                64 => ipoly_16(addr, index),
+                16 => ipoly_16(higher_bits, index),
+                32 => ipoly_32(higher_bits, index),
+                64 => ipoly_64(higher_bits, index),
                 _ => {
                     panic!(
 "memory_partition_indexing error: The number of channels should be 16, 32 or 64 for the hashing IPOLY index function. other bank numbers are not supported");

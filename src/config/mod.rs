@@ -1336,7 +1336,7 @@ impl Default for GPU {
             compute_capability_major: 6,
             compute_capability_minor: 1,
             flush_l1_cache: true,
-            flush_l2_cache: false,
+            flush_l2_cache: true,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config
             // trace_opcode_latency_initiation_int: (2, 2), // default 4, 1

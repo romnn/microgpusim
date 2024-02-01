@@ -358,7 +358,7 @@ void trace_gpgpu_sim::simple_cycle() {
 
     // Depending on configuration, invalidate the caches once all threads
     // completed.
-    unsigned not_completed = 1;
+    unsigned not_completed = 0;
     bool all_threads_complete = true;
     if (m_config.gpgpu_flush_l1_cache) {
       unsigned num_flushed = 0;
@@ -375,9 +375,9 @@ void trace_gpgpu_sim::simple_cycle() {
         }
       }
       // fmt::println(
-      logger->trace(
-          "l1 flush: {}/{} clusters flushed ({} threads not completed)",
-          num_flushed, m_shader_config->n_simt_clusters, not_completed);
+      logger->trace("l1 flush: {}/{} clusters flushed ({} active threads)",
+                    num_flushed, m_shader_config->n_simt_clusters,
+                    not_completed);
     }
 
     if (m_config.gpgpu_flush_l2_cache) {
@@ -394,7 +394,12 @@ void trace_gpgpu_sim::simple_cycle() {
       if (all_threads_complete && !m_memory_config->m_L2_config.disabled()) {
         if (m_memory_config->m_L2_config.get_num_lines()) {
           int dlc = 0;
-          for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+
+          // for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
+          // ROMAN: this is a bug in accelsim: n_n_mem is NOT the number
+          // of sub partitions but the number of memory controllers (partitions)
+          for (unsigned i = 0; i < m_memory_config->m_n_mem_sub_partition;
+               i++) {
             dlc = m_memory_sub_partition[i]->flushL2();
             num_flushed++;
             assert(dlc == 0);  // TODO: need to model actual writes to DRAM here
@@ -403,9 +408,9 @@ void trace_gpgpu_sim::simple_cycle() {
         }
       }
 
-      // fmt::println("l2 flush: flushed {}/{} sub partitions", num_flushed,
-      logger->trace("l2 flush: flushed {}/{} sub partitions", num_flushed,
-                    m_memory_config->m_n_mem);
+      logger->trace(
+          "l2 flush: flushed {}/{} sub partitions ({} active threads)",
+          num_flushed, m_memory_config->m_n_mem_sub_partition, not_completed);
     }
 
     increment_timing("cycle::total", duration(now() - start_total));

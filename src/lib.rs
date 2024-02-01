@@ -1088,8 +1088,8 @@ where
         cycle
     }
 
-    pub fn flush_caches(&mut self, cycle: u64) {
-        let mut not_completed = 0;
+    pub fn flush_caches(&mut self, _cycle: u64) {
+        let mut num_active_threads = 0;
         if self.config.flush_l1_cache {
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
@@ -1098,17 +1098,17 @@ where
             // let mut lines_flushed = 0;
             for cluster in &mut self.clusters {
                 let cluster_id = cluster.cluster_id;
-                let cluster_not_completed = cluster.num_active_threads();
+                let num_cluster_active_threads = cluster.num_active_threads();
                 log::trace!(
                     "cluster {}: {} threads not completed",
                     cluster_id,
-                    cluster_not_completed
+                    num_cluster_active_threads
                 );
-                if cluster_not_completed == 0 {
+                if num_cluster_active_threads == 0 {
                     cluster.cache_invalidate();
                     clusters_flushed += 1;
                 } else {
-                    not_completed += cluster_not_completed;
+                    num_active_threads += num_cluster_active_threads;
                 }
             }
             #[cfg(feature = "timings")]
@@ -1119,16 +1119,16 @@ where
                 .add(start.elapsed());
 
             log::trace!(
-                "l1 flush: {}/{} clusters flushed ({} threads not completed)",
+                "l1 flush: {}/{} clusters flushed ({} active threads)",
                 clusters_flushed,
                 self.clusters.len(),
-                1 + not_completed
+                num_active_threads
             );
         }
 
         match &self.config.data_cache_l2 {
             Some(l2_config) if self.config.flush_l2_cache => {
-                let mut all_threads_complete = not_completed == 0;
+                let mut all_threads_complete = num_active_threads == 0;
                 #[cfg(feature = "timings")]
                 let start = std::time::Instant::now();
                 if !self.config.flush_l1_cache {
@@ -1170,9 +1170,10 @@ where
                     .add(start.elapsed());
 
                 log::trace!(
-                    "l2 flush: flushed {}/{} sub partitions",
+                    "l2 flush: flushed {}/{} sub partitions ({} active threads)",
                     num_flushed,
                     self.mem_sub_partitions.len(),
+                    num_active_threads
                 );
             }
             _ => {}
@@ -2106,7 +2107,8 @@ where
             .map(|l2| self.mem_sub_partitions.len() * l2.inner.total_bytes())
             .unwrap_or(0);
         let l2_prefetch_percent = self.config.l2_prefetch_percent.unwrap_or(100.0);
-        let mut cache_bytes_used = self.l2_used_bytes();
+        let cache_bytes_used_before = self.l2_used_bytes();
+        let mut cache_bytes_used = cache_bytes_used_before;
 
         let mut valid_prefill_memcopies = Vec::new();
 
@@ -2386,14 +2388,14 @@ where
         // .collect();
 
         eprintln!(
-            "have {}/{} valid memcopies (requested={} occupied={} cache size={})",
+            "have {}/{} valid memcopies (requested={}, occupied={}, cache size={})",
             valid_prefill_memcopies
                 .iter()
                 .filter(|(_, num_bytes, _)| *num_bytes > 64)
                 .count(),
             allocations.len() + copies.len(),
             human_bytes::human_bytes(copies.iter().map(|copy| copy.num_bytes).sum::<u64>() as f64),
-            human_bytes::human_bytes(cache_bytes_used as f64),
+            human_bytes::human_bytes(cache_bytes_used_before as f64),
             human_bytes::human_bytes(l2_cache_size_bytes as f64),
             // .filter_map(|(_, num_bytes)| if *num_bytes > 64 {
             //     Some(*num_bytes)

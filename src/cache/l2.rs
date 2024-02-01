@@ -1,21 +1,73 @@
 use crate::sync::Arc;
-use crate::{address, cache, config, interconn as ic, mcu, mem_fetch};
+use crate::{address, cache, config, interconn as ic, mem_fetch};
 use color_eyre::eyre;
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
-#[allow(clippy::module_name_repetitions)]
-#[derive(Clone)]
-pub struct L2DataCacheController {
+// #[allow(clippy::module_name_repetitions)]
+// #[derive(Clone)]
+pub struct L2DataCacheController<MC>
+// where
+//     MC: Clone,
+{
     accelsim_compat: bool,
-    memory_controller: Arc<dyn mcu::MemoryController>,
+    // memory_controller: Arc<dyn mcu::MemoryController>,
+    mem_controller: Arc<MC>,
     linear_set_index_function: cache::set_index::linear::SetIndex,
     ipoly_set_index_function: cache::set_index::ipoly::SetIndex,
     pseudo_random_set_index_function: cache::set_index::pascal::L2PseudoRandomSetIndex,
     cache_config: cache::Config,
 }
 
-impl cache::CacheController for L2DataCacheController {
+/// Clone derive macro does not work with structs containing generic
+/// types that don't implement clone themselves
+/// https://github.com/rust-lang/rust/issues/41481
+impl<MC> Clone for L2DataCacheController<MC> {
+    fn clone(&self) -> L2DataCacheController<MC> {
+        L2DataCacheController {
+            accelsim_compat: self.accelsim_compat,
+            mem_controller: self.mem_controller.clone(),
+            linear_set_index_function: self.linear_set_index_function.clone(),
+            ipoly_set_index_function: self.ipoly_set_index_function.clone(),
+            pseudo_random_set_index_function: self.pseudo_random_set_index_function.clone(),
+            cache_config: self.cache_config.clone(),
+        }
+    }
+}
+
+impl<MC> L2DataCacheController<MC>
+// where
+//     MC: Clone,
+{
+    pub fn new(config: &config::Cache, mem_controller: Arc<MC>, accelsim_compat: bool) -> Self {
+        let cache_config = cache::Config::new(config, accelsim_compat);
+        let linear_set_index_function = cache::set_index::linear::SetIndex::new(
+            cache_config.num_sets,
+            cache_config.line_size as usize,
+        );
+        let ipoly_set_index_function = cache::set_index::ipoly::SetIndex::new(
+            cache_config.num_sets,
+            cache_config.line_size as usize,
+        );
+
+        let pseudo_random_set_index_function =
+            cache::set_index::pascal::L2PseudoRandomSetIndex::default();
+
+        Self {
+            accelsim_compat,
+            mem_controller,
+            cache_config,
+            pseudo_random_set_index_function,
+            ipoly_set_index_function,
+            linear_set_index_function,
+        }
+    }
+}
+
+impl<MC> cache::CacheController for L2DataCacheController<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     // #[inline]
     fn tag(&self, addr: address) -> address {
         // For generality, the tag includes both index and tag.
@@ -44,22 +96,22 @@ impl cache::CacheController for L2DataCacheController {
     fn set_index(&self, addr: address) -> u64 {
         use cache::set_index::SetIndexer;
         if self.accelsim_compat {
-            let partition_addr = self.memory_controller.memory_partition_address(addr);
+            let partition_addr = self.mem_controller.memory_partition_address(addr);
             // self.ipoly_set_index_function
             //     .compute_set_index(partition_addr)
 
             self.linear_set_index_function
                 .compute_set_index(partition_addr)
         } else {
-            // let partition_addr = self.memory_controller.memory_partition_address(addr);
+            // let partition_addr = self.mem_controller.memory_partition_address(addr);
 
             // let set_index = self
             //     .pseudo_random_set_index_function
             //     .compute_set_index(addr);
 
-            // let sub_partition = self.memory_controller.to_physical_address(addr);
+            // let sub_partition = self.mem_controller.to_physical_address(addr);
             // let sub_partition_size = self.cache_config.associativity*16
-            let partition_addr = self.memory_controller.memory_partition_address(addr);
+            let partition_addr = self.mem_controller.memory_partition_address(addr);
             // let set_index = self
             //     .linear_set_index_function
             //     .compute_set_index(partition_addr);
@@ -72,7 +124,7 @@ impl cache::CacheController for L2DataCacheController {
             //     .pseudo_random_set_index_function
             //     .compute_set_index(partition_addr);
 
-            assert!(set_index < 128);
+            assert!(set_index < self.cache_config.num_sets as u64);
             set_index
         }
 
@@ -104,17 +156,7 @@ impl cache::CacheController for L2DataCacheController {
 #[allow(clippy::module_name_repetitions)]
 pub struct DataL2<MC> {
     pub cache_config: Arc<config::L2DCache>,
-    pub inner: super::data::Data<
-        MC,
-        // mcu::MemoryControllerUnit,
-        // mcu::PascalMemoryControllerUnit,
-        L2DataCacheController,
-        //<
-        // mcu::MemoryControllerUnit,
-        // cache::controller::pascal::DataCacheController,
-        //>,
-        stats::cache::PerKernel,
-    >,
+    pub inner: super::data::Data<MC, L2DataCacheController<MC>, stats::cache::PerKernel>,
 }
 
 impl<MC> DataL2<MC>
@@ -128,30 +170,11 @@ where
         mem_controller: Arc<MC>,
         l2_cache_config: Arc<config::L2DCache>,
     ) -> Self {
-        let cache_config =
-            cache::Config::new(l2_cache_config.inner.as_ref(), config.accelsim_compat);
-
-        let linear_set_index_function = cache::set_index::linear::SetIndex::new(
-            cache_config.num_sets,
-            cache_config.line_size as usize,
+        let cache_controller = L2DataCacheController::new(
+            l2_cache_config.inner.as_ref(),
+            mem_controller.clone(),
+            config.accelsim_compat,
         );
-        let ipoly_set_index_function = cache::set_index::ipoly::SetIndex::new(
-            cache_config.num_sets,
-            cache_config.line_size as usize,
-        );
-
-        let pseudo_random_set_index_function =
-            cache::set_index::pascal::L2PseudoRandomSetIndex::default();
-
-        let cache_controller = L2DataCacheController {
-            accelsim_compat: config.accelsim_compat,
-            memory_controller: mem_controller.clone(),
-            cache_config,
-            pseudo_random_set_index_function,
-            ipoly_set_index_function,
-            linear_set_index_function,
-            // cache_controller: default_cache_controller,
-        };
         let stats = stats::cache::PerKernel::default();
         let inner = super::data::Builder {
             name,
