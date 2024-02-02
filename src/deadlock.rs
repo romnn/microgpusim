@@ -41,14 +41,16 @@ where
     pub fn gather_state(&self) -> State {
         let total_cores = self.config.total_cores();
         let num_partitions = self.mem_partition_units.len();
-        let num_sub_partitions = self.mem_sub_partitions.len();
+        // let num_sub_partitions = self.mem_sub_partitions.len();
+        // let num_sub_partitions = self.mem_sub_partitions().count();
+        let num_sub_partitions = self.config.total_sub_partitions();
 
         let mut state = State::new(total_cores, num_partitions, num_sub_partitions);
 
         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
             // let cluster = cluster.try_read();
             for (core_id, core) in cluster.cores.iter().enumerate() {
-                let core = core.try_read();
+                // let core = core.try_read();
                 let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
                 assert_eq!(core.core_id, global_core_id);
 
@@ -75,24 +77,37 @@ where
         }
         for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
             state.dram_latency_queue[partition_id]
-                .extend(partition.try_read().dram_latency_queue.clone().into_iter());
+                .extend(partition.dram_latency_queue.clone().into_iter());
+            // .extend(partition.try_read().dram_latency_queue.clone().into_iter());
         }
-        for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
-            let sub = sub.try_lock();
+        // for (sub_id, sub) in self.mem_sub_partitions.iter().enumerate() {
+
+        let sub_partitions = crate::MemSubPartitionIter {
+            partition_units: &self.mem_partition_units,
+            sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
+            global_sub_id: 0,
+        };
+
+        // for (sub_id, sub) in self.mem_sub_partitions().enumerate() {
+        for mem_sub in sub_partitions {
+            // let sub = sub.try_lock();
             for (dest_queue, src_queue) in [
                 (
-                    &mut state.interconn_to_l2_queue[sub_id],
-                    &sub.interconn_to_l2_queue,
+                    &mut state.interconn_to_l2_queue[mem_sub.global_id],
+                    &mem_sub.interconn_to_l2_queue,
                 ),
                 (
-                    &mut state.l2_to_interconn_queue[sub_id],
-                    &sub.l2_to_interconn_queue,
+                    &mut state.l2_to_interconn_queue[mem_sub.global_id],
+                    &mem_sub.l2_to_interconn_queue,
                 ),
                 (
-                    &mut state.l2_to_dram_queue[sub_id],
-                    &sub.l2_to_dram_queue.try_lock(),
+                    &mut state.l2_to_dram_queue[mem_sub.global_id],
+                    &mem_sub.l2_to_dram_queue.try_lock(),
                 ),
-                (&mut state.dram_to_l2_queue[sub_id], &sub.dram_to_l2_queue),
+                (
+                    &mut state.dram_to_l2_queue[mem_sub.global_id],
+                    &mem_sub.dram_to_l2_queue,
+                ),
             ] {
                 dest_queue.extend(src_queue.clone().into_iter().map(ic::Packet::into_inner));
             }

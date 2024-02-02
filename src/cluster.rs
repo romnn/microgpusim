@@ -1,19 +1,40 @@
-use super::{config, interconn as ic, mem_fetch, Core, MockSimulator};
+use super::{config, interconn as ic, mem_fetch, Core};
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 use console::style;
 use crossbeam::utils::CachePadded;
 use std::collections::VecDeque;
 
+pub trait IssueBlock {}
+
+pub struct BlockIssuer {
+    pub block_issue_next_core: usize,
+    // pub block_issue_next_core: Mutex<usize>,
+}
+
+impl BlockIssuer {
+    pub fn new(num_cores: usize) -> Self {
+        Self {
+            block_issue_next_core: num_cores - 1,
+        }
+    }
+}
+
 #[derive()]
 pub struct Cluster<I, MC> {
     pub cluster_id: usize,
-    pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
-    pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
+
+    // pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+    // pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
+    // pub cores: Vec<Core<I, MC>>>,
+    pub cores: Box<[Core<I, MC>]>,
+
     pub config: Arc<config::GPU>,
     pub interconn: Arc<I>,
 
     pub core_sim_order: Arc<Mutex<VecDeque<usize>>>,
-    pub block_issue_next_core: Mutex<usize>,
+    // pub issuer: BlockIssuer,
+    // pub block_issue_next_core: Mutex<usize>,
+    pub block_issue_next_core: usize,
     pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
 }
 
@@ -37,7 +58,6 @@ where
         mem_controller: &Arc<MC>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
-        let block_issue_next_core = num_cores - 1;
         let core_sim_order = (0..num_cores).collect();
         let cores = (0..num_cores)
             .map(|core_id| {
@@ -51,41 +71,50 @@ where
                     Arc::clone(config),
                     Arc::clone(mem_controller),
                 );
-                Arc::new(RwLock::new(core))
+                core
+                // Arc::new(RwLock::new(core))
             })
             .collect();
-        let cluster = Self {
+
+        let block_issue_next_core = num_cores - 1;
+        // let issuer = BlockIssuer::new(num_cores);
+
+        let mut cluster = Self {
             cluster_id,
-            warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
+            // warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
             interconn: interconn.clone(),
             cores,
             core_sim_order: Arc::new(Mutex::new(core_sim_order)),
-            block_issue_next_core: Mutex::new(block_issue_next_core),
+            // issuer,
+            block_issue_next_core,
+            // block_issue_next_core: Mutex::new(block_issue_next_core),
             response_fifo: RwLock::new(VecDeque::new()),
         };
         cluster.reinit();
         cluster
     }
 
-    fn reinit(&self) {
-        for core in &self.cores {
-            core.write()
-                .reinit(0, self.config.max_threads_per_core, true);
+    fn reinit(&mut self) {
+        for core in self.cores.iter_mut() {
+            // core.write()
+            core.reinit(0, self.config.max_threads_per_core, true);
         }
     }
 
     pub fn num_active_sms(&self) -> usize {
         self.cores
             .iter()
-            .filter(|core| core.try_read().is_active())
+            .filter(|core| core.is_active())
+            // .filter(|core| core.try_read().is_active())
             .count()
     }
 
     pub fn num_active_threads(&self) -> usize {
         self.cores
             .iter()
-            .map(|core| core.try_read().num_active_threads())
+            .map(|core| core.num_active_threads())
+            // .map(|core| core.try_read().num_active_threads())
             .sum()
     }
 
@@ -110,12 +139,14 @@ where
 
         // Handle received package
         if let Some(fetch) = response_fifo.front() {
-            let core_id = self
-                .config
-                .global_core_id_to_core_id(fetch.core_id.unwrap());
+            // let core_id = self
+            //     .config
+            //     .global_core_id_to_core_id(fetch.core_id.unwrap());
+            let (_, core_id) = self.config.cluster_and_core_id(fetch.core_id.unwrap());
 
             // we should not fully lock a core as we completely block a full core cycle
-            let core = self.cores[core_id].read();
+            // let core = self.cores[core_id].read();
+            let core = &self.cores[core_id];
             assert_eq!(core.cluster_id, self.cluster_id);
 
             log::debug!(
@@ -180,9 +211,10 @@ where
         response_fifo.push_back(fetch);
     }
 
-    pub fn cache_flush(&self) {
-        for core in &self.cores {
-            core.write().cache_flush();
+    pub fn cache_flush(&mut self) {
+        for core in self.cores.iter_mut() {
+            core.cache_flush();
+            // core.write().cache_flush();
         }
     }
 
@@ -192,14 +224,20 @@ where
     //     }
     // }
 
-    pub fn cache_invalidate(&self) {
-        for core in &self.cores {
-            core.write().cache_invalidate();
+    pub fn cache_invalidate(&mut self) {
+        for core in self.cores.iter_mut() {
+            core.cache_invalidate();
+            // core.write().cache_invalidate();
         }
     }
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
-    pub fn issue_block_to_core(&self, sim: &MockSimulator<I, MC>, cycle: u64) -> usize
+    // pub fn issue_block_to_core(&mut self, sim: &mut MockSimulator<I, MC>, cycle: u64) -> usize
+    pub fn issue_block_to_core(
+        &mut self,
+        kernel_manager: &mut dyn crate::kernel_manager::SelectKernel,
+        cycle: u64,
+    ) -> usize
     where
         MC: std::fmt::Debug + crate::mcu::MemoryController,
     {
@@ -212,11 +250,13 @@ where
         );
         let mut num_blocks_issued = 0;
 
-        let mut block_issue_next_core = self.block_issue_next_core.try_lock();
+        // let mut block_issue_next_core = self.block_issue_next_core.try_lock();
+        // let block_issue_next_core = self.block_issue_next_core;
 
         for core_id in 0..num_cores {
-            let core_id = (core_id + *block_issue_next_core + 1) % num_cores;
-            let core = self.cores[core_id].read();
+            let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
+            let core = &self.cores[core_id];
+            // let core = self.cores[core_id].read();
 
             // let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
             //     // always select latest issued kernel
@@ -224,8 +264,9 @@ where
             //     // sim.select_kernel().map(Arc::clone);
             //     unimplemented!("concurrent kernel sm");
             // } else {
-            let mut current_kernel: Option<Arc<_>> =
-                core.current_kernel.try_lock().as_ref().map(Arc::clone);
+            // let mut current_kernel: Option<Arc<_>> = core.current_kernel.try_lock().as_ref().map(Arc::clone);
+
+            let mut current_kernel = core.current_kernel.as_ref().map(Arc::clone);
             let should_select_new_kernel = if let Some(ref current) = current_kernel {
                 // if no more blocks left, get new kernel once current block completes
                 current.no_more_blocks_to_run() && core.num_active_threads() == 0
@@ -235,7 +276,7 @@ where
             };
 
             if should_select_new_kernel {
-                current_kernel = sim.select_kernel();
+                current_kernel = kernel_manager.select_kernel();
             }
 
             if let Some(kernel) = current_kernel {
@@ -249,12 +290,13 @@ where
                 );
 
                 let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel);
-                drop(core);
+                // drop(core);
                 if can_issue {
-                    let mut core = self.cores[core_id].write();
+                    // let mut core = self.cores[core_id].write();
+                    let core = &mut self.cores[core_id];
                     core.issue_block(&kernel, cycle);
                     num_blocks_issued += 1;
-                    *block_issue_next_core = core_id;
+                    self.block_issue_next_core = core_id;
                     break;
                 }
             } else {

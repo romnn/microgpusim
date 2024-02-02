@@ -342,9 +342,10 @@ where
     }
 }
 
-impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
+// impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
+impl<B, CC, S> Base<B, CC, S> {
     /// Sends next request to top memory in the memory hierarchy.
-    fn cycle(&mut self, cycle: u64) {
+    pub fn cycle(&mut self, cycle: u64) {
         let Some(ref top_port) = self.top_port else {
             panic!("missing top port");
             // return;

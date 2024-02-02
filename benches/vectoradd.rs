@@ -285,8 +285,8 @@ fn main() -> eyre::Result<()> {
 
     let (bench_name, input_query): (_, Input) =
         ("vectorAdd", input!({ "dtype": 32, "length": 100 })?);
-    // let (bench_name, input_query): (_, Input) =
-    //     ("vectorAdd", input!({ "dtype": 32, "length": 1_000 })?);
+    let (bench_name, input_query): (_, Input) =
+        ("vectorAdd", input!({ "dtype": 32, "length": 10_000 })?);
     // let (bench_name, input_query): (_, Input) =
     //     ("vectorAdd", input!({ "dtype": 32, "length": 500_000 })?);
 
@@ -314,7 +314,7 @@ fn main() -> eyre::Result<()> {
         TargetCommand::Accelsim,
         // TargetCommand::Playground,
         TargetCommand::Serial,
-        // TargetCommand::Deterministic,
+        TargetCommand::Deterministic,
         // TargetCommand::Nondeterministic { run_ahead: 10 },
     ]);
 
@@ -454,7 +454,6 @@ fn main() -> eyre::Result<()> {
                 "\t=> speedup(serial)={}\tspeedup(accelsim)={}",
                 speedup_color(speedup_over_serial)
                     .apply_to(format!("{: >6.3}x", speedup_over_serial)),
- 
                 speedup_color(speedup_over_accelsim)
                     .apply_to(format!("{: >6.3}x", speedup_over_accelsim)),
             );

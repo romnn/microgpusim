@@ -28,7 +28,7 @@ struct Options {
     pub debug: u8,
 
     /// Use multi-threading
-    #[arg(long = "parallel")]
+    #[arg(long = "parallel", aliases = ["deterministic"])]
     pub parallel: bool,
 
     /// Use non-deterministic simulation

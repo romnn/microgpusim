@@ -1,5 +1,4 @@
-use crate::sync::{Arc, RwLock};
-use crate::{config, engine::cycle::Component, ic, mem_fetch, MockSimulator};
+use crate::{config, ic, mem_fetch, MockSimulator};
 use color_eyre::eyre;
 
 impl<I, MC> MockSimulator<I, MC>
@@ -23,18 +22,21 @@ where
             );
             eprintln!();
 
-            let cores: Vec<Vec<Arc<_>>> = self
-                .clusters
-                .iter()
-                .map(|cluster| cluster.cores.clone())
-                .collect();
+            // let cores: Vec<Vec<Arc<_>>> = self
+            // let cores: Vec<Vec<_>> = self
+            //     .clusters
+            //     .iter()
+            //     // .map(|cluster| cluster.cores.clone())
+            //     .map(|cluster| cluster.cores.iter().collect())
+            //     .collect();
 
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
 
             let log_every = 10_000;
             let mut last_time = std::time::Instant::now();
 
-            while (self.commands_left() || self.kernels_left()) && !self.reached_limit(cycle) {
+            while (self.trace.commands_left() || self.kernels_left()) && !self.reached_limit(cycle)
+            {
                 cycle = self.process_commands(cycle);
                 self.launch_kernels(cycle);
 
@@ -57,32 +59,81 @@ where
 
                     crate::timeit!("serial::cycle", self.serial_cycle(cycle));
 
-                    // run cores in any order
-                    rayon::scope(|core_scope| {
-                        let kernels_completed = self
-                            .running_kernels
-                            .try_read()
-                            .iter()
-                            .filter_map(Option::as_ref)
-                            .all(|(_, k)| k.no_more_blocks_to_run());
+                    let kernels_completed = self.kernel_manager.all_kernels_completed();
+                    // let kernels_completed = self
+                    //     .running_kernels
+                    //     // .try_read()
+                    //     .iter()
+                    //     .filter_map(Option::as_ref)
+                    //     .all(|(_, k)| k.no_more_blocks_to_run());
 
-                        for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+                    // this works but is not as efficient..
+                    // for cluster_id in 0..self.clusters.len() {
+                    //     let cores_completed = self.clusters[cluster_id].num_active_threads() == 0;
+                    //     let cluster_active = !(cores_completed && kernels_completed);
+                    //     active_clusters[cluster_id] = cluster_active;
+                    //
+                    //     if !cluster_active {
+                    //         continue;
+                    //     }
+                    //
+                    //     rayon::scope(|core_scope| {
+                    //         for core in self.clusters.get_mut(cluster_id).unwrap().cores.iter_mut()
+                    //         {
+                    //             core_scope.spawn(move |_| {
+                    //                 crate::timeit!("core::cycle", core.cycle(cycle));
+                    //             });
+                    //         }
+                    //     });
+                    // }
+
+                    rayon::scope(|core_scope| {
+                        for cluster in self.clusters.iter_mut() {
                             let cores_completed = cluster.num_active_threads() == 0;
                             let cluster_active = !(cores_completed && kernels_completed);
-                            active_clusters[cluster_id] = cluster_active;
+                            active_clusters[cluster.cluster_id] = cluster_active;
 
                             if !cluster_active {
                                 continue;
                             }
 
-                            for core in cores[cluster_id].iter().cloned() {
-                                let core: Arc<RwLock<_>> = core;
+                            for core in cluster.cores.iter_mut() {
                                 core_scope.spawn(move |_| {
-                                    crate::timeit!("core::cycle", core.write().cycle(cycle));
+                                    crate::timeit!("core::cycle", core.cycle(cycle));
                                 });
                             }
                         }
                     });
+
+                    // run cores in any order
+                    // rayon::scope(|core_scope| {
+                    //     let kernels_completed = self
+                    //         .running_kernels
+                    //         // .try_read()
+                    //         .iter()
+                    //         .filter_map(Option::as_ref)
+                    //         .all(|(_, k)| k.no_more_blocks_to_run());
+                    //
+                    //     for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+                    //         let cores_completed = cluster.num_active_threads() == 0;
+                    //         let cluster_active = !(cores_completed && kernels_completed);
+                    //         active_clusters[cluster_id] = cluster_active;
+                    //
+                    //         if !cluster_active {
+                    //             continue;
+                    //         }
+                    //
+                    //         // for core in cores[cluster_id].iter() {
+                    //         for core in self.clusters[cluster_id].cores.iter_mut() {
+                    //             // for core in cores[cluster_id].iter().cloned() {
+                    //             // let core: Arc<RwLock<_>> = core;
+                    //             core_scope.spawn(move |_| {
+                    //                 // crate::timeit!("core::cycle", core.write().cycle(cycle));
+                    //                 crate::timeit!("core::cycle", core.cycle(cycle));
+                    //             });
+                    //         }
+                    //     }
+                    // });
 
                     // collect the core packets pushed to the interconn
                     for (cluster_id, active) in active_clusters.iter().enumerate() {
@@ -92,7 +143,8 @@ where
                         let cluster = &self.clusters[cluster_id];
                         let mut core_sim_order = cluster.core_sim_order.try_lock();
                         for core_id in &*core_sim_order {
-                            let core = cluster.cores[*core_id].try_read();
+                            // let core = cluster.cores[*core_id].try_read();
+                            let core = &cluster.cores[*core_id];
                             let mut port = core.mem_port.lock();
                             for ic::Packet {
                                 data: (dest, fetch, size),
@@ -161,7 +213,7 @@ where
                     // self.set_cycle(cycle);
 
                     if !self.active() {
-                        finished_kernel = self.finished_kernel();
+                        finished_kernel = self.kernel_manager.get_finished_kernel();
                         if finished_kernel.is_some() {
                             break;
                         }
@@ -174,7 +226,7 @@ where
 
                 log::trace!(
                     "commands left={} kernels left={}",
-                    self.commands_left(),
+                    self.trace.commands_left(),
                     self.kernels_left()
                 );
             }

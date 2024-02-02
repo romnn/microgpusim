@@ -15,6 +15,16 @@ where
     }
 }
 
+/// Mean absolute error
+pub fn mae<T>(true_value: T, prediction: T) -> f64
+where
+    T: NumCast,
+{
+    let true_value: f64 = NumCast::from(true_value).unwrap();
+    let prediction: f64 = NumCast::from(prediction).unwrap();
+    (prediction - true_value).abs()
+}
+
 /// Mean absolute percentage error
 pub fn mape<T>(true_value: T, prediction: T) -> f64
 where
@@ -61,6 +71,24 @@ impl PartialEq<f64> for PercentageError {
         match self {
             Self::SMAPE(err) => err == value,
             Self::MAPE(err) => err == value,
+        }
+    }
+}
+
+/// Normalized percentage error
+pub fn normalized_percentage_error<T>(true_value: T, prediction: T, norm: T) -> PercentageError
+where
+    T: NumCast,
+{
+    let true_value: f64 = NumCast::from(true_value).unwrap();
+    let prediction: f64 = NumCast::from(prediction).unwrap();
+    let norm: f64 = NumCast::from(norm).unwrap();
+    match (true_value, prediction) {
+        (t, p) if t == p => PercentageError::MAPE(0.0),
+        _ => {
+            let norm_true_value = true_value / norm;
+            let norm_prediction = prediction / norm;
+            PercentageError::MAPE(mae(norm_true_value, norm_prediction))
         }
     }
 }

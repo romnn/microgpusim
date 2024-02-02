@@ -203,16 +203,20 @@ impl<MC> DataL2<MC> {
     }
 }
 
-impl<MC> crate::engine::cycle::Component for DataL2<MC> {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
-    }
-}
+// impl<MC> crate::engine::cycle::Component for DataL2<MC> {
+//     fn cycle(&mut self, cycle: u64) {
+//         self.inner.cycle(cycle);
+//     }
+// }
 
 impl<MC> super::Cache<stats::cache::PerKernel> for DataL2<MC>
 where
     MC: crate::mcu::MemoryController,
 {
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
+    }
+
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self

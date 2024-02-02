@@ -242,8 +242,10 @@ fn get_data_width_from_opcode(opcode: &str) -> Result<u32, std::num::ParseIntErr
 
 impl WarpInstruction {
     pub fn from_trace(
-        kernel: &dyn Kernel,
         trace: &trace_model::MemAccessTraceEntry,
+        launch_config: &trace_model::command::KernelLaunch,
+        opcodes: &'static crate::opcodes::OpcodeMap,
+        // kernel: &dyn Kernel,
         config: &config::GPU,
     ) -> Self {
         let mut threads: Vec<_> = (0..trace.active_mask.len())
@@ -258,7 +260,8 @@ impl WarpInstruction {
         debug_assert!(!opcode_tokens.is_empty());
         let opcode1 = opcode_tokens[0];
 
-        let Some(&opcode) = kernel.opcode(opcode1) else {
+        // let Some(&opcode) = kernel.opcode(opcode1) else {
+        let Some(&opcode) = opcodes.get(opcode1) else {
             panic!("undefined opcode {opcode1}");
         };
 
@@ -402,7 +405,8 @@ impl WarpInstruction {
                     local_mem_base_addr,
                     local_mem_addr_limit,
                     ..
-                } = kernel.config().clone();
+                } = launch_config.clone();
+                // } = kernel.config().clone();
                 if shared_mem_base_addr == 0 || local_mem_base_addr == 0 {
                     // shmem and local addresses are not set
                     // assume all the mem reqs are shared by default

@@ -46,54 +46,15 @@ pub struct L2DCache {
 
 #[derive(Debug, PartialEq)]
 pub struct L1DCache {
-    /// L1 Hit Latency
-    pub l1_latency: usize, // 1
-    pub l1_hit_latency: usize, // 80
-    /// l1 banks hashing function
-    // pub l1_banks_hashing_function: Box<dyn cache::set_index::SetIndexer>, // 0
-    // pub l1_banks_hashing_function: CacheSetIndexFunc, // 0
+    /// L1 tag lookup latency
+    pub l1_latency: usize,
+    /// L1 hit latency
+    pub l1_hit_latency: usize,
     /// l1 banks byte interleaving granularity
-    pub l1_banks_byte_interleaving: usize, // 32
+    pub l1_banks_byte_interleaving: usize,
     /// The number of L1 cache banks
-    pub l1_banks: usize, // 1
-
+    pub l1_banks: usize,
     pub inner: Arc<Cache>,
-}
-
-impl L1DCache {
-    // // #[inline]
-    // #[must_use]
-    // pub fn l1_banks_log2(&self) -> u32 {
-    //     self.l1_banks.ilog2()
-    // }
-
-    // // #[inline]
-    // #[must_use]
-    // pub fn l1_banks_byte_interleaving_log2(&self) -> u32 {
-    //     self.l1_banks_byte_interleaving.ilog2()
-    // }
-
-    // // #[inline]
-    // #[must_use]
-    // pub fn compute_set_bank(&self, addr: address) -> u64 {
-    //     log::trace!(
-    //         "computing set bank for address {} ({} l1 banks) using hashing function {:?}",
-    //         addr,
-    //         self.l1_banks,
-    //         self.l1_banks_hashing_function
-    //     );
-    //
-    //     // For sector cache, we select one sector per bank (sector interleaving)
-    //     // This is what was found in Volta (one sector per bank, sector
-    //     // interleaving) otherwise, line interleaving
-    //
-    //     self.l1_banks_hashing_function.compute_set_index(
-    //         addr,
-    //         self.l1_banks,
-    //         self.l1_banks_byte_interleaving_log2(),
-    //         self.l1_banks_log2(),
-    //     )
-    // }
 }
 
 /// `CacheConfig` configures a generic cache
@@ -108,20 +69,16 @@ pub struct Cache {
     pub write_policy: cache::config::WritePolicy,
     pub allocate_policy: cache::config::AllocatePolicy,
     pub write_allocate_policy: cache::config::WriteAllocatePolicy,
-    // pub set_index_function: CacheSetIndexFunc,
-    // pub set_index_function: Box<dyn cache::set_index::SetIndexer>,
     pub mshr_kind: mshr::Kind,
     pub mshr_entries: usize,
     pub mshr_max_merge: usize,
 
     pub miss_queue_size: usize,
-    // pub result_fifo_entries: Option<usize>,
     /// L1D write ratio
-    pub l1_cache_write_ratio_percent: usize, // 0
+    pub l1_cache_write_ratio_percent: usize,
 
     // private (should be used with accessor methods)
     pub data_port_width: Option<usize>,
-    // pub accelsim_compat: bool,
 }
 
 impl std::fmt::Display for Cache {
@@ -181,30 +138,6 @@ impl Cache {
         // MAX_DEFAULT_CACHE_SIZE_MULTIPLIER
     }
 
-    // // #[inline]
-    // #[must_use]
-    // pub fn line_size_log2(&self) -> u32 {
-    //     self.line_size.ilog2()
-    // }
-
-    // // #[inline]
-    // #[must_use]
-    // pub fn num_sets_log2(&self) -> u32 {
-    //     self.num_sets.ilog2()
-    // }
-
-    // // #[inline]
-    // #[must_use]
-    // pub fn sector_size(&self) -> u32 {
-    //     mem_sub_partition::SECTOR_SIZE
-    // }
-    //
-    // // #[inline]
-    // #[must_use]
-    // pub fn sector_size_log2(&self) -> u32 {
-    //     mcu::logb2(self.sector_size())
-    // }
-
     // #[inline]
     #[must_use]
     pub fn atom_size(&self) -> u32 {
@@ -214,25 +147,6 @@ impl Cache {
             self.line_size
         }
     }
-
-    // // do not use enabled but options
-    // // #[inline]
-    // #[must_use]
-    // pub fn set_index(&self, addr: address) -> u64 {
-    //     self.set_index_function.compute_set_index(
-    //         addr,
-    //         self.num_sets,
-    //         self.line_size_log2(),
-    //         self.num_sets_log2(),
-    //     )
-    //     // hash_function(
-    //     //     addr,
-    //     //     self.num_sets,
-    //     //     self.line_size_log2(),
-    //     //     self.num_sets_log2(),
-    //     //     self.set_index_function,
-    //     // )
-    // }
 
     // #[inline]
     #[must_use]
@@ -694,6 +608,15 @@ impl GPU {
         self.parallelization != Parallelization::Serial
     }
 
+    pub fn kernel_window_size(&self) -> usize {
+        if self.concurrent_kernel_sm {
+            assert!(self.max_concurrent_kernels > 0);
+            self.max_concurrent_kernels
+        } else {
+            1
+        }
+    }
+
     pub fn shared_mem_bank(&self, addr: address) -> address {
         let num_banks = self.shared_memory_num_banks as u64;
         (addr / WORD_SIZE) % num_banks
@@ -707,12 +630,33 @@ impl GPU {
         self.num_simt_clusters * self.num_cores_per_simt_cluster
     }
 
-    pub fn global_core_id_to_cluster_id(&self, core_id: usize) -> usize {
-        core_id / self.num_cores_per_simt_cluster
+    pub fn cluster_and_core_id(&self, global_core_id: usize) -> (usize, usize) {
+        let cluster_id = global_core_id / self.num_cores_per_simt_cluster;
+        let core_id = global_core_id % self.num_cores_per_simt_cluster;
+        debug_assert!(cluster_id < self.num_simt_clusters);
+        debug_assert!(core_id < self.num_cores_per_simt_cluster);
+        (cluster_id, core_id)
     }
 
-    pub fn global_core_id_to_core_id(&self, core_id: usize) -> usize {
-        core_id % self.num_cores_per_simt_cluster
+    pub fn partition_and_sub_partition_id(&self, global_sub_partition_id: usize) -> (usize, usize) {
+        let partition_id = global_sub_partition_id / self.num_sub_partitions_per_memory_controller;
+        let sub_partition_id =
+            global_sub_partition_id % self.num_sub_partitions_per_memory_controller;
+        debug_assert!(partition_id < self.num_memory_controllers);
+        debug_assert!(sub_partition_id < self.num_sub_partitions_per_memory_controller);
+        (partition_id, sub_partition_id)
+    }
+
+    // pub fn global_core_id_to_cluster_id(&self, core_id: usize) -> usize {
+    //     core_id / self.num_cores_per_simt_cluster
+    // }
+    //
+    // pub fn global_core_id_to_core_id(&self, core_id: usize) -> usize {
+    //     core_id % self.num_cores_per_simt_cluster
+    // }
+
+    pub fn global_sub_partition_id(&self, partition_id: usize, sub_id: usize) -> usize {
+        partition_id * self.num_sub_partitions_per_memory_controller + sub_id
     }
 
     pub fn global_core_id(&self, cluster_id: usize, core_id: usize) -> usize {
@@ -1190,8 +1134,6 @@ impl Default for GPU {
                     allocate_policy: cache::config::AllocatePolicy::ON_MISS,
                     // write_allocate_policy: cache::config::WriteAllocatePolicy::LAZY_FETCH_ON_READ,
                     write_allocate_policy: cache::config::WriteAllocatePolicy::WRITE_ALLOCATE,
-                    // set_index_function: CacheSetIndexFunc::LINEAR_SET_FUNCTION,
-                    // set_index_function: Box::<cache::set_index::linear::SetIndex>::default(),
                     mshr_kind: mshr::Kind::ASSOC,
                     mshr_entries: 256,
                     mshr_max_merge: 64,
@@ -1336,7 +1278,7 @@ impl Default for GPU {
             compute_capability_major: 6,
             compute_capability_minor: 1,
             flush_l1_cache: true,
-            flush_l2_cache: true,
+            flush_l2_cache: false,
             max_concurrent_kernels: 32,
             // from gpgpusim.trace.config
             // trace_opcode_latency_initiation_int: (2, 2), // default 4, 1
@@ -1390,7 +1332,8 @@ impl Input {
         }
         is_baseline &= matches!(self.cores_per_cluster, Some(1) | None);
         is_baseline &= matches!(self.num_clusters, Some(28) | None);
-        // is_baseline &= matches!(self.memory_only, Some(false) | None);
+        // remove memory only from baseline
+        is_baseline &= matches!(self.memory_only, Some(false) | None);
         is_baseline
     }
 }

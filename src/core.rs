@@ -466,7 +466,10 @@ pub struct Core<I, MC> {
 
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<MC>,
-    pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
+
+    // pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
+    pub current_kernel: Option<Arc<dyn Kernel>>,
+
     pub current_kernel_max_blocks: usize,
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
@@ -489,7 +492,7 @@ pub struct Core<I, MC> {
     pub allocations: super::allocation::Ref,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
-    pub need_l1_flush: Mutex<bool>,
+    // pub need_l1_flush: Mutex<bool>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<warp::Warp>,
     pub thread_state: Vec<Option<ThreadState>>,
@@ -689,7 +692,8 @@ where
             allocations,
             config,
             mem_controller,
-            current_kernel: Mutex::new(None),
+            // current_kernel: Mutex::new(None),
+            current_kernel: None,
             current_kernel_max_blocks: 0,
             last_warp_fetched: None,
             active_thread_mask: BitArray::ZERO,
@@ -705,7 +709,7 @@ where
             block_status: utils::box_slice![0; 32],
             instr_l1_cache: Box::new(instr_l1_cache),
             please_fill: Mutex::new(Vec::new()),
-            need_l1_flush: Mutex::new(false),
+            // need_l1_flush: Mutex::new(false),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
             mem_port,
@@ -1236,6 +1240,7 @@ where
         self.load_store_unit.invalidate();
     }
 
+    // this is very bad: expose the underlying queue with a mutex
     #[must_use]
     // #[inline]
     pub fn ldst_unit_response_buffer_full(&self) -> bool {
@@ -1404,7 +1409,14 @@ where
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
         let mut warps = WarpMask::ZERO;
-        let block = kernel.next_block().expect("kernel has current block");
+
+        let mut block_reader = kernel.next_block_reader().lock();
+        // let block_reader_lock = block.reader_
+        let block = block_reader
+            .current_block()
+            .expect("kernel has current block");
+        // let block = kernel.next_block().expect("kernel has current block");
+
         log::debug!(
             "core {:?}: issue block {} from kernel {}",
             self.id(),
@@ -1453,7 +1465,14 @@ where
 
         self.barriers.allocate(free_block_hw_id as u64, warps);
 
-        self.init_warps(free_block_hw_id, start_thread, end_thread, block_id, kernel);
+        self.init_warps(
+            kernel,
+            &mut *block_reader,
+            free_block_hw_id,
+            block_id,
+            start_thread,
+            end_thread,
+        );
         self.num_active_blocks += 1;
     }
 }
@@ -1597,7 +1616,9 @@ where
         block_hw_id: usize,
         kernel: &Option<Arc<dyn Kernel>>,
     ) {
-        let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
+        // let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
+        let current_kernel: &mut Option<_> = &mut self.current_kernel;
+
         debug_assert!(block_hw_id < self.block_status.len());
         debug_assert!(self.block_status[block_hw_id] > 0);
         self.block_status[block_hw_id] -= 1;
@@ -1835,6 +1856,7 @@ where
     fn init_warps_from_traces(
         &mut self,
         kernel: &Arc<dyn Kernel>,
+        reader: &mut dyn crate::trace::ReadWarpsForBlock,
         start_warp: usize,
         end_warp: usize,
     ) {
@@ -1846,11 +1868,11 @@ where
             warp.trace_pc = 0;
         }
 
-        let have_block = crate::timeit!(
+        let (block, _) = crate::timeit!(
             "core::read_trace",
-            kernel.next_threadblock_traces(selected_warps, &self.config)
+            reader.read_warps_for_block(selected_warps, &**kernel, &self.config)
         );
-        if have_block {
+        if block.is_some() {
             let kernel_stats = self.stats.get_mut(Some(kernel.id() as usize));
             kernel_stats.sim.num_blocks += 1;
         }
@@ -1866,11 +1888,12 @@ where
     // #[inline]
     fn init_warps(
         &mut self,
+        kernel: &Arc<dyn Kernel>,
+        reader: &mut dyn crate::trace::ReadWarpsForBlock,
         block_hw_id: usize,
+        block_id: u64,
         start_thread: usize,
         end_thread: usize,
-        block_id: u64,
-        kernel: &Arc<dyn Kernel>,
     ) {
         // let threads_per_block = kernel.threads_per_block();
         let start_warp = start_thread / self.config.warp_size;
@@ -1917,17 +1940,18 @@ where
             block_id,
             block_hw_id,
         );
-        self.init_warps_from_traces(kernel, start_warp, end_warp);
+        self.init_warps_from_traces(kernel, reader, start_warp, end_warp);
     }
 }
 
-impl<I, MC> crate::engine::cycle::Component for Core<I, MC>
+// impl<I, MC> crate::engine::cycle::Component for Core<I, MC>
+impl<I, MC> Core<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
     MC: crate::mcu::MemoryController,
 {
     #[tracing::instrument(name = "core_cycle")]
-    fn cycle(&mut self, cycle: u64) {
+    pub fn cycle(&mut self, cycle: u64) {
         log::debug!(
             "{} \tactive={}, not completed={} ldst unit response buffer={}",
             style(format!(

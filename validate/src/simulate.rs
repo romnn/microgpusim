@@ -65,7 +65,7 @@ pub fn simulate_bench_config(
             traces_dir.to_path_buf(),
         )
     };
-    sim.add_commands(commands_path, traces_dir)?;
+    sim.trace.add_commands(commands_path, traces_dir)?;
     let dur = sim.run()?;
 
     let stats = sim.stats();

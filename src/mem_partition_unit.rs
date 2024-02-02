@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{
     address, arbitration, config, dram, ic::Packet, mem_fetch,
     mem_sub_partition::MemorySubPartition,
@@ -10,12 +10,14 @@ use trace_model::ToBitString;
 pub struct MemoryPartitionUnit<MC> {
     id: usize,
     dram: dram::DRAM,
-    pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
-    pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<MC>>>>,
-    pub arbiter: Box<dyn arbitration::Arbiter>,
-
     config: Arc<config::GPU>,
     stats: stats::PerKernel,
+
+    // pub sub_partitions: Vec<Arc<Mutex<MemorySubPartition<MC>>>>,
+    pub sub_partitions: Box<[MemorySubPartition<MC>]>,
+
+    pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
+    pub arbiter: Box<dyn arbitration::Arbiter>,
 }
 
 impl<MC> std::fmt::Debug for MemoryPartitionUnit<MC> {
@@ -30,16 +32,18 @@ where
 {
     pub fn new(partition_id: usize, config: Arc<config::GPU>, mem_controller: Arc<MC>) -> Self {
         let num_sub_partitions = config.num_sub_partitions_per_memory_controller;
-        let sub_partitions: Vec<_> = (0..num_sub_partitions)
+        let sub_partitions: Box<[_]> = (0..num_sub_partitions)
             .map(|local_sub_id| {
                 let global_sub_id = partition_id * num_sub_partitions + local_sub_id;
-
-                Arc::new(Mutex::new(MemorySubPartition::new(
+                let sub = MemorySubPartition::new(
                     global_sub_id,
+                    local_sub_id,
                     partition_id,
                     Arc::clone(&config),
                     mem_controller.clone(),
-                )))
+                );
+                sub
+                // Arc::new(Mutex::new(sub))
             })
             .collect();
 
@@ -66,20 +70,20 @@ where
 
     #[deprecated = "accelsim compat mode"]
     pub fn memcpy_to_gpu_accelsim_compat(
-        &self,
+        &mut self,
         addr: address,
-        global_subpart_id: usize,
+        global_sub_partition_id: usize,
         sector_mask: &mem_fetch::SectorMask,
         time: u64,
     ) {
-        let local_subpart_id = self.global_sub_partition_id_to_local_id(global_subpart_id);
+        let local_sub_id = self.global_sub_partition_id_to_local_id(global_sub_partition_id);
 
         log::trace!(
             "copy engine request received for address={}, local_subpart={}, global_subpart={}, sector_mask={}",
-            addr, local_subpart_id, global_subpart_id, sector_mask.to_bit_string());
+            addr, local_sub_id , global_sub_partition_id, sector_mask.to_bit_string());
 
-        self.sub_partitions[local_subpart_id]
-            .lock()
+        self.sub_partitions[local_sub_id]
+            // .lock()
             .force_l2_tag_update(addr, sector_mask, time);
     }
 }
@@ -88,11 +92,13 @@ impl<MC> MemoryPartitionUnit<MC> {
     #[must_use]
     // #[inline]
     pub fn busy(&self) -> bool {
-        self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
+        // self.sub_partitions.iter().any(|sub| sub.try_lock().busy())
+        self.sub_partitions.iter().any(|sub| sub.busy())
     }
 
     #[must_use]
     // #[inline]
+    // todo: replace
     fn global_sub_partition_id_to_local_id(&self, global_sub_partition_id: usize) -> usize {
         let mut local_id = global_sub_partition_id;
         local_id -= self.id * self.config.num_sub_partitions_per_memory_controller;
@@ -102,19 +108,20 @@ impl<MC> MemoryPartitionUnit<MC> {
     // #[inline]
     pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
         use mem_fetch::access::Kind as AccessKind;
-        let global_spid = fetch.sub_partition_id();
-        let sub_partition_id = self.global_sub_partition_id_to_local_id(global_spid);
-        let mut sub = self.sub_partitions[sub_partition_id].try_lock();
-        debug_assert_eq!(sub.id, global_spid);
+        let global_sub_id = fetch.sub_partition_id();
+        let sub_id = self.global_sub_partition_id_to_local_id(global_sub_id);
+        // let mut sub = self.sub_partitions[sub_partition_id].try_lock();
+        let sub = &mut self.sub_partitions[sub_id];
+        debug_assert_eq!(sub.global_id, global_sub_id);
         if matches!(
             fetch.access_kind(),
             AccessKind::L1_WRBK_ACC | AccessKind::L2_WRBK_ACC
         ) {
-            self.arbiter.return_credit(sub_partition_id);
+            self.arbiter.return_credit(sub_id);
             log::trace!(
                 "mem_fetch request {} return from dram to sub partition {}",
                 fetch,
-                sub_partition_id
+                global_sub_id
             );
         }
         sub.set_done(fetch);
@@ -156,18 +163,19 @@ impl<MC> MemoryPartitionUnit<MC> {
                     returned_fetch.is_write()
                 );
 
-                let dest_global_spid = returned_fetch.sub_partition_id();
+                let dest_global_sub_id = returned_fetch.sub_partition_id();
                 // dbg!(
                 //     &dest_global_spid,
                 //     self.id,
                 //     self.config.num_sub_partitions_per_memory_controller
                 // );
                 // assert!(dest_global_spid < self.sub_partitions.len());
-                let dest_spid = self.global_sub_partition_id_to_local_id(dest_global_spid);
+                let dest_sub_id = self.global_sub_partition_id_to_local_id(dest_global_sub_id);
                 // assert!(dest_spid >= self.id);
                 // dbg!(&dest_spid);
-                let mut sub = self.sub_partitions[dest_spid].try_lock();
-                assert_eq!(sub.id, dest_global_spid);
+                // let mut sub = self.sub_partitions[dest_spid].try_lock();
+                let sub = &mut self.sub_partitions[dest_sub_id];
+                assert_eq!(sub.global_id, dest_global_sub_id);
 
                 // depending on which sub the fetch is for, we race for the sub
 
@@ -185,7 +193,7 @@ impl<MC> MemoryPartitionUnit<MC> {
                     } else {
                         returned_fetch
                             .set_status(mem_fetch::Status::IN_PARTITION_DRAM_TO_L2_QUEUE, 0);
-                        self.arbiter.return_credit(dest_spid);
+                        self.arbiter.return_credit(dest_sub_id);
                         // log::debug!(
                         //     "mem_fetch request {:?} return from dram to sub partition {}",
                         //     returned_fetch, dest_spid
@@ -208,7 +216,8 @@ impl<MC> MemoryPartitionUnit<MC> {
         let last_issued_partition = self.arbiter.last_borrower();
         for sub_id in 0..self.sub_partitions.len() {
             let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
-            let sub = self.sub_partitions[spid].try_lock();
+            // let sub = self.sub_partitions[spid].try_lock();
+            let sub = &self.sub_partitions[spid];
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();
             let has_dram_resource = self.arbiter.has_credits(spid);
@@ -265,7 +274,7 @@ impl<MC> MemoryPartitionUnit<MC> {
                     log::debug!(
                         "simple dram: issue {} from sub partition {} to DRAM",
                         &fetch,
-                        sub.id
+                        sub.global_id
                     );
                     // log::debug!(
                     //     "issue mem_fetch request {:?} from sub partition {} to dram",
@@ -275,7 +284,7 @@ impl<MC> MemoryPartitionUnit<MC> {
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_DRAM_LATENCY_QUEUE, 0);
 
                     // dbg!(self.id, sub.id, sub.partition_id);
-                    assert!(self.id <= sub.id);
+                    assert!(self.id <= sub.global_id);
                     assert!(fetch.sub_partition_id() >= self.id, "fetch {}: sub partition from l2 to DRAM does no longer match (have {} but want >{})", fetch, fetch.sub_partition_id(), self.id);
                     self.dram_latency_queue.push_back((ready_cycle, fetch));
                     self.arbiter.borrow_credit(spid);

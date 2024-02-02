@@ -146,7 +146,8 @@ pub fn breakdown_request_to_sector_requests<'c>(
 }
 
 pub struct MemorySubPartition<MC> {
-    pub id: usize,
+    pub global_id: usize,
+    pub local_id: usize,
     pub partition_id: usize,
     pub config: Arc<config::GPU>,
     pub mem_controller: Arc<MC>,
@@ -156,6 +157,7 @@ pub struct MemorySubPartition<MC> {
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     // pub interconn_to_l2_queue: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>,
     pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
+    // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     /// L2 cache hit response queue
     pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
@@ -180,18 +182,20 @@ where
     MC: crate::mcu::MemoryController,
 {
     pub fn new(
-        id: usize,
+        global_id: usize,
+        local_id: usize,
         partition_id: usize,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
     ) -> Self {
         let interconn_to_l2_queue =
             Fifo::new(Some(0), Some(config.dram_partition_queue_interconn_to_l2));
-        let l2_to_dram_queue = Arc::new(Mutex::new(Fifo::new(
-            Some(0),
-            Some(config.dram_partition_queue_l2_to_dram),
-        )));
+
+        let l2_to_dram_queue = Fifo::new(Some(0), Some(config.dram_partition_queue_l2_to_dram));
+        let l2_to_dram_queue = Arc::new(Mutex::new(l2_to_dram_queue));
+
         let dram_to_l2_queue = Fifo::new(Some(0), Some(config.dram_partition_queue_dram_to_l2));
+
         let l2_to_interconn_queue =
             Fifo::new(Some(0), Some(config.dram_partition_queue_l2_to_interconn));
 
@@ -199,8 +203,8 @@ where
             match &config.data_cache_l2 {
                 Some(l2_config) => {
                     let mut data_l2 = cache::DataL2::new(
-                        format!("mem-sub-{:03}-{}", id, style("L2-CACHE").blue()),
-                        id,
+                        format!("mem-sub-{:03}-{}", global_id, style("L2-CACHE").blue()),
+                        global_id,
                         config.clone(),
                         mem_controller.clone(),
                         l2_config.clone(),
@@ -213,10 +217,9 @@ where
 
         let stats = stats::PerKernel::new(config.as_ref().into());
         Self {
-            id,
+            global_id,
+            local_id,
             partition_id,
-            // cluster_id,
-            // core_id,
             config,
             mem_controller,
             stats,
@@ -239,7 +242,7 @@ where
             let l2d = l2d.per_kernel_stats().clone();
             for (kernel_launch_id, cache_stats) in l2d.into_iter().enumerate() {
                 let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-                kernel_stats.l2d_stats[self.id] += cache_stats.clone();
+                kernel_stats.l2d_stats[self.global_id] += cache_stats.clone();
             }
         }
         stats
@@ -352,10 +355,10 @@ where
             debug_assert!(
                 sector_sub_partitions
                     .iter()
-                    .all(|sub_id| *sub_id == self.id),
+                    .all(|sub_id| *sub_id == self.global_id),
                 "breakdown {} (sub partition {}) to sectors: sub partition {} has got requests for sub partitions {:?}",
                 original_fetch, original_fetch.sub_partition_id(), 
-                self.id,
+                self.global_id,
                 sector_sub_partitions,
             );
         }
@@ -463,7 +466,7 @@ impl<MC> MemorySubPartition<MC> {
         let log_line = || {
             style(format!(
                 " => memory sub partition[{}] cache cycle {}",
-                self.id, cycle
+                self.global_id, cycle
             ))
             .blue()
         };
@@ -576,7 +579,7 @@ impl<MC> MemorySubPartition<MC> {
         let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
         if !l2_to_dram_queue.full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first().map(Packet::as_ref) {
-                debug_assert_eq!(fetch.sub_partition_id(), self.id);
+                debug_assert_eq!(fetch.sub_partition_id(), self.global_id);
                 if let Some(ref mut l2_cache) = self.l2_cache {
                     if !self.config.data_cache_l2_texture_only || fetch.is_texture() {
                         // L2 is enabled and access is for L2
@@ -661,7 +664,7 @@ impl<MC> MemorySubPartition<MC> {
                     let mut fetch = self.interconn_to_l2_queue.dequeue().unwrap();
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_TO_DRAM_QUEUE, 0);
 
-                    debug_assert!(fetch.sub_partition_id() >= self.id);
+                    debug_assert!(fetch.sub_partition_id() >= self.global_id);
                     l2_to_dram_queue.enqueue(fetch);
                 }
             }

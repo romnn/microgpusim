@@ -72,8 +72,6 @@ where
     }
 }
 
-// kind: cache::data::Kind::OffChip,
-
 impl<MC, CC, S> Data<MC, CC, S> {
     // impl<CC, S> Data<CC, S> {
     // #[inline]
@@ -951,12 +949,11 @@ where
     }
 }
 
-impl<MC, CC, S> crate::engine::cycle::Component for Data<MC, CC, S> {
-    // impl<CC, S> crate::engine::cycle::Component for Data<CC, S> {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
-    }
-}
+// impl<MC, CC, S> crate::engine::cycle::Component for Data<MC, CC, S> {
+//     pub fn cycle(&mut self, cycle: u64) {
+//         self.inner.cycle(cycle);
+//     }
+// }
 
 impl<MC, CC> cache::Cache<stats::cache::PerKernel> for Data<MC, CC, stats::cache::PerKernel>
 // impl<CC> cache::Cache<stats::cache::PerKernel> for Data<CC, stats::cache::PerKernel>
@@ -964,6 +961,10 @@ where
     MC: crate::mcu::MemoryController,
     CC: cache::CacheController,
 {
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

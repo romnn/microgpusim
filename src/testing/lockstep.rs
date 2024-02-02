@@ -38,7 +38,8 @@ fn gather_simulation_state(
     );
 
     let num_partitions = box_sim.mem_partition_units.len();
-    let num_sub_partitions = box_sim.mem_sub_partitions.len();
+    // let num_sub_partitions = box_sim.mem_sub_partitions.len();
+    let num_sub_partitions = box_sim.config.total_sub_partitions();
 
     let l1_config = box_sim.config.data_cache_l1.as_ref();
     let num_l1_banks = l1_config.map(|l1| l1.l1_banks).unwrap_or(0);
@@ -57,7 +58,7 @@ fn gather_simulation_state(
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
         for (core_id, core) in cluster.cores.iter().enumerate() {
-            let core = core.try_read();
+            // let core = core.try_read();
             let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
             assert_eq!(core.core_id, global_core_id);
 
@@ -185,7 +186,7 @@ fn gather_simulation_state(
     }
 
     for (partition_id, partition) in box_sim.mem_partition_units.iter().enumerate() {
-        let partition = partition.try_read();
+        // let partition = partition.try_read();
         box_sim_state.dram_latency_queue_per_partition[partition_id].extend(
             partition
                 .dram_latency_queue
@@ -203,44 +204,49 @@ fn gather_simulation_state(
             private_credit: arbiter.private_credit.clone().into(),
         };
     }
-    for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
-        let sub = sub.try_lock();
-        let l2_cache = sub.l2_cache.as_ref().unwrap();
-        let l2_cache: &cache::DataL2<MCU> = l2_cache.as_any().downcast_ref().unwrap();
+    for partition in box_sim.mem_partition_units.iter() {
+        for mem_sub in partition.sub_partitions.iter() {
+            // for (sub_id, sub) in box_sim.mem_sub_partitions.iter().enumerate() {
+            // let sub = sub.try_lock();
 
-        box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
+            let sub_id = mem_sub.global_id;
+            let l2_cache = mem_sub.l2_cache.as_ref().unwrap();
+            let l2_cache: &cache::DataL2<MCU> = l2_cache.as_any().downcast_ref().unwrap();
 
-        box_sim_state.rop_queue_per_sub[sub_id] = sub
-            .rop_queue
-            .clone()
-            .into_iter()
-            .map(|(ready, fetch)| (ready, fetch.into()))
-            .collect();
+            box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
 
-        for (dest_queue, src_queue) in [
-            (
-                &mut box_sim_state.interconn_to_l2_queue_per_sub[sub_id],
-                &sub.interconn_to_l2_queue,
-            ),
-            (
-                &mut box_sim_state.l2_to_interconn_queue_per_sub[sub_id],
-                &sub.l2_to_interconn_queue,
-            ),
-            (
-                &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
-                &sub.l2_to_dram_queue.lock(),
-            ),
-            (
-                &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],
-                &sub.dram_to_l2_queue,
-            ),
-        ] {
-            *dest_queue = src_queue
+            box_sim_state.rop_queue_per_sub[sub_id] = mem_sub
+                .rop_queue
                 .clone()
                 .into_iter()
-                .map(ic::Packet::into_inner)
-                .map(Into::into)
+                .map(|(ready, fetch)| (ready, fetch.into()))
                 .collect();
+
+            for (dest_queue, src_queue) in [
+                (
+                    &mut box_sim_state.interconn_to_l2_queue_per_sub[sub_id],
+                    &mem_sub.interconn_to_l2_queue,
+                ),
+                (
+                    &mut box_sim_state.l2_to_interconn_queue_per_sub[sub_id],
+                    &mem_sub.l2_to_interconn_queue,
+                ),
+                (
+                    &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
+                    &mem_sub.l2_to_dram_queue.lock(),
+                ),
+                (
+                    &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],
+                    &mem_sub.dram_to_l2_queue,
+                ),
+            ] {
+                *dest_queue = src_queue
+                    .clone()
+                    .into_iter()
+                    .map(ic::Packet::into_inner)
+                    .map(Into::into)
+                    .collect();
+            }
         }
     }
 
@@ -490,7 +496,9 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let mut box_sim = crate::config::GTX1080::new(box_config);
     assert!(!box_sim.config.is_parallel_simulation());
 
-    box_sim.add_commands(&box_commands_path, box_traces_dir)?;
+    box_sim
+        .trace
+        .add_commands(&box_commands_path, box_traces_dir)?;
 
     let args = vec![
         "-trace".to_string(),
@@ -941,7 +949,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
             //     .cycles += 1;
             // box_sim.set_cycle(cycle);
 
-            if let Some(kernel) = box_sim.finished_kernel() {
+            if let Some(kernel) = box_sim.kernel_manager.get_finished_kernel() {
                 box_sim.cleanup_finished_kernel(&*kernel, box_cycle);
             }
             box_time_other += start.elapsed();

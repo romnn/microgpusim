@@ -59,11 +59,11 @@ impl ReadOnly {
     }
 }
 
-impl crate::engine::cycle::Component for ReadOnly {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
-    }
-}
+// impl crate::engine::cycle::Component for ReadOnly {
+//     fn cycle(&mut self, cycle: u64) {
+//         self.inner.cycle(cycle);
+//     }
+// }
 
 impl cache::Bandwidth for ReadOnly {
     // #[inline]
@@ -78,6 +78,10 @@ impl cache::Bandwidth for ReadOnly {
 }
 
 impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
+    fn cycle(&mut self, cycle: u64) {
+        self.inner.cycle(cycle);
+    }
+
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self

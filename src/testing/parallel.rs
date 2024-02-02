@@ -1,5 +1,5 @@
 use super::asserts;
-use super::stats::{percentage_error, PercentageError};
+use super::stats::{normalized_percentage_error, percentage_error, PercentageError};
 use crate::sync::Arc;
 use crate::{config, interconn as ic};
 use color_eyre::eyre;
@@ -78,7 +78,9 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
 
     let start = Instant::now();
     let mut box_sim = crate::MockSimulator::new(box_interconn, mem_controller, box_config);
-    box_sim.add_commands(box_commands_path, box_trace_dir)?;
+    box_sim
+        .trace
+        .add_commands(box_commands_path, box_trace_dir)?;
 
     // {
     //     box_sim.parallel_simulation = false;
@@ -166,25 +168,15 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     serial_config.parallelization = config::Parallelization::Serial;
     serial_config.accelsim_compat = false;
     serial_config.fill_l2_on_memcopy = true;
-    serial_config.perfect_inst_const_cache = false;
+    // serial_config.perfect_inst_const_cache = false;
     // serial_config.flush_l1_cache = true;
     // serial_config.flush_l2_cache = false;
-    // serial_config.num_simt_clusters = 28;
-
-    // scale up clusters
-    // serial_config.num_simt_clusters = 152;
-    // serial_config.num_cores_per_simt_cluster = 1;
 
     // scale up cores per cluster
     serial_config.num_simt_clusters = 28;
     if let Some(cores_per_cluster) = cores_per_cluster {
         serial_config.num_cores_per_simt_cluster = cores_per_cluster;
     }
-    // serial_config.num_cores_per_simt_cluster = 4;
-
-    // serial_config.num_schedulers_per_core = 4;
-    // serial_config.num_memory_controllers = 12;
-    // serial_config.num_sub_partitions_per_memory_controller = 2;
 
     let mut parallel_config = serial_config.clone();
 
@@ -204,18 +196,20 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     let (parallel_dur, parallel_stats) = {
         let start = Instant::now();
         let parallel_sim = crate::accelmain(traces_dir, parallel_config)?;
+        let dur = start.elapsed();
         let parallel_stats = parallel_sim.stats().reduce();
         let _kernel_dur = Duration::from_millis(parallel_stats.sim.elapsed_millis as u64);
-        (start.elapsed(), parallel_stats)
+        (dur, parallel_stats)
     };
     dbg!(&parallel_dur);
 
     let (serial_dur, serial_stats) = {
         let start = Instant::now();
         let serial_sim = crate::accelmain(traces_dir, serial_config)?;
+        let dur = start.elapsed();
         let serial_stats = serial_sim.stats().reduce();
         let _kernel_dur = Duration::from_millis(serial_stats.sim.elapsed_millis as u64);
-        (start.elapsed(), serial_stats)
+        (dur, serial_stats)
     };
     dbg!(&serial_dur);
 
@@ -255,28 +249,36 @@ impl<'a> std::fmt::Debug for AccessID<'a> {
 }
 
 pub fn cache_err<'a>(
-    left: &'a stats::Cache,
-    right: &'a stats::Cache,
+    want_stats: &'a stats::Cache,
+    have_stats: &'a stats::Cache,
 ) -> Vec<(AccessID<'a>, (usize, usize), PercentageError)> {
-    left.union(&right)
-        .map(|((alloc_id, access), (l, r))| {
-            (AccessID((alloc_id, access)), (l, r), percentage_error(l, r))
-        })
+    let stats = have_stats.union(&want_stats);
+    stats
+        .map(
+            |((alloc_id, access @ AccessStatus((kind, stat))), (want, have))| {
+                let norm = want_stats.count_accesses_of_kind(*kind);
+                (
+                    AccessID((alloc_id, &access)),
+                    (want, have),
+                    normalized_percentage_error(want, have, norm),
+                )
+            },
+        )
         .filter(|(_, _, err)| *err != 0.0)
         .collect()
 }
 
 pub fn dram_err<'a>(
-    left: &'a IndexMap<stats::mem::AccessKind, u64>,
-    right: &'a IndexMap<stats::mem::AccessKind, u64>,
+    want: &'a IndexMap<stats::mem::AccessKind, u64>,
+    have: &'a IndexMap<stats::mem::AccessKind, u64>,
 ) -> Vec<(&'a stats::mem::AccessKind, PercentageError)> {
-    let union: IndexSet<_> = left.keys().chain(right.keys()).sorted().collect();
+    let union: IndexSet<_> = want.keys().chain(have.keys()).sorted().collect();
     union
         .into_iter()
         .map(|k| {
-            let l = left.get(k).copied().unwrap_or(0);
-            let r = right.get(k).copied().unwrap_or(0);
-            (k, percentage_error(l, r))
+            let have = have.get(k).copied().unwrap_or(0);
+            let want = want.get(k).copied().unwrap_or(0);
+            (k, percentage_error(want, have))
         })
         .filter(|(_, err)| *err != 0.0)
         .collect()
