@@ -309,58 +309,77 @@ where
 
         for core_id in 0..num_cores {
             let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
-            let core = &self.cores[core_id];
-            // let core = self.cores[core_id].read();
-
-            // let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
-            //     // always select latest issued kernel
-            //     // kernel = sim.select_kernel()
-            //     // sim.select_kernel().map(Arc::clone);
-            //     unimplemented!("concurrent kernel sm");
-            // } else {
-            // let mut current_kernel: Option<Arc<_>> = core.current_kernel.try_lock().as_ref().map(Arc::clone);
-
-            let mut current_kernel = core.current_kernel.as_ref().map(Arc::clone);
-            let should_select_new_kernel = if let Some(ref current) = current_kernel {
-                // if no more blocks left, get new kernel once current block completes
-                current.no_more_blocks_to_run() && core.num_active_threads() == 0
-            } else {
-                // core was not assigned a kernel yet
-                true
-            };
-
-            if should_select_new_kernel {
-                current_kernel = kernel_manager.select_kernel();
-            }
-
-            if let Some(kernel) = current_kernel {
-                log::debug!(
-                    "core {}-{}: selected kernel {} more blocks={} can issue={}",
-                    self.cluster_id,
-                    core_id,
-                    kernel,
-                    !kernel.no_more_blocks_to_run(),
-                    core.can_issue_block(&*kernel),
-                );
-
-                let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel);
-                // drop(core);
-                if can_issue {
-                    // let mut core = self.cores[core_id].write();
-                    let core = &mut self.cores[core_id];
-                    core.issue_block(&kernel, cycle);
-                    num_blocks_issued += 1;
-                    self.block_issue_next_core = core_id;
-                    break;
-                }
-            } else {
-                log::debug!(
-                    "core {}-{}: selected kernel NULL",
-                    self.cluster_id,
-                    core.core_id,
-                );
+            let core = &mut self.cores[core_id];
+            let issued = core.issue_block(kernel_manager, cycle);
+            if issued {
+                num_blocks_issued += 1;
+                self.block_issue_next_core = core_id;
+                break;
             }
         }
+
+        //     // let core = self.cores[core_id].read();
+        //
+        //     // let kernel: Option<Arc<Kernel>> = if self.config.concurrent_kernel_sm {
+        //     //     // always select latest issued kernel
+        //     //     // kernel = sim.select_kernel()
+        //     //     // sim.select_kernel().map(Arc::clone);
+        //     //     unimplemented!("concurrent kernel sm");
+        //     // } else {
+        //     // let mut current_kernel: Option<Arc<_>> = core.current_kernel.try_lock().as_ref().map(Arc::clone);
+        //
+        //     // let mut current_kernel = core.current_kernel.as_ref(); // .map(Arc::clone);
+        //     // let current_kernel = &mut core.current_kernel; // .map(Arc::clone);
+        //
+        //     let should_select_new_kernel = if let Some(ref current) = core.current_kernel {
+        //         // if no more blocks left, get new kernel once current block completes
+        //         current.no_more_blocks_to_run() && core.num_active_threads() == 0
+        //     } else {
+        //         // core was not assigned a kernel yet
+        //         true
+        //     };
+        //
+        //     if should_select_new_kernel {
+        //         core.current_kernel = kernel_manager.select_kernel();
+        //     } else {
+        //     }
+        //
+        //     // let mut new_kernel = None;
+        //     // if should_select_new_kernel {
+        //     //     new_kernel = kernel_manager.select_kernel();
+        //     // }
+        //     // if should_select_new_kernel {
+        //     //     current_kernel = new_kernel.as_ref();
+        //     // }
+        //
+        //     if let Some(kernel) = core.current_kernel.as_deref() {
+        //         log::debug!(
+        //             "core {}-{}: selected kernel {} more blocks={} can issue={}",
+        //             self.cluster_id,
+        //             core_id,
+        //             kernel,
+        //             !kernel.no_more_blocks_to_run(),
+        //             core.can_issue_block(&*kernel),
+        //         );
+        //
+        //         let can_issue = !kernel.no_more_blocks_to_run() && core.can_issue_block(&*kernel);
+        //         // drop(core);
+        //         if can_issue {
+        //             // let mut core = self.cores[core_id].write();
+        //             // let core = &mut self.cores[core_id];
+        //             core.issue_block(&*kernel, cycle);
+        //             num_blocks_issued += 1;
+        //             self.block_issue_next_core = core_id;
+        //             break;
+        //         }
+        //     } else {
+        //         log::debug!(
+        //             "core {}-{}: selected kernel NULL",
+        //             self.cluster_id,
+        //             core.core_id,
+        //         );
+        //     }
+        // }
         num_blocks_issued
     }
 }

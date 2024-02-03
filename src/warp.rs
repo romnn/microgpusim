@@ -10,7 +10,9 @@ pub struct Warp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,
     pub warp_id: usize,
-    pub kernel: Option<Arc<dyn Kernel>>,
+
+    // pub kernel: Option<Arc<dyn Kernel>>,
+    pub kernel_id: Option<u64>,
     pub trace_pc: usize,
     pub active_mask: ActiveMask,
     pub trace_instructions: VecDeque<WarpInstruction>,
@@ -125,7 +127,8 @@ impl Default for Warp {
             block_id: 0,
             dynamic_warp_id: u32::MAX as usize,
             warp_id: u32::MAX as usize,
-            kernel: None,
+            kernel_id: None,
+            // kernel: None,
             trace_pc: 0,
             trace_instructions: VecDeque::new(),
             active_mask: ActiveMask::ZERO,
@@ -148,13 +151,15 @@ impl Warp {
         warp_id: usize,
         dynamic_warp_id: usize,
         active_mask: ActiveMask,
-        kernel: Arc<dyn Kernel>,
+        kernel_id: u64,
+        // kernel: Arc<dyn Kernel>,
     ) {
         self.block_id = block_id;
         self.warp_id = warp_id;
         self.dynamic_warp_id = dynamic_warp_id;
         self.done_exit = false;
-        self.kernel = Some(kernel);
+        self.kernel_id = Some(kernel_id);
+        // self.kernel = Some(kernel);
         self.active_mask = active_mask;
     }
 

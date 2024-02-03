@@ -877,7 +877,12 @@ where
                     let warp_id = (last + 1 + i) % max_warps;
 
                     let warp = self.warps.get(warp_id).unwrap();
-                    debug_assert!(warp.warp_id == warp_id || warp.warp_id == u32::MAX as usize);
+
+                    if warp.warp_id != u32::MAX as usize {
+                        debug_assert_eq!(warp.warp_id, warp_id);
+                    }
+
+                    let kernel_id = warp.kernel_id;
 
                     let block_hw_id = warp.block_id as usize;
                     debug_assert!(
@@ -886,7 +891,7 @@ where
                     );
 
                     // todo: how expensive are arc clones?
-                    let kernel = warp.kernel.as_ref().map(Arc::clone);
+                    // let kernel = warp.kernel.as_ref().map(Arc::clone);
 
                     let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
 
@@ -910,7 +915,8 @@ where
                                         block_hw_id,
                                         self.block_status[block_hw_id]
                                     );
-                                    self.register_thread_in_block_exited(block_hw_id, &kernel);
+                                    self.register_thread_in_block_exited(block_hw_id, kernel_id);
+                                    // self.register_thread_in_block_exited(block_hw_id, &kernel);
 
                                     // if let Some(Some(thread_info)) =
                                     //     self.thread_info.get(tid).map(Option::as_ref)
@@ -1383,49 +1389,127 @@ where
     }
 
     #[tracing::instrument(name = "core_issue_block")]
-    pub fn issue_block(&mut self, kernel: &Arc<dyn Kernel>, cycle: u64) {
+    // pub fn issue_block(&mut self, kernel: &dyn Kernel, cycle: u64) {
+    pub fn issue_block(
+        &mut self,
+        kernel_manager: &dyn crate::kernel_manager::SelectKernel,
+        cycle: u64,
+    ) -> bool {
         log::debug!("core {:?}: issue block", self.id());
-        if self.config.concurrent_kernel_sm {
-            // let occupied = self.occupy_resource_for_block(&*kernel, true);
-            // assert!(occupied);
-            unimplemented!("concurrent kernel sm");
+
+        // select a kernel
+        let should_select_new_kernel = if let Some(ref current) = self.current_kernel {
+            // if no more blocks left, get new kernel once current block completes
+            current.no_more_blocks_to_run() && self.num_active_threads() == 0
         } else {
-            // calculate the max cta count and cta size for local memory address mapping
-            // self.max_blocks_per_sm = self.config.max_blocks(kernel).unwrap();
-            self.current_kernel_max_blocks = self.config.max_blocks(&**kernel).unwrap();
-            self.thread_block_size = self.config.threads_per_block_padded(&**kernel);
+            // core was not assigned a kernel yet
+            true
+        };
+
+        if should_select_new_kernel {
+            self.current_kernel = kernel_manager.select_kernel();
         }
 
-        // find a free block context
-        let max_blocks_per_core = if self.config.concurrent_kernel_sm {
-            unimplemented!("concurrent kernel sm");
-            // self.config.max_concurrent_blocks_per_core
-        } else {
-            self.block_status.len()
-        };
-        log::debug!(
-            "core {:?}: free block status: {:?}",
-            self.id(),
-            self.block_status
-        );
+        match self.current_kernel.as_ref() {
+            None => {
+                log::debug!("core {:?}: selected kernel NULL", self.id());
+                return false;
+            }
+            Some(kernel) => {
+                log::debug!(
+                    "core {:?}: selected kernel {} more blocks={} can issue={}",
+                    self.id(),
+                    kernel,
+                    !kernel.no_more_blocks_to_run(),
+                    self.can_issue_block(&**kernel),
+                );
+                let can_issue = !kernel.no_more_blocks_to_run() && self.can_issue_block(&**kernel);
+                if !can_issue {
+                    return false;
+                }
+            }
+        }
+        // let Some(kernel) = self.current_kernel.as_ref() else {
+        //     log::debug!(
+        //         "core {:?}: selected kernel NULL",
+        //         self.id(),
+        //     );
+        //     return false;
+        // };
+        //
+        // log::debug!(
+        //     "core {:?}: selected kernel {} more blocks={} can issue={}",
+        //     self.id(),
+        //     kernel,
+        //     !kernel.no_more_blocks_to_run(),
+        //     self.can_issue_block(&**kernel),
+        // );
+        //
+        // let can_issue = !kernel.no_more_blocks_to_run() && self.can_issue_block(&**kernel);
+        // // drop(core);
+        // if !can_issue {
+        //     // let mut core = self.cores[core_id].write();
+        //     // let core = &mut self.cores[core_id];
+        //     // self.issue_block(&*kernel, cycle);
+        //     // num_blocks_issued += 1;
+        //     // self.block_issue_next_core = core_id;
+        //     // break;
+        //     return false;
+        // }
 
-        debug_assert_eq!(
-            self.num_active_blocks,
-            self.block_status
+        let (free_block_hw_id, thread_block_size, padded_thread_block_size) = {
+            let kernel = self.current_kernel.as_deref().unwrap();
+            // let kernel_opt = &self.current_kernel;
+            // let kernel = kernel_opt.as_deref().unwrap();
+
+            if self.config.concurrent_kernel_sm {
+                // let occupied = self.occupy_resource_for_block(&*kernel, true);
+                // assert!(occupied);
+                unimplemented!("concurrent kernel sm");
+            } else {
+                // calculate the max cta count and cta size for local memory address mapping
+                // self.max_blocks_per_sm = self.config.max_blocks(kernel).unwrap();
+                self.current_kernel_max_blocks = self.config.max_blocks(&*kernel).unwrap();
+                self.thread_block_size = self.config.threads_per_block_padded(&*kernel);
+            }
+
+            // find a free block context
+            let max_blocks_per_core = if self.config.concurrent_kernel_sm {
+                unimplemented!("concurrent kernel sm");
+                // self.config.max_concurrent_blocks_per_core
+            } else {
+                self.block_status.len()
+            };
+            log::debug!(
+                "core {:?}: free block status: {:?}",
+                self.id(),
+                self.block_status
+            );
+
+            debug_assert_eq!(
+                self.num_active_blocks,
+                self.block_status
+                    .iter()
+                    .filter(|&num_threads_in_block| *num_threads_in_block > 0)
+                    .count()
+            );
+            let Some(free_block_hw_id) = self.block_status[0..max_blocks_per_core]
                 .iter()
-                .filter(|&num_threads_in_block| *num_threads_in_block > 0)
-                .count()
-        );
-        let Some(free_block_hw_id) = self.block_status[0..max_blocks_per_core]
-            .iter()
-            .position(|num_threads_in_block| *num_threads_in_block == 0)
-        else {
-            return;
-        };
+                .position(|num_threads_in_block| *num_threads_in_block == 0)
+            else {
+                // ROMAN: this should also be false? but accelsim compat...
+                return true;
+            };
 
-        // determine hardware threads and warps that will be used for this block
-        let thread_block_size = kernel.config().threads_per_block();
-        let padded_thread_block_size = self.config.threads_per_block_padded(&**kernel);
+            // determine hardware threads and warps that will be used for this block
+            let thread_block_size = kernel.config().threads_per_block();
+            let padded_thread_block_size = self.config.threads_per_block_padded(&*kernel);
+            (
+                free_block_hw_id,
+                thread_block_size,
+                padded_thread_block_size,
+            )
+        };
 
         // hw warp id = hw thread id mod warp size, so we need to find a range
         // of hardware thread ids corresponding to an integral number of hardware
@@ -1456,63 +1540,69 @@ where
         // resources (simulation)
         let mut warps = WarpMask::ZERO;
 
-        let mut block_reader = kernel.next_block_reader().lock();
-        // let block_reader_lock = block.reader_
-        let block = block_reader
-            .current_block()
-            .expect("kernel has current block");
-        // let block = kernel.next_block().expect("kernel has current block");
+        // dirty fix
+        let kernel: Arc<_> = self.current_kernel.as_ref().unwrap().clone();
 
-        log::debug!(
-            "core {:?}: issue block {} from kernel {}",
-            self.id(),
-            block,
-            kernel,
-        );
-        let block_id = block.id();
+        let (block_id, mut block_reader) = {
+            let mut block_reader = kernel.next_block_reader().lock();
+            // let block_reader_lock = block.reader_
+            let block = block_reader
+                .current_block()
+                .expect("kernel has current block");
+            // let block = kernel.next_block().expect("kernel has current block");
 
-        let mut num_threads_in_block = 0;
-        for i in start_thread..end_thread {
-            self.thread_state[i] = Some(ThreadState {
-                // block_id: free_block_hw_id,
-                active: true,
-                pc: 0, // todo
-            });
-            let warp_id = i / self.config.warp_size;
+            log::debug!(
+                "core {:?}: issue block {} from kernel {}",
+                self.id(),
+                block,
+                kernel,
+            );
+            let block_id = block.id();
 
-            // TODO: removed this but is that fine?
-            if !kernel.no_more_blocks_to_run() {
-                //     if !kernel.more_threads_in_block() {
-                //         kernel.next_thread_iterlock().next();
-                //     }
-                //
-                //     // we just incremented the thread id so this is not the same
-                //     if !kernel.more_threads_in_block() {
-                //         kernel.next_block_iterlock().next();
-                //         *kernel.next_thread_iterlock() =
-                //             kernel.config.block.into_iter().peekable();
-                //     }
-                num_threads_in_block += 1;
+            let mut num_threads_in_block = 0;
+            for i in start_thread..end_thread {
+                self.thread_state[i] = Some(ThreadState {
+                    // block_id: free_block_hw_id,
+                    active: true,
+                    pc: 0, // todo
+                });
+                let warp_id = i / self.config.warp_size;
+
+                // TODO: removed this but is that fine?
+                if !kernel.no_more_blocks_to_run() {
+                    //     if !kernel.more_threads_in_block() {
+                    //         kernel.next_thread_iterlock().next();
+                    //     }
+                    //
+                    //     // we just incremented the thread id so this is not the same
+                    //     if !kernel.more_threads_in_block() {
+                    //         kernel.next_block_iterlock().next();
+                    //         *kernel.next_thread_iterlock() =
+                    //             kernel.config.block.into_iter().peekable();
+                    //     }
+                    num_threads_in_block += 1;
+                }
+
+                warps.set(warp_id, true);
             }
 
-            warps.set(warp_id, true);
-        }
+            kernel.increment_running_blocks();
 
-        kernel.increment_running_blocks();
+            self.block_status[free_block_hw_id] = num_threads_in_block;
+            log::debug!(
+                "num threads in block {}={} (hw {}) = {}",
+                block,
+                block_id,
+                free_block_hw_id,
+                num_threads_in_block
+            );
 
-        self.block_status[free_block_hw_id] = num_threads_in_block;
-        log::debug!(
-            "num threads in block {}={} (hw {}) = {}",
-            block,
-            block_id,
-            free_block_hw_id,
-            num_threads_in_block
-        );
-
-        self.barriers.allocate(free_block_hw_id as u64, warps);
+            self.barriers.allocate(free_block_hw_id as u64, warps);
+            (block_id, block_reader)
+        };
 
         self.init_warps(
-            kernel,
+            // &*self.current_kernel.unwrap().as_ref(),
             &mut *block_reader,
             free_block_hw_id,
             block_id,
@@ -1520,6 +1610,7 @@ where
             end_thread,
         );
         self.num_active_blocks += 1;
+        true
     }
 }
 
@@ -1660,10 +1751,12 @@ where
     fn register_thread_in_block_exited(
         &mut self,
         block_hw_id: usize,
-        kernel: &Option<Arc<dyn Kernel>>,
+        kernel_id: Option<u64>,
+        // kernel: &Option<Arc<dyn Kernel>>,
     ) {
         // let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
         let current_kernel: &mut Option<_> = &mut self.current_kernel;
+        let current_kernel_id = current_kernel.as_ref().map(|k| k.id());
 
         debug_assert!(block_hw_id < self.block_status.len());
         debug_assert!(self.block_status[block_hw_id] > 0);
@@ -1674,27 +1767,43 @@ where
             // deallocate barriers for this block
             self.barriers.deallocate(block_hw_id as u64);
 
-            // increment the number of completed blocks
-            self.num_active_blocks -= 1;
-            if self.num_active_blocks == 0 {
-                // Shader can only be empty when no more cta are dispatched
-                if kernel.as_ref().map(|k| k.id()) != current_kernel.as_ref().map(|k| k.id()) {
-                    // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
-                }
-                *current_kernel = None;
-            }
-            //
+            // decrement running blocks for the current kernel
+            // TODO: if we want to support multiple, we would get the kernel by id
+
             // self.release_shader_resource_1block(cta_num, kernel);
-            if let Some(kernel) = kernel {
+            assert_eq!(current_kernel_id, kernel_id);
+
+            if let Some(kernel) = current_kernel {
                 kernel.decrement_running_blocks();
-                if kernel.no_more_blocks_to_run()
-                    && !kernel.running()
-                    && current_kernel.as_ref().map(|k| k.id()) == Some(kernel.id())
-                {
+                if kernel.no_more_blocks_to_run() && !kernel.running() {
                     log::info!("kernel {} ({}) completed", kernel.name(), kernel.id());
                     *current_kernel = None;
                     // set done here
                 }
+            }
+
+            // if let Some(kernel) = kernel {
+            //     kernel.decrement_running_blocks();
+            //
+            //     if kernel.no_more_blocks_to_run()
+            //         && !kernel.running()
+            //         && current_kernel.as_ref().map(|k| k.id()) == Some(kernel.id())
+            //     {
+            //         log::info!("kernel {} ({}) completed", kernel.name(), kernel.id());
+            //         *current_kernel = None;
+            //         // set done here
+            //     }
+            // }
+
+            // increment the number of completed blocks
+            self.num_active_blocks -= 1;
+
+            if self.num_active_blocks == 0 {
+                // Shader can only be empty when no more cta are dispatched
+                // if kernel.as_ref().map(|k| k.id()) != current_kernel.as_ref().map(|k| k.id()) {
+                // debug_assert!(current_kernel.is_none() || kernel.no_more_blocks_to_run());
+                // }
+                *current_kernel = None;
             }
         }
     }
@@ -1904,22 +2013,25 @@ where
     // #[inline]
     fn init_warps_from_traces(
         &mut self,
-        kernel: &Arc<dyn Kernel>,
+        // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
         start_warp: usize,
         end_warp: usize,
     ) {
+        let kernel = self.current_kernel.as_deref().unwrap();
+
         debug_assert!(!self.warps.is_empty());
         let selected_warps = &mut self.warps[start_warp..end_warp];
         for warp in &mut *selected_warps {
             warp.trace_instructions.clear();
-            warp.kernel = Some(Arc::clone(kernel));
+            warp.kernel_id = Some(kernel.id());
+            // warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
 
         let (block, _) = crate::timeit!(
             "core::read_trace",
-            reader.read_warps_for_block(selected_warps, &**kernel, &self.config)
+            reader.read_warps_for_block(selected_warps, &*kernel, &self.config)
         );
         if block.is_some() {
             let kernel_stats = self.stats.get_mut(Some(kernel.id() as usize));
@@ -1937,7 +2049,7 @@ where
     // #[inline]
     fn init_warps(
         &mut self,
-        kernel: &Arc<dyn Kernel>,
+        // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
         block_hw_id: usize,
         block_id: u64,
@@ -1945,6 +2057,8 @@ where
         end_thread: usize,
     ) {
         // let threads_per_block = kernel.threads_per_block();
+        let kernel = self.current_kernel.as_deref().unwrap();
+
         let start_warp = start_thread / self.config.warp_size;
         let end_warp = end_thread / self.config.warp_size
             + usize::from(end_thread % self.config.warp_size != 0);
@@ -1972,7 +2086,9 @@ where
                 warp_id,
                 self.dynamic_warp_id,
                 local_active_thread_mask,
-                Arc::clone(kernel),
+                // self.current_kernel.map(|k| k.id()),
+                kernel.id(),
+                // Arc::clone(kernel),
             );
 
             self.dynamic_warp_id += 1;
@@ -1989,7 +2105,8 @@ where
             block_id,
             block_hw_id,
         );
-        self.init_warps_from_traces(kernel, reader, start_warp, end_warp);
+        // self.init_warps_from_traces(kernel, reader, start_warp, end_warp);
+        self.init_warps_from_traces(reader, start_warp, end_warp);
     }
 }
 
