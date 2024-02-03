@@ -166,7 +166,7 @@ where
                         }
                     }
 
-                    self.issue_block_to_core(cycle);
+                    self.issue_block_to_core_deterministic(cycle);
                     self.flush_caches(cycle);
 
                     // let mut all_threads_complete = true;

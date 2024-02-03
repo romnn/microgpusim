@@ -57,13 +57,15 @@ fn gather_simulation_state(
     box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock();
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
-        for (core_id, core) in cluster.cores.iter().enumerate() {
+        // for (core_id, core) in cluster.cores.iter().enumerate() {
+        for core in cluster.cores.iter() {
             // let core = core.try_read();
-            let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
-            assert_eq!(core.core_id, global_core_id);
+            // let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
+            // assert_eq!(core.core_id, global_core_id);
 
             // this is the one we will use (unless the assertion is ever false)
-            let core_id = core.core_id;
+            // let core_id = core.core_id;
+            let global_core_id = core.global_core_id;
 
             let load_store_unit = &core.load_store_unit;
             let functional_units_iter = core
@@ -79,7 +81,8 @@ fn gather_simulation_state(
                     core.pipeline_reg[issue_port as usize].clone();
                 assert_eq!(issue_port, issue_reg.stage);
 
-                box_sim_state.functional_unit_pipelines_per_core[core_id].push(issue_reg.into());
+                box_sim_state.functional_unit_pipelines_per_core[global_core_id]
+                    .push(issue_reg.into());
             }
 
             let functional_units_iter = core
@@ -89,7 +92,7 @@ fn gather_simulation_state(
                 .chain(std::iter::once(load_store_unit as &dyn SimdFunctionUnit));
 
             for fu in functional_units_iter {
-                box_sim_state.functional_unit_pipelines_per_core[core_id].push(
+                box_sim_state.functional_unit_pipelines_per_core[global_core_id].push(
                     testing::state::RegisterSet {
                         name: fu.id().to_string(),
                         pipeline: fu
@@ -99,22 +102,22 @@ fn gather_simulation_state(
                             .collect(),
                     },
                 );
-                box_sim_state.functional_unit_occupied_slots_per_core[core_id] =
+                box_sim_state.functional_unit_occupied_slots_per_core[global_core_id] =
                     fu.occupied().to_bit_string();
             }
             // core: operand collector
             let register_file =
                 testing::state::OperandCollector::new(&core.register_file, &core.pipeline_reg);
-            box_sim_state.operand_collector_per_core[core_id] = Some(register_file);
+            box_sim_state.operand_collector_per_core[global_core_id] = Some(register_file);
             // core: schedulers
-            box_sim_state.scheduler_per_core[core_id] = core
+            box_sim_state.scheduler_per_core[global_core_id] = core
                 .schedulers
                 .iter()
                 .map(|scheduler| scheduler.deref().into())
                 .collect();
 
             // core: pending register writes
-            box_sim_state.pending_register_writes_per_core[core_id] = load_store_unit
+            box_sim_state.pending_register_writes_per_core[global_core_id] = load_store_unit
                 .pending_writes
                 .clone()
                 .into_iter()
@@ -131,9 +134,9 @@ fn gather_simulation_state(
                 })
                 .collect();
 
-            box_sim_state.pending_register_writes_per_core[core_id].sort();
+            box_sim_state.pending_register_writes_per_core[global_core_id].sort();
 
-            box_sim_state.l1_latency_queue_per_core[core_id] = load_store_unit
+            box_sim_state.l1_latency_queue_per_core[global_core_id] = load_store_unit
                 .l1_latency_queue
                 .iter()
                 .enumerate()
@@ -180,7 +183,7 @@ fn gather_simulation_state(
                     .unwrap();
 
                 let l1_data_cache = testing::state::Cache::from(&l1_data_cache.inner.tag_array);
-                box_sim_state.l1_cache_per_core[core_id] = Some(l1_data_cache);
+                box_sim_state.l1_cache_per_core[global_core_id] = Some(l1_data_cache);
             }
         }
     }

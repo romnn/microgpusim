@@ -348,9 +348,11 @@ where
 
                 // let kernels_completed = self.kernel_manager.all_kernels_completed();
 
-                for cluster in self.clusters.iter_mut() {
-                    // Receive memory responses addressed to each cluster and forward to cores
-                    crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
+                for i in 0..run_ahead {
+                    for cluster in self.clusters.iter_mut() {
+                        // Receive memory responses addressed to each cluster and forward to cores
+                        crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle + i));
+                    }
                 }
 
                 for i in 0..run_ahead {
@@ -373,6 +375,15 @@ where
                             } in port.buffer.drain(..)
                             {
                                 assert_eq!(time, cycle + i);
+                                let mut accesses = crate::core::debug::ACCESSES.lock();
+                                let mut num_accesses = accesses
+                                    .entry((
+                                        fetch.allocation_id().unwrap_or(100),
+                                        fetch.access_kind().into(),
+                                    ))
+                                    .or_insert(0);
+                                *num_accesses += 1;
+
                                 self.interconn.push(
                                     core.cluster_id,
                                     dest,
@@ -380,6 +391,8 @@ where
                                     size,
                                 );
                             }
+
+                            assert!(port.buffer.is_empty());
 
                             core.issue_block(kernel_manager, cycle + i);
                         }
@@ -396,6 +409,8 @@ where
                 }
             }
 
+            self.debug_non_exit();
+
             if let Some(kernel) = finished_kernel {
                 self.cleanup_finished_kernel(&*kernel, cycle);
             }
@@ -406,6 +421,8 @@ where
                 self.kernels_left()
             );
         }
+
+        self.debug_completed_blocks();
 
         self.stats.no_kernel.sim.cycles = cycle;
         log::info!("exit after {cycle} cycles");
@@ -717,6 +734,8 @@ where
                 }
             }
 
+            self.debug_non_exit();
+
             if let Some(kernel) = finished_kernel {
                 self.cleanup_finished_kernel(&*kernel, cycle);
             }
@@ -728,10 +747,91 @@ where
             );
         }
 
+        self.debug_completed_blocks();
+
         self.stats.no_kernel.sim.cycles = cycle;
         log::info!("exit after {cycle} cycles");
 
         Ok(())
+    }
+
+    pub fn debug_completed_blocks(&self) {
+        use itertools::Itertools;
+
+        let mut accesses = crate::core::debug::ACCESSES.lock();
+        dbg!(&accesses);
+        accesses.clear();
+
+        let mut completed_blocks = crate::core::debug::COMPLETED_BLOCKS.lock();
+
+        use std::collections::HashSet;
+        let unique_blocks: HashSet<_> = completed_blocks.iter().map(|block| &block.block).collect();
+        let unique_block_ids: HashSet<_> = completed_blocks
+            .iter()
+            .map(|block| block.block.id())
+            .collect();
+        let unique_cores: HashSet<_> = completed_blocks
+            .iter()
+            .map(|block| block.global_core_id)
+            .collect();
+        let unique_kernel_ids: HashSet<_> = completed_blocks
+            .iter()
+            .map(|block| block.kernel_id)
+            .collect();
+
+        eprintln!("unique blocks: {}", unique_blocks.len());
+        eprintln!("unique block ids: {}", unique_block_ids.len());
+        eprintln!("unique cores: {}", unique_cores.len());
+        eprintln!("unique kernels: {}", unique_kernel_ids.len());
+
+        let blocks_per_core: HashMap<usize, HashSet<&trace_model::Point>> = unique_cores
+            .iter()
+            .copied()
+            .map(|core_id| {
+                let blocks: Vec<_> = completed_blocks
+                    .iter()
+                    .filter_map(|block| {
+                        if block.global_core_id == core_id {
+                            Some(&block.block)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                assert!(
+                    blocks.iter().all_unique(),
+                    "a single core should never run the same block more than once"
+                );
+                (core_id, blocks.into_iter().collect())
+            })
+            .collect();
+
+        for core_id in unique_cores.iter() {
+            eprintln!(
+                "core {} num blocks: {}",
+                core_id,
+                blocks_per_core[core_id].len(),
+                // completed_blocks
+                //     .iter()
+                //     .filter(|block| block.global_core_id == *core_id)
+                //     .count()
+            );
+            for (other_core_id, other_blocks) in blocks_per_core.iter() {
+                let blocks = &blocks_per_core[core_id];
+                if other_core_id != core_id {
+                    let isect: Vec<_> = other_blocks.intersection(blocks).collect();
+                    if !isect.is_empty() {
+                        dbg!(&core_id, &other_core_id, &blocks, &other_blocks, &isect);
+                    }
+                    assert!(
+                        isect.is_empty(),
+                        "a block should never be run by more than once core"
+                    );
+                }
+            }
+        }
+
+        completed_blocks.clear();
     }
 
     #[tracing::instrument]

@@ -245,6 +245,36 @@ pub enum Parallelization {
     },
 }
 
+impl Parallelization {
+    pub fn is_serial(&self) -> bool {
+        *self == Parallelization::Serial
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    pub fn is_parallel_deterministic(&self) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    pub fn is_parallel_nondeterministic(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "parallel")]
+    pub fn is_parallel_deterministic(&self) -> bool {
+        *self != Parallelization::Deterministic
+    }
+
+    #[cfg(feature = "parallel")]
+    pub fn is_parallel_nondeterministic(&self) -> bool {
+        matches!(self, Parallelization::Nondeterministic { .. })
+    }
+
+    pub fn is_parallel(&self) -> bool {
+        !self.is_serial()
+    }
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClockFrequencies {
@@ -630,7 +660,7 @@ impl GPU {
         self.num_simt_clusters * self.num_cores_per_simt_cluster
     }
 
-    pub fn cluster_and_core_id(&self, global_core_id: usize) -> (usize, usize) {
+    pub fn cluster_and_local_core_id(&self, global_core_id: usize) -> (usize, usize) {
         let cluster_id = global_core_id / self.num_cores_per_simt_cluster;
         let core_id = global_core_id % self.num_cores_per_simt_cluster;
         debug_assert!(cluster_id < self.num_simt_clusters);
@@ -638,7 +668,10 @@ impl GPU {
         (cluster_id, core_id)
     }
 
-    pub fn partition_and_sub_partition_id(&self, global_sub_partition_id: usize) -> (usize, usize) {
+    pub fn partition_and_local_sub_partition_id(
+        &self,
+        global_sub_partition_id: usize,
+    ) -> (usize, usize) {
         let partition_id = global_sub_partition_id / self.num_sub_partitions_per_memory_controller;
         let sub_partition_id =
             global_sub_partition_id % self.num_sub_partitions_per_memory_controller;

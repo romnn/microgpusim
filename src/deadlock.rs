@@ -49,13 +49,14 @@ where
 
         for (cluster_id, cluster) in self.clusters.iter().enumerate() {
             // let cluster = cluster.try_read();
-            for (core_id, core) in cluster.cores.iter().enumerate() {
+            // for (local_core_id, core) in cluster.cores.iter().enumerate() {
+            for core in cluster.cores.iter() {
                 // let core = core.try_read();
-                let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
-                assert_eq!(core.core_id, global_core_id);
+                // let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
+                // assert_eq!(core.global_core_id, global_core_id);
 
                 // this is the one we will use (unless the assertion is ever false)
-                let core_id = core.core_id;
+                // let core_id = core.global_core_id;
 
                 // core: functional units
                 for (fu_id, fu) in core.functional_units.iter().enumerate() {
@@ -66,7 +67,7 @@ where
                     // core.pipeline_reg[issue_port as usize].try_lock().clone();
                     assert_eq!(issue_port, issue_reg.stage);
 
-                    state.functional_unit_pipelines[core_id].push(issue_reg);
+                    state.functional_unit_pipelines[core.global_core_id].push(issue_reg);
                 }
                 // core: operand collector
                 // state.operand_collectors[core_id] =

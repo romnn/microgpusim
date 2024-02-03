@@ -65,25 +65,26 @@ where
         config: &Arc<config::GPU>,
         mem_controller: &Arc<MC>,
     ) -> Self {
-        let num_cores = config.num_cores_per_simt_cluster;
-        let core_sim_order = (0..num_cores).collect();
+        let num_cores_per_cluster = config.num_cores_per_simt_cluster;
+        let core_sim_order = (0..num_cores_per_cluster).collect();
 
-        let core_instr_fetch_response_queue: Box<[ResponseQueue]> = (0..num_cores)
+        let core_instr_fetch_response_queue: Box<[ResponseQueue]> = (0..num_cores_per_cluster)
             .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
             .collect();
 
-        let core_load_store_response_queue: Box<[ResponseQueue]> = (0..num_cores)
+        let core_load_store_response_queue: Box<[ResponseQueue]> = (0..num_cores_per_cluster)
             .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
             .collect();
 
-        let cores = (0..num_cores)
-            .map(|core_id| {
-                let id = config.global_core_id(cluster_id, core_id);
+        let cores = (0..num_cores_per_cluster)
+            .map(|local_core_id| {
+                let global_core_id = config.global_core_id(cluster_id, local_core_id);
                 let core = Core::new(
-                    id,
+                    global_core_id,
+                    local_core_id,
                     cluster_id,
-                    Arc::clone(&core_instr_fetch_response_queue[core_id]),
-                    Arc::clone(&core_load_store_response_queue[core_id]),
+                    Arc::clone(&core_instr_fetch_response_queue[local_core_id]),
+                    Arc::clone(&core_load_store_response_queue[local_core_id]),
                     Arc::clone(allocations),
                     Arc::clone(warp_instruction_unique_uid),
                     Arc::clone(interconn),
@@ -95,7 +96,7 @@ where
             })
             .collect();
 
-        let block_issue_next_core = num_cores - 1;
+        let block_issue_next_core = num_cores_per_cluster - 1;
         // let issuer = BlockIssuer::new(num_cores);
 
         let response_fifo = VecDeque::new();
@@ -167,8 +168,9 @@ where
             // let core_id = self
             //     .config
             //     .global_core_id_to_core_id(fetch.core_id.unwrap());
-            let global_core_id = fetch.core_id.unwrap();
-            let (_, core_id) = self.config.cluster_and_core_id(global_core_id);
+            let global_core_id = fetch.global_core_id.unwrap();
+            // let local_core_id = fetch.global_core_id.unwrap();
+            let (_, local_core_id) = self.config.cluster_and_local_core_id(global_core_id);
 
             // we should not fully lock a core as we completely block a full core cycle
             // let core = self.cores[core_id].read();
@@ -180,12 +182,14 @@ where
             log::debug!(
                 "have fetch {} for core {:?} ({}): ldst unit response buffer full={}",
                 fetch,
-                (self.cluster_id, core_id),
+                (self.cluster_id, local_core_id),
                 // core.id(),
                 global_core_id,
                 // core.ldst_unit_response_buffer_full(),
                 // core.load_store_unit.response_queue.lock().full(),
-                self.core_load_store_response_queue[core_id].lock().full(),
+                self.core_load_store_response_queue[local_core_id]
+                    .lock()
+                    .full(),
             );
 
             match fetch.access_kind() {
@@ -200,7 +204,7 @@ where
                     // }
                     // let mut instr_fetch_response_queue = core.instr_fetch_response_queue.lock();
                     let mut instr_fetch_response_queue =
-                        self.core_instr_fetch_response_queue[core_id].lock();
+                        self.core_instr_fetch_response_queue[local_core_id].lock();
                     if instr_fetch_response_queue.full() {
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     } else {
@@ -221,7 +225,7 @@ where
                     // }
                     // let mut load_store_response_queue = core.load_store_unit.response_queue.lock();
                     let mut load_store_response_queue =
-                        self.core_load_store_response_queue[core_id].lock();
+                        self.core_load_store_response_queue[local_core_id].lock();
                     if !load_store_response_queue.full() {
                         // Forward load store unit response to core
                         let fetch = response_fifo.pop_front().unwrap();
@@ -287,7 +291,7 @@ where
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
     // pub fn issue_block_to_core(&mut self, sim: &mut Simulator<I, MC>, cycle: u64) -> usize
-    pub fn issue_block_to_core(
+    pub fn issue_block_to_core_deterministic(
         &mut self,
         kernel_manager: &mut dyn crate::kernel_manager::SelectKernel,
         cycle: u64,

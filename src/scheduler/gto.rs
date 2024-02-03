@@ -13,18 +13,15 @@ impl Scheduler {
     // impl<'a> Scheduler<'a> {
     pub fn new(
         id: usize,
+        global_core_id: usize,
         cluster_id: usize,
-        core_id: usize,
         // warps: Vec<warp::Ref>,
         // scoreboard: Arc<RwLock<Scoreboard>>,
         // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
         config: Arc<config::GPU>,
     ) -> Self {
         // let inner = super::Base::new(id, cluster_id, core_id, warps, scoreboard, stats, config);
-        let inner = super::Base::new(
-            id, cluster_id, core_id, // scoreboard,
-            config,
-        );
+        let inner = super::Base::new(id, global_core_id, cluster_id, config);
         Self { inner }
     }
 }
@@ -84,7 +81,7 @@ impl super::Scheduler for Scheduler {
             // eprintln!(
             "gto scheduler[{}, core {}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,
-            self.inner.core_id,
+            self.inner.global_core_id,
             self.prioritized_warp_ids(),
             // self.debug_warp_ids(warps)
         );
@@ -117,7 +114,7 @@ impl super::Scheduler for Scheduler {
         log::debug!(
             "gto scheduler[{}, core {}]: last issued from {} (index {})",
             self.inner.id,
-            self.inner.core_id,
+            self.inner.global_core_id,
             warps
                 .get(self.inner.last_supervised_issued_idx)
                 .map(|w| w.dynamic_warp_id)
@@ -167,7 +164,7 @@ impl super::Scheduler for Scheduler {
             // eprintln!(
             "gto scheduler[{}, core {}]: AFTER: prioritized warp ids: {:?}",
             self.inner.id,
-            self.inner.core_id,
+            self.inner.global_core_id,
             self.prioritized_warp_ids(),
             // self.debug_warp_ids(&prioritized_warps)
         );

@@ -32,7 +32,7 @@ pub trait Access<I>: Sync + Send + 'static {
 /// Scoreboard configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct Config {
-    pub core_id: usize,
+    pub global_core_id: usize,
     pub cluster_id: usize,
     pub max_warps: usize,
 }
@@ -42,7 +42,7 @@ pub struct Config {
 /// This should however not be needed in trace driven mode..
 #[derive(Debug, Default)]
 pub struct Scoreboard {
-    pub core_id: usize,
+    pub global_core_id: usize,
     pub cluster_id: usize,
 
     pub warp_registers: Box<[HashSet<u32>]>,
@@ -53,12 +53,12 @@ impl Scoreboard {
     pub fn new(config: &Config) -> Self {
         let Config {
             max_warps,
-            core_id,
+            global_core_id,
             cluster_id,
         } = config;
         let warp_registers = utils::box_slice![HashSet::with_capacity(8 + 24); *max_warps];
         Self {
-            core_id: *core_id,
+            global_core_id: *global_core_id,
             cluster_id: *cluster_id,
             warp_registers,
         }
@@ -139,7 +139,7 @@ impl Access<WarpInstruction> for Scoreboard {
         assert!(
             !warp_registers.contains(&reg_num),
             "trying to reserve an already reserved register (core_id={}, warp_id={}, reg_num={})",
-            self.core_id,
+            self.global_core_id,
             warp_id,
             reg_num
         );

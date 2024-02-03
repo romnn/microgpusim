@@ -174,7 +174,7 @@ pub struct Access {
     /// Kernel launch ID of the kernel that issued this access.
     pub kernel_launch_id: Option<usize>,
     /// Core that issued this access.
-    pub core_id: Option<usize>,
+    pub global_core_id: Option<usize>,
     /// Cluster that issued this access.
     pub cluster_id: Option<usize>,
 

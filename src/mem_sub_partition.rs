@@ -168,7 +168,7 @@ pub struct MemorySubPartition<MC> {
     pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
 
     num_pending_requests: usize,
-    request_tracker: HashSet<mem_fetch::MemFetch>,
+    pub request_tracker: HashSet<mem_fetch::MemFetch>,
 }
 
 impl<MC> std::fmt::Debug for MemorySubPartition<MC> {

@@ -168,6 +168,10 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     serial_config.parallelization = config::Parallelization::Serial;
     serial_config.accelsim_compat = false;
     serial_config.fill_l2_on_memcopy = true;
+    // disabling the L1 makes the l2 / accesses stats more precise until we
+    // figure out block assignment...
+    serial_config.global_mem_skip_l1_data_cache = false;
+
     // serial_config.perfect_inst_const_cache = false;
     // serial_config.flush_l1_cache = true;
     // serial_config.flush_l2_cache = false;
@@ -197,8 +201,8 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
         let start = Instant::now();
         let parallel_sim = crate::accelmain(traces_dir, parallel_config)?;
         let dur = start.elapsed();
-        let parallel_stats = parallel_sim.stats().reduce();
-        let _kernel_dur = Duration::from_millis(parallel_stats.sim.elapsed_millis as u64);
+        let parallel_stats = parallel_sim.stats();
+        // let _kernel_dur = Duration::from_millis(parallel_stats.sim.elapsed_millis as u64);
         (dur, parallel_stats)
     };
     dbg!(&parallel_dur);
@@ -207,8 +211,8 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
         let start = Instant::now();
         let serial_sim = crate::accelmain(traces_dir, serial_config)?;
         let dur = start.elapsed();
-        let serial_stats = serial_sim.stats().reduce();
-        let _kernel_dur = Duration::from_millis(serial_stats.sim.elapsed_millis as u64);
+        let serial_stats = serial_sim.stats();
+        // let _kernel_dur = Duration::from_millis(serial_stats.sim.elapsed_millis as u64);
         (dur, serial_stats)
     };
     dbg!(&serial_dur);
@@ -222,10 +226,15 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
 
     // let max_mape_err = Some(0.1); // allow 10% difference
     // let max_smape_err = Some(0.1); // allow 10% difference
-    let max_mape_err = Some(0.05); // allow 5% difference
-    let max_smape_err = Some(0.05); // allow 5% difference
 
-    assert_stats_match(serial_stats, parallel_stats, max_mape_err, max_smape_err);
+    let options = CompareOptions {
+        diff_only: false,
+        check_no_kernel: false,
+        check_per_kernel: true,
+        max_mape_err: Some(0.05),  // allow 5% difference
+        max_smape_err: Some(0.05), // allow 5% difference
+    };
+    assert_stats_match(serial_stats, parallel_stats, &options);
     println!(
         "serial dur: {:?}, parallel dur: {:?} \t=> speedup {:>2.2}x",
         serial_dur,
@@ -284,234 +293,308 @@ pub fn dram_err<'a>(
         .collect()
 }
 
+pub struct CompareOptions {
+    pub diff_only: bool,
+    pub check_no_kernel: bool,
+    pub check_per_kernel: bool,
+    pub max_mape_err: Option<f64>,
+    pub max_smape_err: Option<f64>,
+}
+
 pub fn assert_stats_match(
-    mut serial: stats::Stats,
-    mut parallel: stats::Stats,
-    max_mape_err: Option<f64>,
-    max_smape_err: Option<f64>,
+    serial: stats::PerKernel,
+    parallel: stats::PerKernel,
+    options: &CompareOptions,
 ) {
-    let max_mape_err = PercentageError::MAPE(max_mape_err.unwrap_or(0.0));
-    let max_smape_err = PercentageError::SMAPE(max_smape_err.unwrap_or(0.0));
+    let max_mape_err = PercentageError::MAPE(options.max_mape_err.unwrap_or(0.0));
+    let max_smape_err = PercentageError::SMAPE(options.max_smape_err.unwrap_or(0.0));
 
-    serial.sim.elapsed_millis = 0;
-    parallel.sim.elapsed_millis = 0;
+    let mut kernel_stats: Vec<(stats::Stats, stats::Stats)> = Vec::new();
+    kernel_stats.push((serial.no_kernel.clone(), parallel.no_kernel.clone()));
 
-    diff::diff!(serial: &serial.sim, parallel: &parallel.sim, "sim");
-    diff::diff!(serial: &serial.accesses, parallel: &parallel.accesses, "accesses",);
-
-    let mut serial_l1c_stats = serial.l1c_stats.reduce().reduce_allocations();
-
-    let mut serial_l1t_stats = serial.l1t_stats.reduce().reduce_allocations();
-    let mut serial_l1d_stats = serial.l1d_stats.reduce().reduce_allocations();
-    let mut serial_l1i_stats = serial.l1i_stats.reduce().reduce_allocations();
-    let mut serial_l2d_stats = serial.l2d_stats.reduce().reduce_allocations();
-
-    let mut parallel_l1c_stats = parallel.l1c_stats.reduce().reduce_allocations();
-    let mut parallel_l1t_stats = parallel.l1t_stats.reduce().reduce_allocations();
-    let mut parallel_l1d_stats = parallel.l1d_stats.reduce().reduce_allocations();
-    let mut parallel_l1i_stats = parallel.l1i_stats.reduce().reduce_allocations();
-    let mut parallel_l2d_stats = parallel.l2d_stats.reduce().reduce_allocations();
-    for (name, cache_stats) in [
-        ("serial l1c", &mut serial_l1c_stats),
-        ("serial l1t", &mut serial_l1t_stats),
-        ("serial l1i", &mut serial_l1i_stats),
-        ("serial l1d", &mut serial_l1d_stats),
-        ("serial l2d", &mut serial_l2d_stats),
-        ("parallel l1i", &mut parallel_l1i_stats),
-        ("parallel l1d", &mut parallel_l1d_stats),
-        ("parallel l1c", &mut parallel_l1c_stats),
-        ("parallel l1t", &mut parallel_l1t_stats),
-        ("parallel l2d", &mut parallel_l2d_stats),
-    ] {
-        dbg!(&name, &cache_stats);
-
-        // combine misses and sector misses
-        let sector_misses: IndexSet<_> = cache_stats.sector_misses().collect();
-        for ((allocation, access), count) in sector_misses {
-            cache_stats.inner.remove(&(allocation, access));
-            let AccessStatus((kind, _)) = access;
-            let miss = AccessStat::Status(RequestStatus::MISS);
-            *cache_stats
-                .inner
-                .entry((None, AccessStatus((kind, miss))))
-                .or_insert(0) += count;
-        }
-
-        // remove mshr hits??
-        for kind in stats::mem::AccessKind::iter() {
-            cache_stats.inner.remove(&(
-                None,
-                AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
-            ));
-        }
-
-        // make sure mshr hit and hit reserved are the same
-        // for kind in AccessKind::iter() {
-        //     let mshr_hits = cache_stats
-        //         .inner
-        //         .get(&(
-        //             None,
-        //             AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
-        //         ))
-        //         .copied()
-        //         .unwrap_or(0);
-        //     let pending_hits = cache_stats
-        //         .inner
-        //         .get(&(
-        //             None,
-        //             AccessStatus((kind, AccessStat::Status(RequestStatus::HIT_RESERVED))),
-        //         ))
-        //         .copied()
-        //         .unwrap_or(0);
-        //     // assert_eq!(mshr_hits, pending_hits);
-        //     diff::diff!(mshr_hits: mshr_hits, pending_hits: pending_hits);
-        // }
-
-        // combine hits and pending hits
-        let pending_hits: IndexSet<_> = cache_stats.pending_hits().collect();
-        for ((allocation, access), count) in pending_hits {
-            cache_stats.inner.remove(&(allocation, access));
-            let AccessStatus((kind, _)) = access;
-            let hit = AccessStat::Status(RequestStatus::HIT);
-            *cache_stats
-                .inner
-                .entry((None, AccessStatus((kind, hit))))
-                .or_insert(0) += count;
-        }
-
-        // remove reservation failure reasons
-        cache_stats.inner.retain(|(_, status), _| {
-            !status.is_reservation_fail() && !status.is_reservation_failure_reason()
-        });
+    if options.check_per_kernel {
+        // compare stats per kernel
+        kernel_stats.extend(
+            serial
+                .kernel_stats
+                .into_iter()
+                .zip(parallel.kernel_stats.into_iter()),
+        );
+    } else {
+        kernel_stats.push((serial.reduce(), parallel.reduce()));
     }
 
-    diff::diff!(
-        serial: &serial_l1c_stats,
-        parallel: &parallel_l1c_stats,
-        "l1c",
-    );
-    diff::diff!(
-        serial: &serial_l1t_stats,
-        parallel: &parallel_l1t_stats,
-        "l1t",
-    );
-    diff::diff!(
-        serial: &serial_l1i_stats,
-        parallel: &parallel_l1i_stats,
-        "l1i",
-    );
-    diff::diff!(
-        serial: &serial_l1d_stats,
-        parallel: &parallel_l1d_stats,
-        "l1d",
-    );
-    diff::diff!(
-        serial: &serial_l2d_stats,
-        parallel: &parallel_l2d_stats,
-        "l2d",
-    );
+    for (mut serial, mut parallel) in kernel_stats {
+        eprintln!(
+            "====== comparing kernel {} ({}) =======",
+            serial.sim.kernel_name, serial.sim.kernel_launch_id,
+        );
 
-    let l1i_err = cache_err(&serial_l1i_stats, &parallel_l1i_stats);
-    dbg!(&l1i_err);
-    assert!(l1i_err
-        .iter()
-        // .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
-        .all(
-            |(_, _, err)| err <= &PercentageError::MAPE(0.5) || err <= &PercentageError::SMAPE(0.5)
-        ));
+        serial.sim.elapsed_millis = 0;
+        parallel.sim.elapsed_millis = 0;
 
-    let l1c_err = cache_err(&serial_l1c_stats, &parallel_l1c_stats);
-    dbg!(&l1c_err);
-    assert!(l1c_err
-        .iter()
-        .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        diff::diff!(serial: &serial.sim, parallel: &parallel.sim, "sim");
+        diff::diff!(serial: &serial.accesses, parallel: &parallel.accesses, "L2 accesses",);
+        diff::diff!(serial: &serial.instructions, parallel: &parallel.instructions, "instructions");
 
-    let l1t_err = cache_err(&serial_l1t_stats, &parallel_l1t_stats);
-    dbg!(&l1t_err);
-    assert!(l1t_err
-        .iter()
-        .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        let mut serial_l1c_stats = serial.l1c_stats.reduce().reduce_allocations();
 
-    let l1d_err = cache_err(&serial_l1d_stats, &parallel_l1d_stats);
-    dbg!(&l1d_err);
-    assert!(l1d_err
-        .iter()
-        .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        let mut serial_l1t_stats = serial.l1t_stats.reduce().reduce_allocations();
+        let mut serial_l1d_stats = serial.l1d_stats.reduce().reduce_allocations();
+        let mut serial_l1i_stats = serial.l1i_stats.reduce().reduce_allocations();
+        let mut serial_l2d_stats = serial.l2d_stats.reduce().reduce_allocations();
 
-    let l2d_err = cache_err(&serial_l2d_stats, &parallel_l2d_stats);
-    dbg!(&l2d_err);
-    assert!(l2d_err.iter().all(|(acc, (s, p), err)| match acc {
-        AccessID((_, status)) if status.kind().is_inst() => true,
-        AccessID((_, status)) => {
-            let norm = serial_l2d_stats.count_accesses_of_kind(*status.kind()) as f64;
+        let mut parallel_l1c_stats = parallel.l1c_stats.reduce().reduce_allocations();
+        let mut parallel_l1t_stats = parallel.l1t_stats.reduce().reduce_allocations();
+        let mut parallel_l1d_stats = parallel.l1d_stats.reduce().reduce_allocations();
+        let mut parallel_l1i_stats = parallel.l1i_stats.reduce().reduce_allocations();
+        let mut parallel_l2d_stats = parallel.l2d_stats.reduce().reduce_allocations();
 
-            // GLOBAL_ACC_R[HIT]: 1023300
-            // GLOBAL_ACC_R[MISS]: 128
-            // GLOBAL_ACC_R[HIT]: 1023296
-            // GLOBAL_ACC_R[MISS]: 36
+        let mut serial_dram = serial.dram.reduce();
+        serial_dram.retain(|_, v| *v > 0);
+        let mut parallel_dram = parallel.dram.reduce();
+        parallel_dram.retain(|_, v| *v > 0);
 
-            // .get(None, *status.kind(), RequestStatus::HIT)
-            // .unwrap_or(0);
-            // norm += serial_l2d_stats
-            //     .get(None, *status.kind(), RequestStatus::MISS)
-            //     .unwrap_or(0);
+        // aggregate and prepare for comparison
+        for (name, cache_stats) in [
+            ("serial l1c", &mut serial_l1c_stats),
+            ("serial l1t", &mut serial_l1t_stats),
+            ("serial l1i", &mut serial_l1i_stats),
+            ("serial l1d", &mut serial_l1d_stats),
+            ("serial l2d", &mut serial_l2d_stats),
+            ("parallel l1i", &mut parallel_l1i_stats),
+            ("parallel l1d", &mut parallel_l1d_stats),
+            ("parallel l1c", &mut parallel_l1c_stats),
+            ("parallel l1t", &mut parallel_l1t_stats),
+            ("parallel l2d", &mut parallel_l2d_stats),
+        ] {
+            dbg!(&name, &cache_stats);
 
-            let abs_err = (*s as f64 - *p as f64).abs();
-            // dbg!(&abs_err);
-            // dbg!(&norm);
-            // dbg!(abs_err / norm);
+            // combine misses and sector misses
+            let sector_misses: IndexSet<_> = cache_stats.sector_misses().collect();
+            for ((allocation, access), count) in sector_misses {
+                cache_stats.inner.remove(&(allocation, access));
+                let AccessStatus((kind, _)) = access;
+                let miss = AccessStat::Status(RequestStatus::MISS);
+                *cache_stats
+                    .inner
+                    .entry((None, AccessStatus((kind, miss))))
+                    .or_insert(0) += count;
+            }
 
-            err <= &max_mape_err || err <= &max_smape_err || abs_err / norm <= 0.001
-            // err <= &max_mape_err || err <= &max_smape_err
+            // remove mshr hits??
+            for kind in stats::mem::AccessKind::iter() {
+                cache_stats.inner.remove(&(
+                    None,
+                    AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
+                ));
+            }
+
+            // make sure mshr hit and hit reserved are the same
+            // for kind in AccessKind::iter() {
+            //     let mshr_hits = cache_stats
+            //         .inner
+            //         .get(&(
+            //             None,
+            //             AccessStatus((kind, AccessStat::Status(RequestStatus::MSHR_HIT))),
+            //         ))
+            //         .copied()
+            //         .unwrap_or(0);
+            //     let pending_hits = cache_stats
+            //         .inner
+            //         .get(&(
+            //             None,
+            //             AccessStatus((kind, AccessStat::Status(RequestStatus::HIT_RESERVED))),
+            //         ))
+            //         .copied()
+            //         .unwrap_or(0);
+            //     // assert_eq!(mshr_hits, pending_hits);
+            //     diff::diff!(mshr_hits: mshr_hits, pending_hits: pending_hits);
+            // }
+
+            // combine hits and pending hits
+            let pending_hits: IndexSet<_> = cache_stats.pending_hits().collect();
+            for ((allocation, access), count) in pending_hits {
+                cache_stats.inner.remove(&(allocation, access));
+                let AccessStatus((kind, _)) = access;
+                let hit = AccessStat::Status(RequestStatus::HIT);
+                *cache_stats
+                    .inner
+                    .entry((None, AccessStatus((kind, hit))))
+                    .or_insert(0) += count;
+            }
+
+            // remove reservation failure reasons
+            cache_stats.inner.retain(|(_, status), _| {
+                !status.is_reservation_fail() && !status.is_reservation_failure_reason()
+            });
         }
-    }));
 
-    diff::diff!(serial: &serial.instructions, parallel: &parallel.instructions, "instructions");
-    diff::assert_eq!(serial: &serial.instructions, parallel: &parallel.instructions);
+        diff::diff!(
+            serial: &serial_l1c_stats,
+            parallel: &parallel_l1c_stats,
+            "l1c",
+        );
+        diff::diff!(
+            serial: &serial_l1t_stats,
+            parallel: &parallel_l1t_stats,
+            "l1t",
+        );
+        diff::diff!(
+            serial: &serial_l1i_stats,
+            parallel: &parallel_l1i_stats,
+            "l1i",
+        );
+        diff::diff!(
+            serial: &serial_l1d_stats,
+            parallel: &parallel_l1d_stats,
+            "l1d",
+        );
+        diff::diff!(
+            serial: &serial_l2d_stats,
+            parallel: &parallel_l2d_stats,
+            "l2d",
+        );
+        diff::diff!(serial: &serial_dram, parallel: &parallel_dram, "dram");
 
-    diff::diff!(serial: &serial.accesses, parallel: &parallel.accesses, "accesses");
-    let accesses: IndexSet<_> = serial
-        .accesses
-        .inner
-        .keys()
-        .chain(parallel.accesses.inner.keys())
-        .sorted()
-        .collect();
-    assert!(accesses
-        .into_iter()
-        .map(|k| (
-            k,
-            percentage_error(
-                serial.accesses.inner.get(k).copied().unwrap_or_default(),
-                parallel.accesses.inner.get(k).copied().unwrap_or_default()
-            )
-        ))
-        .filter(|(_, err)| *err != 0.0)
-        .all(|(_, err)| err <= max_mape_err || err <= max_smape_err));
+        // have shown all diffs, now assert
+        let serial_no_kernel = serial.sim.kernel_name.is_empty();
+        let parallel_no_kernel = serial.sim.kernel_name.is_empty();
+        diff::assert_eq!(serial: serial_no_kernel, parallel: parallel_no_kernel);
 
-    let mut serial_dram = serial.dram.reduce();
-    serial_dram.retain(|_, v| *v > 0);
-    let mut parallel_dram = parallel.dram.reduce();
-    parallel_dram.retain(|_, v| *v > 0);
-    diff::diff!(serial: &serial_dram, parallel: &parallel_dram, "dram");
+        let should_check = !options.diff_only || (serial_no_kernel && !options.check_no_kernel);
 
-    let dram_err = dram_err(&serial_dram, &parallel_dram);
-    dbg!(&dram_err);
-    assert!(dram_err
-        .iter()
-        .all(|(_, err)| err <= &max_mape_err || err <= &max_smape_err));
+        // num blocks error (must match!)
+        let num_blocks_err = percentage_error(serial.sim.num_blocks, parallel.sim.num_blocks);
+        dbg!(&num_blocks_err);
+        if should_check {
+            diff::assert_eq!(serial: &serial.sim.num_blocks, parallel: &parallel.sim.num_blocks);
+            // assert!(num_blocks_err <= max_mape_err || num_blocks_err <= max_smape_err);
+        }
 
-    let cycle_err = percentage_error(serial.sim.cycles, parallel.sim.cycles);
-    dbg!(&cycle_err);
-    assert!(cycle_err <= max_mape_err || cycle_err <= max_smape_err);
+        // num instructions error (must match!)
+        let instructions_err = percentage_error(serial.sim.instructions, parallel.sim.instructions);
+        dbg!(&instructions_err);
+        if should_check {
+            diff::assert_eq!(serial: &serial.instructions, parallel: &parallel.instructions);
+            // assert!(instructions_err <= max_mape_err || instructions_err <= max_smape_err);
+        }
 
-    let instructions_err = percentage_error(serial.sim.instructions, parallel.sim.instructions);
-    dbg!(&instructions_err);
-    assert!(instructions_err <= max_mape_err || instructions_err <= max_smape_err);
+        // cycles error
+        let cycle_err = percentage_error(serial.sim.cycles, parallel.sim.cycles);
+        dbg!(&cycle_err);
+        if should_check {
+            assert!(cycle_err <= max_mape_err || cycle_err <= max_smape_err);
+        }
 
-    let num_blocks_err = percentage_error(serial.sim.num_blocks, parallel.sim.num_blocks);
-    dbg!(&num_blocks_err);
-    assert!(num_blocks_err <= max_mape_err || num_blocks_err <= max_smape_err);
+        if false {
+            // accesses error
+            // nothing other than L2 accesses counts, hence dont compare
+            let accesses_union: IndexSet<_> = serial
+                .accesses
+                .inner
+                .keys()
+                .chain(parallel.accesses.inner.keys())
+                .sorted()
+                .collect();
+            let accesses_err: Vec<_> = accesses_union
+                .into_iter()
+                .map(|k| {
+                    (
+                        k,
+                        percentage_error(
+                            serial.accesses.inner.get(k).copied().unwrap_or_default(),
+                            parallel.accesses.inner.get(k).copied().unwrap_or_default(),
+                        ),
+                    )
+                })
+                .filter(|(_, err)| *err != 0.0)
+                .collect();
+            dbg!(&accesses_err);
+            if should_check {
+                assert!(accesses_err
+                    .iter()
+                    .all(|(_, err)| err <= &max_mape_err || err <= &max_smape_err));
+            }
+        }
+
+        // l1c error
+        let l1c_err = cache_err(&serial_l1c_stats, &parallel_l1c_stats);
+        dbg!(&l1c_err);
+        if should_check {
+            assert!(l1c_err
+                .iter()
+                .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        }
+
+        // l1t error
+        let l1t_err = cache_err(&serial_l1t_stats, &parallel_l1t_stats);
+        dbg!(&l1t_err);
+        if should_check {
+            assert!(l1t_err
+                .iter()
+                .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        }
+
+        // l1i error
+        let l1i_err = cache_err(&serial_l1i_stats, &parallel_l1i_stats);
+        dbg!(&l1i_err);
+        if should_check {
+            assert!(l1i_err
+                .iter()
+                // .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+                .all(|(_, _, err)| err <= &PercentageError::MAPE(0.5)
+                    || err <= &PercentageError::SMAPE(0.5)));
+        }
+
+        // l1d
+        let l1d_err = cache_err(&serial_l1d_stats, &parallel_l1d_stats);
+        dbg!(&l1d_err);
+        if should_check {
+            assert!(l1d_err
+                .iter()
+                .all(|(_, _, err)| err <= &max_mape_err || err <= &max_smape_err));
+        }
+
+        // l2d
+        let l2d_err = cache_err(&serial_l2d_stats, &parallel_l2d_stats);
+        dbg!(&l2d_err);
+        if should_check {
+            assert!(l2d_err.iter().all(|(acc, (s, p), err)| match acc {
+                AccessID((_, status)) if status.kind().is_inst() => true,
+                AccessID((_, status)) => {
+                    let norm = serial_l2d_stats.count_accesses_of_kind(*status.kind()) as f64;
+
+                    // GLOBAL_ACC_R[HIT]: 1023300
+                    // GLOBAL_ACC_R[MISS]: 128
+                    // GLOBAL_ACC_R[HIT]: 1023296
+                    // GLOBAL_ACC_R[MISS]: 36
+
+                    // .get(None, *status.kind(), RequestStatus::HIT)
+                    // .unwrap_or(0);
+                    // norm += serial_l2d_stats
+                    //     .get(None, *status.kind(), RequestStatus::MISS)
+                    //     .unwrap_or(0);
+
+                    let abs_err = (*s as f64 - *p as f64).abs();
+                    // dbg!(&abs_err);
+                    // dbg!(&norm);
+                    // dbg!(abs_err / norm);
+
+                    err <= &max_mape_err || err <= &max_smape_err || abs_err / norm <= 0.001
+                    // err <= &max_mape_err || err <= &max_smape_err
+                }
+            }));
+        }
+
+        let dram_err = dram_err(&serial_dram, &parallel_dram);
+        dbg!(&dram_err);
+        if should_check {
+            assert!(dram_err
+                .iter()
+                .all(|(_, err)| err <= &max_mape_err || err <= &max_smape_err));
+        }
+    }
 }
 
 macro_rules! parallel_checks {

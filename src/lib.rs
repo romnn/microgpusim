@@ -245,7 +245,7 @@ impl TotalDuration {
 }
 
 pub static TIMINGS: once_cell::sync::Lazy<Mutex<HashMap<&'static str, TotalDuration>>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::default()));
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub mod wip_stats {
     use crate::sync::Mutex;
@@ -626,7 +626,7 @@ where
 
     #[tracing::instrument]
     // #[inline]
-    fn issue_block_to_core(&mut self, cycle: u64) {
+    fn issue_block_to_core_deterministic(&mut self, cycle: u64) {
         log::debug!("===> issue block to core");
         let mut last_cluster_issue = self.last_cluster_issue.try_lock();
         let last_issued = *last_cluster_issue;
@@ -643,7 +643,8 @@ where
             //     last_issued_kernel: &mut self.last_issued_kernel.try_lock(),
             //     max_concurrent_kernels: self.config.max_concurrent_kernels,
             // };
-            let num_blocks_issued = cluster.issue_block_to_core(&mut self.kernel_manager, cycle);
+            let num_blocks_issued =
+                cluster.issue_block_to_core_deterministic(&mut self.kernel_manager, cycle);
             log::trace!(
                 "cluster[{}] issued {} blocks",
                 cluster_id,
@@ -953,9 +954,9 @@ where
                 }
 
                 let core_sim_order = cluster.core_sim_order.try_lock();
-                for core_id in &*core_sim_order {
+                for local_core_id in &*core_sim_order {
                     // let mut core = cluster.cores[*core_id].write();
-                    let core = &mut cluster.cores[*core_id];
+                    let core = &mut cluster.cores[*local_core_id];
                     crate::timeit!("core::cycle", core.cycle(cycle));
                 }
                 // active_sms += cluster.num_active_sms();
@@ -969,9 +970,9 @@ where
                         continue;
                     }
                     let core_sim_order = cluster.core_sim_order.try_lock();
-                    for core_id in &*core_sim_order {
+                    for local_core_id in &*core_sim_order {
                         // let core = cluster.cores[*core_id].try_read();
-                        let core = &mut cluster.cores[*core_id];
+                        let core = &mut cluster.cores[*local_core_id];
                         // let mem_port = core.mem_port.lock();
                         let mem_port = &mut core.mem_port;
                         assert_eq!(mem_port.buffer.len(), 0);
@@ -981,9 +982,9 @@ where
 
             for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
-                for core_id in &*core_sim_order {
+                for local_core_id in &*core_sim_order {
                     // let core = cluster.cores[*core_id].try_read();
-                    let core = &mut cluster.cores[*core_id];
+                    let core = &mut cluster.cores[*local_core_id];
                     // let mut mem_port = core.mem_port.lock();
                     let core_id = core.id();
                     let mem_port = &mut core.mem_port;
@@ -1050,7 +1051,7 @@ where
 
             crate::timeit!(
                 "cycle::issue_block_to_core",
-                self.issue_block_to_core(cycle)
+                self.issue_block_to_core_deterministic(cycle)
             );
 
             // if false {
@@ -1201,12 +1202,23 @@ where
 
     #[allow(dead_code)]
     fn debug_non_exit(&self) {
-        log::trace!(
-            "all clusters completed: {}",
-            self.clusters
-                .iter()
-                .any(|cluster| cluster.num_active_threads() > 0)
-        );
+        // log::trace!(
+        eprintln!("\n\n DEBUG NON EXIT");
+        let all_clusters_completed = !self
+            .clusters
+            .iter()
+            .any(|cluster| cluster.num_active_threads() > 0);
+        eprintln!("kernels left: {}", self.kernels_left());
+        eprintln!("commands left: {}", self.trace.commands_left());
+        eprintln!("all clusters completed: {}", all_clusters_completed);
+        for cluster in self.clusters.iter() {
+            eprintln!(
+                "cluster {} num active threads: {}",
+                cluster.cluster_id,
+                cluster.num_active_threads()
+            );
+        }
+
         for core in self
             .clusters
             .iter()
@@ -1214,12 +1226,52 @@ where
             .flat_map(|cluster| cluster.cores.iter())
         {
             // let core = core.try_read();
-            let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
-            let block_status: Vec<_> = block_status
-                .into_iter()
+            // let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
+            let block_status: Vec<_> = core
+                .active_threads_per_hardware_block
+                .iter()
+                .enumerate()
                 .filter(|(_id, num_threads)| **num_threads > 0)
+                // .cloned()
                 .collect();
-            log::trace!("core {:?}: blocks: {:?}", core.id(), block_status);
+            // log::trace!("core {:?}: blocks: {:?}", core.id(), block_status);
+            eprintln!("core {:?}: blocks: {:?}", core.id(), block_status);
+            eprintln!(
+                "core {:?}: kernel: {:?}",
+                core.id(),
+                core.current_kernel
+                    .as_ref()
+                    .map(|kernel| kernel.to_string())
+            );
+
+            let instr_fetch_response_queue =
+                &self.clusters[core.cluster_id].core_instr_fetch_response_queue[core.local_core_id];
+            let load_store_response_queue =
+                &self.clusters[core.cluster_id].core_load_store_response_queue[core.local_core_id];
+
+            eprintln!(
+                "core {:?}: instr fetch response queue size: {}",
+                core.id(),
+                instr_fetch_response_queue.lock().len()
+            );
+            eprintln!(
+                "core {:?}: load store response queue size: {}",
+                core.id(),
+                load_store_response_queue.lock().len()
+            );
+        }
+
+        // log::trace!(
+        if let Some(current_kernel) = self.kernel_manager.current_kernel() {
+            eprintln!(
+                "kernel manager: kernel {} done={} running={} more blocks to run={}",
+                current_kernel,
+                current_kernel.done(),
+                current_kernel.running(),
+                !current_kernel.no_more_blocks_to_run(),
+            );
+        } else {
+            eprintln!("kernel manager: NO CURRENT KERNEL");
         }
         // dbg!(self
         //     .clusters
@@ -1229,23 +1281,55 @@ where
         //     // .sorted_by_key(|(block_hw_id, _)| block_hw_id)
         //     .collect::<Vec<_>>());
         for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
-            log::trace!(
-                "partition unit {}: busy={}",
-                partition_id,
-                partition
-                    // .try_read()
-                    .sub_partitions
-                    .iter()
-                    // .any(|sub| sub.try_lock().busy())
-                    .any(|sub| sub.busy())
+            let busy = partition
+                // .try_read()
+                .sub_partitions
+                .iter()
+                // .any(|sub| sub.try_lock().busy())
+                .any(|sub| sub.busy());
+            // log::trace!(
+            eprintln!(
+                "{:>20} {:>2} \tbusy={}",
+                "partition unit", partition_id, busy,
             );
-        }
-        log::trace!("interconn busy: {}", self.interconn.busy());
-        log::trace!(
-            "more blocks to run: {}",
-            self.kernel_manager.more_blocks_to_run()
-        );
 
+            for sub in partition
+                // .try_read()
+                .sub_partitions
+                .iter()
+            {
+                let busy = sub.busy();
+                let interconn_to_l2_queue = &sub.interconn_to_l2_queue;
+                let l2_to_dram_queue = &sub.l2_to_dram_queue;
+                let dram_to_l2_queue = &sub.dram_to_l2_queue;
+                let l2_to_interconn_queue = &sub.l2_to_interconn_queue;
+                let rop_queue = &sub.rop_queue;
+                // log::trace!(
+                eprintln!(
+                    "{:>20} {:>2} \tbusy={} \tpending={} \t{:>3} icnt->l2 \t{:>3} l2->dram \t{:>3} dram->l2 \t{:>3} l2->icnt \t{:>3} rop",
+                    "sub partition",
+                    sub.global_id, busy,
+                    sub.request_tracker.len(),
+                    interconn_to_l2_queue.len(),
+                    l2_to_dram_queue.len(),
+                    dram_to_l2_queue.len(),
+                    l2_to_interconn_queue.len(),
+                    rop_queue.len(),
+                );
+            }
+        }
+
+        // // pub : Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
+        // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+        //
+        // // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+        // pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+        // /// L2 cache hit response queue
+        // pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+        // pub rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
+
+        eprintln!("interconn busy: {}", self.interconn.busy());
+        // log::trace!("interconn busy: {}", self.interconn.busy());
         if self.interconn.busy() {
             for cluster_id in 0..self.config.num_simt_clusters {
                 let queue = self
@@ -1257,7 +1341,8 @@ where
                     .map(ToString::to_string)
                     .collect::<Vec<_>>();
                 if !queue.is_empty() {
-                    log::trace!(
+                    // log::trace!(
+                    eprintln!(
                         "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
                         queue.len(),
                         queue.iter().next(),
@@ -1275,7 +1360,8 @@ where
                     .map(ToString::to_string)
                     .collect::<Vec<_>>();
                 if !queue.is_empty() {
-                    log::trace!(
+                    // log::trace!(
+                    eprintln!(
                         "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
                         queue.len(),
                         queue.iter().next()
@@ -1283,6 +1369,7 @@ where
                 }
             }
         }
+        eprintln!("\n\n");
     }
 
     pub fn l2_used_bytes(&self) -> u64 {
@@ -1368,7 +1455,7 @@ where
                     let num_lines = l1_cache.num_total_lines();
                     eprintln!(
                         "core {:>3}/{:<3}: L2D {:>5}/{:<5} lines used ({:2.2}%, {})",
-                        core.core_id,
+                        core.global_core_id,
                         total_cores,
                         num_lines_used,
                         num_lines,
@@ -2922,7 +3009,7 @@ where
                 warp_id: 0,
                 // the core id and cluster id are not set as no core/cluster explicitely requested the write.
                 // the WRITE_ACK will not be forwarded.
-                core_id: None,
+                global_core_id: None,
                 cluster_id: None,
                 physical_addr,
             }
@@ -2933,7 +3020,7 @@ where
             let dest_mem_device = self.config.mem_id_to_device_id(dest_sub_partition_id);
             let packet_size = fetch.control_size();
 
-            log::debug!("push transaction: {fetch} to device {dest_mem_device} (cluster_id={:?}, core_id={:?})", fetch.cluster_id, fetch.core_id);
+            log::debug!("push transaction: {fetch} to device {dest_mem_device} (cluster_id={:?}, core_id={:?})", fetch.cluster_id, fetch.global_core_id);
 
             self.interconn.push(
                 0,
@@ -3098,7 +3185,7 @@ where
                     warp_id: 0,
                     // the core id and cluster id are not set as no core/cluster explicitely requested the write.
                     // the WRITE_ACK will not be forwarded.
-                    core_id: None,
+                    global_core_id: None,
                     cluster_id: None,
                     physical_addr,
                 }
@@ -3109,13 +3196,13 @@ where
                 write_fetch.access.is_write = true;
                 let read_fetch = fetch;
 
-                let dest_sub_partition_id = read_fetch.sub_partition_id();
-                let (partition_id, sub_id) = self
+                let dest_global_sub_partition_id = read_fetch.sub_partition_id();
+                let (partition_id, local_sub_id) = self
                     .config
-                    .partition_and_sub_partition_id(dest_sub_partition_id);
+                    .partition_and_local_sub_partition_id(dest_global_sub_partition_id);
 
                 let partition = &mut self.mem_partition_units[partition_id];
-                let sub = &mut partition.sub_partitions[sub_id];
+                let sub = &mut partition.sub_partitions[local_sub_id];
 
                 // let sub = &self.mem_sub_partitions[dest_sub_partition_id];
                 // let sub = sub.lock();

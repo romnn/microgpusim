@@ -183,7 +183,7 @@ impl super::Base {
         log::debug!(
             "gto scheduler[{}, core {}]: greedy={:?} sorted by priority: {:?}",
             self.id,
-            self.core_id,
+            self.global_core_id,
             last_issued_idx,
             warps_sorted
                 .iter()

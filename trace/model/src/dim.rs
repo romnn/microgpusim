@@ -175,6 +175,11 @@ impl Point {
     }
 
     #[must_use]
+    pub fn size(&self) -> u64 {
+        self.bounds.size()
+    }
+
+    #[must_use]
     pub fn id(&self) -> u64 {
         let Self { x, y, z, bounds } = self;
         u64::from(*x)

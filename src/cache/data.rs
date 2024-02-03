@@ -165,7 +165,7 @@ where
             instr: None,
             access: new_access,
             warp_id: fetch.warp_id,
-            core_id: fetch.core_id,
+            global_core_id: fetch.global_core_id,
             cluster_id: fetch.cluster_id,
             physical_addr: physical_addr.clone(),
         }
@@ -243,7 +243,7 @@ where
                         instr: None,
                         access: writeback_access,
                         warp_id: 0,
-                        core_id: None,
+                        global_core_id: None,
                         cluster_id: None,
                         physical_addr,
                     }
@@ -365,7 +365,7 @@ where
                         instr: fetch.instr.clone(),
                         access: writeback_access,
                         warp_id: 0,
-                        core_id: None,
+                        global_core_id: None,
                         cluster_id: None,
                         physical_addr,
                     }
@@ -541,7 +541,7 @@ where
                         instr: None,
                         access: writeback_access,
                         warp_id: 0,
-                        core_id: None,
+                        global_core_id: None,
                         cluster_id: None,
                         physical_addr,
                     }
@@ -1085,7 +1085,7 @@ where
                 fetch.access.data_size(),
                 fetch.access.byte_mask.count_ones(),
             );
-            if self.inner.name.contains("L2") && dbg_fetch.core_id.is_some() {
+            if self.inner.name.contains("L2") && dbg_fetch.global_core_id.is_some() {
                 let is_write = dbg_fetch.is_write();
                 let is_hit = matches!(
                     access_stat,

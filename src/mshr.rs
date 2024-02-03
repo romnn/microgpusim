@@ -257,7 +257,7 @@ mod tests {
             instr: None,
             access,
             warp_id: 0,
-            core_id: None,
+            global_core_id: None,
             cluster_id: None,
             physical_addr,
         }

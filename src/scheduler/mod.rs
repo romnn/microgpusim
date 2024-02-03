@@ -59,7 +59,7 @@ pub struct Base {
     // pub struct Base<'a> {
     id: usize,
     cluster_id: usize,
-    core_id: usize,
+    global_core_id: usize,
 
     /// This is the prioritized warp list that is looped over each cycle to
     /// determine which warp gets to issue.
@@ -90,8 +90,8 @@ impl Base {
     // impl<'a> Base<'a> {
     pub fn new(
         id: usize,
+        global_core_id: usize,
         cluster_id: usize,
-        core_id: usize,
         // warps: Vec<warp::Ref>,
         // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
         // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
@@ -103,8 +103,8 @@ impl Base {
         let stats = stats::scheduler::Scheduler::default();
         Self {
             id,
+            global_core_id,
             cluster_id,
-            core_id,
             prioritized_warps_ids: Vec::new(),
             // supervised_warps,
             // supervised_warps_sorted,
@@ -192,7 +192,7 @@ impl Base {
                 log::debug!(
                     "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
                     self.cluster_id,
-                    self.core_id,
+                    self.global_core_id,
                     self.id,
                     warp_id, dyn_warp_id,
                     next_warp.trace_pc,

@@ -69,7 +69,7 @@ impl DRAM {
         );
         // let atom_size = self.config.atom_size;
         let idx = (
-            fetch.core_id.unwrap_or(0),
+            fetch.global_core_id.unwrap_or(0),
             dram_id,
             bank,
             fetch.access_kind() as usize,

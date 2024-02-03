@@ -20,8 +20,8 @@ use strum::EnumCount;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct LoadStoreUnit<MC> {
-    /// Core ID
-    core_id: usize,
+    /// Global core ID
+    global_core_id: usize,
     /// Cluster ID
     cluster_id: usize,
     /// Next writeback instruction
@@ -113,7 +113,7 @@ where
 {
     pub fn new(
         id: usize,
-        core_id: usize,
+        global_core_id: usize,
         cluster_id: usize,
         response_queue: crate::cluster::ResponseQueue,
         // mem_port: ic::Port<mem_fetch::MemFetch>,
@@ -147,7 +147,7 @@ where
                     stats::cache::PerKernel,
                 > = cache::data::Builder {
                     name: format!(
-                        "ldst-unit-{cluster_id}-{core_id}-{}",
+                        "ldst-unit-{cluster_id}-{global_core_id}-{}",
                         style("L1D-CACHE").green()
                     ),
                     id,
@@ -192,7 +192,7 @@ where
         // let response_queue = Arc::new(Mutex::new(response_queue));
 
         Self {
-            core_id,
+            global_core_id,
             cluster_id,
             data_l1,
             next_writeback: None,
@@ -271,6 +271,7 @@ where
         let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
         if bypass_l1 {
             // bypass L1 cache
+            // panic!("we dont bypass l1 right now for debugging but this works");
             debug_assert_eq!(dispatch_instr.is_store(), access.is_write);
 
             // let mut mem_port = self.mem_port.lock();
@@ -300,7 +301,7 @@ where
                     instr: Some(instr.clone()),
                     access,
                     warp_id: instr.warp_id,
-                    core_id: Some(self.core_id),
+                    global_core_id: Some(self.global_core_id),
                     cluster_id: Some(self.cluster_id),
                     physical_addr,
                 }
@@ -418,7 +419,7 @@ where
                         instr: Some(instr.clone()),
                         access,
                         warp_id: instr.warp_id,
-                        core_id: Some(self.core_id),
+                        global_core_id: Some(self.global_core_id),
                         cluster_id: Some(self.cluster_id),
                         physical_addr,
                     }
@@ -481,7 +482,7 @@ where
                 instr: Some(instr.clone()),
                 access: access.clone(),
                 warp_id: instr.warp_id,
-                core_id: Some(self.core_id),
+                global_core_id: Some(self.global_core_id),
                 cluster_id: Some(self.cluster_id),
                 physical_addr,
             }
