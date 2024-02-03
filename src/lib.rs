@@ -708,7 +708,7 @@ where
         if !self.config.simulate_clock_domains || clock_mask[ClockDomain::CORE as usize] {
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
-            for cluster in self.clusters.iter() {
+            for cluster in self.clusters.iter_mut() {
                 cluster.interconn_cycle(cycle);
             }
             #[cfg(feature = "timings")]
@@ -965,29 +965,32 @@ where
             #[cfg(debug_assertions)]
             {
                 // sanity check that inactive clusters do no produce any messages
-                for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+                for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
                     if active_clusters[cluster_id] {
                         continue;
                     }
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for core_id in &*core_sim_order {
                         // let core = cluster.cores[*core_id].try_read();
-                        let core = &cluster.cores[*core_id];
-                        let mem_port = core.mem_port.lock();
+                        let core = &mut cluster.cores[*core_id];
+                        // let mem_port = core.mem_port.lock();
+                        let mem_port = &mut core.mem_port;
                         assert_eq!(mem_port.buffer.len(), 0);
                     }
                 }
             }
 
-            for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+            for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for core_id in &*core_sim_order {
                     // let core = cluster.cores[*core_id].try_read();
-                    let core = &cluster.cores[*core_id];
-                    let mut mem_port = core.mem_port.lock();
+                    let core = &mut cluster.cores[*core_id];
+                    // let mut mem_port = core.mem_port.lock();
+                    let core_id = core.id();
+                    let mem_port = &mut core.mem_port;
                     log::trace!(
                         "interconn buffer for core {:?}: {:?}",
-                        core.id(),
+                        core_id,
                         mem_port
                             .buffer
                             .iter()
@@ -1868,7 +1871,7 @@ where
 
                     allocations_and_memcopies.clear();
 
-                    let mut kernel = kernel::trace::KernelTrace::new(
+                    let kernel = kernel::trace::KernelTrace::new(
                         launch.clone(),
                         self.trace.traces_dir.as_ref().unwrap(),
                         self.config.memory_only,

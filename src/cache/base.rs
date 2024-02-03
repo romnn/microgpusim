@@ -70,7 +70,8 @@ pub struct Base<B, CC, S> {
     pub tag_array: tag_array::TagArray<B, CC>,
     // pending: HashMap<mem_fetch::MemFetch, PendingRequest>,
     pending: HashMap<FetchKey, PendingRequest>,
-    top_port: Option<ic::Port<mem_fetch::MemFetch>>,
+    // top_port: Option<ic::Port<mem_fetch::MemFetch>>,
+    // pub top_port: Option<Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>>,
     pub bandwidth: super::bandwidth::Manager,
 }
 
@@ -126,7 +127,7 @@ where
             // is_l1,
             tag_array,
             mshrs,
-            top_port: None,
+            // top_port: None,
             stats: self.stats,
             cache_config,
             cache_controller: self.cache_controller,
@@ -345,11 +346,15 @@ where
 // impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
 impl<B, CC, S> Base<B, CC, S> {
     /// Sends next request to top memory in the memory hierarchy.
-    pub fn cycle(&mut self, cycle: u64) {
-        let Some(ref top_port) = self.top_port else {
-            panic!("missing top port");
-            // return;
-        };
+    pub fn cycle(
+        &mut self,
+        top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
+        cycle: u64,
+    ) {
+        // let Some(ref top_port) = self.top_port else {
+        //     panic!("missing top port");
+        //     // return;
+        // };
 
         log::debug!(
             "{}::baseline cache::cycle miss queue={:?}",
@@ -365,7 +370,7 @@ impl<B, CC, S> Base<B, CC, S> {
 
         // process miss queue
         if let Some(fetch) = self.miss_queue.front() {
-            let mut top_port = top_port.lock();
+            // let mut top_port = top_port.lock();
             let packet_size = if fetch.is_write() {
                 fetch.size()
             } else {
@@ -445,9 +450,10 @@ impl<B, CC, S> Base<B, CC, S> {
     }
 
     // #[inline]
-    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-        self.top_port = Some(port);
-    }
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    // pub fn set_top_port(&mut self, port: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>) {
+    //     self.top_port = Some(port);
+    // }
 }
 
 impl<B, CC, S> Base<B, CC, S>

@@ -54,9 +54,9 @@ impl ReadOnly {
     }
 
     // #[inline]
-    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-        self.inner.set_top_port(port);
-    }
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    //     self.inner.set_top_port(port);
+    // }
 }
 
 // impl crate::engine::cycle::Component for ReadOnly {
@@ -78,8 +78,13 @@ impl cache::Bandwidth for ReadOnly {
 }
 
 impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
+    fn cycle(
+        &mut self,
+        top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
+        cycle: u64,
+    ) {
+        // self.inner.cycle(cycle);
+        self.inner.cycle(top_port, cycle);
     }
 
     // #[inline]

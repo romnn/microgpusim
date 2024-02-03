@@ -75,9 +75,11 @@ where
 impl<MC, CC, S> Data<MC, CC, S> {
     // impl<CC, S> Data<CC, S> {
     // #[inline]
-    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-        self.inner.set_top_port(port);
-    }
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    // pub fn set_top_port(&mut self, port: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>) {
+    //     self.inner.set_top_port(port);
+    // }
 }
 
 impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
@@ -961,13 +963,21 @@ where
     MC: crate::mcu::MemoryController,
     CC: cache::CacheController,
 {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
+    fn cycle(
+        &mut self,
+        top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
+        cycle: u64,
+    ) {
+        self.inner.cycle(top_port, cycle);
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>> {
+    //     self.inner.top_port.as_deref_mut()
+    // }
 
     // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
     fn per_kernel_stats(&self) -> &stats::cache::PerKernel {

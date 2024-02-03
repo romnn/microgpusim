@@ -1,7 +1,8 @@
-use crate::sync::Arc;
+use crate::sync::{Arc, Mutex};
 use crate::{
     address, cache, config,
     core::PipelineStage,
+    fifo::Fifo,
     func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
     interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr,
@@ -26,7 +27,8 @@ pub struct LoadStoreUnit<MC> {
     /// Next writeback instruction
     next_writeback: Option<WarpInstruction>,
     /// Response fifo queue
-    pub response_fifo: VecDeque<MemFetch>,
+    // pub response_queue: VecDeque<MemFetch>,
+    pub response_queue: Arc<Mutex<Fifo<ic::Packet<MemFetch>>>>,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     /// Config
     config: Arc<config::GPU>,
@@ -44,7 +46,7 @@ pub struct LoadStoreUnit<MC> {
     pub l1_hit_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
     /// Memory port
-    pub mem_port: ic::Port<mem_fetch::MemFetch>,
+    // pub mem_port: ic::Port<mem_fetch::MemFetch>,
     inner: fu::PipelinedSimdUnit,
 
     /// Round-robin write-back arbiter.
@@ -112,7 +114,7 @@ where
         id: usize,
         core_id: usize,
         cluster_id: usize,
-        mem_port: ic::Port<mem_fetch::MemFetch>,
+        // mem_port: ic::Port<mem_fetch::MemFetch>,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
     ) -> Self {
@@ -157,7 +159,7 @@ where
                     write_back_type: AccessKind::L1_WRBK_ACC,
                 }
                 .build();
-                data_cache.set_top_port(mem_port.clone());
+                // data_cache.set_top_port(mem_port.clone());
 
                 Some(Box::new(data_cache))
             } else {
@@ -183,6 +185,10 @@ where
 
         let l1_hit_latency_queue = VecDeque::new();
 
+        // let response_queue = VecDeque::new();
+        let response_queue = Fifo::new(Some(config.num_ldst_response_buffer_size));
+        let response_queue = Arc::new(Mutex::new(response_queue));
+
         Self {
             core_id,
             cluster_id,
@@ -190,8 +196,8 @@ where
             next_writeback: None,
             next_global: None,
             pending_writes: HashMap::new(),
-            response_fifo: VecDeque::new(),
-            mem_port,
+            response_queue,
+            // mem_port,
             inner,
             config,
             mem_controller: Arc::clone(&mem_controller),
@@ -207,6 +213,7 @@ where
     fn memory_cycle(
         &mut self,
         warps: &mut [warp::Warp],
+        mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
         rc_fail: &mut MemStageStallKind,
         kind: &mut MemStageAccessKind,
         cycle: u64,
@@ -264,7 +271,7 @@ where
             // bypass L1 cache
             debug_assert_eq!(dispatch_instr.is_store(), access.is_write);
 
-            let mut mem_port = self.mem_port.lock();
+            // let mut mem_port = self.mem_port.lock();
 
             let packet_size = if dispatch_instr.is_store() || dispatch_instr.is_atomic() {
                 access.size()
@@ -494,10 +501,10 @@ where
 }
 
 impl<MC> LoadStoreUnit<MC> {
-    #[must_use]
-    pub fn response_buffer_full(&self) -> bool {
-        self.response_fifo.len() >= self.config.num_ldst_response_buffer_size
-    }
+    // #[must_use]
+    // pub fn response_buffer_full(&self) -> bool {
+    //     self.response_queue.len() >= self.config.num_ldst_response_buffer_size
+    // }
 
     pub fn flush(&mut self) {
         if let Some(ref mut l1) = self.data_l1 {
@@ -511,9 +518,12 @@ impl<MC> LoadStoreUnit<MC> {
         }
     }
 
-    pub fn fill(&mut self, mut fetch: MemFetch) {
+    pub fn fill(&self, mut fetch: MemFetch, time: u64) {
         fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
-        self.response_fifo.push_back(fetch);
+        // self.response_queue.push_back(fetch);
+        self.response_queue
+            .lock()
+            .enqueue(ic::Packet { data: fetch, time });
     }
 
     pub fn writeback(
@@ -1123,6 +1133,7 @@ where
         scoreboard: &mut dyn Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
+        mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
         _result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
@@ -1138,7 +1149,8 @@ where
                 .collect::<Vec<_>>(),
             self.inner.num_active_instr_in_pipeline(),
             self.inner.pipeline_reg.len(),
-            self.response_fifo
+            self.response_queue
+                .lock()
                 .iter()
                 .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>(),
@@ -1167,62 +1179,74 @@ where
             }
         }
 
-        if let Some(fetch) = self.response_fifo.front() {
-            match fetch.access_kind() {
-                AccessKind::TEXTURE_ACC_R => {
-                    todo!("ldst unit: tex access");
-                    // if self.texture_l1.has_free_fill_port() {
-                    //     self.texture_l1.fill(&fetch);
-                    //     // self.response_fifo.fill(mem_fetch);
-                    //     self.response_fifo.pop_front();
-                    // }
-                }
-                AccessKind::CONST_ACC_R => {
-                    todo!("ldst unit: const access");
-                    // if self.const_l1.has_free_fill_port() {
-                    //     // fetch.set_status(IN_SHADER_FETCHED)
-                    //     self.const_l1.fill(&fetch);
-                    //     // self.response_fifo.fill(mem_fetch);
-                    //     self.response_fifo.pop_front();
-                    // }
-                }
-                _ => {
-                    if fetch.kind == mem_fetch::Kind::WRITE_ACK
-                        || (self.config.perfect_mem && fetch.is_write())
-                    {
-                        self.store_ack(warps, fetch);
-                        self.response_fifo.pop_front();
-                    } else {
-                        // L1 cache is write evict:
-                        // allocate line on load miss only
-                        debug_assert!(!fetch.is_write());
-                        let mut bypass_l1 = false;
+        // if let Some(fetch) = self.response_queue.front() {
+        {
+            let mut response_queue_lock = self.response_queue.lock();
 
-                        let cache_op = fetch.instr.as_ref().and_then(|i| i.cache_operator);
-                        if self.data_l1.is_none() || cache_op == Some(CacheOperator::Global) {
-                            bypass_l1 = true;
-                        } else if fetch.access_kind().is_global()
-                            && self.config.global_mem_skip_l1_data_cache
+            if let Some(ic::Packet { data, .. }) = response_queue_lock.first() {
+                match data.access_kind() {
+                    AccessKind::TEXTURE_ACC_R => {
+                        todo!("ldst unit: tex access");
+                        // if self.texture_l1.has_free_fill_port() {
+                        //     self.texture_l1.fill(&fetch);
+                        //     // self.response_queue.fill(mem_fetch);
+                        //     self.response_queue.pop_front();
+                        // }
+                    }
+                    AccessKind::CONST_ACC_R => {
+                        todo!("ldst unit: const access");
+                        // if self.const_l1.has_free_fill_port() {
+                        //     // fetch.set_status(IN_SHADER_FETCHED)
+                        //     self.const_l1.fill(&fetch);
+                        //     // self.response_queue.fill(mem_fetch);
+                        //     self.response_queue.pop_front();
+                        // }
+                    }
+                    _ => {
+                        if data.kind == mem_fetch::Kind::WRITE_ACK
+                            || (self.config.perfect_mem && data.is_write())
                         {
-                            bypass_l1 = true;
-                        }
-
-                        if bypass_l1 {
-                            if self.next_global.is_none() {
-                                let mut fetch = self.response_fifo.pop_front().unwrap();
-                                fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
-                                self.next_global = Some(fetch);
-                            }
+                            self.store_ack(warps, data);
+                            // self.response_queue.pop_front();
+                            response_queue_lock.dequeue();
                         } else {
-                            let l1d = self.data_l1.as_mut().unwrap();
-                            if l1d.has_free_fill_port() {
-                                let fetch = self.response_fifo.pop_front().unwrap();
-                                l1d.fill(fetch, cycle);
+                            // L1 cache is write evict:
+                            // allocate line on load miss only
+                            debug_assert!(!data.is_write());
+                            let mut bypass_l1 = false;
+
+                            let cache_op = data.instr.as_ref().and_then(|i| i.cache_operator);
+                            if self.data_l1.is_none() || cache_op == Some(CacheOperator::Global) {
+                                bypass_l1 = true;
+                            } else if data.access_kind().is_global()
+                                && self.config.global_mem_skip_l1_data_cache
+                            {
+                                bypass_l1 = true;
+                            }
+
+                            if bypass_l1 {
+                                if self.next_global.is_none() {
+                                    // let mut fetch = self.response_queue.pop_front().unwrap();
+                                    let ic::Packet { mut data, .. } =
+                                        response_queue_lock.dequeue().unwrap();
+                                    data.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
+                                    self.next_global = Some(data);
+                                }
                             } else {
-                                log::trace!(
-                                    "cannot fill L1 data cache with {}: no free fill port",
-                                    fetch
-                                );
+                                let l1d = self.data_l1.as_mut().unwrap();
+                                if l1d.has_free_fill_port() {
+                                    // let fetch = self.response_queue.pop_front().unwrap();
+                                    let ic::Packet { data, time } =
+                                        response_queue_lock.dequeue().unwrap();
+                                    // eagerly release the lock
+                                    drop(response_queue_lock);
+                                    l1d.fill(data, time);
+                                } else {
+                                    log::trace!(
+                                        "cannot fill L1 data cache with {}: no free fill port",
+                                        data
+                                    );
+                                }
                             }
                         }
                     }
@@ -1233,7 +1257,8 @@ where
         // self.texture_l1.cycle();
         // self.const_l1.cycle();
         if let Some(data_l1) = &mut self.data_l1 {
-            data_l1.cycle(cycle);
+            data_l1.cycle(mem_port, cycle);
+
             let cache_config = self.config.data_cache_l1.as_ref().unwrap();
             debug_assert!(cache_config.l1_latency > 0);
             crate::timeit!(
@@ -1248,7 +1273,7 @@ where
         done &= self.shared_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
         done &= self.constant_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
         done &= self.texture_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
-        done &= self.memory_cycle(warps, &mut stall_kind, &mut access_kind, cycle);
+        done &= self.memory_cycle(warps, mem_port, &mut stall_kind, &mut access_kind, cycle);
 
         if !done {
             // log stall types and return

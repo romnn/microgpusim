@@ -140,16 +140,17 @@ where
                         if !active {
                             continue;
                         }
-                        let cluster = &self.clusters[cluster_id];
+                        let cluster = &mut self.clusters[cluster_id];
                         let mut core_sim_order = cluster.core_sim_order.try_lock();
                         for core_id in &*core_sim_order {
                             // let core = cluster.cores[*core_id].try_read();
-                            let core = &cluster.cores[*core_id];
-                            let mut port = core.mem_port.lock();
+                            let core = &mut cluster.cores[*core_id];
+                            // let mut port = core.mem_port.lock();
+                            let mem_port = &mut core.mem_port;
                             for ic::Packet {
                                 data: (dest, fetch, size),
                                 time,
-                            } in port.buffer.drain(..)
+                            } in mem_port.buffer.drain(..)
                             {
                                 self.interconn.push(
                                     core.cluster_id,

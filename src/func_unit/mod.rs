@@ -11,8 +11,8 @@ pub use sfu::SFU;
 pub use sp::SPUnit;
 
 use crate::{
-    config, core::PipelineStage, instruction::WarpInstruction, operand_collector::OperandCollector,
-    register_set, scoreboard, warp,
+    config, core::PipelineStage, instruction::WarpInstruction, interconn as ic, mem_fetch,
+    operand_collector::OperandCollector, register_set, scoreboard, warp,
 };
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
@@ -47,6 +47,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
         scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
+        mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
         result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     );

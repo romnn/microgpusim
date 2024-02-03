@@ -17,7 +17,7 @@ pub use event::Event;
 pub use l2::DataL2;
 pub use readonly::ReadOnly;
 
-use super::{address, mem_fetch};
+use super::{address, interconn as ic, mem_fetch};
 use crate::sync::{Arc, Mutex};
 use color_eyre::eyre;
 use std::collections::VecDeque;
@@ -136,10 +136,17 @@ pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStat
 
 // pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
 pub trait Cache<S>: Send + Sync + Bandwidth + 'static {
-    fn cycle(&mut self, cycle: u64);
+    fn cycle(
+        &mut self,
+        top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
+        cycle: u64,
+    );
 
     /// TODO: shoud this be removed?
     fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Get top port
+    // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>;
 
     /// Per-kenrel cache statistics.
     fn per_kernel_stats(&self) -> &S;

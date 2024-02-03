@@ -197,7 +197,8 @@ impl Base {
                     warp_id, dyn_warp_id,
                     next_warp.trace_pc,
                     next_warp.pc(),
-                    next_warp.instr_buffer.iter().filter_map(Option::as_ref).map(|i| i.pc).collect::<Vec<_>>(), inst_count,
+                    // next_warp.instr_buffer.iter().filter_map(Option::as_ref).map(|i| i.pc).collect::<Vec<_>>(), inst_count,
+                    next_warp.instr_buffer.iter_filled().map(|i| i.pc).collect::<Vec<_>>(), inst_count,
                 );
             }
             let mut checked = 0;
@@ -211,7 +212,7 @@ impl Base {
                 self.config.dual_issue_only_to_different_exec_units;
 
             if log::log_enabled!(log::Level::Debug) && inst_count > 1 {
-                if next_warp.ibuffer_empty() {
+                if next_warp.instr_buffer.is_empty() {
                     log::debug!(
                         "warp (warp_id={}, dynamic_warp_id={}) fails as ibuffer_empty",
                         warp_id,
@@ -250,7 +251,7 @@ impl Base {
                 || core.warp_waiting_at_barrier(warp_id)
                 || core.warp_waiting_at_mem_barrier(&next_warp)
                 // || core.warp_waiting_at_mem_barrier(warp_id)
-                || next_warp.ibuffer_empty())
+                || next_warp.instr_buffer.is_empty())
                 && checked < max_issue
                 && checked <= num_issued
                 && num_issued < max_issue
@@ -258,12 +259,12 @@ impl Base {
                 let mut warp_inst_issued = false;
                 checked += 1;
 
-                let Some(instr) = next_warp.ibuffer_peek() else {
+                let Some(instr) = next_warp.instr_buffer.peek() else {
                     continue;
                 };
                 log::debug!(
                     "Warp (warp_id={}, dynamic_warp_id={}) instruction buffer[{}] has valid instruction ({}, op={:?})",
-                    warp_id, dyn_warp_id, next_warp.next, instr, instr.opcode.category
+                    warp_id, dyn_warp_id, next_warp.instr_buffer.pos(), instr, instr.opcode.category
                 );
 
                 valid_inst = true;

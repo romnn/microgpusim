@@ -1,7 +1,7 @@
 use crate::sync::Arc;
 use crate::{
-    config, core::PipelineStage, func_unit as fu, instruction::WarpInstruction, opcodes,
-    operand_collector::OperandCollector, register_set, scoreboard, warp,
+    config, core::PipelineStage, func_unit as fu, instruction::WarpInstruction, interconn as ic,
+    mem_fetch, opcodes, operand_collector::OperandCollector, register_set, scoreboard, warp,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -113,6 +113,7 @@ impl fu::SimdFunctionUnit for SPUnit {
         _scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
         _warps: &mut [warp::Warp],
         _stats: &mut stats::PerKernel,
+        _mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
         result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {

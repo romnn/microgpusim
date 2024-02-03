@@ -198,9 +198,9 @@ where
 
 impl<MC> DataL2<MC> {
     // #[inline]
-    pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-        self.inner.set_top_port(port);
-    }
+    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
+    //     self.inner.set_top_port(port);
+    // }
 }
 
 // impl<MC> crate::engine::cycle::Component for DataL2<MC> {
@@ -213,9 +213,17 @@ impl<MC> super::Cache<stats::cache::PerKernel> for DataL2<MC>
 where
     MC: crate::mcu::MemoryController,
 {
-    fn cycle(&mut self, cycle: u64) {
-        self.inner.cycle(cycle);
+    fn cycle(
+        &mut self,
+        top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
+        cycle: u64,
+    ) {
+        self.inner.cycle(top_port, cycle);
     }
+
+    // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>> {
+    //     self.inner.top_port()
+    // }
 
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {

@@ -105,9 +105,11 @@ fn new_serial_cycle<I, MC>(
     MC: crate::mcu::MemoryController,
 {
     // it could happen that two serial cycles overlap when using spawn fifo, so we need
-    for cluster in clusters.iter() {
-        crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
-    }
+
+    todo!();
+    // for cluster in clusters.iter_mut() {
+    //     crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
+    // }
 
     for (i, mem_sub) in mem_sub_partitions.iter().enumerate() {
         let mut mem_sub = mem_sub.try_lock();
@@ -247,7 +249,7 @@ where
 
                 let kernels_completed = self.kernel_manager.all_kernels_completed();
 
-                for cluster in self.clusters.iter() {
+                for cluster in self.clusters.iter_mut() {
                     // Receive memory responses addressed to each cluster and forward to cores
                     crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
                 }
@@ -420,12 +422,13 @@ where
                     if !active {
                         continue;
                     }
-                    let cluster = &self.clusters[cluster_id];
+                    let cluster = &mut self.clusters[cluster_id];
                     let mut core_sim_order = cluster.core_sim_order.try_lock();
                     for core_id in &*core_sim_order {
                         // let core = cluster.cores[*core_id].try_read();
-                        let core = &cluster.cores[*core_id];
-                        let mut port = core.mem_port.lock();
+                        let core = &mut cluster.cores[*core_id];
+                        // let mut port = core.mem_port.lock();
+                        let port = &mut core.mem_port;
                         for ic::Packet {
                             data: (dest, fetch, size),
                             time,
@@ -1161,7 +1164,7 @@ where
 
     #[tracing::instrument]
     pub fn serial_cycle(&mut self, cycle: u64) {
-        for cluster in self.clusters.iter() {
+        for cluster in self.clusters.iter_mut() {
             // Receive memory responses addressed to each cluster and forward to cores
             crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
         }

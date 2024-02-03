@@ -1,5 +1,7 @@
 use super::{
-    address, barrier, cache, config, func_unit as fu,
+    address, barrier, cache, config,
+    fifo::Fifo,
+    func_unit as fu,
     instruction::WarpInstruction,
     interconn as ic,
     kernel::Kernel,
@@ -124,8 +126,8 @@ impl<'a> WarpIssuer for CoreIssuer<'a> {
         };
         let (reg_idx, pipe_reg) = free.ok_or(eyre::eyre!("no free register"))?;
 
-        let mut next_instr = warp.ibuffer_take().unwrap();
-        warp.ibuffer_step();
+        let mut next_instr = warp.instr_buffer.take().unwrap();
+        warp.instr_buffer.step();
 
         log::debug!(
             "{} by scheduler {} to pipeline[{:?}][{}] {}",
@@ -252,7 +254,7 @@ impl<'a> WarpIssuer for CoreIssuer<'a> {
         );
 
         if warp.done() && warp.functional_done() {
-            warp.ibuffer_flush();
+            warp.num_instr_in_pipeline -= warp.instr_buffer.flush();
             self.barriers.warp_exited(pipe_reg_ref.warp_id);
         }
 
@@ -474,7 +476,8 @@ pub struct Core<I, MC> {
     pub last_warp_fetched: Option<usize>,
     pub interconn: Arc<I>,
     // check this again
-    pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
+    // pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
+    pub mem_port: CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>,
     pub load_store_unit: fu::LoadStoreUnit<MC>,
     pub active_thread_mask: BitArr!(for crate::MAX_THREADS_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for crate::MAX_THREADS_PER_SM),
@@ -488,10 +491,16 @@ pub struct Core<I, MC> {
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: Box<[usize]>,
 
+    // TODO: these queues are used to receive fills from the clusters
+    pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
+    // pub load_store_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
+
+    // pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
+    // pub please_fill: Arc<Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
+
     // allocations are managed by the driver API, hence we need mutex.
     pub allocations: super::allocation::Ref,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
-    pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
     // pub need_l1_flush: Mutex<bool>,
     pub instr_fetch_buffer: InstrFetchBuffer,
     pub warps: Vec<warp::Warp>,
@@ -541,12 +550,13 @@ where
             .map(|_| warp::Warp::default())
             .collect();
 
-        let mem_port = Arc::new(Mutex::new(CoreMemoryConnection {
+        let mem_port = CoreMemoryConnection {
             cluster_id,
             stats: stats.clone(),
             config: Arc::clone(&config),
             buffer: InterconnBuffer::<mem_fetch::MemFetch>::new(),
-        }));
+        };
+        // let mem_port = Arc::new(Mutex::new(mem_port));
 
         let mut instr_l1_cache = cache::ReadOnly::new(
             core_id,
@@ -563,7 +573,8 @@ where
             config.inst_cache_l1.as_ref().unwrap().clone(),
             config.accelsim_compat,
         );
-        instr_l1_cache.set_top_port(mem_port.clone());
+        // instr_l1_cache.set_top_port(mem_port.clone());
+        let instr_l1_cache = Box::new(instr_l1_cache);
 
         let scoreboard = Box::new(scoreboard::Scoreboard::new(&scoreboard::Config {
             core_id,
@@ -613,7 +624,7 @@ where
             core_id, // is the core id for now
             core_id,
             cluster_id,
-            mem_port.clone(),
+            // mem_port.clone(),
             config.clone(),
             mem_controller.clone(),
         );
@@ -684,6 +695,12 @@ where
         }
         .build();
 
+        let instr_fetch_response_queue = Fifo::new(None);
+        let instr_fetch_response_queue = Arc::new(Mutex::new(instr_fetch_response_queue));
+
+        // let load_store_response_queue = Fifo::new(None);
+        // let load_store_response_queue = Arc::new(Mutex::new(load_store_response_queue));
+
         Self {
             core_id,
             cluster_id,
@@ -707,8 +724,10 @@ where
             occupied_block_to_hw_thread_id: HashMap::new(),
             // todo: add configuration option for MAX_CTA_PER_SM
             block_status: utils::box_slice![0; 32],
-            instr_l1_cache: Box::new(instr_l1_cache),
-            please_fill: Mutex::new(Vec::new()),
+            instr_l1_cache,
+            // please_fill: Mutex::new(Vec::new()),
+            instr_fetch_response_queue,
+            // load_store_response_queue,
             // need_l1_flush: Mutex::new(false),
             instr_fetch_buffer: InstrFetchBuffer::default(),
             interconn,
@@ -747,7 +766,8 @@ where
             }
         }
 
-        stats += self.mem_port.lock().stats.clone();
+        // stats += self.mem_port.lock().stats.clone();
+        stats += self.mem_port.stats.clone();
         stats
     }
 
@@ -902,8 +922,9 @@ where
 
                     let icache_config = self.config.inst_cache_l1.as_ref().unwrap();
                     // !warp.trace_instructions.is_empty() &&
-                    let should_fetch_instruction =
-                        !warp.functional_done() && !warp.has_imiss_pending && warp.ibuffer_empty();
+                    let should_fetch_instruction = !warp.functional_done()
+                        && !warp.has_imiss_pending
+                        && warp.instr_buffer.is_empty();
 
                     // this code fetches instructions
                     // from the i-cache or generates memory
@@ -998,7 +1019,8 @@ where
             }
         }
         if !self.config.perfect_inst_const_cache {
-            self.instr_l1_cache.cycle(cycle);
+            // let mem_port = self.mem_port.try_lock();
+            self.instr_l1_cache.cycle(&mut self.mem_port, cycle);
         }
     }
 
@@ -1042,11 +1064,13 @@ where
                 &self.pipeline_reg[issue_port as usize]
             );
 
+            // let todo = self.mem_port.try_lock();
             fu.cycle(
                 &mut self.register_file,
                 &mut *self.scoreboard,
                 &mut self.warps,
                 &mut self.stats,
+                &mut self.mem_port,
                 result_port.map(|port| &mut self.pipeline_reg[port as usize]),
                 cycle,
             );
@@ -1240,33 +1264,33 @@ where
         self.load_store_unit.invalidate();
     }
 
-    // this is very bad: expose the underlying queue with a mutex
-    #[must_use]
-    // #[inline]
-    pub fn ldst_unit_response_buffer_full(&self) -> bool {
-        self.load_store_unit.response_buffer_full()
-    }
+    // // this is very bad: expose the underlying queue with a mutex
+    // #[must_use]
+    // // #[inline]
+    // pub fn ldst_unit_response_buffer_full(&self) -> bool {
+    //     self.load_store_unit.response_buffer_full()
+    // }
+    //
+    // // #[inline]
+    // pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch, time: u64) {
+    //     self.please_fill
+    //         .lock()
+    //         .push((FetchResponseTarget::LoadStoreUnit, fetch, time));
+    // }
 
-    #[must_use]
-    // #[inline]
-    pub fn fetch_unit_response_buffer_full(&self) -> bool {
-        false
-    }
-
-    // #[inline]
-    pub fn accept_fetch_response(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
-        fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-        self.please_fill
-            .lock()
-            .push((FetchResponseTarget::ICache, fetch, time));
-    }
-
-    // #[inline]
-    pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch, time: u64) {
-        self.please_fill
-            .lock()
-            .push((FetchResponseTarget::LoadStoreUnit, fetch, time));
-    }
+    // #[must_use]
+    // // #[inline]
+    // pub fn fetch_unit_response_buffer_full(&self) -> bool {
+    //     false
+    // }
+    //
+    // // #[inline]
+    // pub fn accept_fetch_response(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
+    //     fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
+    //     self.please_fill
+    //         .lock()
+    //         .push((FetchResponseTarget::ICache, fetch, time));
+    // }
 
     #[must_use]
     // #[inline]
@@ -1714,7 +1738,7 @@ where
             instr,
         );
 
-        warp.ibuffer_fill(slot, instr);
+        warp.instr_buffer.fill(slot, instr);
         warp.num_instr_in_pipeline += 1;
     }
 
@@ -1962,7 +1986,7 @@ where
             .blue(),
             self.is_active(),
             self.num_active_threads(),
-            self.load_store_unit.response_fifo.len()
+            self.load_store_unit.response_queue.lock().len()
         );
 
         // // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
@@ -1977,15 +2001,29 @@ where
         //     self.cache_invalidate();
         // }
 
-        for (target, fetch, time) in self.please_fill.lock().drain(..) {
+        for ic::Packet { data, time } in self.instr_fetch_response_queue.lock().drain() {
             if let Some(fetch_return_cb) = &self.fetch_return_callback {
-                fetch_return_cb(cycle, &fetch);
+                fetch_return_cb(time, &data);
             }
-            match target {
-                FetchResponseTarget::LoadStoreUnit => self.load_store_unit.fill(fetch),
-                FetchResponseTarget::ICache => self.instr_l1_cache.fill(fetch, time),
-            }
+            self.instr_l1_cache.fill(data, time);
         }
+
+        // for ic::Packet { data, time } in self.load_store_response_queue.lock().drain() {
+        //     if let Some(fetch_return_cb) = &self.fetch_return_callback {
+        //         fetch_return_cb(time, &data);
+        //     }
+        //     self.load_store_unit.fill(data, time);
+        // }
+
+        // for (target, fetch, time) in self.please_fill.lock().drain(..) {
+        //     if let Some(fetch_return_cb) = &self.fetch_return_callback {
+        //         fetch_return_cb(cycle, &fetch);
+        //     }
+        //     match target {
+        //         FetchResponseTarget::LoadStoreUnit => self.load_store_unit.fill(fetch, time),
+        //         FetchResponseTarget::ICache => self.instr_l1_cache.fill(fetch, time),
+        //     }
+        // }
 
         // if !self.is_active() && self.not_completed() == 0 {
         //     log::debug!(

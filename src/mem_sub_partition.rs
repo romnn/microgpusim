@@ -188,28 +188,26 @@ where
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
     ) -> Self {
-        let interconn_to_l2_queue =
-            Fifo::new(Some(0), Some(config.dram_partition_queue_interconn_to_l2));
+        let interconn_to_l2_queue = Fifo::new(Some(config.dram_partition_queue_interconn_to_l2));
 
-        let l2_to_dram_queue = Fifo::new(Some(0), Some(config.dram_partition_queue_l2_to_dram));
+        let l2_to_dram_queue = Fifo::new(Some(config.dram_partition_queue_l2_to_dram));
         let l2_to_dram_queue = Arc::new(Mutex::new(l2_to_dram_queue));
 
-        let dram_to_l2_queue = Fifo::new(Some(0), Some(config.dram_partition_queue_dram_to_l2));
+        let dram_to_l2_queue = Fifo::new(Some(config.dram_partition_queue_dram_to_l2));
 
-        let l2_to_interconn_queue =
-            Fifo::new(Some(0), Some(config.dram_partition_queue_l2_to_interconn));
+        let l2_to_interconn_queue = Fifo::new(Some(config.dram_partition_queue_l2_to_interconn));
 
         let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
             match &config.data_cache_l2 {
                 Some(l2_config) => {
-                    let mut data_l2 = cache::DataL2::new(
+                    let data_l2 = cache::DataL2::new(
                         format!("mem-sub-{:03}-{}", global_id, style("L2-CACHE").blue()),
                         global_id,
                         config.clone(),
                         mem_controller.clone(),
                         l2_config.clone(),
                     );
-                    data_l2.set_top_port(l2_to_dram_queue.clone());
+                    // data_l2.set_top_port(l2_to_dram_queue.clone());
                     Some(Box::new(data_l2))
                 }
                 None => None,
@@ -572,7 +570,8 @@ impl<MC> MemorySubPartition<MC> {
 
         // prior L2 misses inserted into m_L2_dram_queue here
         if let Some(ref mut l2_cache) = self.l2_cache {
-            l2_cache.cycle(cycle);
+            let mut todo = self.l2_to_dram_queue.try_lock();
+            l2_cache.cycle(&mut *todo, cycle);
         }
 
         // new L2 texture accesses and/or non-texture accesses

@@ -22,8 +22,10 @@ pub struct Warp {
     pub num_outstanding_atomics: usize,
     pub waiting_for_memory_barrier: bool,
     pub has_imiss_pending: bool,
-    pub instr_buffer: Vec<Option<WarpInstruction>>,
-    pub next: usize,
+
+    pub instr_buffer: InstructionBuffer,
+    // pub instr_buffer: Vec<Option<WarpInstruction>>,
+    // pub next: usize,
 }
 
 impl std::fmt::Display for Warp {
@@ -42,9 +44,83 @@ impl std::fmt::Display for Warp {
 
 const IBUFFER_SIZE: usize = 2;
 
+#[derive(Debug)]
+pub struct InstructionBuffer {
+    inner: Box<[Option<WarpInstruction>]>,
+    next: usize,
+}
+
+impl InstructionBuffer {
+    pub fn new(size: usize) -> Self {
+        Self {
+            inner: utils::box_slice![None; size],
+            next: 0,
+        }
+    }
+}
+
+impl InstructionBuffer {
+    // pub fn len(&self) -> usize {
+    //     self.inner.len()
+    // }
+
+    pub fn fill(&mut self, slot: usize, instr: WarpInstruction) {
+        debug_assert!(slot < self.inner.len());
+        self.inner[slot] = Some(instr);
+        self.next = 0;
+    }
+
+    #[must_use]
+    pub fn iter_filled(&self) -> impl Iterator<Item = &WarpInstruction> + '_ {
+        self.inner.iter().filter_map(Option::as_ref)
+    }
+
+    #[must_use]
+    pub fn size(&self) -> usize {
+        self.inner.iter().filter(|x| x.is_some()).count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.iter().all(Option::is_none)
+    }
+
+    pub fn flush(&mut self) -> usize {
+        let mut num_flushed = 0;
+        for i in self.inner.iter_mut() {
+            if i.is_some() {
+                num_flushed += 1;
+            }
+            *i = None;
+        }
+        num_flushed
+    }
+
+    pub fn pos(&self) -> usize {
+        self.next
+    }
+
+    pub fn peek(&self) -> Option<&WarpInstruction> {
+        self.inner[self.next].as_ref()
+    }
+
+    pub fn take(&mut self) -> Option<WarpInstruction> {
+        self.inner[self.next].take()
+    }
+
+    pub fn step(&mut self) {
+        self.next = (self.next + 1) % self.inner.len();
+    }
+
+    pub fn reset(&mut self) {
+        self.inner.fill(None);
+        self.next = 0;
+    }
+}
+
 impl Default for Warp {
     fn default() -> Self {
-        let instr_buffer = vec![None; IBUFFER_SIZE];
+        // let instr_buffer = vec![None; IBUFFER_SIZE];
+        let instr_buffer = InstructionBuffer::new(IBUFFER_SIZE);
         Self {
             block_id: 0,
             dynamic_warp_id: u32::MAX as usize,
@@ -60,7 +136,7 @@ impl Default for Warp {
             has_imiss_pending: false,
             waiting_for_memory_barrier: false,
             instr_buffer,
-            next: 0,
+            // next: 0,
         }
     }
 }
@@ -91,7 +167,8 @@ impl Warp {
 
         self.active_mask.fill(false);
         self.done_exit = true;
-        self.next = 0;
+        // self.next = 0;
+        self.instr_buffer.reset();
     }
 
     #[must_use]
@@ -132,42 +209,42 @@ impl Warp {
         self.trace_instructions.clear();
     }
 
-    pub fn ibuffer_fill(&mut self, slot: usize, instr: WarpInstruction) {
-        debug_assert!(slot < self.instr_buffer.len());
-        self.instr_buffer[slot] = Some(instr);
-        self.next = 0;
-    }
-
-    #[must_use]
-    pub fn ibuffer_size(&self) -> usize {
-        self.instr_buffer.iter().filter(|x| x.is_some()).count()
-    }
-
-    pub fn ibuffer_empty(&self) -> bool {
-        self.instr_buffer.iter().all(Option::is_none)
-    }
-
-    pub fn ibuffer_flush(&mut self) {
-        for i in &mut self.instr_buffer {
-            if i.is_some() {
-                self.num_instr_in_pipeline -= 1;
-            }
-            *i = None;
-        }
-    }
-
-    #[must_use]
-    pub fn ibuffer_peek(&self) -> Option<&WarpInstruction> {
-        self.instr_buffer[self.next].as_ref()
-    }
-
-    pub fn ibuffer_take(&mut self) -> Option<WarpInstruction> {
-        self.instr_buffer[self.next].take()
-    }
-
-    pub fn ibuffer_step(&mut self) {
-        self.next = (self.next + 1) % IBUFFER_SIZE;
-    }
+    // pub fn ibuffer_fill(&mut self, slot: usize, instr: WarpInstruction) {
+    //     debug_assert!(slot < self.instr_buffer.len());
+    //     self.instr_buffer[slot] = Some(instr);
+    //     self.next = 0;
+    // }
+    //
+    // #[must_use]
+    // pub fn ibuffer_size(&self) -> usize {
+    //     self.instr_buffer.iter().filter(|x| x.is_some()).count()
+    // }
+    //
+    // pub fn ibuffer_empty(&self) -> bool {
+    //     self.instr_buffer.iter().all(Option::is_none)
+    // }
+    //
+    // pub fn ibuffer_flush(&mut self) {
+    //     for i in &mut self.instr_buffer {
+    //         if i.is_some() {
+    //             self.num_instr_in_pipeline -= 1;
+    //         }
+    //         *i = None;
+    //     }
+    // }
+    //
+    // #[must_use]
+    // pub fn ibuffer_peek(&self) -> Option<&WarpInstruction> {
+    //     self.instr_buffer[self.next].as_ref()
+    // }
+    //
+    // pub fn ibuffer_take(&mut self) -> Option<WarpInstruction> {
+    //     self.instr_buffer[self.next].take()
+    // }
+    //
+    // pub fn ibuffer_step(&mut self) {
+    //     self.next = (self.next + 1) % IBUFFER_SIZE;
+    // }
 
     #[must_use]
     pub fn done_exit(&self) -> bool {

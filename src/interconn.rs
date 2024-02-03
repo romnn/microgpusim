@@ -258,7 +258,7 @@ pub trait Network<P> {
 // pub type Port = Arc<Mutex<VecDeque<(usize, mem_fetch::MemFetch, u32)>>>;
 pub type Port<P> = Arc<Mutex<dyn Connection<Packet<P>>>>;
 
-/// A connection between two components
+/// A direct, owned connection between two components
 pub trait Connection<P>: Sync + Send + 'static {
     /// If the connection can send a new message
     #[must_use]
@@ -267,6 +267,16 @@ pub trait Connection<P>: Sync + Send + 'static {
     /// Sends a packet to the connection
     fn send(&mut self, packet: P);
     // fn send(&mut self, packet: Packet<P>);
+}
+
+/// A shared connection using internal mutability.
+pub trait SharedConnection<P>: Sync + Send + 'static {
+    /// If the connection can send a new message
+    #[must_use]
+    fn can_send(&self, packet_sizes: &[u32]) -> bool;
+
+    /// Sends a packet to the connection
+    fn send(&self, packet: P);
 }
 
 /// A buffered connection between two components

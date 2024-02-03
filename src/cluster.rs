@@ -4,20 +4,20 @@ use console::style;
 use crossbeam::utils::CachePadded;
 use std::collections::VecDeque;
 
-pub trait IssueBlock {}
+// pub trait IssueBlock {}
 
-pub struct BlockIssuer {
-    pub block_issue_next_core: usize,
-    // pub block_issue_next_core: Mutex<usize>,
-}
-
-impl BlockIssuer {
-    pub fn new(num_cores: usize) -> Self {
-        Self {
-            block_issue_next_core: num_cores - 1,
-        }
-    }
-}
+// pub struct BlockIssuer {
+//     pub block_issue_next_core: usize,
+//     // pub block_issue_next_core: Mutex<usize>,
+// }
+//
+// impl BlockIssuer {
+//     pub fn new(num_cores: usize) -> Self {
+//         Self {
+//             block_issue_next_core: num_cores - 1,
+//         }
+//     }
+// }
 
 #[derive()]
 pub struct Cluster<I, MC> {
@@ -35,7 +35,9 @@ pub struct Cluster<I, MC> {
     // pub issuer: BlockIssuer,
     // pub block_issue_next_core: Mutex<usize>,
     pub block_issue_next_core: usize,
-    pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
+
+    // pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
+    pub response_fifo: VecDeque<mem_fetch::MemFetch>,
 }
 
 impl<I, MC> std::fmt::Debug for Cluster<I, MC> {
@@ -79,6 +81,8 @@ where
         let block_issue_next_core = num_cores - 1;
         // let issuer = BlockIssuer::new(num_cores);
 
+        let response_fifo = VecDeque::new();
+        // let response_fifo = RwLock::new(response_fifo);
         let mut cluster = Self {
             cluster_id,
             // warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
@@ -89,7 +93,7 @@ where
             // issuer,
             block_issue_next_core,
             // block_issue_next_core: Mutex::new(block_issue_next_core),
-            response_fifo: RwLock::new(VecDeque::new()),
+            response_fifo,
         };
         cluster.reinit();
         cluster
@@ -119,9 +123,11 @@ where
     }
 
     #[tracing::instrument]
-    pub fn interconn_cycle(&self, cycle: u64) {
-        let mut response_fifo = self.response_fifo.write();
+    pub fn interconn_cycle(&mut self, cycle: u64) {
         use mem_fetch::access::Kind as AccessKind;
+
+        let response_fifo = &mut self.response_fifo;
+        // let mut response_fifo = self.response_fifo.write();
 
         log::debug!(
             "{}",
@@ -142,7 +148,8 @@ where
             // let core_id = self
             //     .config
             //     .global_core_id_to_core_id(fetch.core_id.unwrap());
-            let (_, core_id) = self.config.cluster_and_core_id(fetch.core_id.unwrap());
+            let global_core_id = fetch.core_id.unwrap();
+            let (_, core_id) = self.config.cluster_and_core_id(global_core_id);
 
             // we should not fully lock a core as we completely block a full core cycle
             // let core = self.cores[core_id].read();
@@ -154,29 +161,56 @@ where
                 fetch,
                 core.id(),
                 fetch.core_id.unwrap(),
-                core.ldst_unit_response_buffer_full(),
+                // core.ldst_unit_response_buffer_full(),
+                core.load_store_unit.response_queue.lock().full(),
             );
 
             match fetch.access_kind() {
                 AccessKind::INST_ACC_R => {
                     // forward instruction fetch response to core
-                    if core.fetch_unit_response_buffer_full() {
+                    // if core.fetch_unit_response_buffer_full() {
+                    //     log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                    // } else {
+                    //     let fetch = response_fifo.pop_front().unwrap();
+                    //     log::debug!("accepted instr access fetch {}", fetch);
+                    //     core.accept_fetch_response(fetch, cycle);
+                    // }
+                    let mut instr_fetch_response_queue = core.instr_fetch_response_queue.lock();
+                    if instr_fetch_response_queue.full() {
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     } else {
                         let fetch = response_fifo.pop_front().unwrap();
                         log::debug!("accepted instr access fetch {}", fetch);
-                        core.accept_fetch_response(fetch, cycle);
+                        instr_fetch_response_queue.enqueue(ic::Packet {
+                            data: fetch,
+                            time: cycle,
+                        });
                     }
                 }
-                _ if !core.ldst_unit_response_buffer_full() => {
-                    // Forward load store unit response to core
-                    let fetch = response_fifo.pop_front().unwrap();
-                    log::debug!("accepted ldst unit fetch {}", fetch);
-                    // m_memory_stats->memlatstat_read_done(mf);
-                    core.accept_ldst_unit_response(fetch, cycle);
-                }
                 _ => {
-                    log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                    // if !core.ldst_unit_response_buffer_full() {
+                    //     // Forward load store unit response to core
+                    //     let fetch = response_fifo.pop_front().unwrap();
+                    //     log::debug!("accepted ldst unit fetch {}", fetch);
+                    //     // m_memory_stats->memlatstat_read_done(mf);
+                    //     core.accept_ldst_unit_response(fetch, cycle);
+                    // } else {
+                    //     log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                    // }
+                    let mut load_store_response_queue = core.load_store_unit.response_queue.lock();
+                    if !load_store_response_queue.full() {
+                        // Forward load store unit response to core
+                        let fetch = response_fifo.pop_front().unwrap();
+                        log::debug!("accepted ldst unit fetch {}", fetch);
+                        // m_memory_stats->memlatstat_read_done(mf);
+                        // core.accept_ldst_unit_response(fetch, cycle);
+                        load_store_response_queue.enqueue(ic::Packet {
+                            data: fetch,
+                            time: cycle,
+                        });
+                    } else {
+                        log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                    }
                 }
             }
         }
