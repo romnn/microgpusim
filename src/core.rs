@@ -32,21 +32,41 @@ pub struct ThreadState {
     pub pc: usize,
 }
 
-#[derive(Debug, Default)]
-pub struct InstrFetchBuffer {
-    valid: bool,
-    warp_id: usize,
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InstructionFetchBufferState {
+    Valid { warp_id: usize },
+    Invalid,
 }
 
-impl InstrFetchBuffer {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            valid: false,
-            warp_id: 0,
-        }
+impl InstructionFetchBufferState {
+    pub fn is_valid(&self) -> bool {
+        matches!(self, Self::Valid { .. })
+    }
+
+    pub fn set_invalid(&mut self) {
+        *self = InstructionFetchBufferState::Invalid;
+    }
+
+    pub fn set_valid(&mut self, warp_id: usize) {
+        *self = InstructionFetchBufferState::Valid { warp_id };
     }
 }
+
+// #[derive(Debug, Default)]
+// pub struct InstrFetchBuffer {
+//     valid: bool,
+//     warp_id: usize,
+// }
+//
+// impl InstrFetchBuffer {
+//     #[must_use]
+//     pub fn new() -> Self {
+//         Self {
+//             valid: false,
+//             warp_id: 0,
+//         }
+//     }
+// }
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
@@ -404,8 +424,7 @@ where
         // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
         // self.cluster.interconn_inject_request_packet(fetch);
 
-        let ic::Packet { data, time } = packet;
-        let mut fetch = data;
+        let ic::Packet { mut fetch, time } = packet;
 
         let access_kind = fetch.access_kind();
         debug_assert_eq!(fetch.is_write(), access_kind.is_write());
@@ -447,7 +466,7 @@ where
         //     .lock()
         //     .push_back((mem_dest, fetch, packet_size));
         self.buffer.send(ic::Packet {
-            data: (mem_dest, fetch, packet_size),
+            fetch: (mem_dest, fetch, packet_size),
             time,
         });
     }
@@ -502,7 +521,8 @@ pub struct Core<I, MC> {
     pub allocations: super::allocation::Ref,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     // pub need_l1_flush: Mutex<bool>,
-    pub instr_fetch_buffer: InstrFetchBuffer,
+    pub instr_fetch_buffer_state: InstructionFetchBufferState,
+
     pub warps: Vec<warp::Warp>,
     pub thread_state: Vec<Option<ThreadState>>,
     pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
@@ -729,7 +749,7 @@ where
             instr_fetch_response_queue,
             // load_store_response_queue,
             // need_l1_flush: Mutex::new(false),
-            instr_fetch_buffer: InstrFetchBuffer::default(),
+            instr_fetch_buffer_state: InstructionFetchBufferState::Invalid,
             interconn,
             mem_port,
             load_store_unit,
@@ -794,15 +814,12 @@ where
         //     );
         // }
 
-        if !self.instr_fetch_buffer.valid {
+        if !self.instr_fetch_buffer_state.is_valid() {
             if let Some(fetch) = self.instr_l1_cache.next_access() {
                 let warp = self.warps.get_mut(fetch.warp_id).unwrap();
                 warp.has_imiss_pending = false;
 
-                self.instr_fetch_buffer = InstrFetchBuffer {
-                    valid: true,
-                    warp_id: fetch.warp_id,
-                };
+                self.instr_fetch_buffer_state.set_valid(fetch.warp_id);
 
                 // verify that we got the instruction we were expecting.
                 debug_assert_eq!(
@@ -810,7 +827,7 @@ where
                     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
                 );
 
-                self.instr_fetch_buffer.valid = true;
+                // self.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
             } else {
                 // find an active warp with space in
@@ -1005,10 +1022,11 @@ where
                             warp.has_imiss_pending = true;
                             // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
                         } else if status == cache::RequestStatus::HIT {
-                            self.instr_fetch_buffer = InstrFetchBuffer {
-                                valid: true,
-                                warp_id,
-                            };
+                            self.instr_fetch_buffer_state.set_valid(warp_id);
+                            // self.instr_fetch_buffer = InstrFetchBuffer {
+                            //     valid: true,
+                            //     warp_id,
+                            // };
                             // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
                         } else {
                             debug_assert_eq!(status, cache::RequestStatus::RESERVATION_FAIL);
@@ -1681,22 +1699,24 @@ where
     #[tracing::instrument]
     // #[inline]
     fn decode(&mut self, cycle: u64) {
-        let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
-
         log::debug!(
             "{}",
             style(format!(
                 "cycle {:03} core {:?}: decode (fetch buffer valid={})",
                 cycle,
                 self.id(),
-                valid
+                self.instr_fetch_buffer_state.is_valid(),
             ))
             .blue()
         );
 
-        if !valid {
+        // let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
+        let InstructionFetchBufferState::Valid { warp_id} = self.instr_fetch_buffer_state else {
             return;
-        }
+        };
+        // if !valid {
+        //     return;
+        // }
 
         // decode 1 or 2 instructions and buffer them
         let warp = self.warps.get_mut(warp_id).unwrap();
@@ -1724,7 +1744,8 @@ where
             self.decode_instruction(warp_id, instr2, 1);
         }
 
-        self.instr_fetch_buffer.valid = false;
+        // self.instr_fetch_buffer.valid = false;
+        self.instr_fetch_buffer_state.set_invalid();
     }
 
     // #[inline]
@@ -2001,11 +2022,11 @@ where
         //     self.cache_invalidate();
         // }
 
-        for ic::Packet { data, time } in self.instr_fetch_response_queue.lock().drain() {
+        for ic::Packet { fetch, time } in self.instr_fetch_response_queue.lock().drain() {
             if let Some(fetch_return_cb) = &self.fetch_return_callback {
-                fetch_return_cb(time, &data);
+                fetch_return_cb(time, &fetch);
             }
-            self.instr_l1_cache.fill(data, time);
+            self.instr_l1_cache.fill(fetch, time);
         }
 
         // for ic::Packet { data, time } in self.load_store_response_queue.lock().drain() {

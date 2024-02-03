@@ -201,7 +201,7 @@ impl<MC> MemoryPartitionUnit<MC> {
 
                         debug_assert!(returned_fetch.is_reply());
                         sub.dram_to_l2_queue.enqueue(Packet {
-                            data: returned_fetch,
+                            fetch: returned_fetch,
                             time: cycle,
                         });
                     }

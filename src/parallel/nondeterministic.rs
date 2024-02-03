@@ -37,11 +37,11 @@ fn interleaved_serial_cycle<I, C, MC>(
             }
 
             for ic::Packet {
-                data: (dest, fetch, size),
+                fetch: (dest, fetch, size),
                 time,
             } in port.buffer.drain()
             {
-                interconn.push(cluster_id, dest, ic::Packet { data: fetch, time }, size);
+                interconn.push(cluster_id, dest, ic::Packet { fetch, time }, size);
             }
         }
 
@@ -127,10 +127,7 @@ fn new_serial_cycle<I, MC>(
                     interconn.push(
                         device,
                         cluster_id,
-                        ic::Packet {
-                            data: fetch,
-                            time: cycle,
-                        },
+                        ic::Packet { fetch, time: cycle },
                         response_packet_size,
                     );
                 }
@@ -158,17 +155,17 @@ fn new_serial_cycle<I, MC>(
             .interconn_to_l2_queue
             .can_fit(mem_sub_partition::NUM_SECTORS as usize)
         {
-            if let Some(packet) = interconn.pop(device) {
+            if let Some(ic::Packet { fetch, .. }) = interconn.pop(device) {
                 log::debug!(
                     "got new fetch {} for mem sub partition {} ({})",
-                    packet.data,
+                    fetch,
                     i,
                     device
                 );
 
                 // changed from packet.time to cycle here
                 // mem_sub.push(packet.data, packet.time);
-                mem_sub.push(packet.data, cycle);
+                mem_sub.push(fetch, cycle);
             }
         } else {
             log::debug!("SKIP sub partition {} ({}): DRAM full stall", i, device);
@@ -282,10 +279,7 @@ where
                                             self.interconn.push(
                                                 device,
                                                 cluster_id,
-                                                ic::Packet {
-                                                    data: fetch,
-                                                    time: cycle,
-                                                },
+                                                ic::Packet { fetch, time: cycle },
                                                 response_packet_size,
                                             );
                                         }
@@ -316,21 +310,20 @@ where
                                     .interconn_to_l2_queue
                                     .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                                 {
-                                    if let Some(packet) = self.interconn.pop(device) {
-                                        assert_eq!(
-                                            packet.data.sub_partition_id(),
-                                            mem_sub.global_id
-                                        );
+                                    if let Some(ic::Packet { fetch, .. }) =
+                                        self.interconn.pop(device)
+                                    {
+                                        assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
                                         log::debug!(
                                             "got new fetch {} for mem sub partition {} ({})",
-                                            packet.data,
+                                            fetch,
                                             mem_sub.global_id,
                                             device
                                         );
 
                                         // assert_eq!(cycle, packet.time);
                                         // TODO: changed form packet.time to cycle
-                                        mem_sub.push(packet.data, cycle);
+                                        mem_sub.push(fetch, cycle);
                                     }
                                 } else {
                                     log::debug!(
@@ -430,14 +423,14 @@ where
                         // let mut port = core.mem_port.lock();
                         let port = &mut core.mem_port;
                         for ic::Packet {
-                            data: (dest, fetch, size),
+                            fetch: (dest, fetch, size),
                             time,
                         } in port.buffer.drain(..)
                         {
                             self.interconn.push(
                                 core.cluster_id,
                                 dest,
-                                ic::Packet { data: fetch, time },
+                                ic::Packet { fetch, time },
                                 size,
                             );
                         }
@@ -1197,10 +1190,7 @@ where
                             self.interconn.push(
                                 device,
                                 cluster_id,
-                                ic::Packet {
-                                    data: fetch,
-                                    time: cycle,
-                                },
+                                ic::Packet { fetch, time: cycle },
                                 response_packet_size,
                             );
                         }
@@ -1244,18 +1234,18 @@ where
                     .interconn_to_l2_queue
                     .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
-                    if let Some(packet) = self.interconn.pop(device) {
-                        assert_eq!(packet.data.sub_partition_id(), mem_sub.global_id);
+                    if let Some(ic::Packet { fetch, .. }) = self.interconn.pop(device) {
+                        assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
                         log::debug!(
                             "got new fetch {} for mem sub partition {} ({})",
-                            packet.data,
+                            fetch,
                             mem_sub.global_id,
                             device
                         );
 
                         // assert_eq!(cycle, packet.time);
                         // TODO: changed form packet.time to cycle
-                        mem_sub.push(packet.data, cycle);
+                        mem_sub.push(fetch, cycle);
                     }
                 } else {
                     log::debug!(

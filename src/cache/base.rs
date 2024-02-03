@@ -386,10 +386,7 @@ impl<B, CC, S> Base<B, CC, S> {
                     fetch.control_size(),
                 );
                 // assert!(fetch.sub_partition_id() >= self.id);
-                top_port.send(ic::Packet {
-                    data: fetch,
-                    time: cycle,
-                });
+                top_port.send(ic::Packet { fetch, time: cycle });
             }
         }
         // let _data_port_busy = !self.has_free_data_port();

@@ -388,8 +388,7 @@ where
 
             if fetch.is_texture() {
                 fetch.status = mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE;
-                self.interconn_to_l2_queue
-                    .enqueue(Packet { data: fetch, time });
+                self.interconn_to_l2_queue.enqueue(Packet { fetch, time });
             } else {
                 let ready_cycle = time + self.config.l2_rop_latency;
                 fetch.status = mem_fetch::Status::IN_PARTITION_ROP_DELAY;
@@ -423,7 +422,7 @@ impl<MC> MemorySubPartition<MC> {
     pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
         use mem_fetch::access::Kind as AccessKind;
 
-        let fetch = self.l2_to_interconn_queue.dequeue()?.into_inner();
+        let Packet { fetch, .. } = self.l2_to_interconn_queue.dequeue()?;
         self.request_tracker.remove(&fetch);
         self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
         if fetch.is_atomic() {
@@ -441,7 +440,7 @@ impl<MC> MemorySubPartition<MC> {
         if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
             .l2_to_interconn_queue
             .first()
-            .map(|packet| packet.data.access_kind())
+            .map(|fetch| fetch.access_kind())
         {
             let fetch = self.l2_to_interconn_queue.dequeue().unwrap();
             self.request_tracker.remove(&fetch);
@@ -507,10 +506,8 @@ impl<MC> MemorySubPartition<MC> {
                     fetch.set_reply();
                     fetch.set_status(Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.l2_to_interconn_queue.enqueue(Packet {
-                        data: fetch,
-                        time: cycle,
-                    });
+                    self.l2_to_interconn_queue
+                        .enqueue(Packet { fetch, time: cycle });
                 } else {
                     if l2_config.inner.write_allocate_policy
                         == cache::config::WriteAllocatePolicy::FETCH_ON_WRITE
@@ -521,7 +518,7 @@ impl<MC> MemorySubPartition<MC> {
                             .set_status(mem_fetch::Status::IN_PARTITION_L2_TO_ICNT_QUEUE, 0);
                         // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
                         self.l2_to_interconn_queue.enqueue(Packet {
-                            data: original_write_fetch,
+                            fetch: original_write_fetch,
                             time: cycle,
                         });
                         todo!("fetch on write: l2 to icnt queue");
@@ -540,10 +537,10 @@ impl<MC> MemorySubPartition<MC> {
             match self.l2_cache {
                 Some(ref mut l2_cache) if l2_cache.waiting_for_fill(reply) => {
                     if l2_cache.has_free_fill_port() {
-                        let mut reply = self.dram_to_l2_queue.dequeue().unwrap().into_inner();
-                        log::debug!("filling L2 with {}", &reply);
-                        reply.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
-                        l2_cache.fill(reply, mem_copy_time);
+                        let Packet { mut fetch, .. } = self.dram_to_l2_queue.dequeue().unwrap();
+                        log::debug!("filling L2 with {}", &fetch);
+                        fetch.set_status(mem_fetch::Status::IN_PARTITION_L2_FILL_QUEUE, 0);
+                        l2_cache.fill(fetch, mem_copy_time);
                         // reply will be gone forever at this point
                         // m_dram_L2_queue->pop();
                     } else {
@@ -679,10 +676,8 @@ impl<MC> MemorySubPartition<MC> {
                     log::debug!("{}: {fetch}", style("POP FROM ROP").red());
                     fetch.set_status(mem_fetch::Status::IN_PARTITION_ICNT_TO_L2_QUEUE, 0);
                     // m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-                    self.interconn_to_l2_queue.enqueue(Packet {
-                        data: fetch,
-                        time: cycle,
-                    });
+                    self.interconn_to_l2_queue
+                        .enqueue(Packet { fetch, time: cycle });
                 }
                 _ => {}
             }

@@ -306,10 +306,7 @@ where
 
                 log::debug!("memory cycle for instruction {} => send {}", &instr, fetch);
 
-                mem_port.send(ic::Packet {
-                    data: fetch,
-                    time: cycle,
-                });
+                mem_port.send(ic::Packet { fetch, time: cycle });
             }
         } else {
             debug_assert_ne!(dispatch_instr.cache_operator, None);
@@ -523,7 +520,7 @@ impl<MC> LoadStoreUnit<MC> {
         // self.response_queue.push_back(fetch);
         self.response_queue
             .lock()
-            .enqueue(ic::Packet { data: fetch, time });
+            .enqueue(ic::Packet { fetch, time });
     }
 
     pub fn writeback(
@@ -1183,8 +1180,8 @@ where
         {
             let mut response_queue_lock = self.response_queue.lock();
 
-            if let Some(ic::Packet { data, .. }) = response_queue_lock.first() {
-                match data.access_kind() {
+            if let Some(ic::Packet { fetch, .. }) = response_queue_lock.first() {
+                match fetch.access_kind() {
                     AccessKind::TEXTURE_ACC_R => {
                         todo!("ldst unit: tex access");
                         // if self.texture_l1.has_free_fill_port() {
@@ -1203,22 +1200,22 @@ where
                         // }
                     }
                     _ => {
-                        if data.kind == mem_fetch::Kind::WRITE_ACK
-                            || (self.config.perfect_mem && data.is_write())
+                        if fetch.kind == mem_fetch::Kind::WRITE_ACK
+                            || (self.config.perfect_mem && fetch.is_write())
                         {
-                            self.store_ack(warps, data);
+                            self.store_ack(warps, fetch);
                             // self.response_queue.pop_front();
                             response_queue_lock.dequeue();
                         } else {
                             // L1 cache is write evict:
                             // allocate line on load miss only
-                            debug_assert!(!data.is_write());
+                            debug_assert!(!fetch.is_write());
                             let mut bypass_l1 = false;
 
-                            let cache_op = data.instr.as_ref().and_then(|i| i.cache_operator);
+                            let cache_op = fetch.instr.as_ref().and_then(|i| i.cache_operator);
                             if self.data_l1.is_none() || cache_op == Some(CacheOperator::Global) {
                                 bypass_l1 = true;
-                            } else if data.access_kind().is_global()
+                            } else if fetch.access_kind().is_global()
                                 && self.config.global_mem_skip_l1_data_cache
                             {
                                 bypass_l1 = true;
@@ -1227,24 +1224,24 @@ where
                             if bypass_l1 {
                                 if self.next_global.is_none() {
                                     // let mut fetch = self.response_queue.pop_front().unwrap();
-                                    let ic::Packet { mut data, .. } =
+                                    let ic::Packet { mut fetch, .. } =
                                         response_queue_lock.dequeue().unwrap();
-                                    data.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
-                                    self.next_global = Some(data);
+                                    fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
+                                    self.next_global = Some(fetch);
                                 }
                             } else {
                                 let l1d = self.data_l1.as_mut().unwrap();
                                 if l1d.has_free_fill_port() {
                                     // let fetch = self.response_queue.pop_front().unwrap();
-                                    let ic::Packet { data, time } =
+                                    let ic::Packet { fetch, time } =
                                         response_queue_lock.dequeue().unwrap();
                                     // eagerly release the lock
                                     drop(response_queue_lock);
-                                    l1d.fill(data, time);
+                                    l1d.fill(fetch, time);
                                 } else {
                                     log::trace!(
                                         "cannot fill L1 data cache with {}: no free fill port",
-                                        data
+                                        fetch
                                     );
                                 }
                             }

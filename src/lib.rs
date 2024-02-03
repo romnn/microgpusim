@@ -797,10 +797,7 @@ where
                                 self.interconn.push(
                                     device,
                                     cluster_id,
-                                    ic::Packet {
-                                        data: fetch,
-                                        time: cycle,
-                                    },
+                                    ic::Packet { fetch, time: cycle },
                                     response_packet_size,
                                 );
                                 // for stats: self.partition_replies_in_parallel += 1;
@@ -871,16 +868,16 @@ where
                         .interconn_to_l2_queue
                         .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                     {
-                        if let Some(packet) = self.interconn.pop(device) {
-                            assert_eq!(packet.data.sub_partition_id(), mem_sub.global_id);
+                        if let Some(ic::Packet { fetch, .. }) = self.interconn.pop(device) {
+                            assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
                             log::debug!(
                                 "got new fetch {} for mem sub partition {} ({})",
-                                packet.data,
+                                fetch,
                                 mem_sub.global_id,
                                 device
                             );
 
-                            mem_sub.push(packet.data, cycle);
+                            mem_sub.push(fetch, cycle);
                             // self.parallel_mem_partition_reqs += 1;
                         }
                     } else {
@@ -996,7 +993,7 @@ where
                             .iter()
                             .map(
                                 |ic::Packet {
-                                     data: (_dest, fetch, _size),
+                                     fetch: (_dest, fetch, _size),
                                      ..
                                  }| fetch.to_string()
                             )
@@ -1004,7 +1001,7 @@ where
                     );
 
                     for ic::Packet {
-                        data: (dest, fetch, size),
+                        fetch: (dest, fetch, size),
                         time,
                     } in mem_port.buffer.drain(..)
                     {
@@ -1022,7 +1019,7 @@ where
                         self.interconn.push(
                             core.cluster_id,
                             dest,
-                            ic::Packet { data: fetch, time },
+                            ic::Packet { fetch, time },
                             size,
                         );
                     }
@@ -1254,7 +1251,7 @@ where
                     .dest_queue(cluster_id)
                     .try_lock()
                     .iter()
-                    .sorted_by_key(|fetch| fetch.addr())
+                    .sorted_by_key(|packet| packet.fetch.addr())
                     .map(ToString::to_string)
                     .collect::<Vec<_>>();
                 if !queue.is_empty() {
@@ -1272,7 +1269,7 @@ where
                     .dest_queue(mem_device)
                     .try_lock()
                     .iter()
-                    .sorted_by_key(|fetch| fetch.addr())
+                    .sorted_by_key(|packet| packet.fetch.addr())
                     .map(ToString::to_string)
                     .collect::<Vec<_>>();
                 if !queue.is_empty() {
@@ -2925,10 +2922,7 @@ where
             self.interconn.push(
                 0,
                 dest_mem_device,
-                ic::Packet {
-                    data: fetch,
-                    time: 0,
-                },
+                ic::Packet { fetch, time: 0 },
                 packet_size,
             );
         }
@@ -2984,9 +2978,9 @@ where
                         .interconn_to_l2_queue
                         .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                     {
-                        if let Some(packet) = self.interconn.pop(mem_sub_device) {
-                            assert_eq!(packet.data.sub_partition_id(), mem_sub.global_id);
-                            mem_sub.push(packet.data, cycle);
+                        if let Some(ic::Packet { fetch, .. }) = self.interconn.pop(mem_sub_device) {
+                            assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
+                            mem_sub.push(fetch, cycle);
                         }
                     } else {
                         log::trace!(
@@ -3030,7 +3024,7 @@ where
                             .dest_queue(cluster_id)
                             .try_lock()
                             .iter()
-                            .sorted_by_key(|fetch| fetch.addr())
+                            .sorted_by_key(|packet| packet.fetch.addr())
                             .map(ToString::to_string)
                             .collect::<Vec<_>>();
                         if !queue.is_empty() {
@@ -3047,7 +3041,7 @@ where
                             .dest_queue(mem_device)
                             .try_lock()
                             .iter()
-                            .sorted_by_key(|fetch| fetch.addr())
+                            .sorted_by_key(|packet| packet.fetch.addr())
                             .map(ToString::to_string)
                             .collect::<Vec<_>>();
                         if !queue.is_empty() {

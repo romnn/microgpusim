@@ -148,14 +148,14 @@ where
                             // let mut port = core.mem_port.lock();
                             let mem_port = &mut core.mem_port;
                             for ic::Packet {
-                                data: (dest, fetch, size),
+                                fetch: (dest, fetch, size),
                                 time,
                             } in mem_port.buffer.drain(..)
                             {
                                 self.interconn.push(
                                     core.cluster_id,
                                     dest,
-                                    ic::Packet { data: fetch, time },
+                                    ic::Packet { fetch, time },
                                     size,
                                 );
                             }

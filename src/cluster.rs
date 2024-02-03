@@ -181,10 +181,7 @@ where
                     } else {
                         let fetch = response_fifo.pop_front().unwrap();
                         log::debug!("accepted instr access fetch {}", fetch);
-                        instr_fetch_response_queue.enqueue(ic::Packet {
-                            data: fetch,
-                            time: cycle,
-                        });
+                        instr_fetch_response_queue.enqueue(ic::Packet { fetch, time: cycle });
                     }
                 }
                 _ => {
@@ -204,10 +201,7 @@ where
                         log::debug!("accepted ldst unit fetch {}", fetch);
                         // m_memory_stats->memlatstat_read_done(mf);
                         // core.accept_ldst_unit_response(fetch, cycle);
-                        load_store_response_queue.enqueue(ic::Packet {
-                            data: fetch,
-                            time: cycle,
-                        });
+                        load_store_response_queue.enqueue(ic::Packet { fetch, time: cycle });
                     } else {
                         log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     }
@@ -226,10 +220,9 @@ where
         }
 
         // Receive a packet from interconnect
-        let Some(packet) = self.interconn.pop(self.cluster_id) else {
+        let Some(ic::Packet { mut fetch, .. }) = self.interconn.pop(self.cluster_id) else {
             return;
         };
-        let mut fetch = packet.data;
         log::debug!(
             "{}",
             style(format!(

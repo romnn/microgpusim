@@ -190,35 +190,32 @@ pub trait MemFetchInterface: Send + Sync + std::fmt::Debug + 'static {
 
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct Packet<T> {
-    pub data: T,
-    // size: u32,
-    // src: usize,
-    // destination: usize,
+    pub fetch: T,
     pub time: u64,
 }
 
 impl<T> std::ops::Deref for Packet<T> {
     type Target = T;
     fn deref(&self) -> &T {
-        &self.data
+        &self.fetch
     }
 }
 
 impl<T> std::ops::DerefMut for Packet<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.data
+        &mut self.fetch
     }
 }
 
 impl<T> AsRef<T> for Packet<T> {
     fn as_ref(&self) -> &T {
-        &self.data
+        &self.fetch
     }
 }
 
 impl<T> Packet<T> {
     pub fn into_inner(self) -> T {
-        self.data
+        self.fetch
     }
 }
 
@@ -227,7 +224,7 @@ where
     T: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.data, f)
+        std::fmt::Debug::fmt(&self.fetch, f)
     }
 }
 
@@ -236,7 +233,7 @@ where
     T: std::fmt::Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.data, f)
+        std::fmt::Display::fmt(&self.fetch, f)
     }
 }
 

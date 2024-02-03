@@ -109,7 +109,7 @@ where
                     &mem_sub.dram_to_l2_queue,
                 ),
             ] {
-                dest_queue.extend(src_queue.clone().into_iter().map(ic::Packet::into_inner));
+                dest_queue.extend(src_queue.clone().into_iter().map(ic::Packet::into_inner))
             }
         }
         state
