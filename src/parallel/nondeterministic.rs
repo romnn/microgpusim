@@ -244,7 +244,7 @@ where
                     break;
                 }
 
-                let kernels_completed = self.kernel_manager.all_kernels_completed();
+                // let kernels_completed = self.kernel_manager.all_kernels_completed();
 
                 for cluster in self.clusters.iter_mut() {
                     // Receive memory responses addressed to each cluster and forward to cores
@@ -259,6 +259,7 @@ where
                     // let kernel_manager = Arc::new(Mutex::new(&mut self.kernel_manager));
 
                     wave.spawn(|_| {
+                        let start = Instant::now();
                         for partition in self.mem_partition_units.iter_mut() {
                             for mem_sub in partition.sub_partitions.iter_mut() {
                                 // let mut mem_sub = mem_sub.try_lock();
@@ -348,44 +349,68 @@ where
                                 crate::timeit!("serial::subpartitions", mem_sub.cycle(cycle));
                             }
                         }
+                        #[cfg(feature = "timings")]
+                        crate::TIMINGS
+                            .lock()
+                            .entry("serial::total")
+                            .or_default()
+                            .add(start.elapsed());
                     });
 
                     for cluster in self.clusters.iter_mut() {
-                        let cores_completed = cluster.num_active_threads() == 0;
-                        let cluster_active = !(cores_completed && kernels_completed);
-                        active_clusters[cluster.cluster_id] = cluster_active;
-
-                        if !cluster_active {
-                            continue;
-                        }
+                        // let cores_completed = cluster.num_active_threads() == 0;
+                        // let cluster_active = !(cores_completed && kernels_completed);
+                        // active_clusters[cluster.cluster_id] = cluster_active;
+                        //
+                        // if !cluster_active {
+                        //     continue;
+                        // }
 
                         let kernel_manager = &self.kernel_manager;
 
                         for core in cluster.cores.iter_mut() {
                             wave.spawn(|_| {
                                 use crate::kernel_manager::SelectKernel;
-                                crate::timeit!("core::cycle", core.cycle(cycle));
-                                // check if core needs more blocks
 
-                                let mut current_kernel =
-                                    core.current_kernel.as_ref().map(Arc::clone);
-                                // core.current_kernel.try_lock().as_ref().map(Arc::clone);
-                                let should_select_new_kernel =
-                                    if let Some(ref current) = current_kernel {
-                                        // if no more blocks left, get new kernel once current block completes
-                                        current.no_more_blocks_to_run()
-                                            && core.num_active_threads() == 0
-                                    } else {
-                                        // core was not assigned a kernel yet
-                                        true
-                                    };
+                                for _ in 0..2 {
+                                    crate::timeit!("core::cycle", core.cycle(cycle));
 
-                                if should_select_new_kernel {
-                                    current_kernel = kernel_manager.select_kernel();
-                                }
+                                    // do not enforce ordering of interconnect requests and round robin
+                                    // core simualation ordering
+                                    let port = &mut core.mem_port;
+                                    for ic::Packet {
+                                        fetch: (dest, fetch, size),
+                                        time,
+                                    } in port.buffer.drain(..)
+                                    {
+                                        self.interconn.push(
+                                            core.cluster_id,
+                                            dest,
+                                            ic::Packet { fetch, time },
+                                            size,
+                                        );
+                                    }
 
-                                if let Some(kernel) = current_kernel {
-                                    log::debug!(
+                                    // check if core needs more blocks
+                                    let mut current_kernel =
+                                        core.current_kernel.as_ref().map(Arc::clone);
+                                    // core.current_kernel.try_lock().as_ref().map(Arc::clone);
+                                    let should_select_new_kernel =
+                                        if let Some(ref current) = current_kernel {
+                                            // if no more blocks left, get new kernel once current block completes
+                                            current.no_more_blocks_to_run()
+                                                && core.num_active_threads() == 0
+                                        } else {
+                                            // core was not assigned a kernel yet
+                                            true
+                                        };
+
+                                    if should_select_new_kernel {
+                                        current_kernel = kernel_manager.select_kernel();
+                                    }
+
+                                    if let Some(kernel) = current_kernel {
+                                        log::debug!(
                                         "core {:?}: selected kernel {} more blocks={} can issue={}",
                                         core.id(),
                                         kernel,
@@ -393,16 +418,17 @@ where
                                         core.can_issue_block(&*kernel),
                                     );
 
-                                    let can_issue = !kernel.no_more_blocks_to_run()
-                                        && core.can_issue_block(&*kernel);
-                                    // drop(core);
-                                    if can_issue {
-                                        // let mut core = self.cores[core_id].write();
-                                        // let core = &mut self.cores[core_id];
-                                        core.issue_block(&kernel, cycle);
-                                        // num_blocks_issued += 1;
-                                        // self.block_issue_next_core = core_id;
-                                        // break;
+                                        let can_issue = !kernel.no_more_blocks_to_run()
+                                            && core.can_issue_block(&*kernel);
+                                        // drop(core);
+                                        if can_issue {
+                                            // let mut core = self.cores[core_id].write();
+                                            // let core = &mut self.cores[core_id];
+                                            core.issue_block(&kernel, cycle);
+                                            // num_blocks_issued += 1;
+                                            // self.block_issue_next_core = core_id;
+                                            // break;
+                                        }
                                     }
                                 }
                             });
@@ -411,34 +437,37 @@ where
                 }); // end of parallel section
 
                 // collect the core packets pushed to the interconn
-                for (cluster_id, active) in active_clusters.iter().enumerate() {
-                    if !active {
-                        continue;
-                    }
-                    let cluster = &mut self.clusters[cluster_id];
-                    let mut core_sim_order = cluster.core_sim_order.try_lock();
-                    for core_id in &*core_sim_order {
-                        // let core = cluster.cores[*core_id].try_read();
-                        let core = &mut cluster.cores[*core_id];
-                        // let mut port = core.mem_port.lock();
-                        let port = &mut core.mem_port;
-                        for ic::Packet {
-                            fetch: (dest, fetch, size),
-                            time,
-                        } in port.buffer.drain(..)
-                        {
-                            self.interconn.push(
-                                core.cluster_id,
-                                dest,
-                                ic::Packet { fetch, time },
-                                size,
-                            );
-                        }
-                    }
-                    if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                        core_sim_order.rotate_left(1);
-                    }
-                }
+                // if false {
+                //     for (cluster_id, active) in active_clusters.iter().enumerate() {
+                //         if !active {
+                //             continue;
+                //         }
+                //         let cluster = &mut self.clusters[cluster_id];
+                //         let mut core_sim_order = cluster.core_sim_order.try_lock();
+                //         for core_id in &*core_sim_order {
+                //             // let core = cluster.cores[*core_id].try_read();
+                //             let core = &mut cluster.cores[*core_id];
+                //             // let mut port = core.mem_port.lock();
+                //             let port = &mut core.mem_port;
+                //             for ic::Packet {
+                //                 fetch: (dest, fetch, size),
+                //                 time,
+                //             } in port.buffer.drain(..)
+                //             {
+                //                 self.interconn.push(
+                //                     core.cluster_id,
+                //                     dest,
+                //                     ic::Packet { fetch, time },
+                //                     size,
+                //                 );
+                //             }
+                //         }
+                //         if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order
+                //         {
+                //             core_sim_order.rotate_left(1);
+                //         }
+                //     }
+                // }
 
                 // self.issue_block_to_core(cycle);
                 // todo:

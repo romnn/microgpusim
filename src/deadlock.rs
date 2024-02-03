@@ -102,7 +102,8 @@ where
                 ),
                 (
                     &mut state.l2_to_dram_queue[mem_sub.global_id],
-                    &mem_sub.l2_to_dram_queue.try_lock(),
+                    &mem_sub.l2_to_dram_queue,
+                    // &mem_sub.l2_to_dram_queue.try_lock(),
                 ),
                 (
                     &mut state.dram_to_l2_queue[mem_sub.global_id],

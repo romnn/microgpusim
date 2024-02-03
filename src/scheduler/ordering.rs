@@ -1,23 +1,23 @@
 use crate::warp;
 
-use crate::sync::{Arc, Mutex};
+// use crate::sync::{Arc, Mutex};
 
-#[must_use]
-pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
-    for (vi, v) in values.iter().enumerate() {
-        for (vii, vv) in values.iter().enumerate() {
-            let should_be_equal = vi == vii;
-            let are_equal = Arc::ptr_eq(v, vv);
-            if should_be_equal && !are_equal {
-                return false;
-            }
-            if !should_be_equal && are_equal {
-                return false;
-            }
-        }
-    }
-    true
-}
+// #[must_use]
+// pub fn all_different<T>(values: &[Arc<Mutex<T>>]) -> bool {
+//     for (vi, v) in values.iter().enumerate() {
+//         for (vii, vv) in values.iter().enumerate() {
+//             let should_be_equal = vi == vii;
+//             let are_equal = Arc::ptr_eq(v, vv);
+//             if should_be_equal && !are_equal {
+//                 return false;
+//             }
+//             if !should_be_equal && are_equal {
+//                 return false;
+//             }
+//         }
+//     }
+//     true
+// }
 
 pub fn sort_warps_by_oldest_dynamic_id(
     // lhs: &(usize, warp::Ref),

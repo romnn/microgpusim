@@ -1,4 +1,4 @@
-use super::{config, interconn as ic, mem_fetch, Core};
+use super::{config, fifo::Fifo, interconn as ic, mem_fetch, Core};
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 use console::style;
 use crossbeam::utils::CachePadded;
@@ -19,6 +19,8 @@ use std::collections::VecDeque;
 //     }
 // }
 
+pub type ResponseQueue = Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>;
+
 #[derive()]
 pub struct Cluster<I, MC> {
     pub cluster_id: usize,
@@ -27,6 +29,10 @@ pub struct Cluster<I, MC> {
     // pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     // pub cores: Vec<Core<I, MC>>>,
     pub cores: Box<[Core<I, MC>]>,
+
+    // queues going to the cores
+    pub core_instr_fetch_response_queue: Box<[ResponseQueue]>,
+    pub core_load_store_response_queue: Box<[ResponseQueue]>,
 
     pub config: Arc<config::GPU>,
     pub interconn: Arc<I>,
@@ -54,19 +60,30 @@ where
     pub fn new(
         cluster_id: usize,
         warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
-        allocations: &super::allocation::Ref,
+        allocations: &Arc<super::allocation::Allocations>,
         interconn: &Arc<I>,
         config: &Arc<config::GPU>,
         mem_controller: &Arc<MC>,
     ) -> Self {
         let num_cores = config.num_cores_per_simt_cluster;
         let core_sim_order = (0..num_cores).collect();
+
+        let core_instr_fetch_response_queue: Box<[ResponseQueue]> = (0..num_cores)
+            .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
+            .collect();
+
+        let core_load_store_response_queue: Box<[ResponseQueue]> = (0..num_cores)
+            .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
+            .collect();
+
         let cores = (0..num_cores)
             .map(|core_id| {
                 let id = config.global_core_id(cluster_id, core_id);
                 let core = Core::new(
                     id,
                     cluster_id,
+                    Arc::clone(&core_instr_fetch_response_queue[core_id]),
+                    Arc::clone(&core_load_store_response_queue[core_id]),
                     Arc::clone(allocations),
                     Arc::clone(warp_instruction_unique_uid),
                     Arc::clone(interconn),
@@ -89,6 +106,8 @@ where
             config: config.clone(),
             interconn: interconn.clone(),
             cores,
+            core_instr_fetch_response_queue,
+            core_load_store_response_queue,
             core_sim_order: Arc::new(Mutex::new(core_sim_order)),
             // issuer,
             block_issue_next_core,
@@ -153,16 +172,20 @@ where
 
             // we should not fully lock a core as we completely block a full core cycle
             // let core = self.cores[core_id].read();
-            let core = &self.cores[core_id];
-            assert_eq!(core.cluster_id, self.cluster_id);
+
+            // let core = &self.cores[core_id];
+            // assert_eq!(core.cluster_id, self.cluster_id);
+            // assert_eq!((self.cluster_id, core_id), core.id());
 
             log::debug!(
                 "have fetch {} for core {:?} ({}): ldst unit response buffer full={}",
                 fetch,
-                core.id(),
-                fetch.core_id.unwrap(),
+                (self.cluster_id, core_id),
+                // core.id(),
+                global_core_id,
                 // core.ldst_unit_response_buffer_full(),
-                core.load_store_unit.response_queue.lock().full(),
+                // core.load_store_unit.response_queue.lock().full(),
+                self.core_load_store_response_queue[core_id].lock().full(),
             );
 
             match fetch.access_kind() {
@@ -175,7 +198,9 @@ where
                     //     log::debug!("accepted instr access fetch {}", fetch);
                     //     core.accept_fetch_response(fetch, cycle);
                     // }
-                    let mut instr_fetch_response_queue = core.instr_fetch_response_queue.lock();
+                    // let mut instr_fetch_response_queue = core.instr_fetch_response_queue.lock();
+                    let mut instr_fetch_response_queue =
+                        self.core_instr_fetch_response_queue[core_id].lock();
                     if instr_fetch_response_queue.full() {
                         log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
                     } else {
@@ -194,7 +219,9 @@ where
                     // } else {
                     //     log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     // }
-                    let mut load_store_response_queue = core.load_store_unit.response_queue.lock();
+                    // let mut load_store_response_queue = core.load_store_unit.response_queue.lock();
+                    let mut load_store_response_queue =
+                        self.core_load_store_response_queue[core_id].lock();
                     if !load_store_response_queue.full() {
                         // Forward load store unit response to core
                         let fetch = response_fifo.pop_front().unwrap();

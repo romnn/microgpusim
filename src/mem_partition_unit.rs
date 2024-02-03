@@ -215,16 +215,16 @@ impl<MC> MemoryPartitionUnit<MC> {
         // Arbitrate among multiple L2 subpartitions
         let last_issued_partition = self.arbiter.last_borrower();
         for sub_id in 0..self.sub_partitions.len() {
-            let spid = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
+            let sub_id = (sub_id + last_issued_partition + 1) % self.sub_partitions.len();
             // let sub = self.sub_partitions[spid].try_lock();
-            let sub = &self.sub_partitions[spid];
+            let sub = &mut self.sub_partitions[sub_id];
 
             let sub_partition_contention = sub.dram_to_l2_queue.full();
-            let has_dram_resource = self.arbiter.has_credits(spid);
+            let has_dram_resource = self.arbiter.has_credits(sub_id);
             let can_issue_to_dram = has_dram_resource && !sub_partition_contention;
 
             if log::log_enabled!(log::Level::Debug) {
-                log::debug!("checking sub partition[{spid}]:");
+                log::debug!("checking sub partition[{sub_id}]:");
                 log::debug!(
                     "\t icnt to l2 queue ({:3}) = {}",
                     sub.interconn_to_l2_queue.len(),
@@ -235,7 +235,8 @@ impl<MC> MemoryPartitionUnit<MC> {
                     sub.l2_to_interconn_queue.len(),
                     style(&sub.l2_to_interconn_queue).red()
                 );
-                let l2_to_dram_queue = sub.l2_to_dram_queue.try_lock();
+                // let l2_to_dram_queue = sub.l2_to_dram_queue.try_lock();
+                let l2_to_dram_queue = &sub.l2_to_dram_queue;
                 log::debug!(
                     "\t l2 to dram queue ({:3}) = {}",
                     l2_to_dram_queue.len(),
@@ -264,7 +265,8 @@ impl<MC> MemoryPartitionUnit<MC> {
             }
 
             if can_issue_to_dram {
-                let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock();
+                // let mut l2_to_dram_queue = sub.l2_to_dram_queue.lock();
+                let l2_to_dram_queue = &mut sub.l2_to_dram_queue;
                 if let Some(fetch) = l2_to_dram_queue.first() {
                     if self.dram.full(fetch.is_write()) {
                         break;
@@ -287,7 +289,7 @@ impl<MC> MemoryPartitionUnit<MC> {
                     assert!(self.id <= sub.global_id);
                     assert!(fetch.sub_partition_id() >= self.id, "fetch {}: sub partition from l2 to DRAM does no longer match (have {} but want >{})", fetch, fetch.sub_partition_id(), self.id);
                     self.dram_latency_queue.push_back((ready_cycle, fetch));
-                    self.arbiter.borrow_credit(spid);
+                    self.arbiter.borrow_credit(sub_id);
 
                     // DRAM should only accept one request per cycle
                     break;

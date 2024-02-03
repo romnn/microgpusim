@@ -343,7 +343,7 @@ pub struct MockSimulator<I, MC> {
     // todo refactor
     last_cluster_issue: Arc<Mutex<usize>>,
 
-    allocations: allocation::Ref,
+    allocations: Arc<allocation::Allocations>,
 
     pub trace: trace::Trace,
 
@@ -494,7 +494,8 @@ where
         // let running_kernels = Arc::new(RwLock::new(vec![None; max_concurrent_kernels]));
         // let running_kernels = vec![None; max_concurrent_kernels];
 
-        let allocations = Arc::new(RwLock::new(Allocations::default()));
+        let allocations = Arc::new(Allocations::default());
+        // let allocations = Arc::new(RwLock::new(allocations));
 
         let warp_instruction_unique_uid = Arc::new(CachePadded::new(atomic::AtomicU64::new(0)));
         let clusters = (0..config.num_simt_clusters)
@@ -754,7 +755,8 @@ where
                             mem_sub.l2_to_interconn_queue.len(),
                             mem_sub.l2_to_interconn_queue
                         );
-                        let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock();
+                        // let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock();
+                        let l2_to_dram_queue = &mem_sub.l2_to_dram_queue;
                         log::debug!(
                             "\t l2 to dram queue ({:<3}) = {}",
                             l2_to_dram_queue.len(),
@@ -1505,7 +1507,8 @@ where
             addr
         );
         let alloc_range = addr..(addr + num_bytes);
-        self.allocations.write().insert(alloc_range, name);
+        // self.allocations.write().insert(alloc_range, name);
+        self.allocations.insert(alloc_range, name);
     }
 
     /// Collect simulation statistics.
@@ -1919,10 +1922,12 @@ where
             // self.command_idx += 1;
         }
 
-        let allocations = self.allocations.read();
+        // let allocations = self.allocations.read();
+        // let allocations = &self.allocations;
         log::info!(
             "allocations: {:#?}",
-            allocations
+            self.allocations
+                .read()
                 .iter()
                 .map(|(_, alloc)| alloc.to_string())
                 .collect::<Vec<_>>()
@@ -2080,8 +2085,9 @@ where
                         eprintln!("initializing logging after cycle {cycle}");
                         init_logging();
                         self.log_after_cycle.take();
-                        let allocations = self.allocations.read();
-                        for (_, alloc) in allocations.iter() {
+                        // let allocations = self.allocations.read();
+                        // let allocations = &self.allocations.read();
+                        for (_, alloc) in self.allocations.read().iter() {
                             log::info!("allocation: {}", alloc);
                         }
                     }
@@ -2769,7 +2775,7 @@ where
                     //     (bytes_used as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     // find allocation
-                    let allocation_id = self
+                    let old_allocation_id = self
                         .allocations
                         .read()
                         .iter()
@@ -2784,6 +2790,15 @@ where
                         })
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
+
+                    let allocation_id = self
+                        .allocations
+                        .read()
+                        .get(&addr)
+                        .map(|alloc| alloc.id)
+                        .unwrap();
+
+                    assert_eq!(old_allocation_id, allocation_id);
 
                     // let size_below_threshold = self
                     //     .config
@@ -2882,11 +2897,12 @@ where
 
             // let kind = mem_fetch::access::Kind::GLOBAL_ACC_W;
             let kind = mem_fetch::access::Kind::GLOBAL_ACC_R;
+            let allocation = self.allocations.read().get(&chunk_addr).cloned();
             let access = mem_fetch::access::Builder {
                 kind,
                 addr: chunk_addr,
                 kernel_launch_id: None,
-                allocation: self.allocations.try_read().get(&chunk_addr).cloned(),
+                allocation,
                 req_size_bytes: chunk_size as u32,
                 is_write: kind.is_write(),
                 warp_active_mask: warp::ActiveMask::all_ones(),
@@ -3060,11 +3076,12 @@ where
             for chunk in 0..num_chunks {
                 let chunk_addr = addr + (chunk as u64 * chunk_size);
 
+                let allocation = self.allocations.read().get(&chunk_addr).cloned();
                 let access = mem_fetch::access::Builder {
                     kind: mem_fetch::access::Kind::GLOBAL_ACC_R,
                     addr: chunk_addr,
                     kernel_launch_id: None,
-                    allocation: self.allocations.try_read().get(&chunk_addr).cloned(),
+                    allocation,
                     req_size_bytes: chunk_size as u32,
                     is_write: false,
                     warp_active_mask: warp::ActiveMask::all_ones(),

@@ -233,7 +233,8 @@ fn gather_simulation_state(
                 ),
                 (
                     &mut box_sim_state.l2_to_dram_queue_per_sub[sub_id],
-                    &mem_sub.l2_to_dram_queue.lock(),
+                    // &mem_sub.l2_to_dram_queue.lock(),
+                    &mem_sub.l2_to_dram_queue,
                 ),
                 (
                     &mut box_sim_state.dram_to_l2_queue_per_sub[sub_id],

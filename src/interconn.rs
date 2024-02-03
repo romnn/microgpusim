@@ -87,7 +87,6 @@ where
 {
     // #[inline]
     fn busy(&self) -> bool {
-        // todo: this is not efficient, could keep track of this with a variable
         *self.in_flight.read() != 0
         // self.output_queue
         //     .iter()

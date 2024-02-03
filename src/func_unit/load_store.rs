@@ -28,7 +28,8 @@ pub struct LoadStoreUnit<MC> {
     next_writeback: Option<WarpInstruction>,
     /// Response fifo queue
     // pub response_queue: VecDeque<MemFetch>,
-    pub response_queue: Arc<Mutex<Fifo<ic::Packet<MemFetch>>>>,
+    // pub response_queue: Arc<Mutex<Fifo<ic::Packet<MemFetch>>>>,
+    pub response_queue: crate::cluster::ResponseQueue,
     pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     /// Config
     config: Arc<config::GPU>,
@@ -114,6 +115,7 @@ where
         id: usize,
         core_id: usize,
         cluster_id: usize,
+        response_queue: crate::cluster::ResponseQueue,
         // mem_port: ic::Port<mem_fetch::MemFetch>,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
@@ -186,8 +188,8 @@ where
         let l1_hit_latency_queue = VecDeque::new();
 
         // let response_queue = VecDeque::new();
-        let response_queue = Fifo::new(Some(config.num_ldst_response_buffer_size));
-        let response_queue = Arc::new(Mutex::new(response_queue));
+        // let response_queue = Fifo::new(Some(config.num_ldst_response_buffer_size));
+        // let response_queue = Arc::new(Mutex::new(response_queue));
 
         Self {
             core_id,

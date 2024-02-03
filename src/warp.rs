@@ -3,7 +3,7 @@ use crate::{instruction::WarpInstruction, kernel::Kernel};
 use std::collections::VecDeque;
 pub use trace_model::{active_mask::Inner as ActiveMaskInner, ActiveMask, WARP_SIZE};
 
-pub type Ref = Arc<Mutex<Warp>>;
+// pub type Ref = Arc<Mutex<Warp>>;
 
 #[derive(Debug)]
 pub struct Warp {

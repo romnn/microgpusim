@@ -589,7 +589,8 @@ impl WarpInstruction {
     pub fn generate_mem_accesses(
         &mut self,
         config: &config::GPU,
-        allocations: &RwLock<crate::allocation::Allocations>,
+        allocations: &crate::allocation::Allocations,
+        // allocations: &RwLock<crate::allocation::Allocations>,
     ) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
@@ -764,7 +765,7 @@ impl WarpInstruction {
         is_write: bool,
         access_kind: AccessKind,
         config: &config::GPU,
-        allocations: &RwLock<crate::allocation::Allocations>,
+        allocations: &crate::allocation::Allocations,
     ) -> Vec<MemAccess> {
         let warp_parts = config.shared_memory_warp_parts;
         let coalescing_arch = config.coalescing_arch as usize;
@@ -958,9 +959,13 @@ impl WarpInstruction {
             );
         }
 
-        for access in accesses.iter_mut() {
-            // set mem accesses allocation start addr, because only core knows
-            access.allocation = allocations.try_read().get(&access.addr).cloned();
+        {
+            let allocations = allocations.read();
+            for access in accesses.iter_mut() {
+                // set mem accesses allocation start addr, because only core knows
+                access.allocation = allocations.get(&access.addr).cloned();
+                // access.allocation = allocations.try_read().get(&access.addr).cloned();
+            }
         }
 
         let active_thread_count = self.active_mask.count_ones();

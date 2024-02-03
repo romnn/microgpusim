@@ -156,7 +156,9 @@ pub struct MemorySubPartition<MC> {
 
     pub interconn_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     // pub interconn_to_l2_queue: Box<dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>,
-    pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
+    // pub l2_to_dram_queue: Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
+    pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
+
     // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     /// L2 cache hit response queue
@@ -191,7 +193,7 @@ where
         let interconn_to_l2_queue = Fifo::new(Some(config.dram_partition_queue_interconn_to_l2));
 
         let l2_to_dram_queue = Fifo::new(Some(config.dram_partition_queue_l2_to_dram));
-        let l2_to_dram_queue = Arc::new(Mutex::new(l2_to_dram_queue));
+        // let l2_to_dram_queue = Arc::new(Mutex::new(l2_to_dram_queue));
 
         let dram_to_l2_queue = Fifo::new(Some(config.dram_partition_queue_dram_to_l2));
 
@@ -477,7 +479,8 @@ impl<MC> MemorySubPartition<MC> {
                 .collect::<Vec<_>>(),
             self.interconn_to_l2_queue,
             self.l2_to_interconn_queue,
-            self.l2_to_dram_queue.try_lock(),
+            self.l2_to_dram_queue,
+            // self.l2_to_dram_queue.try_lock(),
         );
 
         // L2 fill responses
@@ -567,12 +570,15 @@ impl<MC> MemorySubPartition<MC> {
 
         // prior L2 misses inserted into m_L2_dram_queue here
         if let Some(ref mut l2_cache) = self.l2_cache {
-            let mut todo = self.l2_to_dram_queue.try_lock();
+            // let mut todo = self.l2_to_dram_queue.try_lock();
+            let todo = &mut self.l2_to_dram_queue;
             l2_cache.cycle(&mut *todo, cycle);
         }
 
         // new L2 texture accesses and/or non-texture accesses
-        let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
+        // let mut l2_to_dram_queue = self.l2_to_dram_queue.try_lock();
+        let l2_to_dram_queue = &mut self.l2_to_dram_queue;
+
         if !l2_to_dram_queue.full() {
             if let Some(fetch) = self.interconn_to_l2_queue.first().map(Packet::as_ref) {
                 debug_assert_eq!(fetch.sub_partition_id(), self.global_id);

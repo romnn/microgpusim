@@ -57,21 +57,38 @@ impl std::fmt::Display for Allocation {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Allocations(rangemap::RangeMap<address, Allocation>);
+#[derive(Default, Debug)]
+pub struct Allocations(RwLock<rangemap::RangeMap<address, Allocation>>);
 
 impl std::ops::Deref for Allocations {
-    type Target = rangemap::RangeMap<address, Allocation>;
+    type Target = RwLock<rangemap::RangeMap<address, Allocation>>;
+    // type Target = rangemap::RangeMap<address, Allocation>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
+// impl AsRef<RwLock<rangemap::RangeMap<address, Allocation>>> Allocations {
+//     pub
+// }
+
 impl Allocations {
-    pub fn insert(&mut self, range: std::ops::Range<address>, name: Option<String>) {
+    // pub fn iter(&self) -> rangemap::map::Iter<'_, u64, Allocation> {
+    //     let lock = self.0.read();
+    //     lock.iter()
+    // }
+    //
+    // pub fn get(&self, addr: &address) -> Option<&Allocation> {
+    //     let lock = self.0.read();
+    //     lock.get(addr)
+    // }
+
+    pub fn insert(&self, range: std::ops::Range<address>, name: Option<String>) {
+        let mut lock = self.0.write();
+
         // check for intersections
-        if self.0.overlaps(&range) {
+        if lock.overlaps(&range) {
             log::warn!("overlapping memory allocation {:?}", &range);
         }
         // assert!(
@@ -79,10 +96,10 @@ impl Allocations {
         //     "overlapping memory allocation {:?}",
         //     &range
         // );
-        let id = self.0.len() + 1; // zero is reserved for instructions
+        let id = lock.len() + 1; // zero is reserved for instructions
         let start_addr = range.start;
         let end_addr = Some(range.end);
-        self.0.insert(
+        lock.insert(
             range,
             Allocation {
                 id,

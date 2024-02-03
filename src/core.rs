@@ -95,7 +95,7 @@ pub struct CoreIssuer<'a> {
     pub config: &'a config::GPU,
     pub pipeline_reg: &'a mut [register_set::RegisterSet],
     pub warp_instruction_unique_uid: &'a CachePadded<atomic::AtomicU64>,
-    pub allocations: &'a super::allocation::Ref,
+    pub allocations: &'a super::allocation::Allocations,
     pub core_id: usize,
     pub thread_block_size: usize,
     pub current_kernel_max_blocks: usize,
@@ -510,15 +510,16 @@ pub struct Core<I, MC> {
     pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
     pub block_status: Box<[usize]>,
 
-    // TODO: these queues are used to receive fills from the clusters
-    pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
+    pub instr_fetch_response_queue: super::cluster::ResponseQueue,
+    // pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
     // pub load_store_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
 
     // pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
     // pub please_fill: Arc<Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
 
     // allocations are managed by the driver API, hence we need mutex.
-    pub allocations: super::allocation::Ref,
+    // pub allocations: super::allocation::Ref,
+    pub allocations: Arc<super::allocation::Allocations>,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
     // pub need_l1_flush: Mutex<bool>,
     pub instr_fetch_buffer_state: InstructionFetchBufferState,
@@ -556,7 +557,9 @@ where
     pub fn new(
         core_id: usize,
         cluster_id: usize,
-        allocations: super::allocation::Ref,
+        instr_fetch_response_queue: super::cluster::ResponseQueue,
+        load_store_response_queue: super::cluster::ResponseQueue,
+        allocations: Arc<super::allocation::Allocations>,
         warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
         interconn: Arc<I>,
         config: Arc<config::GPU>,
@@ -644,6 +647,7 @@ where
             core_id, // is the core id for now
             core_id,
             cluster_id,
+            load_store_response_queue,
             // mem_port.clone(),
             config.clone(),
             mem_controller.clone(),
@@ -715,8 +719,8 @@ where
         }
         .build();
 
-        let instr_fetch_response_queue = Fifo::new(None);
-        let instr_fetch_response_queue = Arc::new(Mutex::new(instr_fetch_response_queue));
+        // let instr_fetch_response_queue = Fifo::new(None);
+        // let instr_fetch_response_queue = Arc::new(Mutex::new(instr_fetch_response_queue));
 
         // let load_store_response_queue = Fifo::new(None);
         // let load_store_response_queue = Arc::new(Mutex::new(load_store_response_queue));

@@ -88,11 +88,10 @@ pub mod trace {
         reader: Box<Mutex<dyn crate::trace::ReadWarpsForBlock>>,
         // reader: Mutex<dyn crate::trace::ReadWarpsForBlock>,
         phantom: std::marker::PhantomData<T>,
-
         // reader: Mutex<crate::trace::KernelTraceReader<T>>,
         // reader: crate::trace::KernelTraceReader<T>,
-        current_block: RwLock<Option<trace_model::Dim>>,
-        next_block: RwLock<Option<trace_model::Dim>>,
+        // current_block: RwLock<Option<trace_model::Dim>>,
+        // next_block: RwLock<Option<trace_model::Dim>>,
         // pub opcodes: &'static opcodes::OpcodeMap,
         // pub config: KernelLaunch,
         // pub memory_only: bool,
@@ -383,8 +382,8 @@ pub mod trace {
                 phantom: std::marker::PhantomData,
                 // reader: RwLock::new(reader),
                 done: RwLock::new(false),
-                current_block: RwLock::new(None),
-                next_block: RwLock::new(Some(0.into())),
+                // current_block: RwLock::new(None),
+                // next_block: RwLock::new(Some(0.into())),
                 running_blocks: RwLock::new(0),
             }
         }
