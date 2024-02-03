@@ -1,13 +1,13 @@
 use crate::config::Parallelization;
 use crate::sync::Arc;
-use crate::{config, interconn as ic, mem_fetch, MockSimulator};
+use crate::{config, interconn as ic, mem_fetch, Simulator};
 use color_eyre::eyre;
 
 // pub struct GTX1080<MC> {
 pub struct GTX1080 {
     pub config: Arc<config::GPU>,
-    pub sim: MockSimulator<
-        ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>,
+    pub sim: Simulator<
+        ic::SimpleInterconnect<ic::Packet<mem_fetch::MemFetch>>,
         // MC,
         crate::mcu::PascalMemoryControllerUnit,
     >,
@@ -15,8 +15,8 @@ pub struct GTX1080 {
 
 impl std::ops::Deref for GTX1080 {
     // impl<MC> std::ops::Deref for GTX1080<MC> {
-    type Target = MockSimulator<
-        ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>,
+    type Target = Simulator<
+        ic::SimpleInterconnect<ic::Packet<mem_fetch::MemFetch>>,
         crate::mcu::PascalMemoryControllerUnit,
     >;
 
@@ -44,7 +44,7 @@ impl GTX1080 {
     // impl<MC> GTX1080<MC> {
     // pub fn new(config: Arc<config::GPU>, mem_controller: MC) -> Self {
     pub fn new(config: Arc<config::GPU>) -> Self {
-        let interconn = Arc::new(ic::ToyInterconnect::new(
+        let interconn = Arc::new(ic::SimpleInterconnect::new(
             config.num_simt_clusters,
             config.total_sub_partitions(),
         ));
@@ -65,7 +65,7 @@ impl GTX1080 {
         // let mem_controller: Arc<dyn mcu::MemoryController> =
         //     Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap());
 
-        let mut sim = MockSimulator::new(interconn, mem_controller, Arc::clone(&config));
+        let mut sim = Simulator::new(interconn, mem_controller, Arc::clone(&config));
 
         sim.log_after_cycle = config.log_after_cycle;
         Self { config, sim }

@@ -305,7 +305,7 @@ pub struct DebugState {
 }
 
 #[derive()]
-pub struct MockSimulator<I, MC> {
+pub struct Simulator<I, MC> {
     stats: stats::PerKernel,
     config: Arc<config::GPU>,
     mem_controller: Arc<MC>,
@@ -358,9 +358,9 @@ pub struct MockSimulator<I, MC> {
     l2_time: f64,
 }
 
-impl<I, MC> std::fmt::Debug for MockSimulator<I, MC> {
+impl<I, MC> std::fmt::Debug for Simulator<I, MC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MockSimulator").finish()
+        f.debug_struct("Simulator").finish()
     }
 }
 
@@ -412,7 +412,7 @@ impl<'a, MC> Iterator for MemSubPartitionIter<'a, MC> {
 //     }
 // }
 
-impl<I, MC> MockSimulator<I, MC> {
+impl<I, MC> Simulator<I, MC> {
     // pub fn num_mem_sub_partiton
     // pub fn mem_sub_partitions<'a>(&'a self) -> MemSubPartitionIter<'a, MC> {
     //     MemSubPartitionIter {
@@ -445,7 +445,7 @@ impl<I, MC> MockSimulator<I, MC> {
     // }
 }
 
-impl<I, MC> MockSimulator<I, MC>
+impl<I, MC> Simulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
     MC: mcu::MemoryController,
@@ -2207,7 +2207,7 @@ where
     }
 }
 
-// impl<I, MC> SelectKernel for MockSimulator<I, MC>
+// impl<I, MC> SelectKernel for Simulator<I, MC>
 // where
 // // I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 // // MC: mcu::MemoryController,
@@ -2282,7 +2282,7 @@ where
 //     }
 // }
 
-impl<I, MC> MockSimulator<I, MC>
+impl<I, MC> Simulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
     MC: mcu::MemoryController,
@@ -3242,12 +3242,12 @@ pub fn accelmain(
     //     ..config::GPUConfig::default()
     // });
 
-    // let interconn = Arc::new(ic::ToyInterconnect::new(
+    // let interconn = Arc::new(ic::SimpleInterconnect::new(
     //     config.num_simt_clusters,
     //     config.total_sub_partitions(),
     //     // config.num_memory_controllers * config.num_sub_partitions_per_memory_controller,
     // ));
-    // let mut sim = MockSimulator::new(interconn, Arc::clone(&config));
+    // let mut sim = Simulator::new(interconn, Arc::clone(&config));
 
     // match config.parallelization {
     //     config::Parallelization::Serial => {

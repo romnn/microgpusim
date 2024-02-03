@@ -1,8 +1,7 @@
 #![allow(warnings, clippy::all)]
 
-use crate::ic::ToyInterconnect;
 use crate::sync::{Arc, Mutex, RwLock};
-use crate::{config, core, ic, kernel::Kernel, mem_fetch, mem_sub_partition, MockSimulator};
+use crate::{config, core, ic, kernel::Kernel, mem_fetch, mem_sub_partition, Simulator};
 use color_eyre::eyre;
 use ndarray::prelude::*;
 use rayon::prelude::*;
@@ -182,7 +181,7 @@ fn new_serial_cycle<I, MC>(
     }
 }
 
-impl<I, MC> MockSimulator<I, MC>
+impl<I, MC> Simulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
     MC: crate::mcu::MemoryController,

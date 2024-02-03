@@ -286,7 +286,7 @@ where
     }
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
-    // pub fn issue_block_to_core(&mut self, sim: &mut MockSimulator<I, MC>, cycle: u64) -> usize
+    // pub fn issue_block_to_core(&mut self, sim: &mut Simulator<I, MC>, cycle: u64) -> usize
     pub fn issue_block_to_core(
         &mut self,
         kernel_manager: &mut dyn crate::kernel_manager::SelectKernel,

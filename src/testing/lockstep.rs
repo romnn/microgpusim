@@ -18,12 +18,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-type IC = ic::ToyInterconnect<ic::Packet<mem_fetch::MemFetch>>;
+type IC = ic::SimpleInterconnect<ic::Packet<mem_fetch::MemFetch>>;
 type MCU = crate::mcu::PascalMemoryControllerUnit;
 
 // #[inline]
 fn gather_simulation_state(
-    box_sim: &mut crate::MockSimulator<IC, MCU>,
+    box_sim: &mut crate::Simulator<IC, MCU>,
     // box_sim: &mut validate::simulate::config::GTX1080,
     play_sim: &mut playground::Accelsim,
     box_cycle: u64,

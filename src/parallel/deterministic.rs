@@ -1,7 +1,7 @@
-use crate::{config, ic, mem_fetch, MockSimulator};
+use crate::{config, ic, mem_fetch, Simulator};
 use color_eyre::eyre;
 
-impl<I, MC> MockSimulator<I, MC>
+impl<I, MC> Simulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>> + 'static,
     MC: crate::mcu::MemoryController,

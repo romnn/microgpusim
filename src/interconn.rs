@@ -22,7 +22,7 @@ pub trait Interconnect<P>: std::fmt::Debug + Send + Sync + 'static {
 }
 
 #[derive(Debug)]
-pub struct ToyInterconnect<P> {
+pub struct SimpleInterconnect<P> {
     // pub capacity: Option<usize>,
     pub num_cores: usize,
     pub num_mems: usize,
@@ -39,9 +39,9 @@ pub struct ToyInterconnect<P> {
     // node_map: HashMap<usize, usize>,
 }
 
-impl<P> ToyInterconnect<P> {
+impl<P> SimpleInterconnect<P> {
     #[must_use]
-    pub fn new(num_cores: usize, num_mems: usize) -> ToyInterconnect<P> {
+    pub fn new(num_cores: usize, num_mems: usize) -> SimpleInterconnect<P> {
         let num_subnets = 2;
         let num_nodes = num_cores + num_mems;
         let num_classes = 1;
@@ -81,7 +81,7 @@ impl<P> ToyInterconnect<P> {
     }
 }
 
-impl<P> Interconnect<P> for ToyInterconnect<P>
+impl<P> Interconnect<P> for SimpleInterconnect<P>
 where
     P: Send + Sync + std::fmt::Display + std::fmt::Debug + 'static,
 {

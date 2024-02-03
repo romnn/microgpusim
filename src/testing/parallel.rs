@@ -68,7 +68,7 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
     // box_config.num_memory_controllers = 12;
     // box_config.num_sub_partitions_per_memory_controller = 2;
 
-    let box_interconn = Arc::new(ic::ToyInterconnect::new(
+    let box_interconn = Arc::new(ic::SimpleInterconnect::new(
         box_config.num_simt_clusters,
         box_config.total_sub_partitions(),
     ));
@@ -77,7 +77,7 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
         Arc::new(crate::mcu::PascalMemoryControllerUnit::new(&box_config).unwrap());
 
     let start = Instant::now();
-    let mut box_sim = crate::MockSimulator::new(box_interconn, mem_controller, box_config);
+    let mut box_sim = crate::Simulator::new(box_interconn, mem_controller, box_config);
     box_sim
         .trace
         .add_commands(box_commands_path, box_trace_dir)?;
