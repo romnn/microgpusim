@@ -618,7 +618,7 @@ where
     pub fn launch(&mut self, kernel: Arc<dyn Kernel>, cycle: u64) -> eyre::Result<()> {
         // eprintln!("launch kernel {} in cycle {}", kernel.id(), cycle);
         let launch_latency = self.config.kernel_launch_latency
-            + kernel.config().num_blocks() * self.config.block_launch_latency;
+            + kernel.num_blocks() * self.config.block_launch_latency;
         self.kernel_manager
             .try_launch_kernel(kernel, launch_latency, cycle)?;
         Ok(())
@@ -1250,12 +1250,13 @@ where
             eprintln!(
                 "core {:?}: instr fetch response queue size: {}",
                 core.id(),
-                instr_fetch_response_queue.lock().len()
+                instr_fetch_response_queue.len() // instr_fetch_response_queue.lock().len()
             );
             eprintln!(
                 "core {:?}: load store response queue size: {}",
                 core.id(),
-                load_store_response_queue.lock().len()
+                // load_store_response_queue.lock().len()
+                load_store_response_queue.len()
             );
         }
 
@@ -1329,43 +1330,43 @@ where
         eprintln!("interconn busy: {}", self.interconn.busy());
         // log::trace!("interconn busy: {}", self.interconn.busy());
         if self.interconn.busy() {
-            for cluster_id in 0..self.config.num_simt_clusters {
-                let queue = self
-                    .interconn
-                    .dest_queue(cluster_id)
-                    .try_lock()
-                    .iter()
-                    .sorted_by_key(|packet| packet.fetch.addr())
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>();
-                if !queue.is_empty() {
-                    // log::trace!(
-                    eprintln!(
-                        "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
-                        queue.len(),
-                        queue.iter().next(),
-                    );
-                }
-            }
-            for sub_id in 0..self.config.total_sub_partitions() {
-                let mem_device = self.config.mem_id_to_device_id(sub_id);
-                let queue = self
-                    .interconn
-                    .dest_queue(mem_device)
-                    .try_lock()
-                    .iter()
-                    .sorted_by_key(|packet| packet.fetch.addr())
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>();
-                if !queue.is_empty() {
-                    // log::trace!(
-                    eprintln!(
-                        "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
-                        queue.len(),
-                        queue.iter().next()
-                    );
-                }
-            }
+            // for cluster_id in 0..self.config.num_simt_clusters {
+            //     let queue = self
+            //         .interconn
+            //         .dest_queue(cluster_id)
+            //         .try_lock()
+            //         .iter()
+            //         .sorted_by_key(|packet| packet.fetch.addr())
+            //         .map(ToString::to_string)
+            //         .collect::<Vec<_>>();
+            //     if !queue.is_empty() {
+            //         // log::trace!(
+            //         eprintln!(
+            //             "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
+            //             queue.len(),
+            //             queue.iter().next(),
+            //         );
+            //     }
+            // }
+            // for sub_id in 0..self.config.total_sub_partitions() {
+            //     let mem_device = self.config.mem_id_to_device_id(sub_id);
+            //     let queue = self
+            //         .interconn
+            //         .dest_queue(mem_device)
+            //         .try_lock()
+            //         .iter()
+            //         .sorted_by_key(|packet| packet.fetch.addr())
+            //         .map(ToString::to_string)
+            //         .collect::<Vec<_>>();
+            //     if !queue.is_empty() {
+            //         // log::trace!(
+            //         eprintln!(
+            //             "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
+            //             queue.len(),
+            //             queue.iter().next()
+            //         );
+            //     }
+            // }
         }
         eprintln!("\n\n");
     }
@@ -1959,6 +1960,7 @@ where
                     let kernel = kernel::trace::KernelTrace::new(
                         launch.clone(),
                         self.trace.traces_dir.as_ref().unwrap(),
+                        &self.config,
                         self.config.memory_only,
                     );
 
@@ -3120,36 +3122,36 @@ where
                 // dbg!(self.interconn.busy());
 
                 if self.interconn.busy() {
-                    for cluster_id in 0..self.config.num_simt_clusters {
-                        let queue = self
-                            .interconn
-                            .dest_queue(cluster_id)
-                            .try_lock()
-                            .iter()
-                            .sorted_by_key(|packet| packet.fetch.addr())
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>();
-                        if !queue.is_empty() {
-                            log::trace!(
-                                "cluster {cluster_id:<3} icnt: [{:<3}] {queue:?}",
-                                queue.len()
-                            );
-                        }
-                    }
-                    for sub_id in 0..self.config.total_sub_partitions() {
-                        let mem_device = self.config.mem_id_to_device_id(sub_id);
-                        let queue = self
-                            .interconn
-                            .dest_queue(mem_device)
-                            .try_lock()
-                            .iter()
-                            .sorted_by_key(|packet| packet.fetch.addr())
-                            .map(ToString::to_string)
-                            .collect::<Vec<_>>();
-                        if !queue.is_empty() {
-                            log::trace!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
-                        }
-                    }
+                    // for cluster_id in 0..self.config.num_simt_clusters {
+                    //     let queue = self
+                    //         .interconn
+                    //         .dest_queue(cluster_id)
+                    //         .try_lock()
+                    //         .iter()
+                    //         .sorted_by_key(|packet| packet.fetch.addr())
+                    //         .map(ToString::to_string)
+                    //         .collect::<Vec<_>>();
+                    //     if !queue.is_empty() {
+                    //         log::trace!(
+                    //             "cluster {cluster_id:<3} icnt: [{:<3}] {queue:?}",
+                    //             queue.len()
+                    //         );
+                    //     }
+                    // }
+                    // for sub_id in 0..self.config.total_sub_partitions() {
+                    //     let mem_device = self.config.mem_id_to_device_id(sub_id);
+                    //     let queue = self
+                    //         .interconn
+                    //         .dest_queue(mem_device)
+                    //         .try_lock()
+                    //         .iter()
+                    //         .sorted_by_key(|packet| packet.fetch.addr())
+                    //         .map(ToString::to_string)
+                    //         .collect::<Vec<_>>();
+                    //     if !queue.is_empty() {
+                    //         log::trace!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
+                    //     }
+                    // }
                 }
                 // dbg!(self.more_blocks_to_run());
                 // dbg!(self.active());

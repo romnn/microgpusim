@@ -1,4 +1,4 @@
-use crate::sync::Mutex;
+use crate::sync::{FairMutex, Mutex};
 use crate::{config, opcodes, warp};
 
 pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
@@ -7,6 +7,10 @@ pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
     fn name(&self) -> &str;
     fn id(&self) -> u64;
     fn config(&self) -> &trace_model::command::KernelLaunch;
+    fn max_blocks_per_core(&self) -> usize;
+    fn num_blocks(&self) -> usize;
+    fn threads_per_block(&self) -> usize;
+    fn threads_per_block_padded(&self) -> usize;
 
     fn set_completed(&self, cycle: u64);
     fn set_started(&self, cycle: u64);
@@ -31,7 +35,7 @@ pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
 
     // fn next_block_reader(&self) -> &Mutex<Self::Test>;
     // fn next_block_reader(&self) -> &Mutex<dyn crate::trace::ReadWarpsForBlock>;
-    fn next_block_reader(&self) -> &Box<Mutex<dyn crate::trace::ReadWarpsForBlock>>;
+    fn next_block_reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>>;
     // fn next_block_reader(&self) -> &Mutex<&dyn crate::trace::ReadWarpsForBlock>;
     // fn next_block_reader(&self) -> &mut dyn crate::trace::ReadWarpsForBlock;
 
@@ -54,7 +58,7 @@ pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
 }
 
 pub mod trace {
-    use crate::sync::{Mutex, RwLock};
+    use crate::sync::{FairMutex, Mutex, RwLock};
     use crate::trace::KernelTraceReader;
     use crate::{config, instruction, opcodes, warp};
     use color_eyre::Help;
@@ -73,7 +77,12 @@ pub mod trace {
         T: crate::trace::ReadWarpsForBlock,
         // T: Iterator<Item = trace_model::MemAccessTraceEntry>,
     {
-        config: KernelLaunch,
+        launch_config: KernelLaunch,
+        max_blocks_per_core: usize,
+        num_blocks: usize,
+        threads_per_block: usize,
+        threads_per_block_padded: usize,
+
         start_cycle: Mutex<Option<u64>>,
         completed_cycle: Mutex<Option<u64>>,
         start_time: Mutex<Option<std::time::Instant>>,
@@ -85,7 +94,7 @@ pub mod trace {
         // reader: Mutex<T>,
         // reader: Box<Mutex<T>>,
         // reader: Box<Mutex<dyn crate::trace::ReadWarpsForBlock>>,
-        reader: Box<Mutex<dyn crate::trace::ReadWarpsForBlock>>,
+        reader: Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>>,
         // reader: Mutex<dyn crate::trace::ReadWarpsForBlock>,
         phantom: std::marker::PhantomData<T>,
         // reader: Mutex<crate::trace::KernelTraceReader<T>>,
@@ -108,7 +117,7 @@ pub mod trace {
         // T: Iterator<Item = trace_model::MemAccessTraceEntry>,
     {
         fn eq(&self, other: &Self) -> bool {
-            self.config.id == other.config.id
+            self.launch_config.id == other.launch_config.id
         }
     }
 
@@ -120,8 +129,8 @@ pub mod trace {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             // workaround: this is required because we dont want to impose debug on trace stream yet
             f.debug_struct("Kernel")
-                .field("name", &self.config.name())
-                .field("id", &self.config.id)
+                .field("name", &self.launch_config.name())
+                .field("id", &self.launch_config.id)
                 .finish()
         }
     }
@@ -133,8 +142,8 @@ pub mod trace {
     {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Kernel")
-                .field("name", &self.config.name())
-                .field("id", &self.config.id)
+                .field("name", &self.launch_config.name())
+                .field("id", &self.launch_config.id)
                 .finish()
         }
     }
@@ -149,17 +158,32 @@ pub mod trace {
         // type Test = crate::trace::KernelTraceReader<crate::trace::TraceIter>;
 
         fn name(&self) -> &str {
-            self.config.name()
+            self.launch_config.name()
         }
 
         fn id(&self) -> u64 {
-            self.config.id
+            self.launch_config.id
         }
 
         fn config(&self) -> &KernelLaunch {
-            &self.config
+            &self.launch_config
         }
 
+        fn max_blocks_per_core(&self) -> usize {
+            self.max_blocks_per_core
+        }
+
+        fn num_blocks(&self) -> usize {
+            self.num_blocks
+        }
+
+        fn threads_per_block(&self) -> usize {
+            self.threads_per_block
+        }
+
+        fn threads_per_block_padded(&self) -> usize {
+            self.threads_per_block_padded
+        }
         // fn opcode(&self, opcode: &str) -> Option<&opcodes::Opcode> {
         //     self.opcodes.get(opcode)
         // }
@@ -263,7 +287,7 @@ pub mod trace {
         // fn next_block_reader(&self) -> &Mutex<Self::Test> {
 
         // cold
-        fn next_block_reader(&self) -> &Box<Mutex<dyn crate::trace::ReadWarpsForBlock>> {
+        fn next_block_reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>> {
             &self.reader
             // todo!()
             // Box::new(&self.reader as Mutex<dyn crate::trace::ReadWarpsForBlock>)
@@ -364,16 +388,30 @@ pub mod trace {
     //     T: Iterator<Item = trace_model::MemAccessTraceEntry>,
     {
         pub fn new(
-            config: trace_model::command::KernelLaunch,
+            launch_config: trace_model::command::KernelLaunch,
             traces_dir: impl AsRef<Path>,
+            config: &config::GPU,
             memory_only: bool,
         ) -> Self {
-            let reader =
-                crate::trace::KernelTraceReader::new(config.clone(), traces_dir, memory_only);
-            let reader = Mutex::new(reader);
+            let max_blocks_per_core = config
+                .calculate_max_blocks_per_core(&launch_config)
+                .unwrap();
+            let num_blocks = launch_config.num_blocks();
+            let threads_per_block = launch_config.threads_per_block();
+            let threads_per_block_padded = launch_config.threads_per_block_padded();
+            let reader = crate::trace::KernelTraceReader::new(
+                launch_config.clone(),
+                traces_dir,
+                memory_only,
+            );
+            let reader = FairMutex::new(reader);
             let reader = Box::new(reader);
             Self {
-                config,
+                launch_config,
+                max_blocks_per_core,
+                num_blocks,
+                threads_per_block,
+                threads_per_block_padded,
                 start_cycle: Mutex::new(None),
                 start_time: Mutex::new(None),
                 completed_cycle: Mutex::new(None),

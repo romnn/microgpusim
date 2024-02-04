@@ -127,7 +127,7 @@ impl KernelManager {
         launch_latency: usize,
         cycle: u64,
     ) -> Result<(), LaunchError> {
-        let threads_per_block = kernel.config().threads_per_block();
+        let threads_per_block = kernel.threads_per_block();
         let max_threads_per_block = self.config.max_threads_per_core;
         if threads_per_block > max_threads_per_block {
             return Err(LaunchError::BlockSizeTooLarge {

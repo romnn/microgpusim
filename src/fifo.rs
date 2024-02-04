@@ -122,6 +122,10 @@ where
     fn send(&mut self, packet: P) {
         self.inner.push_back(packet);
     }
+
+    fn receive(&mut self) -> Option<P> {
+        self.inner.pop_front()
+    }
 }
 
 impl<P> ic::BufferedConnection<P> for Fifo<P>

@@ -167,7 +167,7 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     let mut serial_config: config::GPU = config::gtx1080::build_config(&input)?;
     serial_config.parallelization = config::Parallelization::Serial;
     serial_config.accelsim_compat = false;
-    serial_config.fill_l2_on_memcopy = true;
+    serial_config.fill_l2_on_memcopy = false;
     // disabling the L1 makes the l2 / accesses stats more precise until we
     // figure out block assignment...
     serial_config.global_mem_skip_l1_data_cache = false;
@@ -326,8 +326,15 @@ pub fn assert_stats_match(
 
     for (mut serial, mut parallel) in kernel_stats {
         eprintln!(
-            "====== comparing kernel {} ({}) =======",
-            serial.sim.kernel_name, serial.sim.kernel_launch_id,
+            "====== comparing kernel {} =======",
+            if serial.sim.kernel_name.is_empty() {
+                "NO KERNEL".to_string()
+            } else {
+                format!(
+                    "{} ({})",
+                    serial.sim.kernel_name, serial.sim.kernel_launch_id
+                )
+            }
         );
 
         serial.sim.elapsed_millis = 0;

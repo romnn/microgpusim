@@ -76,7 +76,6 @@ fn main() -> eyre::Result<()> {
     color_eyre::install()?;
     gpucachesim::init_deadlock_detector();
 
-    let start = Instant::now();
     let options = Options::parse();
     #[cfg(debug_assertions)]
     std::env::set_var("RUST_BACKTRACE", "full");
@@ -177,7 +176,10 @@ fn main() -> eyre::Result<()> {
     dbg!(&config.flush_l1_cache);
     dbg!(&config.flush_l2_cache);
 
+    let start = Instant::now();
     let sim = gpucachesim::accelmain(&options.trace_dir, config)?;
+    let total_time = start.elapsed();
+
     let stats = sim.stats();
 
     // save stats to file
@@ -203,7 +205,18 @@ fn main() -> eyre::Result<()> {
     let all_kernel_stats = stats.clone().reduce();
     eprintln!("\n ===== combined =====\n",);
     print_kernel_stats(&all_kernel_stats);
+    print_timings(parallelization, &total_time);
 
+    dbg!(*gpucachesim::core::debug::NUM_ISSUE_BLOCK.lock());
+
+    eprintln!("completed in {:?}", total_time);
+    Ok(())
+}
+
+fn print_timings(
+    parallelization: gpucachesim::config::Parallelization,
+    total_time: &std::time::Duration,
+) {
     let timings: Vec<_> = gpucachesim::TIMINGS
         .lock()
         .clone()
@@ -214,7 +227,6 @@ fn main() -> eyre::Result<()> {
         eprintln!("TIMINGS:");
     }
 
-    let total_time = start.elapsed();
     let norm_time = if gpucachesim::config::Parallelization::Serial != parallelization {
         timings
             .iter()
@@ -224,7 +236,7 @@ fn main() -> eyre::Result<()> {
         // .copied()
         // .unwrap_or(std::time::Duration::ZERO)
     } else {
-        total_time
+        *total_time
     };
     for (label, value) in timings {
         let mean = value.mean();
@@ -238,8 +250,6 @@ fn main() -> eyre::Result<()> {
             format!("{:?}", total),
         );
     }
-    eprintln!("completed in {:?}", total_time);
-    Ok(())
 }
 
 fn print_kernel_stats(kernel_stats: &stats::Stats) {

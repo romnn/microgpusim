@@ -277,25 +277,27 @@ fn main() -> eyre::Result<()> {
 
     let options = Options { command, threads };
 
-    // takes 34 sec (accel same)
     let (bench_name, input_query): (_, Input) =
         ("transpose", input!({ "dim": 256, "variant": "naive"})?);
 
-    // let (bench_name, input_query): (_, Input) = ("vectorAdd", input!({ "length": 500_000 })?);
+    let (bench_name, input_query): (_, Input) =
+        ("transpose", input!({ "dim": 512, "variant": "naive"})?);
 
-    let (bench_name, input_query): (_, Input) =
-        ("vectorAdd", input!({ "dtype": 32, "length": 100 })?);
-    let (bench_name, input_query): (_, Input) =
-        ("vectorAdd", input!({ "dtype": 32, "length": 10_000 })?);
+    // let (bench_name, input_query): (_, Input) =
+    //     ("transpose", input!({ "dim": 512, "variant": "coalesced"})?);
+
+    // let (bench_name, input_query): (_, Input) =
+    //     ("vectorAdd", input!({ "dtype": 32, "length": 100 })?);
+    // let (bench_name, input_query): (_, Input) =
+    //     ("vectorAdd", input!({ "dtype": 32, "length": 10_000 })?);
     // let (bench_name, input_query): (_, Input) =
     //     ("vectorAdd", input!({ "dtype": 32, "length": 500_000 })?);
+    //
+    // let (bench_name, input_query): (_, Input) =
+    //     ("matrixmul", input!({ "dtype": 32, "rows": 256 })?);
 
-    // let (bench_name, input_num) = ("simple_matrixmul", 26); // takes 22 sec
-    // let (bench_name, input_num) = ("matrixmul", 3); // takes 54 sec (accel 76)
-    // let (bench_name, input_query) = (
-    //     "vectorAdd",
-    //     input!({ "dtype": 32, "length": 10000 })?,
-    // );
+    let (bench_name, input_query): (_, Input) =
+        ("simple_matrixmul", input!({ "m": 512, "n": 32, "p": 512 })?);
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -315,11 +317,12 @@ fn main() -> eyre::Result<()> {
         // TargetCommand::Playground,
         TargetCommand::Serial,
         TargetCommand::Deterministic,
-        // TargetCommand::Nondeterministic { run_ahead: 10 },
+        TargetCommand::Nondeterministic { run_ahead: 10 },
     ]);
 
-    #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Debug, Clone, PartialEq)]
     struct TargetStats {
+        pub bench_config: Arc<BenchmarkConfig>,
         pub duration: Duration,
         pub cycles: u64,
     }
@@ -330,7 +333,9 @@ fn main() -> eyre::Result<()> {
         // clear timing measurements
         gpucachesim::TIMINGS.lock().clear();
 
-        let bench_config = find_first(cmd.into(), bench_name, &input_query)?.unwrap();
+        let bench_config = find_first(cmd.into(), bench_name, &input_query)?;
+        let bench_config = Arc::new(bench_config.unwrap());
+
         println!(
             "{}: running {}",
             style(cmd).cyan(),
@@ -339,12 +344,12 @@ fn main() -> eyre::Result<()> {
 
         let stats = match cmd {
             TargetCommand::Accelsim => {
-                let bench_config = Arc::new(bench_config);
                 let (_, stats, duration) =
-                    runtime.block_on(run_accelsim(black_box(bench_config)))?;
+                    runtime.block_on(run_accelsim(black_box(Arc::clone(&bench_config))))?;
                 let stats: stats::PerKernel = stats.try_into()?;
                 TargetStats {
                     duration,
+                    bench_config,
                     cycles: stats.reduce().sim.cycles,
                 }
             }
@@ -353,6 +358,7 @@ fn main() -> eyre::Result<()> {
                 let stats = stats::Stats::from(stats);
                 TargetStats {
                     duration,
+                    bench_config,
                     cycles: stats.sim.cycles,
                 }
             }
@@ -364,6 +370,7 @@ fn main() -> eyre::Result<()> {
                 )?;
                 TargetStats {
                     duration,
+                    bench_config,
                     cycles: stats.reduce().sim.cycles,
                 }
             }
@@ -375,6 +382,7 @@ fn main() -> eyre::Result<()> {
                 )?;
                 TargetStats {
                     duration,
+                    bench_config,
                     cycles: stats.reduce().sim.cycles,
                 }
             }
@@ -386,6 +394,7 @@ fn main() -> eyre::Result<()> {
                 )?;
                 TargetStats {
                     duration,
+                    bench_config,
                     cycles: stats.reduce().sim.cycles,
                 }
             }
@@ -409,7 +418,14 @@ fn main() -> eyre::Result<()> {
         .sorted_by_key(|(_, stats)| stats.duration)
         .collect();
 
-    println!("\n\n==== RESULTS (fastest to slowest) ====");
+    let Some((_, TargetStats { bench_config, .. })) = sorted_target_stats.first() else {
+        return Ok(());
+    };
+
+    println!(
+        "\n\n==== RESULTS for {} (fastest to slowest) ====\n",
+        style(bench_config).cyan()
+    );
     for (target, stats) in sorted_target_stats {
         let accelsim_baseline_duration = target_stats
             .get(&TargetCommand::Accelsim)
@@ -427,7 +443,7 @@ fn main() -> eyre::Result<()> {
 
         let target_color = |target: &TargetCommand| -> Style {
             if target.is_gpucachesim() {
-                Style::new().cyan()
+                Style::new().magenta()
             } else {
                 Style::new()
             }

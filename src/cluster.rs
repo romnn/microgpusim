@@ -2,6 +2,7 @@ use super::{config, fifo::Fifo, interconn as ic, mem_fetch, Core};
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 use console::style;
 use crossbeam::utils::CachePadded;
+use ic::SharedConnection;
 use std::collections::VecDeque;
 
 // pub trait IssueBlock {}
@@ -19,7 +20,10 @@ use std::collections::VecDeque;
 //     }
 // }
 
-pub type ResponseQueue = Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>;
+// pub type ResponseQueue = Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>;
+pub type ResponseQueue = Arc<ic::shared::UnboundedFifoQueue<ic::Packet<mem_fetch::MemFetch>>>;
+// pub type ResponseQueue =
+//     Arc<ic::shared::debug::UnboundedFifoQueueOld<ic::Packet<mem_fetch::MemFetch>>>;
 
 #[derive()]
 pub struct Cluster<I, MC> {
@@ -70,11 +74,16 @@ where
         let core_sim_order = (0..num_cores_per_cluster).collect();
 
         let core_instr_fetch_response_queue: Box<[ResponseQueue]> = (0..num_cores_per_cluster)
-            .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
+            .map(|_| ResponseQueue::default())
+            // .map(|_| Arc::new(ic::shared::UnboundedFifoQueue::new()))
+            // .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
             .collect();
 
         let core_load_store_response_queue: Box<[ResponseQueue]> = (0..num_cores_per_cluster)
-            .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
+            .map(|_| ResponseQueue::default())
+            // .map(|_| Arc::new(ic::shared::UnboundedFifoQueue::new()))
+            // .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
+            // .map(|_| Arc::new(Mutex::new(Fifo::new(None))))
             .collect();
 
         let cores = (0..num_cores_per_cluster)
@@ -166,7 +175,8 @@ where
         );
 
         // Handle received package
-        if let Some(fetch) = response_fifo.front() {
+        // if let Some(fetch) = response_fifo.front() {
+        if let Some(fetch) = response_fifo.pop_front() {
             // let core_id = self
             //     .config
             //     .global_core_id_to_core_id(fetch.core_id.unwrap());
@@ -189,9 +199,10 @@ where
                 global_core_id,
                 // core.ldst_unit_response_buffer_full(),
                 // core.load_store_unit.response_queue.lock().full(),
-                self.core_load_store_response_queue[local_core_id]
-                    .lock()
-                    .full(),
+                false, // unbounded
+                       // self.core_load_store_response_queue[local_core_id]
+                       //     // .lock()
+                       //     .is_full(),
             );
 
             match fetch.access_kind() {
@@ -205,15 +216,29 @@ where
                     //     core.accept_fetch_response(fetch, cycle);
                     // }
                     // let mut instr_fetch_response_queue = core.instr_fetch_response_queue.lock();
-                    let mut instr_fetch_response_queue =
-                        self.core_instr_fetch_response_queue[local_core_id].lock();
-                    if instr_fetch_response_queue.full() {
-                        log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
-                    } else {
-                        let fetch = response_fifo.pop_front().unwrap();
-                        log::debug!("accepted instr access fetch {}", fetch);
-                        instr_fetch_response_queue.enqueue(ic::Packet { fetch, time: cycle });
+                    let instr_fetch_response_queue =
+                        &self.core_instr_fetch_response_queue[local_core_id];
+                    // .lock();
+
+                    // let fetch = response_fifo.pop_front().unwrap();
+                    match instr_fetch_response_queue.try_send(ic::Packet { fetch, time: cycle }) {
+                        Ok(_) => {
+                            log::debug!("core accepted instr fetch");
+                            // log::debug!("accepted instr access fetch {}", fetch);
+                        }
+                        Err(rejected) => {
+                            log::debug!("instr access fetch {} NOT YET ACCEPTED", rejected.fetch);
+                            response_fifo.push_front(rejected.fetch)
+                        }
                     }
+
+                    // if instr_fetch_response_queue.full() {
+                    //     log::debug!("instr access fetch {} NOT YET ACCEPTED", fetch);
+                    // } else {
+                    //     let fetch = response_fifo.pop_front().unwrap();
+                    //     log::debug!("accepted instr access fetch {}", fetch);
+                    //     instr_fetch_response_queue.enqueue(ic::Packet { fetch, time: cycle });
+                    // }
                 }
                 _ => {
                     // if !core.ldst_unit_response_buffer_full() {
@@ -226,18 +251,32 @@ where
                     //     log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
                     // }
                     // let mut load_store_response_queue = core.load_store_unit.response_queue.lock();
-                    let mut load_store_response_queue =
-                        self.core_load_store_response_queue[local_core_id].lock();
-                    if !load_store_response_queue.full() {
-                        // Forward load store unit response to core
-                        let fetch = response_fifo.pop_front().unwrap();
-                        log::debug!("accepted ldst unit fetch {}", fetch);
-                        // m_memory_stats->memlatstat_read_done(mf);
-                        // core.accept_ldst_unit_response(fetch, cycle);
-                        load_store_response_queue.enqueue(ic::Packet { fetch, time: cycle });
-                    } else {
-                        log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                    let load_store_response_queue =
+                        &self.core_load_store_response_queue[local_core_id];
+                    // .lock();
+
+                    // let fetch = response_fifo.pop_front().unwrap();
+                    match load_store_response_queue.try_send(ic::Packet { fetch, time: cycle }) {
+                        Ok(_) => {
+                            log::debug!("core accepted load store unit fetch");
+                            // log::debug!("accepted instr access fetch {}", fetch);
+                        }
+                        Err(rejected) => {
+                            log::debug!("ldst unit fetch {} NOT YET ACCEPTED", rejected.fetch);
+                            response_fifo.push_front(rejected.fetch)
+                        }
                     }
+
+                    // if !load_store_response_queue.full() {
+                    //     // Forward load store unit response to core
+                    //     let fetch = response_fifo.pop_front().unwrap();
+                    //     log::debug!("accepted ldst unit fetch {}", fetch);
+                    //     // m_memory_stats->memlatstat_read_done(mf);
+                    //     // core.accept_ldst_unit_response(fetch, cycle);
+                    //     load_store_response_queue.enqueue(ic::Packet { fetch, time: cycle });
+                    // } else {
+                    //     log::debug!("ldst unit fetch {} NOT YET ACCEPTED", fetch);
+                    // }
                 }
             }
         }
@@ -316,7 +355,7 @@ where
         for core_id in 0..num_cores {
             let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
             let core = &self.cores[core_id];
-            let issued = core.try_write().issue_block(kernel_manager, cycle);
+            let issued = core.try_write().maybe_issue_block(kernel_manager, cycle);
             if issued {
                 num_blocks_issued += 1;
                 self.block_issue_next_core = core_id;

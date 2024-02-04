@@ -1,11 +1,17 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
-    address, cache, config,
+    address,
+    cache,
+    config,
     core::PipelineStage,
-    fifo::Fifo,
+    // fifo::Fifo,
     func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr,
+    interconn as ic,
+    mcu,
+    mem_fetch,
+    mem_sub_partition,
+    mshr,
     operand_collector::OperandCollector,
     register_set::{self},
     scoreboard::{self, Access},
@@ -14,6 +20,7 @@ use crate::{
 use utils::box_slice;
 
 use console::style;
+use ic::{Iter, SharedConnection};
 use mem_fetch::{access::Kind as AccessKind, MemFetch};
 use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
@@ -37,6 +44,8 @@ pub struct LoadStoreUnit<MC> {
     mem_controller: Arc<MC>,
     /// Next global access
     next_global: Option<MemFetch>,
+    /// Current response
+    current_response: Option<ic::Packet<mem_fetch::MemFetch>>,
     /// Pending writes per register
     pub pending_writes: HashMap<usize, HashMap<u32, usize>>,
 
@@ -197,6 +206,7 @@ where
             data_l1,
             next_writeback: None,
             next_global: None,
+            current_response: None,
             pending_writes: HashMap::new(),
             response_queue,
             // mem_port,
@@ -522,8 +532,10 @@ impl<MC> LoadStoreUnit<MC> {
         fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
         // self.response_queue.push_back(fetch);
         self.response_queue
-            .lock()
-            .enqueue(ic::Packet { fetch, time });
+            // .lock()
+            // .enqueue(ic::Packet { fetch, time });
+            .try_send(ic::Packet { fetch, time })
+            .expect("failed to send fill packet");
     }
 
     pub fn writeback(
@@ -1137,24 +1149,27 @@ where
         _result_port: Option<&mut register_set::RegisterSet>,
         cycle: u64,
     ) {
-        log::debug!(
-            "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
-            self.inner.id,
-            self.inner.name,
-            cycle,
-            self.inner
-                .pipeline_reg
-                .iter()
-                .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
-                .collect::<Vec<_>>(),
-            self.inner.num_active_instr_in_pipeline(),
-            self.inner.pipeline_reg.len(),
-            self.response_queue
-                .lock()
-                .iter()
-                .map(std::string::ToString::to_string)
-                .collect::<Vec<_>>(),
-        );
+        if log::log_enabled!(log::Level::Debug) {
+            log::debug!(
+                "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active) \tresponse fifo={:?}",
+                self.inner.id,
+                self.inner.name,
+                cycle,
+                self.inner
+                    .pipeline_reg
+                    .iter()
+                    .map(|reg| reg.as_ref().map(std::string::ToString::to_string))
+                    .collect::<Vec<_>>(),
+                self.inner.num_active_instr_in_pipeline(),
+                self.inner.pipeline_reg.len(),
+                Vec::<String>::new(),
+                // self.response_queue
+                //     // .lock()
+                //     .iter()
+                //     .map(|packet| packet.to_string())
+                //     .collect::<Vec<_>>(),
+            );
+        }
 
         self.writeback(operand_collector, scoreboard, warps, stats, cycle);
 
@@ -1181,9 +1196,16 @@ where
 
         // if let Some(fetch) = self.response_queue.front() {
         {
-            let mut response_queue_lock = self.response_queue.lock();
+            // let mut response_queue_lock = self.response_queue.lock();
+            // let response_queue_lock = &self.response_queue;
 
-            if let Some(ic::Packet { fetch, .. }) = response_queue_lock.first() {
+            if self.current_response.is_none() {
+                self.current_response = self.response_queue.receive();
+            }
+
+            // todo: pop here and then push it back in if fails
+            // if let Some(ic::Packet { fetch, .. }) = response_queue_lock.first() {
+            if let Some(ic::Packet { ref fetch, .. }) = self.current_response {
                 match fetch.access_kind() {
                     AccessKind::TEXTURE_ACC_R => {
                         todo!("ldst unit: tex access");
@@ -1208,7 +1230,9 @@ where
                         {
                             self.store_ack(warps, fetch);
                             // self.response_queue.pop_front();
-                            response_queue_lock.dequeue();
+                            // response_queue_lock.dequeue();
+                            // response_queue_lock.receive();
+                            self.current_response.take();
                         } else {
                             // L1 cache is write evict:
                             // allocate line on load miss only
@@ -1228,7 +1252,9 @@ where
                                 if self.next_global.is_none() {
                                     // let mut fetch = self.response_queue.pop_front().unwrap();
                                     let ic::Packet { mut fetch, .. } =
-                                        response_queue_lock.dequeue().unwrap();
+                                        self.current_response.take().unwrap();
+                                    // response_queue_lock.receive().unwrap();
+
                                     fetch.set_status(mem_fetch::Status::IN_SHADER_FETCHED, 0);
                                     self.next_global = Some(fetch);
                                 }
@@ -1237,9 +1263,10 @@ where
                                 if l1d.has_free_fill_port() {
                                     // let fetch = self.response_queue.pop_front().unwrap();
                                     let ic::Packet { fetch, time } =
-                                        response_queue_lock.dequeue().unwrap();
+                                        self.current_response.take().unwrap();
+                                    // response_queue_lock.receive().unwrap();
                                     // eagerly release the lock
-                                    drop(response_queue_lock);
+                                    // drop(response_queue_lock);
                                     l1d.fill(fetch, time);
                                 } else {
                                     log::trace!(

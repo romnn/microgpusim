@@ -9,6 +9,7 @@ use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use trace_model::command::KernelLaunch;
 
 pub use gtx1080::GTX1080;
 
@@ -632,6 +633,7 @@ pub fn pad_to_multiple(n: usize, k: usize) -> usize {
         ((n / k) + 1) * k
     }
 }
+
 impl GPU {
     #[must_use]
     pub fn is_parallel_simulation(&self) -> bool {
@@ -700,10 +702,10 @@ impl GPU {
         mem_id + self.num_simt_clusters
     }
 
-    pub fn threads_per_block_padded(&self, kernel: &dyn Kernel) -> usize {
-        let threads_per_block = kernel.config().threads_per_block();
-        pad_to_multiple(threads_per_block, self.warp_size)
-    }
+    // pub fn threads_per_block_padded(&self, kernel: &dyn Kernel) -> usize {
+    //     let threads_per_block = kernel.config().threads_per_block();
+    //     pad_to_multiple(threads_per_block, self.warp_size)
+    // }
 
     /// Number of bytes transferred per read or write command.
     pub fn dram_atom_size(&self) -> usize {
@@ -715,24 +717,28 @@ impl GPU {
     ///
     /// Depends on the following constraints:
     /// -
-    pub fn max_blocks(&self, kernel: &dyn Kernel) -> eyre::Result<usize> {
-        let threads_per_block = kernel.config().threads_per_block();
+    // pub fn max_blocks(&self, kernel: &dyn Kernel) -> eyre::Result<usize> {
+    pub fn calculate_max_blocks_per_core(
+        &self,
+        launch_config: &KernelLaunch,
+    ) -> eyre::Result<usize> {
+        let threads_per_block = launch_config.threads_per_block();
         let threads_per_block = pad_to_multiple(threads_per_block, self.warp_size);
         // limit by n_threads/shader
         let by_thread_limit = self.max_threads_per_core / threads_per_block;
 
         // limit by shmem/shader
-        let by_shared_mem_limit = if kernel.config().shared_mem_bytes > 0 {
-            Some(self.shared_memory_size as usize / kernel.config().shared_mem_bytes as usize)
+        let by_shared_mem_limit = if launch_config.shared_mem_bytes > 0 {
+            Some(self.shared_memory_size as usize / launch_config.shared_mem_bytes as usize)
         } else {
             None
         };
 
         // limit by register count, rounded up to multiple of 4.
-        let by_register_limit = if kernel.config().num_registers > 0 {
+        let by_register_limit = if launch_config.num_registers > 0 {
             Some(
                 self.shader_registers
-                    / (threads_per_block * ((kernel.config().num_registers + 3) & !3) as usize),
+                    / (threads_per_block * ((launch_config.num_registers + 3) & !3) as usize),
             )
         } else {
             None
@@ -757,9 +763,9 @@ impl GPU {
 
         // max blocks per shader is limited by number of blocks
         // if not enough to keep all cores busy
-        if kernel.config().num_blocks() < (limit * self.total_cores()) {
-            limit = kernel.config().num_blocks() / self.total_cores();
-            if kernel.config().num_blocks() % self.total_cores() != 0 {
+        if launch_config.num_blocks() < (limit * self.total_cores()) {
+            limit = launch_config.num_blocks() / self.total_cores();
+            if launch_config.num_blocks() % self.total_cores() != 0 {
                 limit += 1;
             }
         }
@@ -772,7 +778,7 @@ impl GPU {
         if self.adaptive_cache_config {
             // more info about adaptive cache, see
             // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
-            let total_shared_mem = kernel.config().shared_mem_bytes as usize * limit;
+            let total_shared_mem = launch_config.shared_mem_bytes as usize * limit;
             if let Some(size) = self.shared_memory_sizes.last() {
                 assert!(total_shared_mem <= (*size as usize));
             }

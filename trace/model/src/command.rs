@@ -1,3 +1,5 @@
+use crate::WARP_SIZE;
+
 use super::{dim::Dim, DeviceProperties};
 use serde::{Deserialize, Serialize};
 
@@ -65,10 +67,24 @@ impl std::fmt::Display for KernelLaunch {
     }
 }
 
+#[must_use]
+pub fn pad_to_multiple(n: usize, k: usize) -> usize {
+    let rem = n % k;
+    if rem == 0 {
+        n
+    } else {
+        ((n / k) + 1) * k
+    }
+}
+
 impl KernelLaunch {
     pub fn threads_per_block(&self) -> usize {
         let block = &self.block;
         block.x as usize * block.y as usize * block.z as usize
+    }
+
+    pub fn threads_per_block_padded(&self) -> usize {
+        pad_to_multiple(self.threads_per_block(), WARP_SIZE)
     }
 
     pub fn num_blocks(&self) -> usize {
