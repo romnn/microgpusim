@@ -60,6 +60,7 @@ fn gather_simulation_state(
         // for (core_id, core) in cluster.cores.iter().enumerate() {
         for core in cluster.cores.iter() {
             // let core = core.try_read();
+            let core = core.try_read();
             // let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
             // assert_eq!(core.core_id, global_core_id);
 

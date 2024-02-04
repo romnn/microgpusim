@@ -957,7 +957,7 @@ where
                 for local_core_id in &*core_sim_order {
                     // let mut core = cluster.cores[*core_id].write();
                     let core = &mut cluster.cores[*local_core_id];
-                    crate::timeit!("core::cycle", core.cycle(cycle));
+                    crate::timeit!("core::cycle", core.try_write().cycle(cycle));
                 }
                 // active_sms += cluster.num_active_sms();
             }
@@ -971,20 +971,22 @@ where
                     }
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for local_core_id in &*core_sim_order {
-                        // let core = cluster.cores[*core_id].try_read();
-                        let core = &mut cluster.cores[*local_core_id];
+                        let core = cluster.cores[*local_core_id].try_read();
+                        // let core = &mut cluster.cores[*local_core_id];
                         // let mem_port = core.mem_port.lock();
-                        let mem_port = &mut core.mem_port;
+                        let mem_port = &core.mem_port;
                         assert_eq!(mem_port.buffer.len(), 0);
                     }
                 }
             }
 
-            for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
+            // for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
+            for cluster in self.clusters.iter_mut() {
+                let cluster_id = cluster.cluster_id;
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for local_core_id in &*core_sim_order {
-                    // let core = cluster.cores[*core_id].try_read();
-                    let core = &mut cluster.cores[*local_core_id];
+                    let mut core = cluster.cores[*local_core_id].try_write();
+                    // let core = &mut cluster.cores[*local_core_id];
                     // let mut mem_port = core.mem_port.lock();
                     let core_id = core.id();
                     let mem_port = &mut core.mem_port;
@@ -1019,12 +1021,8 @@ where
                             dest,
                             self.config.mem_id_to_device_id(fetch.sub_partition_id())
                         );
-                        self.interconn.push(
-                            core.cluster_id,
-                            dest,
-                            ic::Packet { fetch, time },
-                            size,
-                        );
+                        self.interconn
+                            .push(cluster_id, dest, ic::Packet { fetch, time }, size);
                     }
                 }
                 if !active_clusters[cluster_id] {
@@ -1225,7 +1223,7 @@ where
             // .flat_map(|cluster| cluster.cores.clone())
             .flat_map(|cluster| cluster.cores.iter())
         {
-            // let core = core.try_read();
+            let core = core.try_read();
             // let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
             let block_status: Vec<_> = core
                 .active_threads_per_hardware_block
@@ -1447,7 +1445,7 @@ where
         let total_cores = self.config.total_cores();
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                // let core = core.read();
+                let core = core.try_read();
                 // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
@@ -1537,7 +1535,7 @@ where
 
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                // let core = core.read();
+                let core = core.try_read();
                 // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
@@ -1612,7 +1610,7 @@ where
 
         // collect statistics from cores
         for core in cores.iter() {
-            // let core = core.try_read();
+            let core = core.try_read();
             stats += core.stats();
         }
 
@@ -1646,7 +1644,7 @@ where
             if let Some(kernel) = &self
                 .kernel_manager
                 .executed_kernels
-                .read()
+                .try_read()
                 // .lock()
                 .get(&(kernel_launch_id as u64))
             {
@@ -1972,7 +1970,8 @@ where
                     //     .filter(Option::is_some)
                     //     .count();
                     eprintln!("kernel launch {}: {:#?}", launch.id, &launch);
-                    let num_launched_kernels = self.kernel_manager.executed_kernels.read().len();
+                    let num_launched_kernels =
+                        self.kernel_manager.executed_kernels.try_read().len();
 
                     match std::env::var("KERNEL_LIMIT")
                         .ok()
@@ -2014,7 +2013,7 @@ where
         log::info!(
             "allocations: {:#?}",
             self.allocations
-                .read()
+                .try_read()
                 .iter()
                 .map(|(_, alloc)| alloc.to_string())
                 .collect::<Vec<_>>()
@@ -2174,7 +2173,7 @@ where
                         self.log_after_cycle.take();
                         // let allocations = self.allocations.read();
                         // let allocations = &self.allocations.read();
-                        for (_, alloc) in self.allocations.read().iter() {
+                        for (_, alloc) in self.allocations.try_read().iter() {
                             log::info!("allocation: {}", alloc);
                         }
                     }
@@ -2479,7 +2478,7 @@ where
         {
             let allocation_id = self
                 .allocations
-                .read()
+                .try_read()
                 .iter()
                 .find(|(_, alloc)| alloc.start_addr == device_ptr)
                 .map(|(_, alloc)| alloc.id)
@@ -2864,7 +2863,7 @@ where
                     // find allocation
                     let old_allocation_id = self
                         .allocations
-                        .read()
+                        .try_read()
                         .iter()
                         .find(|(_, alloc)| {
                             // eprintln!(
@@ -2880,7 +2879,7 @@ where
 
                     let allocation_id = self
                         .allocations
-                        .read()
+                        .try_read()
                         .get(&addr)
                         .map(|alloc| alloc.id)
                         .unwrap();
@@ -2984,7 +2983,7 @@ where
 
             // let kind = mem_fetch::access::Kind::GLOBAL_ACC_W;
             let kind = mem_fetch::access::Kind::GLOBAL_ACC_R;
-            let allocation = self.allocations.read().get(&chunk_addr).cloned();
+            let allocation = self.allocations.try_read().get(&chunk_addr).cloned();
             let access = mem_fetch::access::Builder {
                 kind,
                 addr: chunk_addr,
@@ -3163,7 +3162,7 @@ where
             for chunk in 0..num_chunks {
                 let chunk_addr = addr + (chunk as u64 * chunk_size);
 
-                let allocation = self.allocations.read().get(&chunk_addr).cloned();
+                let allocation = self.allocations.try_read().get(&chunk_addr).cloned();
                 let access = mem_fetch::access::Builder {
                     kind: mem_fetch::access::Kind::GLOBAL_ACC_R,
                     addr: chunk_addr,

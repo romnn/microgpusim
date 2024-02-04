@@ -26,23 +26,23 @@ use trace_model::ToBitString;
 
 pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 
-pub mod debug {
-    use crate::sync::Mutex;
-    use std::collections::HashMap;
-
-    pub struct CompletedBlock {
-        pub global_core_id: usize,
-        pub kernel_id: u64,
-        pub block: trace_model::Point,
-    }
-
-    pub static COMPLETED_BLOCKS: once_cell::sync::Lazy<Mutex<Vec<CompletedBlock>>> =
-        once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
-
-    pub static ACCESSES: once_cell::sync::Lazy<
-        Mutex<HashMap<(usize, stats::mem::AccessKind), u64>>,
-    > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
-}
+// pub mod debug {
+//     use crate::sync::Mutex;
+//     use std::collections::HashMap;
+//
+//     pub struct CompletedBlock {
+//         pub global_core_id: usize,
+//         pub kernel_id: u64,
+//         pub block: trace_model::Point,
+//     }
+//
+//     pub static COMPLETED_BLOCKS: once_cell::sync::Lazy<Mutex<Vec<CompletedBlock>>> =
+//         once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
+//
+//     pub static ACCESSES: once_cell::sync::Lazy<
+//         Mutex<HashMap<(usize, stats::mem::AccessKind), u64>>,
+//     > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+// }
 
 #[derive(Debug)]
 pub struct ThreadState {
@@ -1576,9 +1576,11 @@ where
         // let (block_id, mut block_reader) = {
         let mut block_reader = kernel.next_block_reader().lock();
         // let block_reader_lock = block.reader_
-        let block = block_reader
-            .current_block()
-            .expect("kernel has current block");
+        let Some(block) = block_reader
+            .current_block() else {
+            return false;
+        };
+        // .expect("kernel has current block");
         // let block = kernel.next_block().expect("kernel has current block");
 
         log::debug!(
@@ -1791,9 +1793,9 @@ where
         debug_assert!(self.active_threads_per_hardware_block[block_hw_id] > 0);
         self.active_threads_per_hardware_block[block_hw_id] -= 1;
 
-        if !self.config.parallelization.is_serial()
-            && self.active_threads_per_hardware_block[block_hw_id] == 0
-        {
+        // if !self.config.parallelization.is_serial()
+        // && self.active_threads_per_hardware_block[block_hw_id] == 0
+        if self.active_threads_per_hardware_block[block_hw_id] == 0 {
             let block = self.block_ids_per_hardware_block[block_hw_id].as_ref();
             let block_id = block.map(|block| block.id()).unwrap_or(0);
             let block_size = block.map(|block| block.size()).unwrap_or(0);
@@ -1834,14 +1836,14 @@ where
 
             assert!(current_kernel.is_some());
 
-            debug::COMPLETED_BLOCKS.lock().push(debug::CompletedBlock {
-                global_core_id,
-                block: self.block_ids_per_hardware_block[block_hw_id]
-                    .as_ref()
-                    .unwrap()
-                    .clone(),
-                kernel_id: current_kernel_id.unwrap(),
-            });
+            // debug::COMPLETED_BLOCKS.lock().push(debug::CompletedBlock {
+            //     global_core_id,
+            //     block: self.block_ids_per_hardware_block[block_hw_id]
+            //         .as_ref()
+            //         .unwrap()
+            //         .clone(),
+            //     kernel_id: current_kernel_id.unwrap(),
+            // });
 
             // deallocate barriers for this block
             self.barriers.deallocate(block_hw_id as u64);

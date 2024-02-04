@@ -28,7 +28,8 @@ pub struct Cluster<I, MC> {
     // pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
     // pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     // pub cores: Vec<Core<I, MC>>>,
-    pub cores: Box<[Core<I, MC>]>,
+    // pub cores: Box<[Core<I, MC>]>,
+    pub cores: Box<[Arc<RwLock<Core<I, MC>>>]>,
 
     // queues going to the cores
     pub core_instr_fetch_response_queue: Box<[ResponseQueue]>,
@@ -91,8 +92,8 @@ where
                     Arc::clone(config),
                     Arc::clone(mem_controller),
                 );
-                core
-                // Arc::new(RwLock::new(core))
+                // core
+                Arc::new(RwLock::new(core))
             })
             .collect();
 
@@ -119,17 +120,18 @@ where
         cluster
     }
 
-    fn reinit(&mut self) {
-        for core in self.cores.iter_mut() {
+    fn reinit(&self) {
+        for core in self.cores.iter() {
             // core.write()
-            core.reinit(0, self.config.max_threads_per_core, true);
+            core.try_write()
+                .reinit(0, self.config.max_threads_per_core, true);
         }
     }
 
     pub fn num_active_sms(&self) -> usize {
         self.cores
             .iter()
-            .filter(|core| core.is_active())
+            .filter(|core| core.try_read().is_active())
             // .filter(|core| core.try_read().is_active())
             .count()
     }
@@ -137,7 +139,7 @@ where
     pub fn num_active_threads(&self) -> usize {
         self.cores
             .iter()
-            .map(|core| core.num_active_threads())
+            .map(|core| core.try_read().num_active_threads())
             // .map(|core| core.try_read().num_active_threads())
             .sum()
     }
@@ -270,8 +272,8 @@ where
     }
 
     pub fn cache_flush(&mut self) {
-        for core in self.cores.iter_mut() {
-            core.cache_flush();
+        for core in self.cores.iter() {
+            core.try_write().cache_flush();
             // core.write().cache_flush();
         }
     }
@@ -283,8 +285,8 @@ where
     // }
 
     pub fn cache_invalidate(&mut self) {
-        for core in self.cores.iter_mut() {
-            core.cache_invalidate();
+        for core in self.cores.iter() {
+            core.try_write().cache_invalidate();
             // core.write().cache_invalidate();
         }
     }
@@ -313,8 +315,8 @@ where
 
         for core_id in 0..num_cores {
             let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
-            let core = &mut self.cores[core_id];
-            let issued = core.issue_block(kernel_manager, cycle);
+            let core = &self.cores[core_id];
+            let issued = core.try_write().issue_block(kernel_manager, cycle);
             if issued {
                 num_blocks_issued += 1;
                 self.block_issue_next_core = core_id;

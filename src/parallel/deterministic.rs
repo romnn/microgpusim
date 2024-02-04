@@ -99,6 +99,7 @@ where
 
                             for core in cluster.cores.iter_mut() {
                                 core_scope.spawn(move |_| {
+                                    let mut core = core.try_write();
                                     crate::timeit!("core::cycle", core.cycle(cycle));
                                 });
                             }
@@ -141,19 +142,22 @@ where
                             continue;
                         }
                         let cluster = &mut self.clusters[cluster_id];
+                        let cluster_id = &cluster.cluster_id;
+
                         let mut core_sim_order = cluster.core_sim_order.try_lock();
                         for core_id in &*core_sim_order {
+                            let mut core = cluster.cores[*core_id].try_write();
                             // let core = cluster.cores[*core_id].try_read();
-                            let core = &mut cluster.cores[*core_id];
+                            // let core = &mut cluster.cores[*core_id];
                             // let mut port = core.mem_port.lock();
-                            let mem_port = &mut core.mem_port;
+                            // let mem_port = &mut core.mem_port;
                             for ic::Packet {
                                 fetch: (dest, fetch, size),
                                 time,
-                            } in mem_port.buffer.drain(..)
+                            } in core.mem_port.buffer.drain(..)
                             {
                                 self.interconn.push(
-                                    core.cluster_id,
+                                    *cluster_id,
                                     dest,
                                     ic::Packet { fetch, time },
                                     size,

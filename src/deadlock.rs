@@ -47,11 +47,12 @@ where
 
         let mut state = State::new(total_cores, num_partitions, num_sub_partitions);
 
-        for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+        // for (cluster_id, cluster) in self.clusters.iter().enumerate() {
+        for cluster in self.clusters.iter() {
             // let cluster = cluster.try_read();
             // for (local_core_id, core) in cluster.cores.iter().enumerate() {
             for core in cluster.cores.iter() {
-                // let core = core.try_read();
+                let core = core.try_read();
                 // let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
                 // assert_eq!(core.global_core_id, global_core_id);
 
@@ -59,7 +60,8 @@ where
                 // let core_id = core.global_core_id;
 
                 // core: functional units
-                for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                // for (fu_id, fu) in core.functional_units.iter().enumerate() {
+                for fu in core.functional_units.iter() {
                     // let issue_port = core.issue_ports[fu_id];
                     let issue_port = fu.issue_port();
                     let issue_reg: register_set::RegisterSet =
