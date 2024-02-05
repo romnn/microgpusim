@@ -158,7 +158,13 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     let input: config::Input = config::parse_input(&bench_config.values)?;
     dbg!(&input);
 
-    let cores_per_cluster: Option<usize> = std::env::var("CORES")
+    let cores_per_cluster_factor: Option<usize> = std::env::var("CORES")
+        .ok()
+        .as_deref()
+        .map(str::parse)
+        .transpose()?;
+
+    let num_clusters_factor: Option<usize> = std::env::var("CLUSTERS")
         .ok()
         .as_deref()
         .map(str::parse)
@@ -177,9 +183,15 @@ pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     // serial_config.flush_l2_cache = false;
 
     // scale up cores per cluster
-    serial_config.num_simt_clusters = 28;
-    if let Some(cores_per_cluster) = cores_per_cluster {
-        serial_config.num_cores_per_simt_cluster = cores_per_cluster;
+    // serial_config.num_simt_clusters = 28;
+    // serial_config.num_simt_clusters = 56;
+    // serial_config.num_simt_clusters = 112;
+
+    if let Some(num_clusters_factor) = num_clusters_factor {
+        serial_config.num_simt_clusters *= num_clusters_factor;
+    }
+    if let Some(cores_per_cluster_factor) = cores_per_cluster_factor {
+        serial_config.num_cores_per_simt_cluster *= cores_per_cluster_factor;
     }
 
     let mut parallel_config = serial_config.clone();

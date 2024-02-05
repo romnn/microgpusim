@@ -60,7 +60,7 @@ fn gather_simulation_state(
         // for (core_id, core) in cluster.cores.iter().enumerate() {
         for core in cluster.cores.iter() {
             // let core = core.try_read();
-            let core = core.try_read();
+            let core = core.try_lock();
             // let global_core_id = cluster_id * box_sim.config.num_cores_per_simt_cluster + core_id;
             // assert_eq!(core.core_id, global_core_id);
 
@@ -483,13 +483,17 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     let input: config::Input = config::parse_input(&bench_config.values)?;
     dbg!(&input);
 
+    let simulate_kernel_launch_latency = false;
+
     let mut box_config: config::GPU = config::gtx1080::build_config(&input)?;
+    box_config.accelsim_compat = true;
     box_config.fill_l2_on_memcopy = false;
     box_config.perfect_inst_const_cache = true;
     // box_config.flush_l1_cache = true;
     // box_config.flush_l2_cache = false;
-    box_config.accelsim_compat = true;
-    // box_config.shared_memory_warp_parts = 1;
+    if !simulate_kernel_launch_latency {
+        box_config.kernel_launch_latency = 0;
+    }
     if let Some(ref mut l1_cache) = box_config.data_cache_l1 {
         // workaround: compatible with accelsim which does not differentiate
         // between l1 tag lookup and hit latency
@@ -505,7 +509,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         .trace
         .add_commands(&box_commands_path, box_traces_dir)?;
 
-    let args = vec![
+    let mut args = vec![
         "-trace".to_string(),
         accelsim_kernelslist_path.to_string_lossy().to_string(),
         "-config".to_string(),
@@ -527,6 +531,10 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
         "-gpgpu_perf_sim_memcpy".to_string(),
         "0".to_string(),
     ];
+
+    if !simulate_kernel_launch_latency {
+        args.extend(["-gpgpu_kernel_launch_latency".to_string(), "0".to_string()]);
+    }
 
     dbg!(&args);
 

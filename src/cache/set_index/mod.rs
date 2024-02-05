@@ -148,6 +148,7 @@ pub mod ipoly {
     /// IPOLY hashing guarantees conflict-free for all 2^n strides which widely
     /// exit in GPGPU applications and also show good performance for other
     /// strides.
+    #[inline]
     pub fn ipoly_16(addr: super::address, index: usize) -> u64 {
         let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
         higher_bits.store(addr);
@@ -205,6 +206,7 @@ pub mod ipoly {
         new_index_bits.load()
     }
 
+    #[inline]
     pub fn ipoly_32(addr: super::address, index: usize) -> u64 {
         let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
         higher_bits.store(addr);
@@ -279,6 +281,7 @@ pub mod ipoly {
         new_index_bits.load()
     }
 
+    #[inline]
     pub fn ipoly_64(addr: super::address, index: usize) -> u64 {
         let mut higher_bits: BitArr!(for 64, in u64, Lsb0) = BitArray::ZERO;
         higher_bits.store(addr);
@@ -401,7 +404,7 @@ pub mod ipoly {
 "memory_partition_indexing error: The number of channels should be 16, 32 or 64 for the hashing IPOLY index function. other bank numbers are not supported");
                 }
             };
-            assert!(set_idx < self.num_sets as u64, "set index out of bounds");
+            debug_assert!(set_idx < self.num_sets as u64, "set index out of bounds");
             set_idx
         }
     }

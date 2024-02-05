@@ -97,11 +97,10 @@ where
         use cache::set_index::SetIndexer;
         if self.accelsim_compat {
             let partition_addr = self.mem_controller.memory_partition_address(addr);
-            // self.ipoly_set_index_function
-            //     .compute_set_index(partition_addr)
-
-            self.linear_set_index_function
+            self.ipoly_set_index_function
                 .compute_set_index(partition_addr)
+            // self.linear_set_index_function
+            //     .compute_set_index(partition_addr)
         } else {
             // let partition_addr = self.mem_controller.memory_partition_address(addr);
 
@@ -124,7 +123,7 @@ where
             //     .pseudo_random_set_index_function
             //     .compute_set_index(partition_addr);
 
-            assert!(set_index < self.cache_config.num_sets as u64);
+            debug_assert!(set_index < self.cache_config.num_sets as u64);
             set_index
         }
 

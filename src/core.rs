@@ -34,27 +34,27 @@ use trace_model::{command::KernelLaunch, ToBitString};
 
 pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 
-pub mod debug {
-    use crate::sync::Mutex;
-
-    pub static NUM_ISSUE_BLOCK: once_cell::sync::Lazy<Mutex<usize>> =
-        once_cell::sync::Lazy::new(|| Mutex::new(0));
-
-    //     use std::collections::HashMap;
-    //
-    //     pub struct CompletedBlock {
-    //         pub global_core_id: usize,
-    //         pub kernel_id: u64,
-    //         pub block: trace_model::Point,
-    //     }
-    //
-    //     pub static COMPLETED_BLOCKS: once_cell::sync::Lazy<Mutex<Vec<CompletedBlock>>> =
-    //         once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
-    //
-    //     pub static ACCESSES: once_cell::sync::Lazy<
-    //         Mutex<HashMap<(usize, stats::mem::AccessKind), u64>>,
-    //     > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
-}
+// pub mod debug {
+//     // use crate::sync::Mutex;
+//
+//     // pub static NUM_ISSUE_BLOCK: once_cell::sync::Lazy<Mutex<usize>> =
+//     //     once_cell::sync::Lazy::new(|| Mutex::new(0));
+//
+//     //     use std::collections::HashMap;
+//     //
+//     //     pub struct CompletedBlock {
+//     //         pub global_core_id: usize,
+//     //         pub kernel_id: u64,
+//     //         pub block: trace_model::Point,
+//     //     }
+//     //
+//     //     pub static COMPLETED_BLOCKS: once_cell::sync::Lazy<Mutex<Vec<CompletedBlock>>> =
+//     //         once_cell::sync::Lazy::new(|| Mutex::new(Vec::new()));
+//     //
+//     //     pub static ACCESSES: once_cell::sync::Lazy<
+//     //         Mutex<HashMap<(usize, stats::mem::AccessKind), u64>>,
+//     //     > = once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
+// }
 
 #[derive(Debug)]
 pub struct ThreadState {
@@ -927,14 +927,14 @@ where
                     let last = self.last_warp_fetched.unwrap_or(0);
                     let warp_id = (last + 1 + i) % max_warps;
 
-                    let warp = self.warps.get(warp_id).unwrap();
+                    let warp = &self.warps[warp_id];
 
+                    #[cfg(debug_assertions)]
                     if warp.warp_id != u32::MAX as usize {
                         debug_assert_eq!(warp.warp_id, warp_id);
                     }
 
                     let kernel_id = warp.kernel_id;
-
                     let block_hw_id = warp.block_id as usize;
                     debug_assert!(
                         block_hw_id < self.active_threads_per_hardware_block.len(),
@@ -967,23 +967,7 @@ where
                                         self.active_threads_per_hardware_block[block_hw_id]
                                     );
                                     self.register_thread_in_block_exited(block_hw_id, kernel_id);
-                                    // self.register_thread_in_block_exited(block_hw_id, &kernel);
 
-                                    // if let Some(Some(thread_info)) =
-                                    //     self.thread_info.get(tid).map(Option::as_ref)
-                                    // {
-                                    //     // self.register_thread_in_block_exited(block_id, &(m_thread[tid]->get_kernel()));
-                                    //     self.register_thread_in_block_exited(
-                                    //         block_id,
-                                    //         thread_info.kernel,
-                                    //         // kernel.as_ref().map(Arc::as_ref),
-                                    //     );
-                                    // } else {
-                                    //     self.register_thread_in_block_exited(
-                                    //         block_id,
-                                    //         kernel.as_ref().map(Arc::as_ref),
-                                    //     );
-                                    // }
                                     self.num_active_threads -= 1;
                                     self.active_thread_mask.set(tid, false);
                                     did_exit = true;
@@ -993,7 +977,7 @@ where
                         self.num_active_warps -= 1;
                     }
 
-                    let warp = self.warps.get_mut(warp_id).unwrap();
+                    let warp = &mut self.warps[warp_id];
                     if did_exit {
                         warp.done_exit = true;
                     }
@@ -1007,7 +991,8 @@ where
                     // this code fetches instructions
                     // from the i-cache or generates memory
                     if should_fetch_instruction {
-                        if warp.current_instr().is_none() {
+                        let Some(instr) = warp.current_instr() else {
+                        // if warp.current_instr().is_none() {
                             // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
                             // dbg!(&warp);
                             // dbg!(&warp.active_mask.to_bit_string());
@@ -1015,8 +1000,8 @@ where
                             // panic!("?");
                             // skip and do nothing (can happen during nondeterministic parallel)
                             continue;
-                        }
-                        let instr = warp.current_instr().unwrap();
+                        };
+                        // let instr = warp.current_instr().unwrap();
                         let pc = warp.pc().unwrap();
                         let ppc = pc + crate::PROGRAM_MEM_START;
 
@@ -1871,41 +1856,42 @@ where
         debug_assert!(self.active_threads_per_hardware_block[block_hw_id] > 0);
         self.active_threads_per_hardware_block[block_hw_id] -= 1;
 
-        // if !self.config.parallelization.is_serial()
-        // && self.active_threads_per_hardware_block[block_hw_id] == 0
         if self.active_threads_per_hardware_block[block_hw_id] == 0 {
-            let block = self.block_ids_per_hardware_block[block_hw_id].as_ref();
-            let block_id = block.map(|block| block.id()).unwrap_or(0);
-            let block_size = block.map(|block| block.size()).unwrap_or(0);
-            let active_threads = self.active_threads_per_hardware_block[block_hw_id];
-            let total_threads = current_kernel
-                .as_ref()
-                .map(|kernel| kernel.threads_per_block())
-                .unwrap_or(0);
+            if let Some(block) = self.block_ids_per_hardware_block[block_hw_id].as_ref() {
+                let block_id = block.id();
+                let block_size = block.size();
+                let active_threads = self.active_threads_per_hardware_block[block_hw_id];
+                let total_threads = current_kernel
+                    .as_ref()
+                    .map(|kernel| kernel.threads_per_block())
+                    .unwrap_or(0);
 
-            let running_blocks = current_kernel
-                .as_ref()
-                .map(|kernel| kernel.num_running_blocks())
-                .unwrap_or(0);
+                // let running_blocks = current_kernel
+                //     .as_ref()
+                //     .map(|kernel| kernel.num_running_blocks())
+                //     .unwrap_or(0);
 
-            let kernel_block_size = current_kernel
-                .as_ref()
-                .map(|kernel| kernel.num_blocks())
-                .unwrap_or(0);
+                // let kernel_block_size = current_kernel
+                //     .as_ref()
+                //     .map(|kernel| kernel.num_blocks())
+                //     .unwrap_or(0);
+                //
+                // assert_eq!(kernel_block_size as u64, block_size);
 
-            assert_eq!(kernel_block_size as u64, block_size);
-
-            eprintln!(
+                eprintln!(
                 "  => core {:>4} \tblock {:>4} {:<20} ({:>4}/{:<4} hw {:<2}) finished thread\t({:>3}/{:<3} threads remaining)",
                 global_core_id,
                 block_id,
-                block.map(ToString::to_string).as_deref().unwrap_or("?"),
-                running_blocks,
+                block,
+                // block.map(ToString::to_string).as_deref().unwrap_or("?"),
+                self.num_active_blocks,
+                // running_blocks,
                 block_size,
                 block_hw_id,
                 active_threads,
                 total_threads,
             );
+            }
         }
 
         // this is the last thread that exited
@@ -2049,7 +2035,9 @@ where
             let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
 
             // compute subset of warps supervised by this scheduler
-            let scheduler_supervised_warps: Vec<_> = self
+            use smallvec::SmallVec;
+            // let scheduler_supervised_warps: Vec<_> = self
+            let scheduler_supervised_warps: SmallVec<_> = self
                 .warps
                 .iter_mut()
                 .enumerate()
@@ -2067,6 +2055,7 @@ where
                 .as_ref()
                 .map(|kernel| kernel.threads_per_block_padded())
                 .unwrap_or(0);
+
             let mut issuer = CoreIssuer {
                 config: &self.config,
                 pipeline_reg: &mut self.pipeline_reg,
@@ -2080,6 +2069,7 @@ where
                 scoreboard: &mut *self.scoreboard,
                 barriers: &mut self.barriers,
             };
+
             self.schedulers[scheduler_idx].issue_to(&mut issuer, scheduler_supervised_warps, cycle);
         }
         self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
@@ -2292,6 +2282,11 @@ where
 {
     #[tracing::instrument(name = "core_cycle")]
     pub fn cycle(&mut self, cycle: u64) {
+        if !self.config.accelsim_compat && self.current_kernel.is_none() {
+            // fast path
+            return;
+        }
+
         if log::log_enabled!(log::Level::Debug) {
             log::debug!(
                 "{} \tactive={}, not completed={} ldst unit response buffer={}",
@@ -2303,7 +2298,9 @@ where
                 .blue(),
                 self.is_active(),
                 self.num_active_threads(),
-                self.load_store_unit.response_queue.len() // self.load_store_unit.response_queue.lock().len()
+                -1,
+                // self.load_store_unit.response_queue.len(),
+                // self.load_store_unit.response_queue.lock().len()
             );
         }
 

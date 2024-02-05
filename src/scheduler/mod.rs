@@ -10,6 +10,7 @@ use crate::{
     warp,
 };
 use console::style;
+use smallvec::SmallVec;
 use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -30,7 +31,17 @@ enum ExecUnitKind {
 
 // pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
 pub trait Scheduler: Send + Sync + std::fmt::Debug {
-    fn issue_to(&mut self, core: &mut dyn WarpIssuer, warps: Vec<&mut warp::Warp>, cycle: u64);
+    fn issue_to<'a, I>(
+        &mut self,
+        core: &mut dyn WarpIssuer,
+        // warps: Vec<&mut warp::Warp>,
+        // warps: SmallVec<[&mut warp::Warp; 64]>,
+        warps: I,
+        // warps: impl Iterator<Item = &'a mut warp::Warp>,
+        // warps: SmallVec<[(usize, &mut warp::Warp); 64]>,
+        cycle: u64,
+    ) where
+        I: Iterator<Item = &'a mut warp::Warp>;
 
     // fn add_supervised_warp(&mut self, warp: warp::Ref);
     // fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
@@ -101,11 +112,13 @@ impl Base {
         // let supervised_warps_sorted = Vec::with_capacity(config.max_warps_per_core());
         // let stats = stats::PerKernel::new(config.as_ref().into());
         let stats = stats::scheduler::Scheduler::default();
+        // to be fair should divide by number of scheudulers
+        let capacity = config.max_warps_per_core();
         Self {
             id,
             global_core_id,
             cluster_id,
-            prioritized_warps_ids: Vec::new(),
+            prioritized_warps_ids: Vec::with_capacity(capacity),
             // supervised_warps,
             // supervised_warps_sorted,
             last_supervised_issued_idx: 0,
@@ -150,10 +163,13 @@ impl Base {
         }
     }
 
-    fn issue_to(
+    // fn issue_to<const N: usize>(
+    fn issue_to<'a>(
         &mut self,
         core: &mut dyn WarpIssuer,
-        warps: Vec<(usize, &mut warp::Warp)>,
+        // warps: Vec<(usize, &mut warp::Warp)>,
+        warps: impl Iterator<Item = (usize, &'a mut warp::Warp)>,
+        // warps: SmallVec<[(usize, &mut warp::Warp); N]>,
         cycle: u64,
     ) {
         log::debug!("{}: cycle", style("base scheduler").yellow());
@@ -174,7 +190,7 @@ impl Base {
         //     dbg!(&self.prioritized_warps_ids);
         // }
 
-        for (next_warp_supervised_idx, next_warp) in warps {
+        for (next_warp_supervised_idx, next_warp) in warps.into_iter() {
             // don't consider warps that are not yet valid
             // let mut next_warp = next_warp_rc.try_lock();
             // let next_warp = *next_warp;
@@ -184,22 +200,23 @@ impl Base {
                 continue;
             }
             let inst_count = next_warp.instruction_count();
-            if inst_count == 0 {
-                log::debug!("next warp: {:#?}", &next_warp);
-            }
-            // assert!(inst_count > 0);
-            if log::log_enabled!(log::Level::Debug) && inst_count > 1 {
-                log::debug!(
-                    "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
-                    self.cluster_id,
-                    self.global_core_id,
-                    self.id,
-                    warp_id, dyn_warp_id,
-                    next_warp.trace_pc,
-                    next_warp.pc(),
-                    // next_warp.instr_buffer.iter().filter_map(Option::as_ref).map(|i| i.pc).collect::<Vec<_>>(), inst_count,
-                    next_warp.instr_buffer.iter_filled().map(|i| i.pc).collect::<Vec<_>>(), inst_count,
-                );
+
+            if log::log_enabled!(log::Level::Debug) {
+                if inst_count == 0 {
+                    log::debug!("next warp: {:#?}", &next_warp);
+                } else if inst_count > 1 {
+                    log::debug!(
+                        "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, dynamic_warp_id={}, trace_pc={}, pc={:?}, ibuffer={:?}, {} instructions)",
+                        self.cluster_id,
+                        self.global_core_id,
+                        self.id,
+                        warp_id, dyn_warp_id,
+                        next_warp.trace_pc,
+                        next_warp.pc(),
+                        // next_warp.instr_buffer.iter().filter_map(Option::as_ref).map(|i| i.pc).collect::<Vec<_>>(), inst_count,
+                        next_warp.instr_buffer.iter_filled().map(|i| i.pc).collect::<Vec<_>>(), inst_count,
+                    );
+                }
             }
             let mut checked = 0;
             let mut num_issued = 0;
@@ -247,14 +264,14 @@ impl Base {
             // let warp = next_warp_rc;
             // let mut warp = warp.try_lock();
 
-            while !(next_warp.waiting()
+            while checked < max_issue
+                && checked <= num_issued
+                && num_issued < max_issue
+                && !(next_warp.waiting()
                 || core.warp_waiting_at_barrier(warp_id)
                 || core.warp_waiting_at_mem_barrier(&next_warp)
                 // || core.warp_waiting_at_mem_barrier(warp_id)
                 || next_warp.instr_buffer.is_empty())
-                && checked < max_issue
-                && checked <= num_issued
-                && num_issued < max_issue
             {
                 let mut warp_inst_issued = false;
                 checked += 1;
@@ -270,6 +287,8 @@ impl Base {
                 valid_inst = true;
                 // if self.scoreboard.try_read().has_collision(warp_id, instr) {
                 // if scoreboard.has_collision(warp_id, instr) {
+                // if log::log_enabled!(log::Level::Debug)
+
                 if core.has_collision(warp_id, instr) {
                     log::debug!(
                         "Warp (warp_id={}, dynamic_warp_id={}) {}",
@@ -364,14 +383,17 @@ impl Base {
                         };
 
                         if let Some((stage, unit)) = issue_target {
-                            if self.issue(
-                                // &mut warp,
-                                next_warp,
-                                stage,
-                                unit,
-                                prev_issued_exec_unit,
-                                core,
-                                cycle,
+                            if crate::timeit!(
+                                "core::issue::issue_alu",
+                                self.issue(
+                                    // &mut warp,
+                                    next_warp,
+                                    stage,
+                                    unit,
+                                    prev_issued_exec_unit,
+                                    core,
+                                    cycle,
+                                )
                             ) {
                                 num_issued += 1;
                                 issued_inst = true;
@@ -414,6 +436,7 @@ impl Base {
                             }
                             _ => None,
                         };
+
                         log::trace!(
                             "dp/sfu issue for {}: {:?} [DP: units={}, dual_issue={}, avail={}] [SFU: units={}, dual_issue={}, avail={}]",
                             instr,
@@ -427,14 +450,17 @@ impl Base {
                         );
 
                         if let Some((stage, unit)) = issue_target {
-                            if self.issue(
-                                // &mut warp,
-                                next_warp,
-                                stage,
-                                unit,
-                                prev_issued_exec_unit,
-                                core,
-                                cycle,
+                            if crate::timeit!(
+                                "core::issue::issue_sfu_dp",
+                                self.issue(
+                                    // &mut warp,
+                                    next_warp,
+                                    stage,
+                                    unit,
+                                    prev_issued_exec_unit,
+                                    core,
+                                    cycle,
+                                )
                             ) {
                                 num_issued += 1;
                                 issued_inst = true;

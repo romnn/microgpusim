@@ -50,6 +50,8 @@ impl Scheduler {
 //     }
 // }
 
+use smallvec::SmallVec;
+
 impl super::Scheduler for Scheduler {
     // impl<'a> super::Scheduler for Scheduler<'a> {
     // fn order_warps(&mut self, core: &dyn WarpIssuer, warps: &[&warp::Warp]) {
@@ -76,7 +78,14 @@ impl super::Scheduler for Scheduler {
     //     self.inner.prioritized_warps()
     // }
 
-    fn issue_to(&mut self, core: &mut dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
+    // fn issue_to(&mut self, core: &mut dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
+    fn issue_to<'a>(
+        &mut self,
+        core: &mut dyn WarpIssuer,
+        warps: impl Iterator<Item = &'a mut warp::Warp>,
+        // mut warps: SmallVec<[&mut warp::Warp; 64]>,
+        cycle: u64,
+    ) {
         log::debug!(
             // eprintln!(
             "gto scheduler[{}, core {}]: BEFORE: prioritized warp ids: {:?}",
@@ -122,15 +131,19 @@ impl super::Scheduler for Scheduler {
             self.inner.last_supervised_issued_idx
         );
 
-        // self.order_warps(core, warps);
-        let prioritized_warps = self.inner.order_by_priority(
-            warps,
-            super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
-            // |lhs: &(usize, warp::Ref), rhs: &(usize, warp::Ref)| {
-            core,
-            |lhs: &(usize, &mut warp::Warp), rhs: &(usize, &mut warp::Warp)| {
-                super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
-            },
+        let prioritized_warps: SmallVec<[_; 64]> = crate::timeit!(
+            "core::issue::order_by_priority",
+            self.inner
+                .order_by_priority(
+                    warps,
+                    super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
+                    // |lhs: &(usize, warp::Ref), rhs: &(usize, warp::Ref)| {
+                    core,
+                    |lhs: &(usize, &mut warp::Warp), rhs: &(usize, &mut warp::Warp)| {
+                        super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
+                    },
+                )
+                .collect()
         );
 
         // log::debug!(
@@ -146,19 +159,19 @@ impl super::Scheduler for Scheduler {
                 .map(|(_, warp)| (warp.warp_id, warp.dynamic_warp_id)),
         );
 
-        #[cfg(debug_assertions)]
-        {
-            let left = prioritized_warps
-                .iter()
-                .map(|(_, warp)| (warp.warp_id, warp.dynamic_warp_id))
-                .collect::<Vec<_>>();
-            let right = self.inner.prioritized_warp_ids();
-            let valid = left.len().min(right.len());
-            debug_assert_eq!(left[..valid], right[..valid]);
-            // if self.inner.core_id == 0 {
-            //     dbg!(right);
-            // }
-        }
+        // #[cfg(debug_assertions)]
+        // {
+        //     let left = prioritized_warps
+        //         .iter()
+        //         .map(|(_, warp)| (warp.warp_id, warp.dynamic_warp_id))
+        //         .collect::<Vec<_>>();
+        //     let right = self.inner.prioritized_warp_ids();
+        //     let valid = left.len().min(right.len());
+        //     debug_assert_eq!(left[..valid], right[..valid]);
+        //     // if self.inner.core_id == 0 {
+        //     //     dbg!(right);
+        //     // }
+        // }
 
         log::debug!(
             // eprintln!(
@@ -169,6 +182,17 @@ impl super::Scheduler for Scheduler {
             // self.debug_warp_ids(&prioritized_warps)
         );
 
-        self.inner.issue_to(core, prioritized_warps, cycle);
+        // #[cfg(feature = "timings")]
+        // crate::TIMINGS
+        // .lock()
+        // .entry("serial::total")
+        // .or_default()
+        // .add(start.elapsed());
+
+        crate::timeit!(
+            "core::issue::issue_warps",
+            self.inner
+                .issue_to(core, prioritized_warps.into_iter(), cycle)
+        );
     }
 }

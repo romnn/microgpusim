@@ -658,16 +658,7 @@ where
         }
 
         // decrement kernel latency
-        self.kernel_manager.decrement_launch_latency();
-        // for (launch_latency, _) in self
-        //     .kernel_manager
-        //     .running_kernels
-        //     // .try_write()
-        //     .iter_mut()
-        //     .filter_map(Option::as_mut)
-        // {
-        //     *launch_latency = launch_latency.saturating_sub(1);
-        // }
+        self.kernel_manager.decrement_launch_latency(1);
     }
 
     fn next_clock_domain(&mut self) -> ClockMask {
@@ -956,8 +947,10 @@ where
                 let core_sim_order = cluster.core_sim_order.try_lock();
                 for local_core_id in &*core_sim_order {
                     // let mut core = cluster.cores[*core_id].write();
-                    let core = &mut cluster.cores[*local_core_id];
-                    crate::timeit!("core::cycle", core.try_write().cycle(cycle));
+                    let core = &cluster.cores[*local_core_id];
+                    // let mut core = core.try_write();
+                    let mut core = core.try_lock();
+                    crate::timeit!("core::cycle", core.cycle(cycle));
                 }
                 // active_sms += cluster.num_active_sms();
             }
@@ -971,7 +964,9 @@ where
                     }
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for local_core_id in &*core_sim_order {
-                        let core = cluster.cores[*local_core_id].try_read();
+                        let core = &cluster.cores[*local_core_id];
+                        // let core = core.try_read();
+                        let core = core.try_lock();
                         // let core = &mut cluster.cores[*local_core_id];
                         // let mem_port = core.mem_port.lock();
                         let mem_port = &core.mem_port;
@@ -985,7 +980,9 @@ where
                 let cluster_id = cluster.cluster_id;
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for local_core_id in &*core_sim_order {
-                    let mut core = cluster.cores[*local_core_id].try_write();
+                    let core = &cluster.cores[*local_core_id];
+                    // let mut core = core.try_write();
+                    let mut core = core.try_lock();
                     // let core = &mut cluster.cores[*local_core_id];
                     // let mut mem_port = core.mem_port.lock();
                     let core_id = core.id();
@@ -1223,7 +1220,8 @@ where
             // .flat_map(|cluster| cluster.cores.clone())
             .flat_map(|cluster| cluster.cores.iter())
         {
-            let core = core.try_read();
+            // let core = core.try_read();
+            let core = core.try_lock();
             // let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
             let block_status: Vec<_> = core
                 .active_threads_per_hardware_block
@@ -1250,13 +1248,16 @@ where
             eprintln!(
                 "core {:?}: instr fetch response queue size: {}",
                 core.id(),
-                instr_fetch_response_queue.len() // instr_fetch_response_queue.lock().len()
+                -1,
+                // instr_fetch_response_queue.len(),
+                // instr_fetch_response_queue.lock().len()
             );
             eprintln!(
                 "core {:?}: load store response queue size: {}",
                 core.id(),
-                // load_store_response_queue.lock().len()
-                load_store_response_queue.len()
+                -1,
+                // load_store_response_queue.lock().len(),
+                // load_store_response_queue.len(),
             );
         }
 
@@ -1446,7 +1447,8 @@ where
         let total_cores = self.config.total_cores();
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                let core = core.try_read();
+                // let core = core.try_read();
+                let core = core.try_lock();
                 // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
@@ -1536,7 +1538,8 @@ where
 
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                let core = core.try_read();
+                // let core = core.try_read();
+                let core = core.try_lock();
                 // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
@@ -1611,7 +1614,8 @@ where
 
         // collect statistics from cores
         for core in cores.iter() {
-            let core = core.try_read();
+            // let core = core.try_read();
+            let core = core.try_lock();
             stats += core.stats();
         }
 

@@ -52,7 +52,8 @@ where
             // let cluster = cluster.try_read();
             // for (local_core_id, core) in cluster.cores.iter().enumerate() {
             for core in cluster.cores.iter() {
-                let core = core.try_read();
+                // let core = core.try_read();
+                let core = core.try_lock();
                 // let global_core_id = cluster_id * self.config.num_cores_per_simt_cluster + core_id;
                 // assert_eq!(core.global_core_id, global_core_id);
 

@@ -207,7 +207,7 @@ fn main() -> eyre::Result<()> {
     print_kernel_stats(&all_kernel_stats);
     print_timings(parallelization, &total_time);
 
-    dbg!(*gpucachesim::core::debug::NUM_ISSUE_BLOCK.lock());
+    // dbg!(*gpucachesim::core::debug::NUM_ISSUE_BLOCK.lock());
 
     eprintln!("completed in {:?}", total_time);
     Ok(())

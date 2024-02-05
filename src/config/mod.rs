@@ -1194,7 +1194,7 @@ impl Default for GPU {
             registers_per_block: 8192,
             ignore_resources_limitation: false,
             max_concurrent_blocks_per_core: 32,
-            kernel_launch_latency: 0, // 5000,
+            kernel_launch_latency: 5000,
             block_launch_latency: 0,
             max_barriers_per_block: 16,
             num_simt_clusters: 28, // 20 for GTX1080
@@ -1211,7 +1211,7 @@ impl Default for GPU {
             shared_memory_size_pref_shared: 16 * KB as usize,
             shared_memory_num_banks: 32,
             shared_memory_limited_broadcast: false,
-            shared_memory_warp_parts: 2,
+            shared_memory_warp_parts: 1,
             mem_unit_ports: 1,
             warp_distro_shader_core: -1,
             warp_issue_shader_core: 0,

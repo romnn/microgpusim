@@ -39,8 +39,8 @@ pub struct SimpleInterconnect<P> {
     // pub output_queue: ndarray::Array3<Mutex<VecDeque<P>>>,
     // pub direct_connection: ndarray::Array2<Mutex<VecDeque<P>>>,
     // pub direct_connection: ndarray::Array2<(channel::Sender<P>, channel::Receiver<P>)>,
-    pub direct_connection: ndarray::Array2<shared::UnboundedFifoQueue<P>>,
-    // pub direct_connection: ndarray::Array2<shared::UnboundedChannel<P>>,
+    // pub direct_connection: ndarray::Array2<shared::UnboundedFifoQueue<P>>,
+    pub direct_connection: ndarray::Array2<shared::UnboundedChannel<P>>,
     // pub in_flight: RwLock<u64>,
     // use ndarray here
 
@@ -393,7 +393,7 @@ where
 }
 
 pub mod shared {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct UnboundedChannel<P>(
         (
             crossbeam::channel::Sender<P>,
@@ -427,6 +427,7 @@ pub mod shared {
         /// Sends a packet to the connection
         fn try_send(&self, packet: P) -> Result<(), P> {
             let (sender, _) = &self.0;
+            // this does not block
             sender
                 .try_send(packet)
                 .map_err(crossbeam::channel::TrySendError::into_inner)
@@ -437,6 +438,7 @@ pub mod shared {
 
         fn receive(&self) -> Option<P> {
             let (_, receiver) = &self.0;
+            // this does not block
             receiver.try_recv().ok()
         }
     }

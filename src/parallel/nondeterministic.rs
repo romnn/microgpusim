@@ -184,6 +184,26 @@ fn newer_serial_cycle(
 
 use crate::{cluster::Cluster, mem_partition_unit::MemoryPartitionUnit};
 
+struct ClusterCycle<'a, I, MC> {
+    clusters: &'a mut [Cluster<I, MC>],
+}
+
+impl<'a, I, MC> ClusterCycle<'a, I, MC>
+where
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
+{
+    pub fn cycle(&mut self, cycle: u64) {
+        for cluster in self.clusters.iter_mut() {
+            // Receive memory responses addressed to each cluster and forward to cores
+            // perf: blocks on the lock of CORE_INSTR_FETCH_RESPONSE_QUEUE
+            // perf: blocks on the lock of CORE_LOAD_STORE_RESPONSE_QUEUE
+            // perf: pops from INTERCONN (mem->cluster)
+            crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
+        }
+    }
+}
+
 struct SerialCycle<'a, I, MC> {
     clusters: &'a mut [Cluster<I, MC>],
     mem_partition_units: &'a mut [MemoryPartitionUnit<MC>],
@@ -191,7 +211,6 @@ struct SerialCycle<'a, I, MC> {
     config: &'a config::GPU,
 }
 
-// impl SerialCycle {
 impl<'a, I, MC> SerialCycle<'a, I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
@@ -200,12 +219,14 @@ where
     pub fn cycle(&mut self, cycle: u64) {
         for cluster in self.clusters.iter_mut() {
             // Receive memory responses addressed to each cluster and forward to cores
+            // perf: blocks on the lock of CORE_INSTR_FETCH_RESPONSE_QUEUE
+            // perf: blocks on the lock of CORE_LOAD_STORE_RESPONSE_QUEUE
+            // perf: pops from INTERCONN (mem->cluster)
             crate::timeit!("serial::interconn", cluster.interconn_cycle(cycle));
         }
 
         for partition in self.mem_partition_units.iter_mut() {
             for mem_sub in partition.sub_partitions.iter_mut() {
-                // let mut mem_sub = mem_sub.try_lock();
                 if let Some(fetch) = mem_sub.top() {
                     let response_packet_size = if fetch.is_write() {
                         fetch.control_size()
@@ -217,6 +238,7 @@ where
                         let mut fetch = mem_sub.pop().unwrap();
                         if let Some(cluster_id) = fetch.cluster_id {
                             fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                            // perf: pushes to INTERCONN (mem->cluster)
                             self.interconn.push(
                                 device,
                                 cluster_id,
@@ -231,8 +253,8 @@ where
 
         // dram cycle
         for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
+            // perf: does not lock at all
             crate::timeit!("serial::dram", unit.simple_dram_cycle(cycle));
-            // crate::timeit!("serial::dram", unit.try_write().simple_dram_cycle(cycle));
         }
 
         for partition in self.mem_partition_units.iter_mut() {
@@ -251,16 +273,16 @@ where
                     .interconn_to_l2_queue
                     .can_fit(mem_sub_partition::NUM_SECTORS as usize)
                 {
+                    // perf: pops from INTERCONN (cluster->mem)
                     if let Some(ic::Packet { fetch, .. }) = self.interconn.pop(device) {
                         assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
+                        // assert_eq!(cycle, packet.time);
                         log::debug!(
                             "got new fetch {} for mem sub partition {} ({})",
                             fetch,
                             mem_sub.global_id,
                             device
                         );
-
-                        // assert_eq!(cycle, packet.time);
                         // TODO: changed form packet.time to cycle
                         mem_sub.push(fetch, cycle);
                     }
@@ -270,20 +292,93 @@ where
                         mem_sub.global_id,
                         device
                     );
-                    // let kernel_id = self
-                    //     .kernel_manager
-                    //     // .lock()
-                    //     .current_kernel()
-                    //     // .lock()
-                    //     .as_ref()
-                    //     .map(|kernel| kernel.id() as usize);
-                    // let mut stats = self.stats.lock();
-                    // let kernel_stats = self.stats.get_mut(kernel_id);
-                    // let kernel_stats = self.stats.get_mut(kernel_id);
-                    // kernel_stats.stall_dram_full += 1;
                 }
-                // we borrow all of sub here, which is a problem for the cyclic reference in l2
-                // interface
+                crate::timeit!("serial::subpartitions", mem_sub.cycle(cycle));
+            }
+        }
+    }
+}
+
+struct MemCycle<'a, I, MC> {
+    mem_partition_units: &'a mut [MemoryPartitionUnit<MC>],
+    interconn: &'a I,
+    config: &'a config::GPU,
+}
+
+impl<'a, I, MC> MemCycle<'a, I, MC>
+where
+    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
+{
+    pub fn cycle(&mut self, cycle: u64) {
+        for partition in self.mem_partition_units.iter_mut() {
+            for mem_sub in partition.sub_partitions.iter_mut() {
+                if let Some(fetch) = mem_sub.top() {
+                    let response_packet_size = if fetch.is_write() {
+                        fetch.control_size()
+                    } else {
+                        fetch.size()
+                    };
+                    let device = self.config.mem_id_to_device_id(mem_sub.global_id);
+                    if self.interconn.has_buffer(device, response_packet_size) {
+                        let mut fetch = mem_sub.pop().unwrap();
+                        if let Some(cluster_id) = fetch.cluster_id {
+                            fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
+                            // perf: pushes to INTERCONN (mem->cluster)
+                            self.interconn.push(
+                                device,
+                                cluster_id,
+                                ic::Packet { fetch, time: cycle },
+                                response_packet_size,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // dram cycle
+        for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
+            // perf: does not lock at all
+            crate::timeit!("serial::dram", unit.simple_dram_cycle(cycle));
+        }
+
+        for partition in self.mem_partition_units.iter_mut() {
+            for mem_sub in partition.sub_partitions.iter_mut() {
+                // let mut mem_sub = mem_sub.try_lock();
+                // move memory request from interconnect into memory partition
+                // (if not backed up)
+                //
+                // Note:This needs to be called in DRAM clock domain if there
+                // is no L2 cache in the system In the worst case, we may need
+                // to push SECTOR_CHUNCK_SIZE requests, so ensure you have enough
+                // buffer for them
+                let device = self.config.mem_id_to_device_id(mem_sub.global_id);
+
+                if mem_sub
+                    .interconn_to_l2_queue
+                    .can_fit(mem_sub_partition::NUM_SECTORS as usize)
+                {
+                    // perf: pops from INTERCONN (cluster->mem)
+                    if let Some(ic::Packet { fetch, .. }) = self.interconn.pop(device) {
+                        assert_eq!(fetch.sub_partition_id(), mem_sub.global_id);
+                        // assert_eq!(cycle, packet.time);
+                        log::debug!(
+                            "got new fetch {} for mem sub partition {} ({})",
+                            fetch,
+                            mem_sub.global_id,
+                            device
+                        );
+                        // TODO: changed form packet.time to cycle
+                        mem_sub.push(fetch, cycle);
+                    }
+                } else {
+                    log::debug!(
+                        "SKIP sub partition {} ({}): DRAM full stall",
+                        mem_sub.global_id,
+                        device
+                    );
+                }
                 crate::timeit!("serial::subpartitions", mem_sub.cycle(cycle));
             }
         }
@@ -462,7 +557,8 @@ where
                     let cluster_id = &cluster.cluster_id;
 
                     for core in cluster.cores.iter_mut() {
-                        let mut core = core.try_write();
+                        // let mut core = core.try_write();
+                        let mut core = core.try_lock();
                         for i in 0..run_ahead {
                             crate::timeit!("core::cycle", core.cycle(cycle + i));
 
@@ -522,7 +618,7 @@ where
             );
         }
 
-        self.debug_completed_blocks();
+        // self.debug_completed_blocks();
 
         self.stats.no_kernel.sim.cycles = cycle;
         log::info!("exit after {cycle} cycles");
@@ -568,65 +664,74 @@ where
                     break;
                 }
 
+                let interconn: &I = &*self.interconn;
+                let kernel_manager = &self.kernel_manager;
+
+                // let cluster_cycle = ClusterCycle {
+                //     clusters: &mut self.clusters,
+                // };
+                // let cluster_cycle = Mutex::new(cluster_cycle);
+                // let cluster_cycle_ref = &cluster_cycle;
+                //
+                // let mem_cycle = MemCycle {
+                //     mem_partition_units: &mut self.mem_partition_units,
+                //     interconn,
+                //     config: &self.config,
+                // };
+                // let mem_cycle = Mutex::new(mem_cycle);
+                // let mem_cycle_ref = &mem_cycle;
+
                 let serial_cycle = SerialCycle {
                     clusters: &mut self.clusters,
                     mem_partition_units: &mut self.mem_partition_units,
-                    interconn: &self.interconn,
+                    interconn,
                     config: &self.config,
                 };
                 // let serial_cycle = Arc::new(Mutex::new(serial_cycle));
+                // let serial_cycle = Mutex::new(Arc::new(serial_cycle));
                 let serial_cycle = Mutex::new(serial_cycle);
+                let serial_cycle_ref = &serial_cycle;
 
                 let fanout = 1;
 
                 rayon::scope_fifo(|wave| {
-                    // rayon::scope(|wave| {
-                    let serial_cycle_ref = &serial_cycle;
-                    let kernel_manager = &self.kernel_manager;
-                    let interconn = &self.interconn;
-
                     for i in 0..run_ahead {
-                        // let serial_cycle = serial_cycle.clone();
-                        wave.spawn_fifo(move |_| {
-                            // wave.spawn(move |_| {
-                            // serial cycle
-                            for i in 0..fanout {
-                                crate::timeit!(
-                                    "serial::total",
-                                    serial_cycle_ref.lock().cycle(cycle + i)
-                                );
-                            }
-                        });
-
-                        // idea: could also make core use mutex honestly, maybe
-                        // thats better for perf
+                        // wave.spawn_fifo(move |wave| {
+                        //     let mut lock = cluster_cycle_ref.lock();
+                        //     for f in 0..fanout {
+                        //         crate::timeit!("serial::cluster", lock.cycle(cycle + i + f));
+                        //     }
+                        // });
+                        //
+                        // wave.spawn_fifo(move |wave| {
+                        //     let mut lock = serial_cycle_ref.lock();
+                        //     for f in 0..fanout {
+                        //         crate::timeit!("serial::mem", lock.cycle(cycle + i + f));
+                        //     }
+                        // });
 
                         for core in cores.iter() {
                             wave.spawn_fifo(move |_| {
                                 // wave.spawn(move |_| {
                                 // core cycle
-                                let mut core = core.write();
-                                let cluster_id = core.cluster_id;
+                                // let mut core = core.write();
 
-                                // if core.current_kernel.is_none() {
-                                //     return;
-                                // }
+                                for f in 0..fanout {
+                                    let mut core = core.lock();
+                                    let cluster_id = core.cluster_id;
 
-                                for i in 0..fanout {
-                                    if core.current_kernel.is_some() {
-                                        crate::timeit!("core::cycle", core.cycle(cycle + i));
-                                    }
+                                    crate::timeit!("core::cycle", core.cycle(cycle + i + f));
 
-                                    // do not enforce ordering of interconnect requests and round robin
-                                    // core simualation ordering
-                                    // let port = &mut core.mem_port;
+                                    // do not enforce ordering of interconnect
+                                    // requests or round robin core simualation
+                                    // ordering
                                     {
                                         for ic::Packet {
                                             fetch: (dest, fetch, size),
                                             time,
                                         } in core.mem_port.buffer.drain(..)
                                         {
-                                            assert_eq!(time, cycle + i);
+                                            assert_eq!(time, cycle + i + f);
                                             interconn.push(
                                                 cluster_id,
                                                 dest,
@@ -638,8 +743,15 @@ where
 
                                     crate::timeit!(
                                         "issue_block::maybe",
-                                        core.maybe_issue_block(kernel_manager, cycle + i)
+                                        core.maybe_issue_block(kernel_manager, cycle + i + f)
                                     );
+
+                                    if core.global_core_id == 0 {
+                                        drop(core);
+                                        let mut lock = serial_cycle_ref.lock();
+                                        crate::timeit!("serial::cycle", lock.cycle(cycle + i + f));
+                                        drop(lock);
+                                    }
                                 }
                             });
                         }
@@ -648,7 +760,12 @@ where
 
                 // end of parallel section
 
+                self.kernel_manager
+                    .decrement_launch_latency(run_ahead * fanout);
+
                 cycle += run_ahead * fanout;
+
+                // self.flush_caches(cycle);
 
                 // for i in 0..run_ahead * fanout {
                 //     crate::timeit!(
@@ -681,7 +798,7 @@ where
             );
         }
 
-        self.debug_completed_blocks();
+        // self.debug_completed_blocks();
 
         self.stats.no_kernel.sim.cycles = cycle;
         log::info!("exit after {cycle} cycles");
@@ -898,7 +1015,8 @@ where
                     //     for core in cluster.cores.iter_mut() {
                     for core in cores.iter() {
                         wave.spawn(|_| {
-                            let mut core = core.try_write();
+                            // let mut core = core.try_write();
+                            let mut core = core.try_lock();
                             let cluster_id = core.cluster_id;
                             for i in 0..run_ahead {
                                 crate::timeit!("core::cycle", core.cycle(cycle + i));
@@ -1030,7 +1148,7 @@ where
             );
         }
 
-        self.debug_completed_blocks();
+        // self.debug_completed_blocks();
 
         self.stats.no_kernel.sim.cycles = cycle;
         log::info!("exit after {cycle} cycles");
@@ -1038,84 +1156,84 @@ where
         Ok(())
     }
 
-    pub fn debug_completed_blocks(&self) {
-        // use itertools::Itertools;
-        //
-        // let mut accesses = crate::core::debug::ACCESSES.lock();
-        // dbg!(&accesses);
-        // accesses.clear();
-        //
-        // let mut completed_blocks = crate::core::debug::COMPLETED_BLOCKS.lock();
-        //
-        // use std::collections::HashSet;
-        // let unique_blocks: HashSet<_> = completed_blocks.iter().map(|block| &block.block).collect();
-        // let unique_block_ids: HashSet<_> = completed_blocks
-        //     .iter()
-        //     .map(|block| block.block.id())
-        //     .collect();
-        // let unique_cores: HashSet<_> = completed_blocks
-        //     .iter()
-        //     .map(|block| block.global_core_id)
-        //     .collect();
-        // let unique_kernel_ids: HashSet<_> = completed_blocks
-        //     .iter()
-        //     .map(|block| block.kernel_id)
-        //     .collect();
-        //
-        // eprintln!("unique blocks: {}", unique_blocks.len());
-        // eprintln!("unique block ids: {}", unique_block_ids.len());
-        // eprintln!("unique cores: {}", unique_cores.len());
-        // eprintln!("unique kernels: {}", unique_kernel_ids.len());
-        //
-        // let blocks_per_core: HashMap<usize, HashSet<&trace_model::Point>> = unique_cores
-        //     .iter()
-        //     .copied()
-        //     .map(|core_id| {
-        //         let blocks: Vec<_> = completed_blocks
-        //             .iter()
-        //             .filter_map(|block| {
-        //                 if block.global_core_id == core_id {
-        //                     Some(&block.block)
-        //                 } else {
-        //                     None
-        //                 }
-        //             })
-        //             .collect();
-        //         assert!(
-        //             blocks.iter().all_unique(),
-        //             "a single core should never run the same block more than once"
-        //         );
-        //         (core_id, blocks.into_iter().collect())
-        //     })
-        //     .collect();
-        //
-        // for core_id in unique_cores.iter() {
-        //     eprintln!(
-        //         "core {} num blocks: {}",
-        //         core_id,
-        //         blocks_per_core[core_id].len(),
-        //         // completed_blocks
-        //         //     .iter()
-        //         //     .filter(|block| block.global_core_id == *core_id)
-        //         //     .count()
-        //     );
-        //     for (other_core_id, other_blocks) in blocks_per_core.iter() {
-        //         let blocks = &blocks_per_core[core_id];
-        //         if other_core_id != core_id {
-        //             let isect: Vec<_> = other_blocks.intersection(blocks).collect();
-        //             if !isect.is_empty() {
-        //                 dbg!(&core_id, &other_core_id, &blocks, &other_blocks, &isect);
-        //             }
-        //             assert!(
-        //                 isect.is_empty(),
-        //                 "a block should never be run by more than once core"
-        //             );
-        //         }
-        //     }
-        // }
-        //
-        // completed_blocks.clear();
-    }
+    // pub fn debug_completed_blocks(&self) {
+    //     use itertools::Itertools;
+    //
+    //     let mut accesses = crate::core::debug::ACCESSES.lock();
+    //     dbg!(&accesses);
+    //     accesses.clear();
+    //
+    //     let mut completed_blocks = crate::core::debug::COMPLETED_BLOCKS.lock();
+    //
+    //     use std::collections::HashSet;
+    //     let unique_blocks: HashSet<_> = completed_blocks.iter().map(|block| &block.block).collect();
+    //     let unique_block_ids: HashSet<_> = completed_blocks
+    //         .iter()
+    //         .map(|block| block.block.id())
+    //         .collect();
+    //     let unique_cores: HashSet<_> = completed_blocks
+    //         .iter()
+    //         .map(|block| block.global_core_id)
+    //         .collect();
+    //     let unique_kernel_ids: HashSet<_> = completed_blocks
+    //         .iter()
+    //         .map(|block| block.kernel_id)
+    //         .collect();
+    //
+    //     eprintln!("unique blocks: {}", unique_blocks.len());
+    //     eprintln!("unique block ids: {}", unique_block_ids.len());
+    //     eprintln!("unique cores: {}", unique_cores.len());
+    //     eprintln!("unique kernels: {}", unique_kernel_ids.len());
+    //
+    //     let blocks_per_core: HashMap<usize, HashSet<&trace_model::Point>> = unique_cores
+    //         .iter()
+    //         .copied()
+    //         .map(|core_id| {
+    //             let blocks: Vec<_> = completed_blocks
+    //                 .iter()
+    //                 .filter_map(|block| {
+    //                     if block.global_core_id == core_id {
+    //                         Some(&block.block)
+    //                     } else {
+    //                         None
+    //                     }
+    //                 })
+    //                 .collect();
+    //             assert!(
+    //                 blocks.iter().all_unique(),
+    //                 "a single core should never run the same block more than once"
+    //             );
+    //             (core_id, blocks.into_iter().collect())
+    //         })
+    //         .collect();
+    //
+    //     for core_id in unique_cores.iter() {
+    //         eprintln!(
+    //             "core {} num blocks: {}",
+    //             core_id,
+    //             blocks_per_core[core_id].len(),
+    //             // completed_blocks
+    //             //     .iter()
+    //             //     .filter(|block| block.global_core_id == *core_id)
+    //             //     .count()
+    //         );
+    //         for (other_core_id, other_blocks) in blocks_per_core.iter() {
+    //             let blocks = &blocks_per_core[core_id];
+    //             if other_core_id != core_id {
+    //                 let isect: Vec<_> = other_blocks.intersection(blocks).collect();
+    //                 if !isect.is_empty() {
+    //                     dbg!(&core_id, &other_core_id, &blocks, &other_blocks, &isect);
+    //                 }
+    //                 assert!(
+    //                     isect.is_empty(),
+    //                     "a block should never be run by more than once core"
+    //                 );
+    //             }
+    //         }
+    //     }
+    //
+    //     completed_blocks.clear();
+    // }
 
     #[tracing::instrument]
     pub fn run_to_completion_parallel_nondeterministic_test(
@@ -1173,7 +1291,8 @@ where
 
                 for core in cluster.cores.iter_mut() {
                     wave.spawn(move |_| {
-                        let mut core = core.try_write();
+                        // let mut core = core.try_write();
+                        let mut core = core.try_lock();
                         crate::timeit!("core::cycle", core.cycle(cycle));
                     });
                 }
@@ -1194,7 +1313,8 @@ where
                 for core in cluster.cores.iter_mut() {
                     wave.spawn(move |_| {
                         // this works but creates some skew of course
-                        let mut core = core.try_write();
+                        // let mut core = core.try_write();
+                        let mut core = core.try_lock();
                         for i in 0..run_ahead {
                             crate::timeit!("core::cycle", core.cycle(cycle + i));
                         }

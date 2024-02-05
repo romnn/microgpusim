@@ -6,10 +6,11 @@ use crate::{
     opcodes::{pascal, ArchOp, Op, Opcode},
     operand_collector as opcoll,
     sync::RwLock,
-    warp,
+    warp, WARP_SIZE,
 };
 use bitvec::{array::BitArray, BitArr};
 use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
+use smallvec::{smallvec, SmallVec};
 use std::collections::{HashMap, VecDeque};
 use trace_model::ToBitString;
 
@@ -610,22 +611,34 @@ impl WarpInstruction {
 
         let is_write = self.is_store();
 
-        // Number of portions a warp is divided into for
-        // shared memory bank conflict check
-        let warp_parts = config.shared_memory_warp_parts;
-
         // TODO: we could just unwrap the mem space, because we need it?
         #[allow(clippy::match_same_arms)]
         match self.memory_space {
             Some(MemorySpace::Shared) => {
+                // Number of portions a warp is divided into for
+                // shared memory bank conflict check
+                let warp_parts = config.shared_memory_warp_parts;
                 let subwarp_size = config.warp_size / warp_parts;
+                let num_banks = config.shared_memory_num_banks;
+
+                // let mut banks = Vec::new();
+                // let mut words = Vec::new();
+
+                // can store at most 32 items on the stack before spilling
+                // to the heap
+                let mut bank_accesses: SmallVec<[_; 32]> =
+                    smallvec![[None as Option<u64>; WARP_SIZE]; num_banks];
+
+                // the current configuration uses 32 banks so we should be fast.
+                debug_assert!(!bank_accesses.spilled());
+
                 let mut total_accesses = 0;
-                let mut banks = Vec::new();
-                let mut words = Vec::new();
 
                 for subwarp in 0..warp_parts {
+                    // <=32 bank (u8) -> <=32 different u64 addresses
                     // bank -> word address -> access count
-                    let mut bank_accesses: HashMap<u64, HashMap<address, usize>> = HashMap::new();
+                    // let mut bank_accesses_slow: HashMap<usize, HashMap<address, usize>> =
+                    //     HashMap::new();
 
                     // step 1: compute accesses to words in banks
                     for i in 0..subwarp_size {
@@ -633,82 +646,185 @@ impl WarpInstruction {
                         if !self.active_mask[thread] {
                             continue;
                         }
-                        let Some(addr) = self.threads[thread].mem_req_addr.first() else {
-                            continue;
-                        };
+
+                        // NOTE: shared memory addresses can be zero
+                        let addr = self.threads[thread].mem_req_addr[0];
+                        // let Some(addr) = self.threads[thread].mem_req_addr.first() else {
+                        //     continue;
+                        // };
+
+                        // note
+
                         // FIXME: deferred allocation of shared memory should not accumulate
                         // across kernel launches
-                        let bank = config.shared_mem_bank(*addr);
+                        let bank = config.shared_mem_bank(addr) as usize;
                         // line_size_based_tag_func
-                        let word = line_size_based_tag_func(*addr, config::WORD_SIZE);
+                        let word = line_size_based_tag_func(addr, config::WORD_SIZE);
 
-                        let accesses = bank_accesses.entry(bank).or_default();
-                        *accesses.entry(word).or_default() += 1;
+                        bank_accesses[bank][thread] = Some(word);
 
-                        banks.push(bank);
-                        words.push(word);
+                        log::trace!(
+                            "subwarp {:>2} thread {:>2} accesses addr {:<20} (bank {:>3})",
+                            subwarp,
+                            thread,
+                            addr,
+                            bank
+                        );
+
+                        // let accesses = bank_accesses_slow.entry(bank).or_default();
+                        // *accesses.entry(word).or_default() += 1;
+
+                        // banks.push(bank);
+                        // words.push(word);
                     }
                     // dbg!(&bank_accesses);
 
                     if config.shared_memory_limited_broadcast {
                         // step 2: look for and select a broadcast bank/word if one occurs
-                        let mut broadcast_detected = false;
-                        let mut broadcast_word_addr = None;
-                        let mut broadcast_bank = None;
-                        for (bank, accesses) in &bank_accesses {
-                            for (addr, num_accesses) in accesses {
-                                if *num_accesses > 1 {
-                                    // found a broadcast
-                                    broadcast_detected = true;
-                                    broadcast_bank = Some(bank);
-                                    broadcast_word_addr = Some(addr);
-                                    break;
-                                }
-                            }
-                            if broadcast_detected {
-                                break;
-                            }
-                        }
-
-                        // step 3: figure out max bank accesses performed,
-                        // taking account of broadcast case
-                        let mut max_bank_accesses = 0;
-                        for (bank, accesses) in &bank_accesses {
-                            let mut bank_accesses = 0;
-                            for num_accesses in accesses.values() {
-                                bank_accesses += num_accesses;
-                                if broadcast_detected && broadcast_bank.is_some_and(|b| b == bank) {
-                                    for (addr, num_accesses) in accesses {
-                                        if broadcast_word_addr.is_some_and(|a| a == addr) {
-                                            // or this wasn't a broadcast
-                                            debug_assert!(*num_accesses > 1);
-                                            debug_assert!(bank_accesses >= (num_accesses - 1));
-                                            bank_accesses -= num_accesses - 1;
-                                            break;
-                                        }
-                                    }
-                                }
-                                max_bank_accesses = max_bank_accesses.max(bank_accesses);
-                            }
-                        }
+                        // let mut broadcast_detected = false;
+                        // let mut broadcast_word_addr = None;
+                        // let mut broadcast_bank = None;
+                        // for (bank, accesses) in &bank_accesses {
+                        //     for (addr, num_accesses) in accesses {
+                        //         if *num_accesses > 1 {
+                        //             // found a broadcast
+                        //             broadcast_detected = true;
+                        //             broadcast_bank = Some(bank);
+                        //             broadcast_word_addr = Some(addr);
+                        //             break;
+                        //         }
+                        //     }
+                        //     if broadcast_detected {
+                        //         break;
+                        //     }
+                        // }
+                        //
+                        // // step 3: figure out max bank accesses performed,
+                        // // taking account of broadcast case
+                        // let mut max_bank_accesses = 0;
+                        // for (bank, accesses) in &bank_accesses {
+                        //     let mut bank_accesses = 0;
+                        //     for num_accesses in accesses.values() {
+                        //         bank_accesses += num_accesses;
+                        //         if broadcast_detected && broadcast_bank.is_some_and(|b| b == bank) {
+                        //             for (addr, num_accesses) in accesses {
+                        //                 if broadcast_word_addr.is_some_and(|a| a == addr) {
+                        //                     // or this wasn't a broadcast
+                        //                     debug_assert!(*num_accesses > 1);
+                        //                     debug_assert!(bank_accesses >= (num_accesses - 1));
+                        //                     bank_accesses -= num_accesses - 1;
+                        //                     break;
+                        //                 }
+                        //             }
+                        //         }
+                        //         max_bank_accesses = max_bank_accesses.max(bank_accesses);
+                        //     }
+                        // }
                         // step 4: accumulate
                         // total_accesses += max_bank_accesses;
                         unimplemented!("shmem limited broadcast is used");
                     } else {
                         // step 2: look for the bank with the most unique words accessed
+
+                        let sidx = subwarp * subwarp_size;
+
+                        // sort
+                        for words_per_bank in bank_accesses.iter_mut() {
+                            words_per_bank[sidx..sidx + subwarp_size].sort_unstable();
+                        }
+
+                        // compute max unique
                         let max_bank_accesses = bank_accesses
-                            .values()
-                            .map(std::collections::HashMap::len)
+                            .iter()
+                            .map(|words_per_bank| {
+                                let subwarp_words_per_bank =
+                                    &words_per_bank[sidx..sidx + subwarp_size];
+                                let num_unique_words = subwarp_words_per_bank
+                                    .windows(2)
+                                    .filter(|w| w[0] != w[1])
+                                    .count();
+                                // if all values are the same, we counted zero unique words.
+                                // if there really is no word, i.e. all addresses are
+                                // None, then thats fine.
+                                let has_valid_word = subwarp_words_per_bank
+                                    [subwarp_words_per_bank.len() - 1]
+                                    .is_some();
+                                if num_unique_words == 0 && has_valid_word {
+                                    // if all words are the same and not None,
+                                    // we have a single unique word
+                                    1
+                                } else {
+                                    num_unique_words
+                                }
+                            })
                             .max()
                             .unwrap_or(0);
+
+                        // let mut max_bank_accesses = 0;
+                        // for bank in 0..num_banks {
+                        //     let subwarp_words_per_bank =
+                        //         &mut bank_accesses[bank][sidx..sidx + subwarp_size];
+                        //
+                        //     log::trace!(
+                        //         "subwarp {:>2} bank {:>3}: words={:?}",
+                        //         subwarp,
+                        //         bank,
+                        //         subwarp_words_per_bank
+                        //             .iter()
+                        //             .filter_map(Option::as_ref)
+                        //             .collect::<Vec<_>>()
+                        //     );
+                        //
+                        //     // sort the word addresses
+                        //     subwarp_words_per_bank.sort_unstable();
+                        //
+                        //     // count the number of unique words.
+                        //     // zero.
+                        //     let mut num_unique_words = subwarp_words_per_bank
+                        //         .windows(2)
+                        //         .filter(|w| w[0] != w[1])
+                        //         .count();
+                        //
+                        //     // if all values are the same, we counted zero unique words.
+                        //     // if there really is no word, i.e. all addresses are
+                        //     // None, then thats fine.
+                        //     let has_valid_word =
+                        //         subwarp_words_per_bank[subwarp_words_per_bank.len() - 1].is_some();
+                        //     if num_unique_words == 0 && has_valid_word {
+                        //         // if all words are the same and not None,
+                        //         // we have a single unique word
+                        //         num_unique_words = 1;
+                        //     }
+                        //
+                        //     log::trace!(
+                        //         "subwarp {:>2} bank {:>3}: words={:?} -> {:>2} unique words",
+                        //         subwarp,
+                        //         bank,
+                        //         subwarp_words_per_bank
+                        //             .iter()
+                        //             .filter_map(Option::as_ref)
+                        //             .collect::<Vec<_>>(),
+                        //         num_unique_words,
+                        //     );
+                        //
+                        //     max_bank_accesses = max_bank_accesses.max(num_unique_words);
+                        // }
+
+                        // let max_bank_accesses_slow = bank_accesses_slow
+                        //     .values()
+                        //     .map(std::collections::HashMap::len)
+                        //     .max()
+                        //     .unwrap_or(0);
+                        // assert_eq!(max_bank_accesses_slow, max_bank_accesses);
+
                         // step 3: accumulate
                         total_accesses += max_bank_accesses;
                     }
                 }
                 log::debug!("generate mem accesses[SHARED] for {}", self);
                 log::debug!("\ttotal_accesses={:?}", &total_accesses);
-                log::debug!("\tbanks={:?}", &banks);
-                log::debug!("\tword addresses={:?}", &words);
+                // log::debug!("\tbanks={:?}", &banks);
+                // log::debug!("\tword addresses={:?}", &words);
 
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);
@@ -767,7 +883,11 @@ impl WarpInstruction {
         config: &config::GPU,
         allocations: &crate::allocation::Allocations,
     ) -> Vec<MemAccess> {
-        let warp_parts = config.shared_memory_warp_parts;
+        let warp_parts = if config.accelsim_compat {
+            config.shared_memory_warp_parts
+        } else {
+            2
+        };
         let coalescing_arch = config.coalescing_arch as usize;
 
         let use_sector_segment_size = if (20..39).contains(&coalescing_arch) {

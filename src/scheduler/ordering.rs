@@ -1,4 +1,5 @@
 use crate::warp;
+use smallvec::SmallVec;
 
 // use crate::sync::{Arc, Mutex};
 
@@ -77,21 +78,26 @@ pub enum Ordering {
 
 impl super::Base {
     // impl<'a> super::Base<'a> {
-    pub fn order_by_priority<'a, F>(
+    pub fn order_by_priority<'a, F, const N: usize>(
         &self,
         // &mut self,
-        warps: Vec<&'a mut warp::Warp>,
+        warps: SmallVec<[&'a mut warp::Warp; N]>,
+        // warps: SmallVec<[&'a mut warp::Warp; N]>,
+        // warps: Vec<&'a mut warp::Warp>,
+        // warps: &mut [&'a mut warp::Warp],
         // warps: &'b [&'a mut warp::Warp],
         ordering: Ordering,
         _core: &dyn crate::core::WarpIssuer,
         priority_func: F,
-    ) -> Vec<(usize, &'a mut warp::Warp)>
+    ) -> impl Iterator<Item = (usize, &'a mut warp::Warp)>
+    // ) -> Vec<(usize, &'a mut warp::Warp)>
     where
         F: FnMut(&(usize, &mut warp::Warp), &(usize, &mut warp::Warp)) -> std::cmp::Ordering,
         // F: FnMut(&(usize, warp::Ref), &(usize, warp::Ref)) -> std::cmp::Ordering,
     {
         let num_warps_to_add = warps.len();
-        let mut out: Vec<(usize, &mut warp::Warp)> = Vec::new();
+        let mut out: SmallVec<[(usize, &mut warp::Warp); 64]> = SmallVec::new();
+        // let mut out: Vec<(usize, &mut warp::Warp)> = Vec::new();
         // let out = &mut self.next_cycle_prioritized_warps;
 
         // debug_assert!(num_warps_to_add <= self.warps.len());
@@ -105,17 +111,24 @@ impl super::Base {
         //     .iter()
         //     .enumerate()
         //     .skip(self.last_supervised_issued_idx);
-        let mut last_issued_iter = warps
-            // self
-            // .supervised_warps
-            .iter()
-            .enumerate()
-            .skip(self.last_supervised_issued_idx);
 
-        let last_issued_idx: Option<usize> = last_issued_iter.next().map(|(idx, _)| idx);
-        drop(last_issued_iter);
-        if let Some(last_issued_idx) = last_issued_idx {
-            assert_eq!(self.last_supervised_issued_idx, last_issued_idx);
+        // self.last_supervised_issued_idx
+
+        #[cfg(debug_assertions)]
+        {
+            let mut last_issued_iter = warps
+                // self
+                // .supervised_warps
+                .iter()
+                .enumerate()
+                .skip(self.last_supervised_issued_idx);
+
+            let last_issued_idx: Option<usize> = last_issued_iter.next().map(|(idx, _)| idx);
+            drop(last_issued_iter);
+
+            if let Some(last_issued_idx) = last_issued_idx {
+                assert_eq!(self.last_supervised_issued_idx, last_issued_idx);
+            }
         }
 
         // dbg!(self.core_id, self.last_supervised_issued_idx);
@@ -134,11 +147,12 @@ impl super::Base {
         //
         // self.supervised_warps_sorted.sort_unstable_by(priority_func);
 
-        let mut warps_sorted: Vec<(usize, &mut warp::Warp)> = warps
+        // let mut warps_sorted: Vec<(usize, &mut warp::Warp)> = warps
+        let mut warps_sorted = warps
             .into_iter()
             .enumerate()
             // .map(|(idx, warp)| (idx, *warp))
-            .collect();
+            .collect::<SmallVec<[(usize, &mut warp::Warp); 64]>>();
 
         // use crate::scoreboard::Access;
         // let (_first_idx, first_warp) = &warps_sorted[0];
@@ -257,6 +271,7 @@ impl super::Base {
             "either too few supervised warps or greedy warp not in supervised warps"
         );
 
-        out
+        // out
+        out.into_iter()
     }
 }

@@ -99,7 +99,8 @@ where
 
                             for core in cluster.cores.iter_mut() {
                                 core_scope.spawn(move |_| {
-                                    let mut core = core.try_write();
+                                    // let mut core = core.try_write();
+                                    let mut core = core.try_lock();
                                     crate::timeit!("core::cycle", core.cycle(cycle));
                                 });
                             }
@@ -146,7 +147,9 @@ where
 
                         let mut core_sim_order = cluster.core_sim_order.try_lock();
                         for core_id in &*core_sim_order {
-                            let mut core = cluster.cores[*core_id].try_write();
+                            let core = &cluster.cores[*core_id];
+                            // let mut core = core.try_write();
+                            let mut core = core.try_lock();
                             // let core = cluster.cores[*core_id].try_read();
                             // let core = &mut cluster.cores[*core_id];
                             // let mut port = core.mem_port.lock();

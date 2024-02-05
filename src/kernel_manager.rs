@@ -68,14 +68,14 @@ impl KernelManager {
         })
     }
 
-    pub fn decrement_launch_latency(&mut self) {
+    pub fn decrement_launch_latency(&mut self, cycles: u64) {
         for (launch_latency, _) in self
             .running_kernels
             // .try_write()
             .iter_mut()
             .filter_map(Option::as_mut)
         {
-            *launch_latency = launch_latency.saturating_sub(1);
+            *launch_latency = launch_latency.saturating_sub(cycles as usize);
         }
     }
 
