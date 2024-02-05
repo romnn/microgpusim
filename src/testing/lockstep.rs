@@ -793,15 +793,17 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
 
                 // this is useful for debugging scheduler issues
                 // find the bad core and scheduler
-                #[cfg(debug_assertions)]
-                for (core_id, per_core) in box_sim_state.scheduler_per_core.iter().enumerate() {
-                    for (scheduler_id, scheduler) in per_core.iter().enumerate() {
-                        let box_prio = &scheduler.prioritized_warp_ids;
-                        let play_prio = &play_sim_state.scheduler_per_core[core_id][scheduler_id]
-                            .prioritized_warp_ids;
-                        if box_prio != play_prio {
-                            println!("CORE {core_id} SCHEDULER {scheduler_id} MISMATCH:");
-                            diff::assert_eq!(box: box_prio, play: play_prio);
+                if std::env::var("SCHEDULER").ok().is_some() {
+                    for (core_id, per_core) in box_sim_state.scheduler_per_core.iter().enumerate() {
+                        for (scheduler_id, scheduler) in per_core.iter().enumerate() {
+                            let box_prio = &scheduler.prioritized_warp_ids;
+                            let play_prio = &play_sim_state.scheduler_per_core[core_id]
+                                [scheduler_id]
+                                .prioritized_warp_ids;
+                            if box_prio != play_prio {
+                                println!("CORE {core_id} SCHEDULER {scheduler_id} MISMATCH:");
+                                diff::assert_eq!(box: box_prio, play: play_prio);
+                            }
                         }
                     }
                 }

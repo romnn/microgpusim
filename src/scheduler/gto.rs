@@ -1,6 +1,7 @@
 use crate::sync::{Arc, Mutex, RwLock};
 use crate::{config, core::WarpIssuer, scoreboard::Scoreboard, warp};
 // use std::collections::VecDeque;
+use smallvec::SmallVec;
 
 #[derive(Debug)]
 pub struct Scheduler {
@@ -26,31 +27,30 @@ impl Scheduler {
     }
 }
 
-// impl Scheduler {
-//     // impl<'a> Scheduler<'a> {
-//     fn debug_warp_ids(&self, warps: &[(usize, &mut warp::Warp)]) -> Vec<usize> {
-//         // self.inner
-//         //     .next_cycle_prioritized_warps
-//         warps
-//             .iter()
-//             .map(
-//                 |(_idx, w)| w.warp_id, // w.try_lock().warp_id
-//             )
-//             .collect()
-//     }
-//
-//     fn debug_dynamic_warp_ids(&self, warps: &[(usize, &mut warp::Warp)]) -> Vec<usize> {
-//         // self.inner
-//         //     .next_cycle_prioritized_warps
-//         warps
-//             .iter()
-//             .map(|(_idx, w)| w.dynamic_warp_id())
-//             // .map(|(_idx, w)| w.try_lock().dynamic_warp_id())
-//             .collect()
-//     }
-// }
+impl Scheduler {
+    #[allow(dead_code)]
+    fn debug_warp_ids(&self, warps: &[(usize, &mut warp::Warp)]) -> Vec<usize> {
+        // self.inner
+        //     .next_cycle_prioritized_warps
+        warps
+            .iter()
+            .map(
+                |(_idx, w)| w.warp_id, // w.try_lock().warp_id
+            )
+            .collect()
+    }
 
-use smallvec::SmallVec;
+    #[allow(dead_code)]
+    fn debug_dynamic_warp_ids(&self, warps: &[(usize, &mut warp::Warp)]) -> Vec<usize> {
+        // self.inner
+        //     .next_cycle_prioritized_warps
+        warps
+            .iter()
+            .map(|(_idx, w)| w.dynamic_warp_id())
+            // .map(|(_idx, w)| w.try_lock().dynamic_warp_id())
+            .collect()
+    }
+}
 
 impl super::Scheduler for Scheduler {
     // impl<'a> super::Scheduler for Scheduler<'a> {
@@ -82,7 +82,8 @@ impl super::Scheduler for Scheduler {
     fn issue_to<'a>(
         &mut self,
         core: &mut dyn WarpIssuer,
-        warps: impl Iterator<Item = &'a mut warp::Warp>,
+        warps: &mut [(usize, &'a mut warp::Warp)],
+        // warps: impl Iterator<Item = &'a mut warp::Warp>,
         // mut warps: SmallVec<[&mut warp::Warp; 64]>,
         cycle: u64,
     ) {
@@ -91,12 +92,16 @@ impl super::Scheduler for Scheduler {
             "gto scheduler[{}, core {}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,
             self.inner.global_core_id,
-            self.prioritized_warp_ids(),
+            self.prioritized_warp_ids()
+                .iter()
+                .map(|(_, dyn_warp_id)| dyn_warp_id)
+                .collect::<Vec<_>>(),
+            // self.debug_dynamic_warp_ids(&self.prioritized_warp_ids()),
             // self.debug_warp_ids(warps)
         );
 
         // hack: work around removing memory barriers
-        for warp in warps.iter_mut() {
+        for (_, warp) in warps.iter_mut() {
             if warp.waiting_for_memory_barrier && !core.warp_waiting_at_mem_barrier(&*warp) {
                 // clear memory barrier
                 warp.waiting_for_memory_barrier = false;
@@ -115,35 +120,38 @@ impl super::Scheduler for Scheduler {
             }
         }
 
-        // log::debug!(
+        // eprintln!(
+        //     // log::debug!(
         //     "gto scheduler[{}]: BEFORE: prioritized dynamic warp ids: {:?}",
         //     self.inner.id,
         //     self.debug_dynamic_warp_ids(warps)
         // );
+
+        // eprintln!(
         log::debug!(
             "gto scheduler[{}, core {}]: last issued from {} (index {})",
             self.inner.id,
             self.inner.global_core_id,
             warps
                 .get(self.inner.last_supervised_issued_idx)
-                .map(|w| w.dynamic_warp_id)
+                .map(|(_, w)| w.dynamic_warp_id)
                 .unwrap_or_default(),
             self.inner.last_supervised_issued_idx
         );
 
-        let prioritized_warps: SmallVec<[_; 64]> = crate::timeit!(
+        // let prioritized_warps: SmallVec<[_; 64]> = crate::timeit!(
+        crate::timeit!(
             "core::issue::order_by_priority",
-            self.inner
-                .order_by_priority(
-                    warps,
-                    super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
-                    // |lhs: &(usize, warp::Ref), rhs: &(usize, warp::Ref)| {
-                    core,
-                    |lhs: &(usize, &mut warp::Warp), rhs: &(usize, &mut warp::Warp)| {
-                        super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
-                    },
-                )
-                .collect()
+            self.inner.order_by_priority(
+                warps,
+                // warps,
+                super::ordering::Ordering::GREEDY_THEN_PRIORITY_FUNC,
+                // |lhs: &(usize, warp::Ref), rhs: &(usize, warp::Ref)| {
+                core,
+                |lhs: &(usize, &mut warp::Warp), rhs: &(usize, &mut warp::Warp)| {
+                    super::ordering::sort_warps_by_oldest_dynamic_id(lhs, rhs, core)
+                },
+            ) // .collect()
         );
 
         // log::debug!(
@@ -154,7 +162,8 @@ impl super::Scheduler for Scheduler {
 
         self.inner.prioritized_warps_ids.clear();
         self.inner.prioritized_warps_ids.extend(
-            prioritized_warps
+            // prioritized_warps
+            warps
                 .iter()
                 .map(|(_, warp)| (warp.warp_id, warp.dynamic_warp_id)),
         );
@@ -178,7 +187,13 @@ impl super::Scheduler for Scheduler {
             "gto scheduler[{}, core {}]: AFTER: prioritized warp ids: {:?}",
             self.inner.id,
             self.inner.global_core_id,
-            self.prioritized_warp_ids(),
+            // self.prioritized_warp_ids(),
+            self.prioritized_warp_ids()
+                .iter()
+                .map(|(_, dyn_warp_id)| dyn_warp_id)
+                .collect::<Vec<_>>(),
+            // self.debug_dynamic_warp_ids(&warps),
+            // self.inner.prioritized_warps_ids,
             // self.debug_warp_ids(&prioritized_warps)
         );
 
@@ -191,8 +206,7 @@ impl super::Scheduler for Scheduler {
 
         crate::timeit!(
             "core::issue::issue_warps",
-            self.inner
-                .issue_to(core, prioritized_warps.into_iter(), cycle)
+            self.inner.issue_to(core, warps, cycle)
         );
     }
 }

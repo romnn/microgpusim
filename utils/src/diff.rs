@@ -530,7 +530,6 @@ macro_rules! diff {
     ) => {{
         let left_label = stringify!($left_label);
         let right_label = stringify!($right_label);
-        // let label = format_args!("{}: ", format_args!($($arg)*));
         let diff = $crate::__diff!(left_label, $left, right_label, $right);
         println!("{}", diff);
     }};
@@ -552,10 +551,8 @@ macro_rules! diff {
     ) => {{
         let left_label = stringify!($left_label);
         let right_label = stringify!($right_label);
-        // let label = format_args!("{}: ", format_args!($($arg)*));
-        let label = format_args!($($arg)*);
         let diff = $crate::__diff!(left_label, $left, right_label, $right);
-        println!("{}: {}", label, diff);
+        println!("{}: {}", format_args!($($arg)*), diff);
     }};
     (
         $left_label:expr,
@@ -564,9 +561,8 @@ macro_rules! diff {
         $right:expr,
         $($arg:tt)*
     ) => {{
-        let label = format_args!($($arg)*);
         let diff = $crate::__diff!($left_label, $left, $right_label, $right);
-        println!("{}: {}", label, diff);
+        println!("{}: {}", format_args!($($arg)*), diff);
     }};
     // (
     //     $left_label:ident:

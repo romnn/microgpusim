@@ -2037,13 +2037,24 @@ where
             // compute subset of warps supervised by this scheduler
             use smallvec::SmallVec;
             // let scheduler_supervised_warps: Vec<_> = self
-            let scheduler_supervised_warps: SmallVec<_> = self
+            let mut scheduler_supervised_warps = self
                 .warps
                 .iter_mut()
                 .enumerate()
                 .filter(|(i, _)| scheduler_idx == i % num_schedulers)
                 .map(|(_, warp)| warp)
-                .collect();
+                .enumerate()
+                .collect::<SmallVec<[(usize, &mut warp::Warp); 64]>>();
+
+            assert!(!scheduler_supervised_warps.spilled());
+
+            // dbg!(
+            //     &scheduler_idx,
+            //     &scheduler_supervised_warps
+            //         .iter()
+            //         .map(|(id, warp)| (id, warp.warp_id, warp.dynamic_warp_id))
+            //         .collect::<Vec<_>>()
+            // );
 
             let max_blocks_per_core = self
                 .current_kernel
@@ -2070,7 +2081,11 @@ where
                 barriers: &mut self.barriers,
             };
 
-            self.schedulers[scheduler_idx].issue_to(&mut issuer, scheduler_supervised_warps, cycle);
+            self.schedulers[scheduler_idx].issue_to(
+                &mut issuer,
+                &mut scheduler_supervised_warps,
+                cycle,
+            );
         }
         self.scheduler_issue_priority = (self.scheduler_issue_priority + 1) % num_schedulers;
     }

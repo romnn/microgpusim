@@ -293,11 +293,11 @@ fn main() -> eyre::Result<()> {
     // let (bench_name, input_query): (_, Input) =
     //     ("vectorAdd", input!({ "dtype": 32, "length": 500_000 })?);
     //
-    // let (bench_name, input_query): (_, Input) =
-    //     ("matrixmul", input!({ "dtype": 32, "rows": 256 })?);
-
     let (bench_name, input_query): (_, Input) =
-        ("simple_matrixmul", input!({ "m": 512, "n": 32, "p": 512 })?);
+        ("matrixmul", input!({ "dtype": 32, "rows": 256 })?);
+
+    // let (bench_name, input_query): (_, Input) =
+    //     ("simple_matrixmul", input!({ "m": 512, "n": 32, "p": 512 })?);
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

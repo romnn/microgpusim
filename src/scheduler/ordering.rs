@@ -78,10 +78,12 @@ pub enum Ordering {
 
 impl super::Base {
     // impl<'a> super::Base<'a> {
-    pub fn order_by_priority<'a, F, const N: usize>(
+    // pub fn order_by_priority<'a, F, const N: usize>(
+    pub fn order_by_priority<'a, F>(
         &self,
         // &mut self,
-        warps: SmallVec<[&'a mut warp::Warp; N]>,
+        warps: &mut [(usize, &'a mut warp::Warp)],
+        // warps: SmallVec<[&'a mut warp::Warp; N]>,
         // warps: SmallVec<[&'a mut warp::Warp; N]>,
         // warps: Vec<&'a mut warp::Warp>,
         // warps: &mut [&'a mut warp::Warp],
@@ -89,70 +91,43 @@ impl super::Base {
         ordering: Ordering,
         _core: &dyn crate::core::WarpIssuer,
         priority_func: F,
-    ) -> impl Iterator<Item = (usize, &'a mut warp::Warp)>
+    )
+    // ) -> impl Iterator<Item = (usize, &'a mut warp::Warp)>
     // ) -> Vec<(usize, &'a mut warp::Warp)>
     where
         F: FnMut(&(usize, &mut warp::Warp), &(usize, &mut warp::Warp)) -> std::cmp::Ordering,
-        // F: FnMut(&(usize, warp::Ref), &(usize, warp::Ref)) -> std::cmp::Ordering,
     {
-        let num_warps_to_add = warps.len();
-        let mut out: SmallVec<[(usize, &mut warp::Warp); 64]> = SmallVec::new();
+        // let num_warps_to_add = warps.len();
+        // let mut out: SmallVec<[(usize, &mut warp::Warp); 64]> = SmallVec::new();
         // let mut out: Vec<(usize, &mut warp::Warp)> = Vec::new();
-        // let out = &mut self.next_cycle_prioritized_warps;
 
-        // debug_assert!(num_warps_to_add <= self.warps.len());
-        // out.clear();
+        let last_issued_idx = self.last_supervised_issued_idx;
 
-        // debug_assert!(all_different(self.supervised_warps.make_contiguous()));
+        // #[cfg(debug_assertions)]
+        // {
+        //     let mut last_issued_iter = warps
+        //         .iter()
+        //         .enumerate()
+        //         .skip(self.last_supervised_issued_idx);
         //
-        // let mut last_issued_iter = warps
-        //     // self
-        //     // .supervised_warps
-        //     .iter()
-        //     .enumerate()
-        //     .skip(self.last_supervised_issued_idx);
-
-        // self.last_supervised_issued_idx
-
-        #[cfg(debug_assertions)]
-        {
-            let mut last_issued_iter = warps
-                // self
-                // .supervised_warps
-                .iter()
-                .enumerate()
-                .skip(self.last_supervised_issued_idx);
-
-            let last_issued_idx: Option<usize> = last_issued_iter.next().map(|(idx, _)| idx);
-            drop(last_issued_iter);
-
-            if let Some(last_issued_idx) = last_issued_idx {
-                assert_eq!(self.last_supervised_issued_idx, last_issued_idx);
-            }
-        }
+        //     let last_issued_idx: Option<usize> = last_issued_iter.next().map(|(idx, _)| idx);
+        //     drop(last_issued_iter);
+        //
+        //     assert_eq!(Some(self.last_supervised_issued_idx), last_issued_idx);
+        //     // if let Some(last_issued_idx) = last_issued_idx {
+        //     //     assert_eq!(self.last_supervised_issued_idx, last_issued_idx);
+        //     // }
+        // }
 
         // dbg!(self.core_id, self.last_supervised_issued_idx);
 
-        // let last_issued_ids: Vec<_> = last_issued_iter.map(|(idx, _)| idx).collect();
-        // if last_issued_ids.len() > 0 {
-        //     assert_eq!(self.last_supervised_issued_idx, last_issued_ids[0]);
-        // }
+        // let mut warps_sorted = warps.iter().collect::<Vec<_>>();
 
-        // debug_assert!(all_different(&self.warps));
-
-        // sort a copy of the supervised warps for stability
-        // self.supervised_warps_sorted.clear();
-        // self.supervised_warps_sorted
-        //     .extend(self.supervised_warps.iter().cloned().enumerate());
-        //
-        // self.supervised_warps_sorted.sort_unstable_by(priority_func);
-
-        // let mut warps_sorted: Vec<(usize, &mut warp::Warp)> = warps
-        let mut warps_sorted = warps
-            .into_iter()
-            .enumerate()
-            // .map(|(idx, warp)| (idx, *warp))
-            .collect::<SmallVec<[(usize, &mut warp::Warp); 64]>>();
+        // let mut warps_sorted = warps
+        //     .into_iter()
+        //     .enumerate()
+        //     // .map(|(idx, warp)| (idx, *warp))
+        //     .collect::<SmallVec<[(usize, &mut warp::Warp); 64]>>();
 
         // use crate::scoreboard::Access;
         // let (_first_idx, first_warp) = &warps_sorted[0];
@@ -190,22 +165,21 @@ impl super::Base {
         //     // sort_warps_by_oldest_dynamic_id(&warps[0], &warps[1], core)
         // );
 
-        // warps.clone().into_iter().enumerate().copied().collect();
-        // .iter().enumerate()..collect();
-        warps_sorted.sort_unstable_by(priority_func);
+        // warps_sorted.sort_unstable_by(priority_func);
+        warps.sort_unstable_by(priority_func);
 
         log::debug!(
             "gto scheduler[{}, core {}]: greedy={:?} sorted by priority: {:?}",
             self.id,
             self.global_core_id,
             last_issued_idx,
-            warps_sorted
+            // warps_sorted
+            warps
                 .iter()
                 .map(|(_, w)| (w.warp_id, w.dynamic_warp_id))
                 .collect::<Vec<_>>(),
         );
 
-        //
         // debug_assert!(all_different(
         //     &self
         //         .supervised_warps_sorted
@@ -218,60 +192,51 @@ impl super::Base {
         match ordering {
             Ordering::GREEDY_THEN_PRIORITY_FUNC => {
                 // move greedy warp to the start
-                // let greedy_warp = last_issued_iter.next();
-                // if let Some((greedy_idx, _)) = greedy_warp {
-                if let Some(greedy_idx) = last_issued_idx {
-                    let greedy_idx = warps_sorted.iter().position(|(idx, _)| greedy_idx == *idx);
-                    if let Some(greedy_idx) = greedy_idx {
-                        let greedy = warps_sorted.remove(greedy_idx);
-                        log::debug!("added greedy warp: {}", greedy.1.dynamic_warp_id);
-                        warps_sorted.insert(0, greedy);
+                if let Some(sorted_greedy_idx) =
+                    warps.iter().position(|(idx, _)| idx == &last_issued_idx)
+                {
+                    for offset in 0..sorted_greedy_idx {
+                        // let greedy_warp = warps[sorted_greedy_idx];
+                        let i = sorted_greedy_idx - offset;
+                        // eprintln!("swapping {} with {}", i - 1, i);
+                        warps.swap(i - 1, i);
                     }
+
+                    // eprintln!(
+                    log::debug!(
+                        "added greedy warp: {}",
+                        warps[sorted_greedy_idx].1.dynamic_warp_id,
+                    );
                 }
 
-                // let greedy_warp = last_issued_iter.next();
-                // if let Some((idx, warp)) = greedy_warp {
-                //     out.push((idx, *warp));
-                //     // out.push_back((idx, Arc::clone(warp)));
+                // if let Some(greedy_idx) = last_issued_idx {
+                //     let greedy_idx = warps_sorted.iter().position(|(idx, _)| greedy_idx == *idx);
+                //     if let Some(greedy_idx) = greedy_idx {
+                //         let greedy = warps_sorted.remove(greedy_idx);
+                //         log::debug!("added greedy warp: {}", greedy.1.dynamic_warp_id);
+                //         warps_sorted.insert(0, greedy);
+                //     }
                 // }
-                //
+
                 // log::debug!(
                 //     "added greedy warp (last supervised issued idx={}): {:?}",
                 //     self.last_supervised_issued_idx,
                 //     &greedy_warp.map(|(idx, w)| (idx, w.dynamic_warp_id)) // &greedy_warp.map(|(idx, w)| (idx, w.try_lock().dynamic_warp_id))
                 // );
 
-                out.extend(
-                    // self.supervised_warps_sorted
-                    warps_sorted.drain(..).take(num_warps_to_add),
-                    // .filter(|(idx, warp)| {
-                    //     if let Some((greedy_idx, greedy_warp)) = greedy_warp {
-                    //         // let already_added = Arc::ptr_eq(greedy_warp, warp);
-                    //         // assert_eq!(already_added, *idx == greedy_idx);
-                    //         // !already_added
-                    //         let already_added = *idx == greedy_idx;
-                    //         !already_added
-                    //     } else {
-                    //         true
-                    //     }
-                    // }),
-                );
+                // out.extend(warps_sorted.drain(..).take(num_warps_to_add));
             }
             Ordering::PRIORITY_FUNC_ONLY => {
-                out.extend(
-                    // self.supervised_warps_sorted
-                    warps_sorted.drain(..).take(num_warps_to_add),
-                );
+                // out.extend(warps_sorted.drain(..).take(num_warps_to_add));
             }
         }
 
-        assert_eq!(
-            num_warps_to_add,
-            out.len(),
-            "either too few supervised warps or greedy warp not in supervised warps"
-        );
+        // assert_eq!(
+        //     num_warps_to_add,
+        //     out.len(),
+        //     "either too few supervised warps or greedy warp not in supervised warps"
+        // );
 
-        // out
-        out.into_iter()
+        // out.into_iter()
     }
 }

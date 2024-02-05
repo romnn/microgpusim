@@ -31,17 +31,20 @@ enum ExecUnitKind {
 
 // pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
 pub trait Scheduler: Send + Sync + std::fmt::Debug {
-    fn issue_to<'a, I>(
+    // fn issue_to<'a, I>(
+    fn issue_to(
         &mut self,
         core: &mut dyn WarpIssuer,
+        warps: &mut [(usize, &mut warp::Warp)],
         // warps: Vec<&mut warp::Warp>,
         // warps: SmallVec<[&mut warp::Warp; 64]>,
-        warps: I,
+        // warps: I,
         // warps: impl Iterator<Item = &'a mut warp::Warp>,
         // warps: SmallVec<[(usize, &mut warp::Warp); 64]>,
         cycle: u64,
-    ) where
-        I: Iterator<Item = &'a mut warp::Warp>;
+    );
+    // where
+    //         I: Iterator<Item = &'a mut warp::Warp>;
 
     // fn add_supervised_warp(&mut self, warp: warp::Ref);
     // fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
@@ -168,7 +171,8 @@ impl Base {
         &mut self,
         core: &mut dyn WarpIssuer,
         // warps: Vec<(usize, &mut warp::Warp)>,
-        warps: impl Iterator<Item = (usize, &'a mut warp::Warp)>,
+        warps: &mut [(usize, &mut warp::Warp)],
+        // warps: impl Iterator<Item = (usize, &'a mut warp::Warp)>,
         // warps: SmallVec<[(usize, &mut warp::Warp); N]>,
         cycle: u64,
     ) {
@@ -190,7 +194,7 @@ impl Base {
         //     dbg!(&self.prioritized_warps_ids);
         // }
 
-        for (next_warp_supervised_idx, next_warp) in warps.into_iter() {
+        for (next_warp_supervised_idx, next_warp) in warps {
             // don't consider warps that are not yet valid
             // let mut next_warp = next_warp_rc.try_lock();
             // let next_warp = *next_warp;
@@ -495,7 +499,7 @@ impl Base {
                 }
             }
             if num_issued > 0 {
-                self.last_supervised_issued_idx = next_warp_supervised_idx;
+                self.last_supervised_issued_idx = *next_warp_supervised_idx;
                 self.num_issued_last_cycle = num_issued;
                 // let mut stats = self.stats.lock();
                 if num_issued == 1 {
