@@ -6,6 +6,7 @@ pub use trace_model::{active_mask::Inner as ActiveMaskInner, ActiveMask, WARP_SI
 // pub type Ref = Arc<Mutex<Warp>>;
 
 #[derive(Debug)]
+// #[repr(align(256))]
 pub struct Warp {
     pub block_id: u64,
     pub dynamic_warp_id: usize,

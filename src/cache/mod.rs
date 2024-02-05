@@ -158,6 +158,8 @@ pub trait Cache<S>: Send + Sync + Bandwidth + 'static {
     /// Cache controller
     fn controller(&self) -> &dyn CacheController;
 
+    fn line_size(&self) -> usize;
+
     /// Write state of the cache to csv file
     fn write_state(
         &self,

@@ -17,6 +17,7 @@ use crate::{
     scoreboard,
     sync::Mutex,
     warp,
+    WARP_SIZE,
 };
 
 use barrier::Barrier;
@@ -59,7 +60,7 @@ pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 #[derive(Debug)]
 pub struct ThreadState {
     pub active: bool,
-    pub pc: usize,
+    // pub pc: usize,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -517,7 +518,7 @@ pub struct Core<I, MC> {
     pub global_core_id: usize,
     pub local_core_id: usize,
     pub cluster_id: usize,
-    pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+    pub config: Arc<config::GPU>,
 
     /// Core statistics per kernel.
     ///
@@ -525,35 +526,39 @@ pub struct Core<I, MC> {
     /// which aggregates stats for the functional units and mem port.
     stats: stats::PerKernel,
 
-    pub config: Arc<config::GPU>,
-    pub mem_controller: Arc<MC>,
-
     // pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
-    pub current_kernel: Option<Arc<dyn Kernel>>,
 
     // pub current_kernel_max_blocks: usize,
-    pub last_warp_fetched: Option<usize>,
-    pub interconn: Arc<I>,
+
     // check this again
     // pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
 
     // this is the buffer to ensure deterministic execution
-    pub mem_port: CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>,
-    pub load_store_unit: fu::LoadStoreUnit<MC>,
+
+    // pub thread_block_size: usize,
+    // pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
+
+    // state
+    pub current_kernel: Option<Arc<dyn Kernel>>,
+    pub warps: Box<[warp::Warp]>,
+    // pub thread_state: Box<[Option<ThreadState>]>,
+    pub instr_fetch_buffer_state: InstructionFetchBufferState,
+    pub instr_fetch_response_queue: super::cluster::ResponseQueue,
+    pub active_threads_per_hardware_block: Box<[usize]>,
+    pub block_ids_per_hardware_block: Box<[Option<trace_model::Point>]>,
+
     pub active_thread_mask: BitArr!(for crate::MAX_THREADS_PER_SM),
     pub occupied_hw_thread_ids: BitArr!(for crate::MAX_THREADS_PER_SM),
-    pub dynamic_warp_id: usize,
     pub num_active_blocks: usize,
     pub num_active_warps: usize,
     pub num_active_threads: usize,
     pub num_occupied_threads: usize,
+    pub last_warp_fetched: usize,
 
-    // pub thread_block_size: usize,
-    // pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
-    pub active_threads_per_hardware_block: Box<[usize]>,
-    pub block_ids_per_hardware_block: Box<[Option<trace_model::Point>]>,
+    // per core unique warp id
+    pub dynamic_warp_id: usize,
+    pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
 
-    pub instr_fetch_response_queue: super::cluster::ResponseQueue,
     // pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
     // pub load_store_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
 
@@ -562,20 +567,24 @@ pub struct Core<I, MC> {
 
     // allocations are managed by the driver API, hence we need mutex.
     // pub allocations: super::allocation::Ref,
+
+    // memory and caches
     pub allocations: Arc<super::allocation::Allocations>,
     pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
-    // pub need_l1_flush: Mutex<bool>,
-    pub instr_fetch_buffer_state: InstructionFetchBufferState,
+    pub load_store_unit: fu::LoadStoreUnit<MC>,
+    pub mem_port: CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>,
 
-    pub warps: Vec<warp::Warp>,
-    pub thread_state: Vec<Option<ThreadState>>,
+    // components
+    pub interconn: Arc<I>,
     pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
+    pub mem_controller: Arc<MC>,
     pub barriers: barrier::BarrierSet,
     pub register_file: RegisterFileUnit,
-    pub pipeline_reg: Vec<register_set::RegisterSet>,
-    pub result_busses: Vec<ResultBus>,
+    pub pipeline_reg: Box<[register_set::RegisterSet]>,
+    pub result_busses: Box<[ResultBus]>,
     pub functional_units: Vec<Box<dyn fu::SimdFunctionUnit>>,
-    pub schedulers: Vec<Box<dyn scheduler::Scheduler>>,
+
+    pub schedulers: Box<[Box<dyn scheduler::Scheduler>]>,
     pub scheduler_issue_priority: usize,
 
     /// Custom callback handler that is called when a fetch is returned to its issuer.
@@ -609,13 +618,22 @@ where
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
     ) -> Self {
-        let thread_state: Vec<_> = (0..config.max_threads_per_core).map(|_| None).collect();
+        assert_eq!(config.max_threads_per_core, crate::MAX_THREADS_PER_SM);
+        // let thread_state: Box<[_]> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let stats = stats::PerKernel::new(config.as_ref().into());
 
-        let warps: Vec<_> = (0..config.max_warps_per_core())
+        let warps: Box<[_]> = (0..config.max_warps_per_core())
             .map(|_| warp::Warp::default())
+            // .map(|warp| CachePadded::new(warp))
             .collect();
+
+        // assert!(std::mem::size_of::<warp::Warp>() <= 256);
+        // panic!(
+        //     "size of warp: {} bytes -> alignment is {} bytes",
+        //     std::mem::size_of::<warp::Warp>(),
+        //     std::mem::align_of_val(&warps[0])
+        // );
 
         let mem_port = CoreMemoryConnection {
             cluster_id,
@@ -625,7 +643,7 @@ where
         };
         // let mem_port = Arc::new(Mutex::new(mem_port));
 
-        let mut instr_l1_cache = cache::ReadOnly::new(
+        let instr_l1_cache = cache::ReadOnly::new(
             global_core_id,
             format!(
                 "core-{}-{}-{}",
@@ -643,10 +661,11 @@ where
         // instr_l1_cache.set_top_port(mem_port.clone());
         let instr_l1_cache = Box::new(instr_l1_cache);
 
+        debug_assert_eq!(config.max_warps_per_core(), warps.len());
         let scoreboard = Box::new(scoreboard::Scoreboard::new(&scoreboard::Config {
             global_core_id,
             cluster_id,
-            max_warps: config.max_warps_per_core(),
+            max_warps: warps.len(),
         }));
 
         // pipeline_stages is the sum of normal pipeline stages
@@ -654,7 +673,7 @@ where
         // let total_pipeline_stages = PipelineStage::COUNT + config.num_specialized_unit.len() * 2;;
         // let pipeline_reg = (0..total_pipeline_stages)
 
-        let pipeline_reg: Vec<_> = PipelineStage::iter()
+        let pipeline_reg: Box<[_]> = PipelineStage::iter()
             .map(|stage| {
                 let pipeline_width = config.pipeline_widths.get(&stage).copied().unwrap_or(0);
                 register_set::RegisterSet::new(stage, pipeline_width, stage as usize)
@@ -679,7 +698,7 @@ where
         }
 
         // there are as many result buses as the width of the EX_WB stage
-        let result_busses: Vec<_> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
+        let result_busses: Box<[_]> = (0..pipeline_reg[PipelineStage::EX_WB as usize].size())
             .map(|_| BitArray::ZERO)
             .collect();
 
@@ -699,7 +718,7 @@ where
 
         let scheduler_kind = config::SchedulerKind::GTO;
 
-        let schedulers: Vec<Box<dyn scheduler::Scheduler>> = (0..config.num_schedulers_per_core)
+        let schedulers: Box<[Box<dyn scheduler::Scheduler>]> = (0..config.num_schedulers_per_core)
             .map(|sched_id| {
                 let scheduler: Box<dyn scheduler::Scheduler> = match scheduler_kind {
                     config::SchedulerKind::GTO => {
@@ -771,6 +790,7 @@ where
 
         assert_eq!(config.max_concurrent_blocks_per_core, 32);
         let max_blocks_per_core = config.max_concurrent_blocks_per_core;
+
         let active_threads_per_hardware_block = utils::box_slice![0; max_blocks_per_core];
         let block_ids_per_hardware_block = utils::box_slice![None; max_blocks_per_core];
 
@@ -786,7 +806,7 @@ where
             // current_kernel: Mutex::new(None),
             current_kernel: None,
             // current_kernel_max_blocks: 0,
-            last_warp_fetched: None,
+            last_warp_fetched: 0,
             active_thread_mask: BitArray::ZERO,
             occupied_hw_thread_ids: BitArray::ZERO,
             dynamic_warp_id: 0,
@@ -814,12 +834,17 @@ where
             scoreboard,
             barriers,
             register_file,
-            thread_state,
+            // thread_state,
             schedulers,
             scheduler_issue_priority: 0,
             functional_units,
             fetch_return_callback: None,
         }
+    }
+
+    pub fn max_warps_per_core(&self) -> usize {
+        debug_assert_eq!(self.config.max_warps_per_core(), self.warps.len());
+        self.warps.len()
     }
 
     pub fn stats(&self) -> stats::PerKernel {
@@ -846,7 +871,6 @@ where
         stats
     }
 
-    // #[inline]
     #[tracing::instrument]
     fn fetch(&mut self, cycle: u64) {
         // if log::log_enabled!(log::Level::Debug) {
@@ -871,7 +895,7 @@ where
 
         if !self.instr_fetch_buffer_state.is_valid() {
             if let Some(fetch) = self.instr_l1_cache.next_access() {
-                let warp = self.warps.get_mut(fetch.warp_id).unwrap();
+                let warp = &mut self.warps[fetch.warp_id];
                 warp.has_imiss_pending = false;
 
                 self.instr_fetch_buffer_state.set_valid(fetch.warp_id);
@@ -885,207 +909,415 @@ where
                 // self.instr_fetch_buffer.valid = true;
                 // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
             } else {
-                // find an active warp with space in
-                // instruction buffer that is not
-                // already waiting on a cache miss and get
-                // next 1-2 instructions from instruction cache
-                let max_warps = self.config.max_warps_per_core();
-
-                // if false {
-                //     for warp_id in 0..max_warps {
-                //         // let warp = self.warps[warp_id].try_borrow().unwrap();
-                //         let warp = self.warps[warp_id].try_lock();
-                //         if warp.instruction_count() == 0 {
-                //             // consider empty
-                //             continue;
-                //         }
-                //         debug_assert_eq!(warp.warp_id, warp_id);
-                //
-                //         let sb = self.scoreboard.try_read();
-                //         let pending_writes = sb.pending_writes(warp_id);
-                //
-                //         // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
-                //         //     continue;
-                //         // }
-                //         log::debug!(
-                //         "checking warp_id = {} dyn warp id = {} (instruction count={}, trace pc={} hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
-                //         &warp_id,
-                //         warp.dynamic_warp_id(),
-                //         warp.instruction_count(),
-                //         warp.trace_pc,
-                //         warp.hardware_done(),
-                //         warp.functional_done(),
-                //         warp.num_instr_in_pipeline,
-                //         warp.num_outstanding_stores,
-                //         warp.done_exit(),
-                //         pending_writes.iter().sorted().collect::<Vec<_>>()
-                //     );
-                //     }
-                // }
-
-                for i in 0..max_warps {
-                    let last = self.last_warp_fetched.unwrap_or(0);
-                    let warp_id = (last + 1 + i) % max_warps;
-
-                    let warp = &self.warps[warp_id];
-
-                    #[cfg(debug_assertions)]
-                    if warp.warp_id != u32::MAX as usize {
-                        debug_assert_eq!(warp.warp_id, warp_id);
-                    }
-
-                    let kernel_id = warp.kernel_id;
-                    let block_hw_id = warp.block_id as usize;
-                    debug_assert!(
-                        block_hw_id < self.active_threads_per_hardware_block.len(),
-                        "block id is the hw block id for this core"
-                    );
-
-                    // todo: how expensive are arc clones?
-                    // let kernel = warp.kernel.as_ref().map(Arc::clone);
-
-                    let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
-
-                    let did_maybe_exit =
-                        warp.hardware_done() && !has_pending_writes && !warp.done_exit();
-
-                    // check if this warp has finished executing and can be reclaimed.
-                    let mut did_exit = false;
-                    if did_maybe_exit {
-                        log::debug!("\tchecking if warp_id = {} did complete", warp_id);
-
-                        for t in 0..self.config.warp_size {
-                            let tid = warp_id * self.config.warp_size + t;
-                            if let Some(Some(state)) = self.thread_state.get_mut(tid) {
-                                if state.active {
-                                    state.active = false;
-
-                                    log::debug!(
-                                        "thread {} of block {} completed ({} left)",
-                                        tid,
-                                        block_hw_id,
-                                        self.active_threads_per_hardware_block[block_hw_id]
-                                    );
-                                    self.register_thread_in_block_exited(block_hw_id, kernel_id);
-
-                                    self.num_active_threads -= 1;
-                                    self.active_thread_mask.set(tid, false);
-                                    did_exit = true;
-                                }
-                            }
-                        }
-                        self.num_active_warps -= 1;
-                    }
-
-                    let warp = &mut self.warps[warp_id];
-                    if did_exit {
-                        warp.done_exit = true;
-                    }
-
-                    let icache_config = self.config.inst_cache_l1.as_ref().unwrap();
-                    // !warp.trace_instructions.is_empty() &&
-                    let should_fetch_instruction = !warp.functional_done()
-                        && !warp.has_imiss_pending
-                        && warp.instr_buffer.is_empty();
-
-                    // this code fetches instructions
-                    // from the i-cache or generates memory
-                    if should_fetch_instruction {
-                        let Some(instr) = warp.current_instr() else {
-                        // if warp.current_instr().is_none() {
-                            // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
-                            // dbg!(&warp);
-                            // dbg!(&warp.active_mask.to_bit_string());
-                            // dbg!(&warp.num_completed());
-                            // panic!("?");
-                            // skip and do nothing (can happen during nondeterministic parallel)
-                            continue;
-                        };
-                        // let instr = warp.current_instr().unwrap();
-                        let pc = warp.pc().unwrap();
-                        let ppc = pc + crate::PROGRAM_MEM_START;
-
-                        log::debug!(
-                            "\t fetching instr {} for warp_id = {} (pc={}, ppc={})",
-                            &instr,
-                            warp.warp_id,
-                            pc,
-                            ppc,
-                        );
-
-                        let mut num_bytes = 16;
-                        let line_size = icache_config.line_size as usize;
-                        let offset_in_block = pc & (line_size - 1);
-                        if offset_in_block + num_bytes > line_size {
-                            num_bytes = line_size - offset_in_block;
-                        }
-                        let inst_alloc = &*crate::PROGRAM_MEM_ALLOC;
-                        let access = mem_fetch::access::Builder {
-                            kind: AccessKind::INST_ACC_R,
-                            addr: ppc as u64,
-                            kernel_launch_id: Some(instr.kernel_launch_id),
-                            allocation: Some(inst_alloc.clone()),
-                            req_size_bytes: num_bytes as u32,
-                            is_write: false,
-                            warp_active_mask: instr.active_mask,
-                            // warp_active_mask: warp::ActiveMask::all_ones(),
-                            // we dont need to set the sector and bit
-                            // masks, because they will be computed
-                            // when inserted into the memory sub partition
-                            byte_mask: !mem_fetch::ByteMask::ZERO,
-                            sector_mask: !mem_fetch::SectorMask::ZERO,
-                        }
-                        .build();
-
-                        let physical_addr = self.mem_controller.to_physical_address(access.addr);
-
-                        let fetch = mem_fetch::Builder {
-                            instr: None,
-                            access,
-                            warp_id,
-                            global_core_id: Some(self.global_core_id),
-                            cluster_id: Some(self.cluster_id),
-                            physical_addr,
-                        }
-                        .build();
-
-                        let status = if self.config.perfect_inst_const_cache {
-                            cache::RequestStatus::HIT
-                        } else {
-                            let mut events = Vec::new();
-                            self.instr_l1_cache.access(
-                                ppc as address,
-                                fetch.clone(),
-                                &mut events,
-                                cycle,
-                            )
-                        };
-
-                        // log::warn!("L1I access({}) -> {:?}", fetch, status);
-                        self.last_warp_fetched = Some(warp_id);
-
-                        if status == cache::RequestStatus::MISS {
-                            warp.has_imiss_pending = true;
-                            // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
-                        } else if status == cache::RequestStatus::HIT {
-                            self.instr_fetch_buffer_state.set_valid(warp_id);
-                            // self.instr_fetch_buffer = InstrFetchBuffer {
-                            //     valid: true,
-                            //     warp_id,
-                            // };
-                            // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
-                        } else {
-                            debug_assert_eq!(status, cache::RequestStatus::RESERVATION_FAIL);
-                        }
-                        break;
-                    }
-                }
+                self.find_active_warp_and_fetch_instructions(cycle);
             }
         }
         if !self.config.perfect_inst_const_cache {
             // let mem_port = self.mem_port.try_lock();
-            self.instr_l1_cache.cycle(&mut self.mem_port, cycle);
+            crate::timeit!(
+                "core::fetch::l1i::cycle",
+                self.instr_l1_cache.cycle(&mut self.mem_port, cycle)
+            );
         }
+    }
+
+    // fn check_for_completed_threads(&mut self, warp_id: usize) {
+    //     let warp = &self.warps[warp_id];
+    //
+    //     #[cfg(debug_assertions)]
+    //     if warp.warp_id != u32::MAX as usize {
+    //         debug_assert_eq!(warp.warp_id, warp_id);
+    //     }
+    //
+    //     let kernel_id = warp.kernel_id;
+    //     let block_hw_id = warp.block_id as usize;
+    //     debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len());
+    //
+    //     // todo: how expensive are arc clones?
+    //     // let kernel = warp.kernel.as_ref().map(Arc::clone);
+    //
+    //     let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
+    //
+    //     let warp_completed = warp.hardware_done() && !has_pending_writes && !warp.done_exit();
+    //
+    //     // check if this warp has finished executing and can be reclaimed.
+    //
+    //     // let mut did_exit = false;
+    //     if warp_completed {
+    //         log::debug!("\tchecking if warp_id = {} did complete", warp_id);
+    //
+    //         // let warp_thread_states = &self.thread_state
+    //         //     [warp_id * self.config.warp_size..(warp_id + 1) * self.config.warp_size];
+    //
+    //         let start_tid = warp_id * self.config.warp_size;
+    //         // for thread_state in warp_thread_states.iter_mut() {
+    //         for tid in start_tid..start_tid + self.config.warp_size {
+    //             todo!();
+    //
+    //             let Some(state) = &mut self.thread_state[tid] else {
+    //                     continue;
+    //                 };
+    //             if state.active {
+    //                 state.active = false;
+    //                 //     log::debug!(
+    //                 //     "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+    //                 //     tid,
+    //                 //     block_hw_id,
+    //                 //     self.active_thread_mask.count_ones() - 1,
+    //                 //     self.active_threads_per_hardware_block[block_hw_id],
+    //                 //     block_hw_id,
+    //                 // );
+    //                 self.num_active_threads -= 1;
+    //                 self.active_thread_mask.set(tid, false);
+    //
+    //                 let warp = &mut self.warps[warp_id];
+    //                 warp.done_exit = true;
+    //
+    //                 crate::timeit!(
+    //                     "core::fetch::thread_exited",
+    //                     self.register_thread_in_block_exited(block_hw_id, kernel_id)
+    //                 );
+    //
+    //                 // did_exit = true;
+    //             }
+    //         }
+    //
+    //         // for t in 0..self.config.warp_size {
+    //         //     let tid = warp_id * self.config.warp_size + t;
+    //         //
+    //         //     // todo: remove options from this
+    //         //     let Some(ref mut state) = self.thread_state[tid] else {
+    //         //         continue;
+    //         //     };
+    //         //     if !state.active {
+    //         //         continue;
+    //         //     }
+    //         //     // if let Some(Some(state)) = self.thread_state.get_mut(tid) {
+    //         //     // if state.active {
+    //         //     state.active = false;
+    //         //
+    //         //     log::debug!(
+    //         //         "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+    //         //         tid,
+    //         //         block_hw_id,
+    //         //         self.active_thread_mask.count_ones() - 1,
+    //         //         self.active_threads_per_hardware_block[block_hw_id],
+    //         //         block_hw_id,
+    //         //     );
+    //         //     crate::timeit!(
+    //         //         "core::fetch::thread_exited",
+    //         //         self.register_thread_in_block_exited(block_hw_id, kernel_id)
+    //         //     );
+    //         //
+    //         //     self.num_active_threads -= 1;
+    //         //     self.active_thread_mask.set(tid, false);
+    //         //     did_exit = true;
+    //         //     // }
+    //         //     // }
+    //         // }
+    //         self.num_active_warps -= 1;
+    //     }
+    // }
+
+    fn find_active_warp_and_fetch_instructions(&mut self, cycle: u64) {
+        let max_warps = self.max_warps_per_core() as usize;
+
+        // if false {
+        //     for warp_id in 0..max_warps {
+        //         // let warp = self.warps[warp_id].try_borrow().unwrap();
+        //         let warp = self.warps[warp_id].try_lock();
+        //         if warp.instruction_count() == 0 {
+        //             // consider empty
+        //             continue;
+        //         }
+        //         debug_assert_eq!(warp.warp_id, warp_id);
+        //
+        //         let sb = self.scoreboard.try_read();
+        //         let pending_writes = sb.pending_writes(warp_id);
+        //
+        //         // if warp.functional_done() && warp.hardware_done() && warp.done_exit() {
+        //         //     continue;
+        //         // }
+        //         log::debug!(
+        //         "checking warp_id = {} dyn warp id = {} (instruction count={}, trace pc={} hardware_done={}, functional_done={}, instr in pipe={}, stores={}, done_exit={}, pending writes={:?})",
+        //         &warp_id,
+        //         warp.dynamic_warp_id(),
+        //         warp.instruction_count(),
+        //         warp.trace_pc,
+        //         warp.hardware_done(),
+        //         warp.functional_done(),
+        //         warp.num_instr_in_pipeline,
+        //         warp.num_outstanding_stores,
+        //         warp.done_exit(),
+        //         pending_writes.iter().sorted().collect::<Vec<_>>()
+        //     );
+        //     }
+        // }
+
+        let mut num_checked = 0;
+
+        // find an active warp with space in instruction buffer that is
+        // not already waiting on a cache miss and get next 1-2 instructions
+        // from instruction cache
+        for i in 0..max_warps {
+            num_checked += 1;
+            let warp_id = (self.last_warp_fetched + 1 + i) % max_warps;
+            // crate::timeit!(
+            //     "core::fetch::check_warp_completed",
+            //     self.check_for_completed_threads(warp_id)
+            // );
+
+            // {
+            let warp = &self.warps[warp_id];
+
+            #[cfg(debug_assertions)]
+            if warp.warp_id != u32::MAX as usize {
+                debug_assert_eq!(warp.warp_id, warp_id);
+            }
+
+            let kernel_id = warp.kernel_id;
+            let block_hw_id = warp.block_id as usize;
+            debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len(),);
+
+            // todo: how expensive are arc clones?
+            // let kernel = warp.kernel.as_ref().map(Arc::clone);
+
+            let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
+
+            let warp_completed = warp.hardware_done() && !has_pending_writes && !warp.done_exit();
+
+            // check if this warp has finished executing and can be reclaimed.
+
+            // let mut did_exit = false;
+            if warp_completed {
+                log::debug!("\tchecking if warp_id = {} did complete", warp_id);
+
+                // let warp_thread_states = &self.thread_state
+                //     [warp_id * self.config.warp_size..(warp_id + 1) * self.config.warp_size];
+
+                debug_assert_eq!(self.config.warp_size, WARP_SIZE);
+                let start_tid = warp_id * WARP_SIZE;
+                let end_tid = start_tid + WARP_SIZE;
+
+                let active_threads_in_warp =
+                    self.active_thread_mask[start_tid..end_tid].count_ones();
+                assert!(active_threads_in_warp <= WARP_SIZE);
+                self.num_active_threads -= active_threads_in_warp;
+
+                // is this fine? or only when there was at least one thread
+                let warp = &mut self.warps[warp_id];
+                // if active_threads_in_warp > 0 {
+                warp.done_exit = true;
+                // }
+
+                self.active_thread_mask[start_tid..end_tid].fill(false);
+
+                // for _ in 0..active_threads_in_warp {
+                crate::timeit!(
+                    "core::fetch::thread_exited",
+                    self.register_threads_in_block_exited(
+                        block_hw_id,
+                        kernel_id,
+                        active_threads_in_warp,
+                    )
+                );
+                // }
+
+                // for tid in start_tid..start_tid + self.config.warp_size {
+                //     todo!();
+                //     let Some(state) = &mut self.thread_state[tid] else {
+                //         continue;
+                //     };
+                //     if state.active {
+                //         state.active = false;
+                //         //     log::debug!(
+                //         //     "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+                //         //     tid,
+                //         //     block_hw_id,
+                //         //     self.active_thread_mask.count_ones() - 1,
+                //         //     self.active_threads_per_hardware_block[block_hw_id],
+                //         //     block_hw_id,
+                //         // );
+                //         self.num_active_threads -= 1;
+                //         self.active_thread_mask.set(tid, false);
+                //
+                //         let warp = &mut self.warps[warp_id];
+                //         warp.done_exit = true;
+                //
+                //         crate::timeit!(
+                //             "core::fetch::thread_exited",
+                //             self.register_thread_in_block_exited(block_hw_id, kernel_id)
+                //         );
+                //
+                //         // did_exit = true;
+                //     }
+                // }
+
+                // for t in 0..self.config.warp_size {
+                //     let tid = warp_id * self.config.warp_size + t;
+                //
+                //     // todo: remove options from this
+                //     let Some(ref mut state) = self.thread_state[tid] else {
+                //         continue;
+                //     };
+                //     if !state.active {
+                //         continue;
+                //     }
+                //     // if let Some(Some(state)) = self.thread_state.get_mut(tid) {
+                //     // if state.active {
+                //     state.active = false;
+                //
+                //     log::debug!(
+                //         "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+                //         tid,
+                //         block_hw_id,
+                //         self.active_thread_mask.count_ones() - 1,
+                //         self.active_threads_per_hardware_block[block_hw_id],
+                //         block_hw_id,
+                //     );
+                //     crate::timeit!(
+                //         "core::fetch::thread_exited",
+                //         self.register_thread_in_block_exited(block_hw_id, kernel_id)
+                //     );
+                //
+                //     self.num_active_threads -= 1;
+                //     self.active_thread_mask.set(tid, false);
+                //     did_exit = true;
+                //     // }
+                //     // }
+                // }
+                self.num_active_warps -= 1;
+            }
+            // }
+
+            // drop(warp);
+            let warp = &mut self.warps[warp_id];
+            // if did_exit {
+            //     warp.done_exit = true;
+            // }
+
+            // !warp.trace_instructions.is_empty() &&
+            let should_fetch_instruction =
+                !warp.functional_done() && !warp.has_imiss_pending && warp.instr_buffer.is_empty();
+
+            // this code fetches instructions
+            // from the i-cache or generates memory
+            if should_fetch_instruction {
+                debug_assert!(warp.current_instr().is_some());
+                let Some(instr) = warp.current_instr() else {
+                // if warp.current_instr().is_none() {
+                    // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
+                    // dbg!(&warp);
+                    // dbg!(&warp.active_mask.to_bit_string());
+                    // dbg!(&warp.num_completed());
+                    // panic!("?");
+                    // skip and do nothing (can happen during nondeterministic parallel)
+                    continue;
+                };
+
+                debug_assert_eq!(warp.pc(), Some(instr.pc));
+                log::debug!(
+                    "\t fetching instr {} for warp_id = {} (pc={})",
+                    &instr,
+                    warp.warp_id,
+                    instr.pc,
+                );
+
+                // let icache_config = self
+                //     .config
+                //     .inst_cache_l1
+                //     .as_ref()
+                //     .expect("have instruction cache");
+                // assert_eq!(
+                //     self.instr_l1_cache.line_size(),
+                //     icache_config.line_size as usize
+                // );
+
+                let status = if self.config.perfect_inst_const_cache {
+                    cache::RequestStatus::HIT
+                } else {
+                    crate::timeit!(
+                        "core::fetch::fetch_from_l1i",
+                        Self::fetch_instruction_from_instruction_cache(
+                            instr,
+                            &mut *self.instr_l1_cache,
+                            &*self.mem_controller,
+                            self.global_core_id,
+                            self.cluster_id,
+                            cycle,
+                        )
+                    )
+                };
+
+                // log::warn!("L1I access({}) -> {:?}", fetch, status);
+                // let warp = &mut self.warps[warp_id];
+                self.last_warp_fetched = warp_id;
+
+                if status == cache::RequestStatus::MISS {
+                    warp.has_imiss_pending = true;
+                    // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
+                } else if status == cache::RequestStatus::HIT {
+                    self.instr_fetch_buffer_state.set_valid(warp_id);
+                    // m_warp[warp_id]->set_last_fetch(m_gpu->gpu_sim_cycle);
+                } else {
+                    debug_assert_eq!(status, cache::RequestStatus::RESERVATION_FAIL);
+                }
+                break;
+            }
+        }
+        log::trace!("fetch: num checked={}", num_checked);
+        // dbg!(&num_checked);
+    }
+
+    fn fetch_instruction_from_instruction_cache(
+        instr: &WarpInstruction,
+        inst_cache: &mut dyn cache::Cache<stats::cache::PerKernel>,
+        mem_controller: &dyn crate::mcu::MemoryController,
+        global_core_id: usize,
+        cluster_id: usize,
+        cycle: u64,
+    ) -> cache::RequestStatus {
+        let pc = instr.pc;
+        let ppc = pc + crate::PROGRAM_MEM_START;
+
+        let mut num_bytes = 16;
+        let line_size = inst_cache.line_size();
+        let offset_in_block = pc & (line_size - 1);
+        if offset_in_block + num_bytes > line_size {
+            num_bytes = line_size - offset_in_block;
+        }
+        let inst_alloc = &*crate::PROGRAM_MEM_ALLOC;
+        let access = mem_fetch::access::Builder {
+            kind: AccessKind::INST_ACC_R,
+            addr: ppc as u64,
+            kernel_launch_id: Some(instr.kernel_launch_id),
+            allocation: Some(inst_alloc.clone()),
+            req_size_bytes: num_bytes as u32,
+            is_write: false,
+            warp_active_mask: instr.active_mask,
+            // warp_active_mask: warp::ActiveMask::all_ones(),
+            // we dont need to set the sector and bit
+            // masks, because they will be computed
+            // when inserted into the memory sub partition
+            byte_mask: !mem_fetch::ByteMask::ZERO,
+            sector_mask: !mem_fetch::SectorMask::ZERO,
+        }
+        .build();
+
+        let physical_addr = mem_controller.to_physical_address(access.addr);
+
+        let fetch = mem_fetch::Builder {
+            instr: None,
+            access,
+            warp_id: instr.warp_id,
+            global_core_id: Some(global_core_id),
+            cluster_id: Some(cluster_id),
+            physical_addr,
+        }
+        .build();
+
+        let mut events = Vec::new();
+        inst_cache.access(ppc as address, fetch.clone(), &mut events, cycle)
     }
 
     #[tracing::instrument]
@@ -1406,9 +1638,10 @@ where
             // self.occupied_block_to_hw_thread_id.clear();
             self.occupied_hw_thread_ids.fill(false);
         }
-        for t in start_thread..end_thread {
-            self.thread_state[t] = None;
-        }
+        self.active_thread_mask[start_thread..end_thread].fill(false);
+        // for t in start_thread..end_thread {
+        //     self.thread_state[t] = None;
+        // }
         let warp_size = self.config.warp_size;
 
         let start_warp = start_thread / warp_size;
@@ -1611,7 +1844,6 @@ where
         // initalize scalar threads and determine which hardware warps they are
         // allocated to bind functional simulation state of threads to hardware
         // resources (simulation)
-        let mut warps = WarpMask::ZERO;
 
         // dirty fix
         let kernel: Arc<_> = self.current_kernel.as_ref().unwrap().clone();
@@ -1646,32 +1878,47 @@ where
         );
         let block_id = block.id();
 
-        let mut num_threads_in_block = 0;
-        for i in start_thread..end_thread {
-            self.thread_state[i] = Some(ThreadState {
-                // block_id: free_block_hw_id,
-                active: true,
-                pc: 0, // todo
-            });
-            let warp_id = i / self.config.warp_size;
+        self.active_thread_mask[start_thread..end_thread].fill(true);
 
-            // ROMAN: removed this but is that fine?
-            // if !kernel.no_more_blocks_to_run() {
-            //     if !kernel.more_threads_in_block() {
-            //         kernel.next_thread_iterlock().next();
-            //     }
-            //
-            //     // we just incremented the thread id so this is not the same
-            //     if !kernel.more_threads_in_block() {
-            //         kernel.next_block_iterlock().next();
-            //         *kernel.next_thread_iterlock() =
-            //             kernel.config.block.into_iter().peekable();
-            //     }
-            num_threads_in_block += 1;
-            // }
+        let start_warp = start_thread / WARP_SIZE;
+        let end_warp = end_thread / WARP_SIZE;
 
-            warps.set(warp_id, true);
-        }
+        // let mut other_warps = warps.clone();
+        let mut warps = WarpMask::ZERO;
+        warps[start_warp..end_warp].fill(true);
+
+        let num_threads_in_block = end_thread - start_thread;
+
+        // let mut num_threads_in_block = 0;
+        // for i in start_thread..end_thread {
+        //     // self.active_thread_mask[start_thread..end_thread].fill(true);
+        //     // self.thread_state[i] = Some(ThreadState {
+        //     //     // block_id: free_block_hw_id,
+        //     //     active: true,
+        //     //     // pc: 0, // todo
+        //     // });
+        //     let warp_id = i / self.config.warp_size;
+        //
+        //     // ROMAN: removed this but is that fine?
+        //     // if !kernel.no_more_blocks_to_run() {
+        //     //     if !kernel.more_threads_in_block() {
+        //     //         kernel.next_thread_iterlock().next();
+        //     //     }
+        //     //
+        //     //     // we just incremented the thread id so this is not the same
+        //     //     if !kernel.more_threads_in_block() {
+        //     //         kernel.next_block_iterlock().next();
+        //     //         *kernel.next_thread_iterlock() =
+        //     //             kernel.config.block.into_iter().peekable();
+        //     //     }
+        //     num_threads_in_block += 1;
+        //     // }
+        //
+        //     warps.set(warp_id, true);
+        // }
+
+        // assert_eq!(warps, other_warps);
+        // assert_eq!(num_threads_in_block, end_thread - start_thread);
 
         kernel.increment_running_blocks();
 
@@ -1840,11 +2087,12 @@ where
         register_file.init(config.num_reg_banks);
     }
 
-    // #[inline]
-    fn register_thread_in_block_exited(
+    #[inline(always)]
+    fn register_threads_in_block_exited(
         &mut self,
         block_hw_id: usize,
         kernel_id: Option<u64>,
+        num_threads_exited: usize,
         // kernel: &Option<Arc<dyn Kernel>>,
     ) {
         // let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
@@ -1854,10 +2102,14 @@ where
 
         debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len());
         debug_assert!(self.active_threads_per_hardware_block[block_hw_id] > 0);
-        self.active_threads_per_hardware_block[block_hw_id] -= 1;
 
+        self.active_threads_per_hardware_block[block_hw_id] -= num_threads_exited;
+
+        // this is the last thread that exited
         if self.active_threads_per_hardware_block[block_hw_id] == 0 {
-            if let Some(block) = self.block_ids_per_hardware_block[block_hw_id].as_ref() {
+            let block = &self.block_ids_per_hardware_block[block_hw_id];
+
+            if let Some(block) = block {
                 let block_id = block.id();
                 let block_size = block.size();
                 let active_threads = self.active_threads_per_hardware_block[block_hw_id];
@@ -1879,23 +2131,22 @@ where
                 // assert_eq!(kernel_block_size as u64, block_size);
 
                 eprintln!(
-                "  => core {:>4} \tblock {:>4} {:<20} ({:>4}/{:<4} hw {:<2}) finished thread\t({:>3}/{:<3} threads remaining)",
-                global_core_id,
-                block_id,
-                block,
-                // block.map(ToString::to_string).as_deref().unwrap_or("?"),
-                self.num_active_blocks,
-                // running_blocks,
-                block_size,
-                block_hw_id,
-                active_threads,
-                total_threads,
-            );
+                    "  => core {:>4} \tblock {:>4} {:<22} ({:>4}/{:<4} hw {:<2}) finished thread\t({:>3}/{:<3} threads remaining)",
+                    global_core_id,
+                    block_id,
+                    block.to_string(),
+                    // block.map(ToString::to_string).as_deref().unwrap_or("?"),
+                    self.num_active_blocks,
+                    // running_blocks,
+                    block_size,
+                    block_hw_id,
+                    active_threads,
+                    total_threads,
+                );
             }
-        }
-
-        // this is the last thread that exited
-        if self.active_threads_per_hardware_block[block_hw_id] == 0 {
+            // }
+            //
+            // if self.active_threads_per_hardware_block[block_hw_id] == 0 {
             assert_eq!(current_kernel_id, kernel_id);
 
             assert!(current_kernel.is_some());

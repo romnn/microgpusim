@@ -992,6 +992,10 @@ where
         &self.inner.cache_controller
     }
 
+    fn line_size(&self) -> usize {
+        self.inner.cache_config.line_size as usize
+    }
+
     fn write_state(
         &self,
         csv_writer: &mut csv::Writer<std::io::BufWriter<std::fs::File>>,
