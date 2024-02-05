@@ -71,7 +71,7 @@ pub struct Options {
 }
 
 fn format_addr(addr: u64, allocations: &Allocations) -> String {
-    match allocations.get(&addr) {
+    match allocations.read().get(&addr) {
         Some(allocation) => {
             let relative_addr = addr.saturating_sub(allocation.start_addr);
             format!("{}+{}", allocation.id, relative_addr)

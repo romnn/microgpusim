@@ -202,6 +202,7 @@ pub fn parse_trace(
     println!(
         "allocations {:#?}",
         allocations
+            .read()
             .iter()
             .map(|(_, alloc)| alloc)
             .filter(|alloc| alloc.num_bytes() > 32)
