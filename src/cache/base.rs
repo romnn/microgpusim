@@ -204,7 +204,7 @@ where
         // }
         log::debug!(
             "{}::baseline_cache::send_read_request({}, uid={}) (mshr_hit={}, mshr_full={}, miss_queue_full={}, addr={}, block={}, mshr_addr={})",
-            &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), fetch.addr(), block_addr, mshr_addr, 
+            &self.name, fetch, fetch.uid, mshr_hit, mshr_full, self.miss_queue_full(), fetch.addr(), block_addr, mshr_addr,
         );
 
         // dbg!(self

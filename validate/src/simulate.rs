@@ -14,7 +14,12 @@ use utils::fs::create_dirs;
 pub fn simulate_bench_config(
     bench: &BenchmarkConfig,
 ) -> Result<(config::GTX1080, Duration), RunError> {
-    let TargetBenchmarkConfig::Simulate { ref traces_dir, l2_prefill, .. } = bench.target_config else {
+    let TargetBenchmarkConfig::Simulate {
+        ref traces_dir,
+        l2_prefill,
+        ..
+    } = bench.target_config
+    else {
         unreachable!();
     };
 
@@ -245,7 +250,19 @@ pub mod exec {
         _sim_options: &options::Sim,
         _bar: &indicatif::ProgressBar,
     ) -> Result<Duration, RunError> {
-        let (TargetBenchmarkConfig::Simulate { ref stats_dir, parallel, l2_prefill, .. } | TargetBenchmarkConfig::ExecDrivenSimulate { ref stats_dir, parallel, l2_prefill, .. }) = bench.target_config else {
+        let (TargetBenchmarkConfig::Simulate {
+            ref stats_dir,
+            parallel,
+            l2_prefill,
+            ..
+        }
+        | TargetBenchmarkConfig::ExecDrivenSimulate {
+            ref stats_dir,
+            parallel,
+            l2_prefill,
+            ..
+        }) = bench.target_config
+        else {
             unreachable!();
         };
         if options.clean {

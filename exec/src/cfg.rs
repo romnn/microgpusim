@@ -356,7 +356,7 @@ where
     use std::collections::HashSet;
     let mut added = 0;
     for node_idx in graph.node_indices() {
-        let Node::Branch{id, branch_id} = graph[node_idx] else {
+        let Node::Branch { id, branch_id } = graph[node_idx] else {
             continue;
         };
         let edges: HashSet<bool> = graph

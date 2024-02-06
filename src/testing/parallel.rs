@@ -142,11 +142,7 @@ pub fn test_against_playground(bench_config: &BenchmarkConfig) -> eyre::Result<(
 
 pub fn test_against_serial(bench_config: &BenchmarkConfig) -> eyre::Result<()> {
     use std::time::Duration;
-    let TargetBenchmarkConfig::Simulate {
-        ref traces_dir,
-        ..
-    } = bench_config.target_config
-    else {
+    let TargetBenchmarkConfig::Simulate { ref traces_dir, .. } = bench_config.target_config else {
         unreachable!();
     };
 

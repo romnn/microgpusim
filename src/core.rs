@@ -1122,7 +1122,7 @@ where
             if should_fetch_instruction {
                 debug_assert!(warp.current_instr().is_some());
                 let Some(instr) = warp.current_instr() else {
-                // if warp.current_instr().is_none() {
+                    // if warp.current_instr().is_none() {
                     // warp.hardware_done() && pending_writes.is_empty() && !warp.done_exit()
                     // dbg!(&warp);
                     // dbg!(&warp.active_mask.to_bit_string());
@@ -1861,7 +1861,8 @@ impl<I, MC> Core<I, MC>
                     .filter(|&num_threads_in_block| *num_threads_in_block > 0)
                     .count()
             );
-            let Some(free_block_hw_id) = self.active_threads_per_hardware_block[0..max_blocks_per_core]
+            let Some(free_block_hw_id) = self.active_threads_per_hardware_block
+                [0..max_blocks_per_core]
                 .iter()
                 .position(|num_threads| *num_threads == 0)
             else {
@@ -2287,7 +2288,7 @@ impl<I, MC> Core<I, MC>
         );
 
         // let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
-        let InstructionFetchBufferState::Valid { warp_id} = self.instr_fetch_buffer_state else {
+        let InstructionFetchBufferState::Valid { warp_id } = self.instr_fetch_buffer_state else {
             return;
         };
         // if !valid {

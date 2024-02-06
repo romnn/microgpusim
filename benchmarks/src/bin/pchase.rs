@@ -211,11 +211,12 @@ where
 
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
-    for cluster in &sim.clusters {
-        for core in &cluster.cores {
-            core.write().fetch_return_callback = Some(fetch_return_callback.clone());
+    for cluster in sim.clusters.iter() {
+        for core in cluster.cores.iter() {
+            let mut core = core.try_lock();
+            core.fetch_return_callback = Some(fetch_return_callback.clone());
             // core.write().load_store_unit.lock().l1_access_callback =
-            core.write().load_store_unit.l1_access_callback = Some(l1_access_callback.clone());
+            core.load_store_unit.l1_access_callback = Some(l1_access_callback.clone());
         }
     }
 
@@ -241,7 +242,7 @@ where
         .to_lowercase()
         == "yes";
 
-    sim.add_commands(commands_path, traces_dir)?;
+    sim.trace.add_commands(commands_path, traces_dir)?;
     sim.run()?;
 
     // for cluster in &sim.clusters {

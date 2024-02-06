@@ -377,7 +377,7 @@ where
                     .iter()
                     .all(|sub_id| *sub_id == self.global_id),
                 "breakdown {} (sub partition {}) to sectors: sub partition {} has got requests for sub partitions {:?}",
-                original_fetch, original_fetch.sub_partition_id(), 
+                original_fetch, original_fetch.sub_partition_id(),
                 self.global_id,
                 sector_sub_partitions,
             );

@@ -47,7 +47,7 @@ pub fn run(options: Options) -> eyre::Result<()> {
                 return Ok(());
             }
             let [left_config_path, right_config_path] = &configs[..] else {
-            // if configs.len() != 2 {
+                // if configs.len() != 2 {
                 eyre::bail!(
                     "can only compare exactly two configuration files, got {}",
                     configs.len(),

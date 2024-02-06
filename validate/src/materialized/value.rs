@@ -42,9 +42,11 @@ pub(crate) fn flatten(value: serde_yaml::Value, sort: bool) -> Vec<PrimitiveValu
         Value::Mapping(v) => {
             let mut out = Vec::new();
             let mut items: Vec<_> = v.clone().into_iter().collect();
-            if sort && items
+            if sort
+                && items
                     .try_sort_by_key(|(key, _value)| Some(OrderedValue(key.clone())))
-                    .is_err() {
+                    .is_err()
+            {
                 // undo
                 items = v.into_iter().collect();
             }
