@@ -1,7 +1,6 @@
 use super::{config, fifo::Fifo, interconn as ic, mem_fetch, Core};
 use crate::sync::{atomic, Arc, Mutex, RwLock};
 use console::style;
-use crossbeam::utils::CachePadded;
 use ic::SharedConnection;
 use std::collections::VecDeque;
 
@@ -31,7 +30,7 @@ pub type ResponseQueue = ic::shared::UnboundedChannel<ic::Packet<mem_fetch::MemF
 pub struct Cluster<I, MC> {
     pub cluster_id: usize,
 
-    // pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+    // pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
     // pub cores: Vec<Arc<RwLock<Core<I, MC>>>>,
     // pub cores: Vec<Core<I, MC>>>,
     // pub cores: Box<[Core<I, MC>]>,
@@ -66,7 +65,7 @@ where
 {
     pub fn new(
         cluster_id: usize,
-        warp_instruction_unique_uid: &Arc<CachePadded<atomic::AtomicU64>>,
+        warp_instruction_unique_uid: &Arc<atomic::AtomicU64>,
         allocations: &Arc<super::allocation::Allocations>,
         interconn: &Arc<I>,
         config: &Arc<config::GPU>,
@@ -340,13 +339,15 @@ where
 
     #[tracing::instrument(name = "cluster_issue_block_to_core")]
     // pub fn issue_block_to_core(&mut self, sim: &mut Simulator<I, MC>, cycle: u64) -> usize
-    pub fn issue_block_to_core_deterministic(
+    pub fn issue_block_to_core_deterministic<K>(
         &mut self,
-        kernel_manager: &mut dyn crate::kernel_manager::SelectKernel,
+        kernel_manager: &mut K,
+        // kernel_manager: &mut dyn crate::kernel_manager::SelectKernel,
         cycle: u64,
     ) -> usize
     where
         MC: std::fmt::Debug + crate::mcu::MemoryController,
+        K: crate::kernel_manager::SelectKernel,
     {
         let num_cores = self.cores.len();
 

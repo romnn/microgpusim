@@ -4,13 +4,13 @@ use std::collections::HashSet;
 /// Scoreboard access.
 ///
 /// The scoreboard keeps track of registers used by warps inside an SM.
-pub trait Access<I>: Sync + Send + 'static {
+pub trait Access: Sync + Send + 'static {
     /// Checks to see if registers used by an instruction are reserved in the scoreboard
     ///
     /// # Returns
     /// `true` if WAW or RAW hazard (no WAR since in-order issue)
     #[must_use]
-    fn has_collision(&self, warp_id: usize, instr: &I) -> bool;
+    fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool;
 
     /// Get all pending writes for a warp.
     #[must_use]
@@ -20,13 +20,13 @@ pub trait Access<I>: Sync + Send + 'static {
     fn release(&mut self, warp_id: usize, reg_num: u32);
 
     /// Release all output registers for an instruction.
-    fn release_all(&mut self, instr: &I);
+    fn release_all(&mut self, instr: &WarpInstruction);
 
     /// Reserve a register for a warp.
     fn reserve(&mut self, warp_id: usize, reg_num: u32);
 
     /// Reserve all output registers for an instruction.
-    fn reserve_all(&mut self, instr: &I);
+    fn reserve_all(&mut self, instr: &WarpInstruction);
 }
 
 /// Scoreboard configuration.
@@ -65,7 +65,7 @@ impl Scoreboard {
     }
 }
 
-impl Access<WarpInstruction> for Scoreboard {
+impl Access for Scoreboard {
     // #[inline]
     fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         use itertools::Itertools;

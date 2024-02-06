@@ -155,7 +155,7 @@ where
 #[allow(clippy::module_name_repetitions)]
 pub struct DataL2<MC> {
     pub cache_config: Arc<config::L2DCache>,
-    pub inner: super::data::Data<MC, L2DataCacheController<MC>, stats::cache::PerKernel>,
+    pub inner: super::data::Data<MC, L2DataCacheController<MC>>,
 }
 
 impl<MC> DataL2<MC>
@@ -174,12 +174,10 @@ where
             mem_controller.clone(),
             config.accelsim_compat,
         );
-        let stats = stats::cache::PerKernel::default();
         let inner = super::data::Builder {
             name,
             id: sub_partition_id,
             kind: cache::base::Kind::OffChip,
-            stats,
             config,
             cache_controller,
             mem_controller,
@@ -208,7 +206,7 @@ impl<MC> DataL2<MC> {
 //     }
 // }
 
-impl<MC> super::Cache<stats::cache::PerKernel> for DataL2<MC>
+impl<MC> super::Cache for DataL2<MC>
 where
     MC: crate::mcu::MemoryController,
 {
@@ -227,15 +225,6 @@ where
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    // #[inline]
-    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
-        &self.inner.inner.stats
-    }
-
-    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
-        &mut self.inner.inner.stats
     }
 
     fn controller(&self) -> &dyn cache::CacheController {
@@ -323,6 +312,16 @@ where
 
     fn num_total_lines(&self) -> usize {
         self.inner.inner.tag_array.num_total_lines()
+    }
+}
+
+impl<MC> cache::ComputeStats for DataL2<MC> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
+        &self.inner.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.inner.stats
     }
 }
 

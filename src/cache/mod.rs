@@ -135,7 +135,7 @@ pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStat
 }
 
 // pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
-pub trait Cache<S>: Send + Sync + Bandwidth + 'static {
+pub trait Cache: Send + Sync + Bandwidth + 'static {
     fn cycle(
         &mut self,
         top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
@@ -147,13 +147,6 @@ pub trait Cache<S>: Send + Sync + Bandwidth + 'static {
 
     /// Get top port
     // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>;
-
-    /// Per-kenrel cache statistics.
-    fn per_kernel_stats(&self) -> &S;
-
-    /// Per-kenrel cache statistics.
-    fn per_kernel_stats_mut(&mut self) -> &mut S;
-    // fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
 
     /// Cache controller
     fn controller(&self) -> &dyn CacheController;
@@ -234,4 +227,13 @@ pub trait Bandwidth {
     fn has_free_data_port(&self) -> bool;
 
     fn has_free_fill_port(&self) -> bool;
+}
+
+pub trait ComputeStats {
+    /// Per-kenrel cache statistics.
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel;
+
+    /// Per-kenrel cache statistics.
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel;
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
 }

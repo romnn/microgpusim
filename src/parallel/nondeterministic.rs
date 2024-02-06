@@ -765,7 +765,7 @@ where
 
                 cycle += run_ahead * fanout;
 
-                // self.flush_caches(cycle);
+                self.flush_caches(cycle);
 
                 // for i in 0..run_ahead * fanout {
                 //     crate::timeit!(

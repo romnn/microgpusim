@@ -145,7 +145,7 @@ impl Base {
 
     #[tracing::instrument(name = "scheduler_issue")]
     #[must_use]
-    // #[inline]
+    #[inline]
     fn issue<I>(
         &self,
         warp: &mut warp::Warp,
@@ -176,7 +176,7 @@ impl Base {
         }
     }
 
-    // fn issue_to<const N: usize>(
+    #[inline]
     fn issue_to<'a, I>(
         &mut self,
         core: &mut I,

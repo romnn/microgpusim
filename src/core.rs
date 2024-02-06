@@ -1,7 +1,7 @@
 use crate::{
     address,
     barrier,
-    cache,
+    cache::{self, Cache, ComputeStats},
     config,
     // fifo::Fifo,
     func_unit as fu,
@@ -25,7 +25,6 @@ use barrier::Barrier;
 use bitvec::{array::BitArray, BitArr};
 use color_eyre::eyre;
 use console::style;
-use crossbeam::utils::CachePadded;
 use ic::SharedConnection;
 use mem_fetch::access::Kind as AccessKind;
 use register_set::Access as RegisterSetAccess;
@@ -126,7 +125,7 @@ pub trait WarpIssuer: std::fmt::Debug {
 pub struct CoreIssuer<'a, S> {
     pub config: &'a config::GPU,
     pub pipeline_reg: &'a mut [register_set::RegisterSet],
-    pub warp_instruction_unique_uid: &'a CachePadded<atomic::AtomicU64>,
+    pub warp_instruction_unique_uid: &'a atomic::AtomicU64,
     pub allocations: &'a super::allocation::Allocations,
     pub global_core_id: usize,
     pub thread_block_size: usize,
@@ -146,8 +145,9 @@ impl<'a, S> std::fmt::Debug for CoreIssuer<'a, S> {
 // impl<'a> WarpIssuer for CoreIssuer<'a> {
 impl<'a, S> WarpIssuer for CoreIssuer<'a, S>
 where
-    S: scoreboard::Access<WarpInstruction>,
+    S: scoreboard::Access,
 {
+    #[inline]
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
         let pipeline_stage = &self.pipeline_reg[stage as usize];
@@ -163,11 +163,13 @@ where
         }
     }
 
+    #[inline]
     fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         self.scoreboard.has_collision(warp_id, instr)
     }
 
     #[tracing::instrument(name = "core_issue_warp")]
+    #[inline]
     fn issue_warp(
         &mut self,
         stage: PipelineStage,
@@ -256,35 +258,47 @@ where
 
         // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
-            if let Some(accesses) =
-                pipe_reg_mut.generate_mem_accesses(&self.config, &self.allocations)
-            {
-                for access in accesses {
-                    if let AccessKind::LOCAL_ACC_W | AccessKind::LOCAL_ACC_R = access.kind {
-                        panic!("have local access!");
-                    }
-                    if matches!(
-                        access.kind,
-                        AccessKind::L1_WRBK_ACC
-                            | AccessKind::L2_WRBK_ACC
-                            | AccessKind::INST_ACC_R
-                            | AccessKind::L1_WR_ALLOC_R
-                            | AccessKind::L2_WR_ALLOC_R
-                    ) {
-                        panic!(
-                            "generated {:?} access from instruction {}",
-                            &access.kind, &pipe_reg_mut
-                        );
-                    }
+            // let accesses = crate::timeit!(
+            crate::timeit!(
+                "core::issue::generate_mem_accesses",
+                pipe_reg_mut.generate_mem_accesses(
+                    // &mut pipe_reg_mut.mem_access_queue,
+                    &self.config,
+                    &self.allocations
+                )
+            );
+            // pipe_reg_mut.mem_access_queue.extend(accesses.into_iter());
 
-                    log::trace!(
-                        "generate_mem_accesses: adding access {} to instruction {}",
-                        &access,
-                        &pipe_reg_mut
-                    );
-                    pipe_reg_mut.mem_access_queue.push_back(access);
-                }
-            }
+            // if let Some(accesses) = crate::timeit!(
+            //     "core::issue::generate_mem_accesses",
+            //     pipe_reg_mut.generate_mem_accesses(&self.config, &self.allocations)
+            // ) {
+            //     for access in accesses {
+            //         if let AccessKind::LOCAL_ACC_W | AccessKind::LOCAL_ACC_R = access.kind {
+            //             panic!("have local access!");
+            //         }
+            //         if matches!(
+            //             access.kind,
+            //             AccessKind::L1_WRBK_ACC
+            //                 | AccessKind::L2_WRBK_ACC
+            //                 | AccessKind::INST_ACC_R
+            //                 | AccessKind::L1_WR_ALLOC_R
+            //                 | AccessKind::L2_WR_ALLOC_R
+            //         ) {
+            //             panic!(
+            //                 "generated {:?} access from instruction {}",
+            //                 &access.kind, &pipe_reg_mut
+            //             );
+            //         }
+            //
+            //         log::trace!(
+            //             "generate_mem_accesses: adding access {} to instruction {}",
+            //             &access,
+            //             &pipe_reg_mut
+            //         );
+            //         pipe_reg_mut.mem_access_queue.push_back(access);
+            //     }
+            // }
 
             log::trace!(
                 "generated mem accesses: {:?}",
@@ -564,7 +578,7 @@ pub struct Core<I, MC> {
 
     // per core unique warp id
     pub dynamic_warp_id: usize,
-    pub warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+    pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
 
     // pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
     // pub load_store_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
@@ -577,7 +591,8 @@ pub struct Core<I, MC> {
 
     // memory and caches
     pub allocations: Arc<super::allocation::Allocations>,
-    pub instr_l1_cache: Box<dyn cache::Cache<stats::cache::PerKernel>>,
+    pub instr_l1_cache: cache::ReadOnly,
+    // pub instr_l1_cache: Box<dyn cache::Cache>,
     pub load_store_unit: fu::LoadStoreUnit<MC>,
     pub mem_port: CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>,
 
@@ -622,7 +637,7 @@ where
         instr_fetch_response_queue: super::cluster::ResponseQueue,
         load_store_response_queue: super::cluster::ResponseQueue,
         allocations: Arc<super::allocation::Allocations>,
-        warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+        warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
         interconn: Arc<I>,
         config: Arc<config::GPU>,
         mem_controller: Arc<MC>,
@@ -668,7 +683,7 @@ where
             config.accelsim_compat,
         );
         // instr_l1_cache.set_top_port(mem_port.clone());
-        let instr_l1_cache = Box::new(instr_l1_cache);
+        // let instr_l1_cache = Box::new(instr_l1_cache);
 
         debug_assert_eq!(config.max_warps_per_core(), warps.len());
         let scoreboard = scoreboard::Scoreboard::new(&scoreboard::Config {
@@ -859,183 +874,67 @@ where
             fetch_return_callback: None,
         }
     }
+}
 
-    pub fn max_warps_per_core(&self) -> usize {
-        debug_assert_eq!(self.config.max_warps_per_core(), self.warps.len());
-        self.warps.len()
+impl<I, MC> Core<I, MC>
+where
+    MC: crate::mcu::MemoryController,
+{
+    fn fetch_instruction_from_instruction_cache<C>(
+        instr: &WarpInstruction,
+        inst_cache: &mut C,
+        // inst_cache: &mut dyn cache::Cache,
+        mem_controller: &MC,
+        // mem_controller: &dyn crate::mcu::MemoryController,
+        global_core_id: usize,
+        cluster_id: usize,
+        cycle: u64,
+    ) -> cache::RequestStatus
+    where
+        C: cache::Cache,
+    {
+        let pc = instr.pc;
+        let ppc = pc + crate::PROGRAM_MEM_START;
+
+        let mut num_bytes = 16;
+        let line_size = inst_cache.line_size();
+        let offset_in_block = pc & (line_size - 1);
+        if offset_in_block + num_bytes > line_size {
+            num_bytes = line_size - offset_in_block;
+        }
+        let inst_alloc = &*crate::PROGRAM_MEM_ALLOC;
+        let access = mem_fetch::access::Builder {
+            kind: AccessKind::INST_ACC_R,
+            addr: ppc as u64,
+            kernel_launch_id: Some(instr.kernel_launch_id),
+            allocation: Some(inst_alloc.clone()),
+            req_size_bytes: num_bytes as u32,
+            is_write: false,
+            warp_active_mask: instr.active_mask,
+            // warp_active_mask: warp::ActiveMask::all_ones(),
+            // we dont need to set the sector and bit
+            // masks, because they will be computed
+            // when inserted into the memory sub partition
+            byte_mask: !mem_fetch::ByteMask::ZERO,
+            sector_mask: !mem_fetch::SectorMask::ZERO,
+        }
+        .build();
+
+        let physical_addr = mem_controller.to_physical_address(access.addr);
+
+        let fetch = mem_fetch::Builder {
+            instr: None,
+            access,
+            warp_id: instr.warp_id,
+            global_core_id: Some(global_core_id),
+            cluster_id: Some(cluster_id),
+            physical_addr,
+        }
+        .build();
+
+        let mut events = Vec::new();
+        inst_cache.access(ppc as address, fetch.clone(), &mut events, cycle)
     }
-
-    pub fn stats(&self) -> stats::PerKernel {
-        let mut stats = self.stats.clone();
-
-        // add l1i stats
-        let l1i = self.instr_l1_cache.per_kernel_stats().clone();
-        for (kernel_launch_id, cache_stats) in l1i.into_iter().enumerate() {
-            let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-            kernel_stats.l1i_stats[self.global_core_id] += cache_stats.clone();
-        }
-
-        // add l1d stats
-        if let Some(ref l1d) = self.load_store_unit.data_l1 {
-            let l1d = l1d.per_kernel_stats().clone();
-            for (kernel_launch_id, cache_stats) in l1d.into_iter().enumerate() {
-                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-                kernel_stats.l1d_stats[self.global_core_id] += cache_stats.clone();
-            }
-        }
-
-        // stats += self.mem_port.lock().stats.clone();
-        stats += self.mem_port.stats.clone();
-        stats
-    }
-
-    #[tracing::instrument]
-    fn fetch(&mut self, cycle: u64) {
-        // if log::log_enabled!(log::Level::Debug) {
-        //     log::debug!(
-        //         "{}",
-        //         style(format!(
-        //             "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
-        //             cycle,
-        //             self.id(),
-        //             self.instr_fetch_buffer.valid,
-        //             self.instr_l1_cache
-        //                 .ready_accesses()
-        //                 .cloned()
-        //                 .unwrap_or_default()
-        //                 .iter()
-        //                 .map(std::string::ToString::to_string)
-        //                 .collect::<Vec<_>>(),
-        //         ))
-        //         .green()
-        //     );
-        // }
-
-        if !self.instr_fetch_buffer_state.is_valid() {
-            if let Some(fetch) = self.instr_l1_cache.next_access() {
-                let warp = &mut self.warps[fetch.warp_id];
-                warp.has_imiss_pending = false;
-
-                self.instr_fetch_buffer_state.set_valid(fetch.warp_id);
-
-                // verify that we got the instruction we were expecting.
-                debug_assert_eq!(
-                    warp.pc(),
-                    Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
-                );
-
-                // self.instr_fetch_buffer.valid = true;
-                // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
-            } else {
-                self.find_active_warp_and_fetch_instructions(cycle);
-            }
-        }
-        if !self.config.perfect_inst_const_cache {
-            // let mem_port = self.mem_port.try_lock();
-            crate::timeit!(
-                "core::fetch::l1i::cycle",
-                self.instr_l1_cache.cycle(&mut self.mem_port, cycle)
-            );
-        }
-    }
-
-    // fn check_for_completed_threads(&mut self, warp_id: usize) {
-    //     let warp = &self.warps[warp_id];
-    //
-    //     #[cfg(debug_assertions)]
-    //     if warp.warp_id != u32::MAX as usize {
-    //         debug_assert_eq!(warp.warp_id, warp_id);
-    //     }
-    //
-    //     let kernel_id = warp.kernel_id;
-    //     let block_hw_id = warp.block_id as usize;
-    //     debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len());
-    //
-    //     // todo: how expensive are arc clones?
-    //     // let kernel = warp.kernel.as_ref().map(Arc::clone);
-    //
-    //     let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
-    //
-    //     let warp_completed = warp.hardware_done() && !has_pending_writes && !warp.done_exit();
-    //
-    //     // check if this warp has finished executing and can be reclaimed.
-    //
-    //     // let mut did_exit = false;
-    //     if warp_completed {
-    //         log::debug!("\tchecking if warp_id = {} did complete", warp_id);
-    //
-    //         // let warp_thread_states = &self.thread_state
-    //         //     [warp_id * self.config.warp_size..(warp_id + 1) * self.config.warp_size];
-    //
-    //         let start_tid = warp_id * self.config.warp_size;
-    //         // for thread_state in warp_thread_states.iter_mut() {
-    //         for tid in start_tid..start_tid + self.config.warp_size {
-    //             todo!();
-    //
-    //             let Some(state) = &mut self.thread_state[tid] else {
-    //                     continue;
-    //                 };
-    //             if state.active {
-    //                 state.active = false;
-    //                 //     log::debug!(
-    //                 //     "thread {} of hw block {} completed ({} active in core, {} active in block {})",
-    //                 //     tid,
-    //                 //     block_hw_id,
-    //                 //     self.active_thread_mask.count_ones() - 1,
-    //                 //     self.active_threads_per_hardware_block[block_hw_id],
-    //                 //     block_hw_id,
-    //                 // );
-    //                 self.num_active_threads -= 1;
-    //                 self.active_thread_mask.set(tid, false);
-    //
-    //                 let warp = &mut self.warps[warp_id];
-    //                 warp.done_exit = true;
-    //
-    //                 crate::timeit!(
-    //                     "core::fetch::thread_exited",
-    //                     self.register_thread_in_block_exited(block_hw_id, kernel_id)
-    //                 );
-    //
-    //                 // did_exit = true;
-    //             }
-    //         }
-    //
-    //         // for t in 0..self.config.warp_size {
-    //         //     let tid = warp_id * self.config.warp_size + t;
-    //         //
-    //         //     // todo: remove options from this
-    //         //     let Some(ref mut state) = self.thread_state[tid] else {
-    //         //         continue;
-    //         //     };
-    //         //     if !state.active {
-    //         //         continue;
-    //         //     }
-    //         //     // if let Some(Some(state)) = self.thread_state.get_mut(tid) {
-    //         //     // if state.active {
-    //         //     state.active = false;
-    //         //
-    //         //     log::debug!(
-    //         //         "thread {} of hw block {} completed ({} active in core, {} active in block {})",
-    //         //         tid,
-    //         //         block_hw_id,
-    //         //         self.active_thread_mask.count_ones() - 1,
-    //         //         self.active_threads_per_hardware_block[block_hw_id],
-    //         //         block_hw_id,
-    //         //     );
-    //         //     crate::timeit!(
-    //         //         "core::fetch::thread_exited",
-    //         //         self.register_thread_in_block_exited(block_hw_id, kernel_id)
-    //         //     );
-    //         //
-    //         //     self.num_active_threads -= 1;
-    //         //     self.active_thread_mask.set(tid, false);
-    //         //     did_exit = true;
-    //         //     // }
-    //         //     // }
-    //         // }
-    //         self.num_active_warps -= 1;
-    //     }
-    // }
 
     fn find_active_warp_and_fetch_instructions(&mut self, cycle: u64) {
         let max_warps = self.max_warps_per_core() as usize;
@@ -1258,8 +1157,8 @@ where
                         "core::fetch::fetch_from_l1i",
                         Self::fetch_instruction_from_instruction_cache(
                             instr,
-                            &mut *self.instr_l1_cache,
-                            &*self.mem_controller,
+                            &mut self.instr_l1_cache,
+                            &self.mem_controller,
                             self.global_core_id,
                             self.cluster_id,
                             cycle,
@@ -1287,55 +1186,54 @@ where
         // dbg!(&num_checked);
     }
 
-    fn fetch_instruction_from_instruction_cache(
-        instr: &WarpInstruction,
-        inst_cache: &mut dyn cache::Cache<stats::cache::PerKernel>,
-        mem_controller: &dyn crate::mcu::MemoryController,
-        global_core_id: usize,
-        cluster_id: usize,
-        cycle: u64,
-    ) -> cache::RequestStatus {
-        let pc = instr.pc;
-        let ppc = pc + crate::PROGRAM_MEM_START;
+    #[tracing::instrument]
+    fn fetch(&mut self, cycle: u64) {
+        // if log::log_enabled!(log::Level::Debug) {
+        //     log::debug!(
+        //         "{}",
+        //         style(format!(
+        //             "cycle {:03} core {:?}: fetch (fetch buffer valid={}, l1i ready={:?})",
+        //             cycle,
+        //             self.id(),
+        //             self.instr_fetch_buffer.valid,
+        //             self.instr_l1_cache
+        //                 .ready_accesses()
+        //                 .cloned()
+        //                 .unwrap_or_default()
+        //                 .iter()
+        //                 .map(std::string::ToString::to_string)
+        //                 .collect::<Vec<_>>(),
+        //         ))
+        //         .green()
+        //     );
+        // }
 
-        let mut num_bytes = 16;
-        let line_size = inst_cache.line_size();
-        let offset_in_block = pc & (line_size - 1);
-        if offset_in_block + num_bytes > line_size {
-            num_bytes = line_size - offset_in_block;
+        if !self.instr_fetch_buffer_state.is_valid() {
+            if let Some(fetch) = self.instr_l1_cache.next_access() {
+                let warp = &mut self.warps[fetch.warp_id];
+                warp.has_imiss_pending = false;
+
+                self.instr_fetch_buffer_state.set_valid(fetch.warp_id);
+
+                // verify that we got the instruction we were expecting.
+                debug_assert_eq!(
+                    warp.pc(),
+                    Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
+                );
+
+                // self.instr_fetch_buffer.valid = true;
+                // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
+            } else {
+                self.find_active_warp_and_fetch_instructions(cycle);
+            }
         }
-        let inst_alloc = &*crate::PROGRAM_MEM_ALLOC;
-        let access = mem_fetch::access::Builder {
-            kind: AccessKind::INST_ACC_R,
-            addr: ppc as u64,
-            kernel_launch_id: Some(instr.kernel_launch_id),
-            allocation: Some(inst_alloc.clone()),
-            req_size_bytes: num_bytes as u32,
-            is_write: false,
-            warp_active_mask: instr.active_mask,
-            // warp_active_mask: warp::ActiveMask::all_ones(),
-            // we dont need to set the sector and bit
-            // masks, because they will be computed
-            // when inserted into the memory sub partition
-            byte_mask: !mem_fetch::ByteMask::ZERO,
-            sector_mask: !mem_fetch::SectorMask::ZERO,
+        if !self.config.perfect_inst_const_cache {
+            // let mem_port = self.mem_port.try_lock();
+            crate::timeit!(
+                "core::fetch::l1i::cycle",
+                self.instr_l1_cache.cycle(&mut self.mem_port, cycle)
+            );
         }
-        .build();
-
-        let physical_addr = mem_controller.to_physical_address(access.addr);
-
-        let fetch = mem_fetch::Builder {
-            instr: None,
-            access,
-            warp_id: instr.warp_id,
-            global_core_id: Some(global_core_id),
-            cluster_id: Some(cluster_id),
-            physical_addr,
-        }
-        .build();
-
-        let mut events = Vec::new();
-        inst_cache.access(ppc as address, fetch.clone(), &mut events, cycle)
     }
 
     #[tracing::instrument]
@@ -1470,6 +1368,139 @@ where
     }
 }
 
+impl<I, MC> Core<I, MC>
+// where
+//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+//     MC: crate::mcu::MemoryController,
+{
+    pub fn max_warps_per_core(&self) -> usize {
+        debug_assert_eq!(self.config.max_warps_per_core(), self.warps.len());
+        self.warps.len()
+    }
+
+    pub fn stats(&self) -> stats::PerKernel {
+        let mut stats = self.stats.clone();
+
+        // add l1i stats
+        let l1i = self.instr_l1_cache.per_kernel_stats().clone();
+        for (kernel_launch_id, cache_stats) in l1i.into_iter().enumerate() {
+            let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+            kernel_stats.l1i_stats[self.global_core_id] += cache_stats.clone();
+        }
+
+        // add l1d stats
+        if let Some(ref l1d) = self.load_store_unit.data_l1 {
+            let l1d = l1d.per_kernel_stats().clone();
+            for (kernel_launch_id, cache_stats) in l1d.into_iter().enumerate() {
+                let kernel_stats = stats.get_mut(Some(kernel_launch_id));
+                kernel_stats.l1d_stats[self.global_core_id] += cache_stats.clone();
+            }
+        }
+
+        // stats += self.mem_port.lock().stats.clone();
+        stats += self.mem_port.stats.clone();
+        stats
+    }
+
+    // fn check_for_completed_threads(&mut self, warp_id: usize) {
+    //     let warp = &self.warps[warp_id];
+    //
+    //     #[cfg(debug_assertions)]
+    //     if warp.warp_id != u32::MAX as usize {
+    //         debug_assert_eq!(warp.warp_id, warp_id);
+    //     }
+    //
+    //     let kernel_id = warp.kernel_id;
+    //     let block_hw_id = warp.block_id as usize;
+    //     debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len());
+    //
+    //     // todo: how expensive are arc clones?
+    //     // let kernel = warp.kernel.as_ref().map(Arc::clone);
+    //
+    //     let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
+    //
+    //     let warp_completed = warp.hardware_done() && !has_pending_writes && !warp.done_exit();
+    //
+    //     // check if this warp has finished executing and can be reclaimed.
+    //
+    //     // let mut did_exit = false;
+    //     if warp_completed {
+    //         log::debug!("\tchecking if warp_id = {} did complete", warp_id);
+    //
+    //         // let warp_thread_states = &self.thread_state
+    //         //     [warp_id * self.config.warp_size..(warp_id + 1) * self.config.warp_size];
+    //
+    //         let start_tid = warp_id * self.config.warp_size;
+    //         // for thread_state in warp_thread_states.iter_mut() {
+    //         for tid in start_tid..start_tid + self.config.warp_size {
+    //             todo!();
+    //
+    //             let Some(state) = &mut self.thread_state[tid] else {
+    //                     continue;
+    //                 };
+    //             if state.active {
+    //                 state.active = false;
+    //                 //     log::debug!(
+    //                 //     "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+    //                 //     tid,
+    //                 //     block_hw_id,
+    //                 //     self.active_thread_mask.count_ones() - 1,
+    //                 //     self.active_threads_per_hardware_block[block_hw_id],
+    //                 //     block_hw_id,
+    //                 // );
+    //                 self.num_active_threads -= 1;
+    //                 self.active_thread_mask.set(tid, false);
+    //
+    //                 let warp = &mut self.warps[warp_id];
+    //                 warp.done_exit = true;
+    //
+    //                 crate::timeit!(
+    //                     "core::fetch::thread_exited",
+    //                     self.register_thread_in_block_exited(block_hw_id, kernel_id)
+    //                 );
+    //
+    //                 // did_exit = true;
+    //             }
+    //         }
+    //
+    //         // for t in 0..self.config.warp_size {
+    //         //     let tid = warp_id * self.config.warp_size + t;
+    //         //
+    //         //     // todo: remove options from this
+    //         //     let Some(ref mut state) = self.thread_state[tid] else {
+    //         //         continue;
+    //         //     };
+    //         //     if !state.active {
+    //         //         continue;
+    //         //     }
+    //         //     // if let Some(Some(state)) = self.thread_state.get_mut(tid) {
+    //         //     // if state.active {
+    //         //     state.active = false;
+    //         //
+    //         //     log::debug!(
+    //         //         "thread {} of hw block {} completed ({} active in core, {} active in block {})",
+    //         //         tid,
+    //         //         block_hw_id,
+    //         //         self.active_thread_mask.count_ones() - 1,
+    //         //         self.active_threads_per_hardware_block[block_hw_id],
+    //         //         block_hw_id,
+    //         //     );
+    //         //     crate::timeit!(
+    //         //         "core::fetch::thread_exited",
+    //         //         self.register_thread_in_block_exited(block_hw_id, kernel_id)
+    //         //     );
+    //         //
+    //         //     self.num_active_threads -= 1;
+    //         //     self.active_thread_mask.set(tid, false);
+    //         //     did_exit = true;
+    //         //     // }
+    //         //     // }
+    //         // }
+    //         self.num_active_warps -= 1;
+    //     }
+    // }
+}
+
 // Returns numbers of addresses in translated_addrs.
 //
 // Each addr points to a 4B (32-bit) word
@@ -1550,6 +1581,9 @@ pub fn translate_local_memaddr(
         let local_word = local_addr / 4;
         let local_word_offset = local_addr % 4;
         // Make sure access doesn't overflow into next 4B chunk
+        dbg!(local_addr);
+        dbg!(local_word);
+        dbg!((local_addr + u64::from(data_size) - 1) / 4);
         debug_assert_eq!((local_addr + u64::from(data_size) - 1) / 4, local_word);
         let linear_address: address = local_word * max_concurrent_threads as u64 * 4
             + local_word_offset
@@ -1562,7 +1596,7 @@ pub fn translate_local_memaddr(
 
 impl<I, MC> Core<I, MC>
 where
-    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+    MC: crate::mcu::MemoryController,
 {
     // #[inline]
     pub fn cache_flush(&mut self) {
@@ -1577,7 +1611,12 @@ where
     pub fn cache_invalidate(&mut self) {
         self.load_store_unit.invalidate();
     }
+}
 
+impl<I, MC> Core<I, MC>
+// where
+//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+{
     // // this is very bad: expose the underlying queue with a mutex
     // #[must_use]
     // // #[inline]
@@ -1679,11 +1718,16 @@ where
 
     #[tracing::instrument(name = "core_issue_block")]
     // pub fn issue_block(&mut self, kernel: &dyn Kernel, cycle: u64) {
-    pub fn maybe_issue_block(
+    // pub fn maybe_issue_block(
+    pub fn maybe_issue_block<K>(
         &mut self,
-        kernel_manager: &dyn crate::kernel_manager::SelectKernel,
+        // kernel_manager: &dyn crate::kernel_manager::SelectKernel,
+        kernel_manager: &K,
         cycle: u64,
-    ) -> bool {
+    ) -> bool
+    where
+        K: crate::kernel_manager::SelectKernel,
+    {
         if let Some(ref current_kernel) = self.current_kernel {
             // self.num_active_threads() == 0
             if !self.can_issue_block(&**current_kernel) {
@@ -1896,7 +1940,7 @@ where
         );
         let block_id = block.id();
 
-        self.active_thread_mask[start_thread..end_thread].fill(true);
+        // self.active_thread_mask[start_thread..end_thread].fill(true);
 
         let start_warp = start_thread / WARP_SIZE;
         let end_warp = end_thread / WARP_SIZE;
@@ -1948,6 +1992,8 @@ where
             num_threads_in_block
         );
 
+        // TODO: factor all this into an execution state struct so we
+        // do not lose count of where to update what and when..
         self.block_ids_per_hardware_block[free_block_hw_id] = Some(block);
         self.active_threads_per_hardware_block[free_block_hw_id] = num_threads_in_block;
         self.barriers.allocate(free_block_hw_id as u64, warps);
@@ -1973,8 +2019,8 @@ where
 }
 
 impl<I, MC> Core<I, MC>
-where
-    I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+// where
+//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
 {
     // #[inline]
     fn init_operand_collector(register_file: &mut RegisterFileUnit, config: &config::GPU) {
@@ -2459,13 +2505,18 @@ where
 
     #[tracing::instrument(name = "core_init_warps_from_traces")]
     // #[inline]
+    // fn init_warps_from_traces<R>(
     fn init_warps_from_traces(
         &mut self,
         // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
+        // reader: &mut R,
         start_warp: usize,
         end_warp: usize,
-    ) {
+    )
+    // where
+    //         R: crate::trace::ReadWarpsForBlock,
+    {
         let kernel = self.current_kernel.as_deref().unwrap();
 
         debug_assert!(!self.warps.is_empty());
@@ -2499,30 +2550,44 @@ where
         &mut self,
         // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
+        // reader: &mut R,
         block_hw_id: usize,
         block_id: u64,
         start_thread: usize,
         end_thread: usize,
-    ) {
+    )
+    // where
+    // R: crate::trace::ReadWarpsForBlock,
+    {
         // let threads_per_block = kernel.threads_per_block();
         let kernel = self.current_kernel.as_deref().unwrap();
 
         let start_warp = start_thread / self.config.warp_size;
         let end_warp = end_thread / self.config.warp_size
             + usize::from(end_thread % self.config.warp_size != 0);
+
+        self.active_thread_mask[start_thread..end_thread].fill(true);
+
+        // TODO: all this can we written more concisely, but not performance
+        // critical so left as is
         for warp_id in start_warp..end_warp {
-            let mut num_active = 0;
+            let mut num_active_threads_in_warp = 0;
 
             let mut local_active_thread_mask = warp::ActiveMask::ZERO;
             for warp_thread_id in 0..self.config.warp_size {
                 let hwtid = warp_id * self.config.warp_size + warp_thread_id;
                 if hwtid < end_thread {
-                    num_active += 1;
-                    debug_assert!(!self.active_thread_mask[hwtid]);
-                    self.active_thread_mask.set(hwtid, true);
+                    num_active_threads_in_warp += 1;
+                    // debug_assert!(!self.active_thread_mask[hwtid]);
+                    // self.active_thread_mask.set(hwtid, true);
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
+
+            debug_assert_eq!(
+                num_active_threads_in_warp,
+                local_active_thread_mask.count_ones()
+            );
 
             // crate::WIP_STATS.lock().num_warps += 1;
             // crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
@@ -2541,7 +2606,7 @@ where
 
             self.dynamic_warp_id += 1;
             self.num_active_warps += 1;
-            self.num_active_threads += num_active;
+            self.num_active_threads += num_active_threads_in_warp;
         }
 
         log::debug!(

@@ -13,14 +13,12 @@ use std::collections::VecDeque;
 use tag_array::Access;
 
 #[derive(Clone)]
-pub struct Builder<MC, CC, S> {
+pub struct Builder<MC, CC> {
     // pub struct Builder<CC, S> {
     pub name: String,
     /// SM ID or subpartition ID depending on cache type
     pub id: usize,
     pub kind: cache::base::Kind,
-    // pub stats: Arc<Mutex<S>>,
-    pub stats: S,
     // pub mem_controller: Arc<dyn mcu::MemoryController>,
     pub mem_controller: Arc<MC>,
     pub cache_controller: CC,
@@ -35,9 +33,9 @@ pub struct Builder<MC, CC, S> {
 /// The cache uses a write-evict (global) or write-back (local) policy
 /// at the granularity of individual blocks.
 /// (the policy used in fermi according to the CUDA manual)
-pub struct Data<MC, CC, S> {
+pub struct Data<MC, CC> {
     // pub struct Data<CC, S> {
-    pub inner: cache::base::Base<cache::block::sector::Block<NUM_SECTORS>, CC, S>,
+    pub inner: cache::base::Base<cache::block::sector::Block<NUM_SECTORS>, CC>,
 
     /// Memory controller
     // pub mem_controller: Arc<dyn mcu::MemoryController>,
@@ -48,16 +46,15 @@ pub struct Data<MC, CC, S> {
     write_back_type: AccessKind,
 }
 
-impl<MC, CC, S> Builder<MC, CC, S>
+impl<MC, CC> Builder<MC, CC>
 where
     CC: Clone,
 {
-    pub fn build(self) -> Data<MC, CC, S> {
+    pub fn build(self) -> Data<MC, CC> {
         let inner = super::base::Builder {
             name: self.name,
             id: self.id,
             kind: self.kind,
-            stats: self.stats,
             cache_controller: self.cache_controller,
             cache_config: self.cache_config,
             accelsim_compat: self.config.accelsim_compat,
@@ -72,7 +69,7 @@ where
     }
 }
 
-impl<MC, CC, S> Data<MC, CC, S> {
+impl<MC, CC> Data<MC, CC> {
     // impl<CC, S> Data<CC, S> {
     // #[inline]
     // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
@@ -82,7 +79,7 @@ impl<MC, CC, S> Data<MC, CC, S> {
     // }
 }
 
-impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
+impl<MC, CC> Data<MC, CC>
 // impl<CC> Data<CC, stats::cache::PerKernel>
 where
     MC: crate::mcu::MemoryController,
@@ -702,7 +699,7 @@ where
     }
 }
 
-impl<MC, CC> Data<MC, CC, stats::cache::PerKernel>
+impl<MC, CC> Data<MC, CC>
 where
     CC: cache::CacheController,
 {
@@ -957,7 +954,7 @@ where
 //     }
 // }
 
-impl<MC, CC> cache::Cache<stats::cache::PerKernel> for Data<MC, CC, stats::cache::PerKernel>
+impl<MC, CC> cache::Cache for Data<MC, CC>
 // impl<CC> cache::Cache<stats::cache::PerKernel> for Data<CC, stats::cache::PerKernel>
 where
     MC: crate::mcu::MemoryController,
@@ -978,15 +975,6 @@ where
     // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>> {
     //     self.inner.top_port.as_deref_mut()
     // }
-
-    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
-    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
-        &self.inner.stats
-    }
-
-    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
-        &mut self.inner.stats
-    }
 
     fn controller(&self) -> &dyn cache::CacheController {
         &self.inner.cache_controller
@@ -1210,7 +1198,18 @@ where
     }
 }
 
-impl<MC, CC, S> cache::Bandwidth for Data<MC, CC, S> {
+impl<MC, CC> cache::ComputeStats for Data<MC, CC> {
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
+        &self.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.stats
+    }
+}
+
+impl<MC, CC> cache::Bandwidth for Data<MC, CC> {
     // impl<CC, S> cache::Bandwidth for Data<CC, S> {
     fn has_free_data_port(&self) -> bool {
         self.inner.has_free_data_port()

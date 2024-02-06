@@ -49,6 +49,7 @@ pub mod testing;
 
 use self::core::{warp_inst_complete, Core, PipelineStage};
 use allocation::{Allocation, Allocations};
+use cache::Cache;
 use cluster::Cluster;
 pub use exec;
 use interconn as ic;
@@ -61,7 +62,6 @@ use crate::sync::{atomic, Arc, Mutex, RwLock};
 use bitvec::array::BitArray;
 use color_eyre::eyre::{self};
 use console::style;
-use crossbeam::utils::CachePadded;
 use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -336,7 +336,7 @@ pub struct Simulator<I, MC> {
     kernel_launch_window_queue: VecDeque<Arc<dyn Kernel>>,
 
     #[allow(dead_code)]
-    warp_instruction_unique_uid: Arc<CachePadded<atomic::AtomicU64>>,
+    warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
 
     interconn: Arc<I>,
 
@@ -497,7 +497,7 @@ where
         let allocations = Arc::new(Allocations::default());
         // let allocations = Arc::new(RwLock::new(allocations));
 
-        let warp_instruction_unique_uid = Arc::new(CachePadded::new(atomic::AtomicU64::new(0)));
+        let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
         let clusters = (0..config.num_simt_clusters)
             .map(|i| {
                 let cluster = Cluster::new(

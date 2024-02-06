@@ -108,9 +108,7 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
         .ok();
 
     // 8 mem controllers * 2 sub partitions = 16 (l2s_count from nsight)
-    let config = crate::config::GPU {
-        // num_simt_clusters: input.num_clusters.unwrap_or(28), // 20
-        // num_cores_per_simt_cluster: input.cores_per_cluster.unwrap_or(1),
+    let mut config = crate::config::GPU {
         // num_schedulers_per_core: 4,                  // 4
         // num_memory_controllers: 12,                  // 8
         // num_dram_chips_per_memory_controller: 1,     // 1
@@ -120,12 +118,22 @@ pub fn build_config(input: &crate::config::Input) -> eyre::Result<crate::config:
         // flush_l1_cache: false,
         // flush_l2_cache: false,
         // accelsim_compat: false,
-        memory_only: input.memory_only.unwrap_or(false),
+        // memory_only: input.memory_only.unwrap_or(false),
         parallelization,
         log_after_cycle,
         simulation_threads: input.parallelism_threads,
         ..crate::config::GPU::default()
     };
+
+    if let Some(mem_only) = input.memory_only {
+        config.memory_only = mem_only;
+    }
+    if let Some(num_clusters) = input.num_clusters {
+        config.num_simt_clusters = num_clusters;
+    }
+    if let Some(num_cores_per_cluster) = input.cores_per_cluster {
+        config.num_cores_per_simt_cluster = num_cores_per_cluster;
+    }
 
     Ok(config)
 }

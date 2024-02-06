@@ -12,7 +12,6 @@ pub struct ReadOnly {
         cache::block::Line,
         // cache::controller::pascal::DataCacheController,
         cache::controller::pascal::L1DataCacheController,
-        stats::cache::PerKernel,
     >,
 }
 
@@ -21,7 +20,6 @@ impl ReadOnly {
         id: usize,
         name: String,
         kind: cache::base::Kind,
-        // stats: Arc<Mutex<stats::cache::PerKernel>>,
         readonly_cache_config: Arc<config::Cache>,
         accelsim_compat: bool,
     ) -> Self {
@@ -39,12 +37,11 @@ impl ReadOnly {
             accelsim_compat,
         );
         // let stats = stats::cache::PerKernel::new(config.as_ref().into());
-        let stats = stats::cache::PerKernel::default();
+        // let stats = stats::cache::PerKernel::default();
         let inner = cache::base::Builder {
             name,
             id,
             kind,
-            stats,
             cache_controller,
             cache_config: readonly_cache_config,
             accelsim_compat,
@@ -65,19 +62,7 @@ impl ReadOnly {
 //     }
 // }
 
-impl cache::Bandwidth for ReadOnly {
-    // #[inline]
-    fn has_free_data_port(&self) -> bool {
-        self.inner.has_free_data_port()
-    }
-
-    // #[inline]
-    fn has_free_fill_port(&self) -> bool {
-        self.inner.has_free_data_port()
-    }
-}
-
-impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
+impl cache::Cache for ReadOnly {
     fn cycle(
         &mut self,
         top_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,
@@ -90,16 +75,6 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    // #[inline]
-    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
-    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
-        &self.inner.stats
-    }
-
-    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
-        &mut self.inner.stats
     }
 
     fn controller(&self) -> &dyn cache::CacheController {
@@ -285,6 +260,29 @@ impl cache::Cache<stats::cache::PerKernel> for ReadOnly {
 
     fn num_total_lines(&self) -> usize {
         self.inner.tag_array.num_total_lines()
+    }
+}
+
+impl cache::ComputeStats for ReadOnly {
+    // fn per_kernel_stats(&self) -> &Arc<Mutex<stats::cache::PerKernel>> {
+    fn per_kernel_stats(&self) -> &stats::cache::PerKernel {
+        &self.inner.stats
+    }
+
+    fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel {
+        &mut self.inner.stats
+    }
+}
+
+impl cache::Bandwidth for ReadOnly {
+    // #[inline]
+    fn has_free_data_port(&self) -> bool {
+        self.inner.has_free_data_port()
+    }
+
+    // #[inline]
+    fn has_free_fill_port(&self) -> bool {
+        self.inner.has_free_data_port()
     }
 }
 

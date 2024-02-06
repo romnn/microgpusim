@@ -64,7 +64,7 @@ impl ArbitrationUnit {
     }
 }
 
-pub trait Arbiter: std::fmt::Debug + Send + Sync + 'static {
+pub trait Arbitrate: std::fmt::Debug + Send + Sync + 'static {
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Check if a subpartition still has credit
@@ -82,7 +82,7 @@ pub trait Arbiter: std::fmt::Debug + Send + Sync + 'static {
     fn last_borrower(&self) -> usize;
 }
 
-impl Arbiter for ArbitrationUnit {
+impl Arbitrate for ArbitrationUnit {
     // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self

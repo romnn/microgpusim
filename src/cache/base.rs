@@ -47,7 +47,7 @@ pub enum Kind {
 /// Implements common functions for `read_only_cache` and `data_cache`
 /// Each subclass implements its own 'access' function
 #[derive()]
-pub struct Base<B, CC, S> {
+pub struct Base<B, CC> {
     /// Name of the cache
     pub name: String,
     /// ID of the cache
@@ -60,7 +60,7 @@ pub struct Base<B, CC, S> {
     // Is L1 cache
     // pub is_l1: bool,
     // pub stats: Arc<Mutex<S>>,
-    pub stats: S,
+    pub stats: stats::cache::PerKernel,
     pub cache_controller: CC,
     pub cache_config: cache::Config,
 
@@ -76,23 +76,21 @@ pub struct Base<B, CC, S> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Builder<CC, S> {
+pub struct Builder<CC> {
     pub name: String,
     pub id: usize,
     pub kind: Kind,
-    // pub stats: Arc<Mutex<S>>,
-    pub stats: S,
     pub cache_controller: CC,
     pub cache_config: Arc<config::Cache>,
     pub accelsim_compat: bool,
 }
 
-impl<CC, S> Builder<CC, S>
+impl<CC> Builder<CC>
 where
     CC: Clone,
 {
     #[must_use]
-    pub fn build<B>(self) -> Base<B, CC, S>
+    pub fn build<B>(self) -> Base<B, CC>
     where
         B: cache::block::Block,
     {
@@ -119,7 +117,8 @@ where
 
         // let is_l1 = self.name.to_uppercase().contains("L1D");
 
-        // stats::cache::PerKernel
+        let stats = stats::cache::PerKernel::default();
+
         Base {
             name: self.name,
             id: self.id,
@@ -127,8 +126,8 @@ where
             // is_l1,
             tag_array,
             mshrs,
+            stats,
             // top_port: None,
-            stats: self.stats,
             cache_config,
             cache_controller: self.cache_controller,
             bandwidth,
@@ -139,7 +138,7 @@ where
     }
 }
 
-impl<B, CC> Base<B, CC, stats::cache::PerKernel>
+impl<B, CC> Base<B, CC>
 where
     CC: cache::CacheController,
     B: cache::block::Block,
@@ -344,7 +343,7 @@ where
 }
 
 // impl<B, CC, S> crate::engine::cycle::Component for Base<B, CC, S> {
-impl<B, CC, S> Base<B, CC, S> {
+impl<B, CC> Base<B, CC> {
     /// Sends next request to top memory in the memory hierarchy.
     pub fn cycle(
         &mut self,
@@ -396,7 +395,7 @@ impl<B, CC, S> Base<B, CC, S> {
     }
 }
 
-impl<B, CC, S> Base<B, CC, S> {
+impl<B, CC> Base<B, CC> {
     /// Checks whether this request can be handled in this cycle.
     ///
     /// `n` equals the number of misses to be handled in this cycle.
@@ -453,7 +452,7 @@ impl<B, CC, S> Base<B, CC, S> {
     // }
 }
 
-impl<B, CC, S> Base<B, CC, S>
+impl<B, CC> Base<B, CC>
 where
     CC: cache::CacheController,
     B: cache::block::Block,
@@ -715,7 +714,7 @@ where
     }
 }
 
-impl<B, CC, S> super::Bandwidth for Base<B, CC, S> {
+impl<B, CC> super::Bandwidth for Base<B, CC> {
     fn has_free_data_port(&self) -> bool {
         self.bandwidth.has_free_data_port()
     }

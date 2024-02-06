@@ -1,7 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use crate::{
     address,
-    cache,
+    cache::{self, controller::pascal, Bandwidth, Cache, ComputeStats},
     config,
     core::PipelineStage,
     // fifo::Fifo,
@@ -37,7 +37,8 @@ pub struct LoadStoreUnit<MC> {
     // pub response_queue: VecDeque<MemFetch>,
     // pub response_queue: Arc<Mutex<Fifo<ic::Packet<MemFetch>>>>,
     pub response_queue: crate::cluster::ResponseQueue,
-    pub data_l1: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
+    pub data_l1: Option<cache::Data<MC, pascal::L1DataCacheController>>,
+    // pub data_l1: Option<Box<dyn cache::Cache>>,
     /// Config
     config: Arc<config::GPU>,
     /// Memory controller
@@ -72,6 +73,7 @@ pub struct LoadStoreUnit<MC> {
 }
 
 impl<MC> std::fmt::Display for LoadStoreUnit<MC> {
+    // impl<MC, CC> std::fmt::Display for LoadStoreUnit<MC, CC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.inner.name)
     }
@@ -117,8 +119,9 @@ enum MemStageStallKind {
 }
 
 impl<MC> LoadStoreUnit<MC>
-where
-    MC: mcu::MemoryController,
+// impl<MC, CC> LoadStoreUnit<MC, CC>
+// where
+//     MC: mcu::MemoryController,
 {
     pub fn new(
         id: usize,
@@ -139,43 +142,66 @@ where
         );
         debug_assert!(config.shared_memory_latency > 1);
 
-        let data_l1: Option<Box<dyn cache::Cache<_>>> =
-            if let Some(l1_config) = &config.data_cache_l1 {
-                // initialize l1 data cache
-                let cache_stats = stats::cache::PerKernel::default();
+        // let data_l1: Option<Box<dyn cache::Cache<_>>> =
+        //     if let Some(l1_config) = &config.data_cache_l1 {
+        //         // initialize l1 data cache
+        //         let cache_stats = stats::cache::PerKernel::default();
+        //
+        //         let cache_controller = cache::controller::pascal::L1DataCacheController::new(
+        //             cache::Config::new(l1_config.inner.as_ref(), config.accelsim_compat),
+        //             l1_config,
+        //             config.accelsim_compat,
+        //         );
+        //
+        //         let mut data_cache: cache::Data<MC> = cache::data::Builder {
+        //             name: format!(
+        //                 "ldst-unit-{cluster_id}-{global_core_id}-{}",
+        //                 style("L1D-CACHE").green()
+        //             ),
+        //             id,
+        //             kind: cache::base::Kind::OnChip,
+        //             // stats: cache_stats,
+        //             config: Arc::clone(&config),
+        //             mem_controller: mem_controller.clone(),
+        //             cache_controller,
+        //             cache_config: Arc::clone(&l1_config.inner),
+        //             write_alloc_type: AccessKind::L1_WR_ALLOC_R,
+        //             write_back_type: AccessKind::L1_WRBK_ACC,
+        //         }
+        //         .build();
+        //         // data_cache.set_top_port(mem_port.clone());
+        //
+        //         // Some(Box::new(data_cache))
+        //     } else {
+        //         None
+        //     };
 
-                let cache_controller = cache::controller::pascal::L1DataCacheController::new(
-                    cache::Config::new(l1_config.inner.as_ref(), config.accelsim_compat),
-                    l1_config,
-                    config.accelsim_compat,
-                );
+        let l1_config = config.data_cache_l1.as_ref().unwrap();
 
-                let mut data_cache: cache::data::Data<
-                    MC,
-                    cache::controller::pascal::L1DataCacheController,
-                    stats::cache::PerKernel,
-                > = cache::data::Builder {
-                    name: format!(
-                        "ldst-unit-{cluster_id}-{global_core_id}-{}",
-                        style("L1D-CACHE").green()
-                    ),
-                    id,
-                    kind: cache::base::Kind::OnChip,
-                    stats: cache_stats,
-                    config: Arc::clone(&config),
-                    mem_controller: mem_controller.clone(),
-                    cache_controller,
-                    cache_config: Arc::clone(&l1_config.inner),
-                    write_alloc_type: AccessKind::L1_WR_ALLOC_R,
-                    write_back_type: AccessKind::L1_WRBK_ACC,
-                }
-                .build();
-                // data_cache.set_top_port(mem_port.clone());
+        let cache_controller = pascal::L1DataCacheController::new(
+            cache::Config::new(l1_config.inner.as_ref(), config.accelsim_compat),
+            &l1_config,
+            config.accelsim_compat,
+        );
 
-                Some(Box::new(data_cache))
-            } else {
-                None
-            };
+        let data_l1: Option<cache::Data<_, _>> = Some(
+            cache::data::Builder {
+                name: format!(
+                    "ldst-unit-{cluster_id}-{global_core_id}-{}",
+                    style("L1D-CACHE").green()
+                ),
+                id,
+                kind: cache::base::Kind::OnChip,
+                // stats: cache_stats,
+                config: Arc::clone(&config),
+                mem_controller: mem_controller.clone(),
+                cache_controller,
+                cache_config: Arc::clone(&l1_config.inner),
+                write_alloc_type: AccessKind::L1_WR_ALLOC_R,
+                write_back_type: AccessKind::L1_WRBK_ACC,
+            }
+            .build(),
+        );
 
         debug_assert!(data_l1.is_some());
 
@@ -220,7 +246,13 @@ where
             l1_access_callback: None,
         }
     }
+}
 
+impl<MC> LoadStoreUnit<MC>
+// impl<MC, CC> LoadStoreUnit<MC, CC>
+where
+    MC: mcu::MemoryController,
+{
     // #[inline]
     fn memory_cycle(
         &mut self,
@@ -508,13 +540,6 @@ where
             // stall_cond
         }
     }
-}
-
-impl<MC> LoadStoreUnit<MC> {
-    // #[must_use]
-    // pub fn response_buffer_full(&self) -> bool {
-    //     self.response_queue.len() >= self.config.num_ldst_response_buffer_size
-    // }
 
     pub fn flush(&mut self) {
         if let Some(ref mut l1) = self.data_l1 {
@@ -528,20 +553,10 @@ impl<MC> LoadStoreUnit<MC> {
         }
     }
 
-    pub fn fill(&self, mut fetch: MemFetch, time: u64) {
-        fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
-        // self.response_queue.push_back(fetch);
-        self.response_queue
-            // .lock()
-            // .enqueue(ic::Packet { fetch, time });
-            .try_send(ic::Packet { fetch, time })
-            .expect("failed to send fill packet");
-    }
-
     pub fn writeback(
         &mut self,
         operand_collector: &mut dyn OperandCollector,
-        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
+        scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
         cycle: u64,
@@ -695,157 +710,9 @@ impl<MC> LoadStoreUnit<MC> {
         }
     }
 
-    #[must_use]
-    // #[inline]
-    fn shared_cycle(
-        &mut self,
-        _warps: &mut [warp::Warp],
-        stall_kind: &mut MemStageStallKind,
-        kind: &mut MemStageAccessKind,
-        _cycle: u64,
-    ) -> bool {
-        let Some(dispatch_instr) = &mut self.inner.dispatch_reg else {
-            return true;
-        };
-        log::debug!("shared cycle for instruction: {}", &dispatch_instr);
-
-        if dispatch_instr.memory_space != Some(MemorySpace::Shared) {
-            // shared cycle is done
-            return true;
-        }
-
-        if dispatch_instr.active_thread_count() == 0 {
-            // shared cycle is done
-            return true;
-        }
-
-        if dispatch_instr.dispatch_delay_cycles > 0 {
-            if let Some(ref mut l1_cache) = self.data_l1 {
-                let stats = l1_cache.per_kernel_stats_mut();
-                let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
-                kernel_stats.num_shared_mem_bank_accesses += 1;
-            }
-        }
-
-        dispatch_instr.dispatch_delay_cycles =
-            dispatch_instr.dispatch_delay_cycles.saturating_sub(1);
-        let has_stall = dispatch_instr.dispatch_delay_cycles > 0;
-        if has_stall {
-            *kind = MemStageAccessKind::S_MEM;
-            *stall_kind = MemStageStallKind::BK_CONF;
-            if let Some(ref mut l1_cache) = self.data_l1 {
-                let stats = l1_cache.per_kernel_stats_mut();
-                let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
-                kernel_stats.num_shared_mem_bank_conflicts += 1;
-            }
-        } else {
-            *stall_kind = MemStageStallKind::NO_RC_FAIL;
-        }
-        !has_stall
-    }
-
-    #[allow(clippy::unused_self)]
-    #[must_use]
-    // #[inline]
-    fn constant_cycle(
-        &mut self,
-        _warps: &mut [warp::Warp],
-        _rc_fail: &mut MemStageStallKind,
-        _kind: &mut MemStageAccessKind,
-        _cycle: u64,
-    ) -> bool {
-        true
-    }
-
-    #[allow(clippy::unused_self)]
-    #[must_use]
-    // #[inline]
-    fn texture_cycle(
-        &mut self,
-        _warps: &mut [warp::Warp],
-        _rc_fail: &mut MemStageStallKind,
-        _kind: &mut MemStageAccessKind,
-        _cycle: u64,
-    ) -> bool {
-        true
-    }
-
-    fn store_ack(&self, warps: &mut [warp::Warp], fetch: &mem_fetch::MemFetch) {
-        debug_assert!(
-            fetch.kind == mem_fetch::Kind::WRITE_ACK
-                || (self.config.perfect_mem && fetch.is_write())
-        );
-        let warp = warps.get_mut(fetch.warp_id).unwrap();
-        warp.num_outstanding_stores -= 1;
-    }
-
-    #[allow(dead_code)]
-    fn process_cache_access(
-        &mut self,
-        warps: &mut [warp::Warp],
-        _cache: (),
-        _addr: address,
-        instr: &mut WarpInstruction,
-        events: &mut [cache::Event],
-        fetch: &mem_fetch::MemFetch,
-        status: cache::RequestStatus,
-    ) -> MemStageStallKind {
-        let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
-        let write_sent = cache::event::was_write_sent(events);
-        let read_sent = cache::event::was_read_sent(events);
-        if write_sent {
-            let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
-            let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
-                fetch.data_size() / mem_sub_partition::SECTOR_SIZE
-            } else {
-                1
-            };
-
-            let warp = warps.get_mut(instr.warp_id).unwrap();
-            for _ in 0..inc_ack {
-                warp.num_outstanding_stores += 1;
-            }
-        }
-        if status == cache::RequestStatus::HIT {
-            debug_assert!(!read_sent);
-            instr.mem_access_queue.pop_back();
-            if instr.is_load() {
-                for out_reg in instr.outputs() {
-                    let pending = self
-                        .pending_writes
-                        .get_mut(&instr.warp_id)
-                        .and_then(|p| p.get_mut(out_reg))
-                        .unwrap();
-                    *pending -= 1;
-                    log::trace!(
-                        "warp {} register {}: decrement from {} to {}",
-                        instr.warp_id,
-                        out_reg,
-                        *pending + 1,
-                        *pending
-                    );
-                }
-            }
-        } else if status == cache::RequestStatus::RESERVATION_FAIL {
-            stall_cond = MemStageStallKind::BK_CONF;
-            debug_assert!(!read_sent);
-            debug_assert!(!write_sent);
-        } else {
-            debug_assert!(matches!(
-                status,
-                cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
-            ));
-            instr.mem_access_queue.pop_back();
-        }
-        if !instr.mem_access_queue.is_empty() && stall_cond == MemStageStallKind::NO_RC_FAIL {
-            stall_cond = MemStageStallKind::COAL_STALL;
-        }
-        stall_cond
-    }
-
     fn l1_latency_queue_cycle(
         &mut self,
-        scoreboard: &mut dyn Access<WarpInstruction>,
+        scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
         cycle: u64,
@@ -1035,6 +902,166 @@ impl<MC> LoadStoreUnit<MC> {
             }
         }
     }
+}
+
+impl<MC> LoadStoreUnit<MC> {
+    pub fn fill(&self, mut fetch: MemFetch, time: u64) {
+        fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
+        // self.response_queue.push_back(fetch);
+        self.response_queue
+            // .lock()
+            // .enqueue(ic::Packet { fetch, time });
+            .try_send(ic::Packet { fetch, time })
+            .expect("failed to send fill packet");
+    }
+
+    #[must_use]
+    // #[inline]
+    fn shared_cycle(
+        &mut self,
+        _warps: &mut [warp::Warp],
+        stall_kind: &mut MemStageStallKind,
+        kind: &mut MemStageAccessKind,
+        _cycle: u64,
+    ) -> bool {
+        let Some(dispatch_instr) = &mut self.inner.dispatch_reg else {
+            return true;
+        };
+        log::debug!("shared cycle for instruction: {}", &dispatch_instr);
+
+        if dispatch_instr.memory_space != Some(MemorySpace::Shared) {
+            // shared cycle is done
+            return true;
+        }
+
+        if dispatch_instr.active_thread_count() == 0 {
+            // shared cycle is done
+            return true;
+        }
+
+        if dispatch_instr.dispatch_delay_cycles > 0 {
+            if let Some(ref mut l1_cache) = self.data_l1 {
+                let stats = l1_cache.per_kernel_stats_mut();
+                let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
+                kernel_stats.num_shared_mem_bank_accesses += 1;
+            }
+        }
+
+        dispatch_instr.dispatch_delay_cycles =
+            dispatch_instr.dispatch_delay_cycles.saturating_sub(1);
+        let has_stall = dispatch_instr.dispatch_delay_cycles > 0;
+        if has_stall {
+            *kind = MemStageAccessKind::S_MEM;
+            *stall_kind = MemStageStallKind::BK_CONF;
+            if let Some(ref mut l1_cache) = self.data_l1 {
+                let stats = l1_cache.per_kernel_stats_mut();
+                let kernel_stats = stats.get_mut(Some(dispatch_instr.kernel_launch_id));
+                kernel_stats.num_shared_mem_bank_conflicts += 1;
+            }
+        } else {
+            *stall_kind = MemStageStallKind::NO_RC_FAIL;
+        }
+        !has_stall
+    }
+
+    #[allow(clippy::unused_self)]
+    #[must_use]
+    // #[inline]
+    fn constant_cycle(
+        &mut self,
+        _warps: &mut [warp::Warp],
+        _rc_fail: &mut MemStageStallKind,
+        _kind: &mut MemStageAccessKind,
+        _cycle: u64,
+    ) -> bool {
+        true
+    }
+
+    #[allow(clippy::unused_self)]
+    #[must_use]
+    // #[inline]
+    fn texture_cycle(
+        &mut self,
+        _warps: &mut [warp::Warp],
+        _rc_fail: &mut MemStageStallKind,
+        _kind: &mut MemStageAccessKind,
+        _cycle: u64,
+    ) -> bool {
+        true
+    }
+
+    fn store_ack(&self, warps: &mut [warp::Warp], fetch: &mem_fetch::MemFetch) {
+        debug_assert!(
+            fetch.kind == mem_fetch::Kind::WRITE_ACK
+                || (self.config.perfect_mem && fetch.is_write())
+        );
+        let warp = warps.get_mut(fetch.warp_id).unwrap();
+        warp.num_outstanding_stores -= 1;
+    }
+
+    #[allow(dead_code)]
+    fn process_cache_access(
+        &mut self,
+        warps: &mut [warp::Warp],
+        _cache: (),
+        _addr: address,
+        instr: &mut WarpInstruction,
+        events: &mut [cache::Event],
+        fetch: &mem_fetch::MemFetch,
+        status: cache::RequestStatus,
+    ) -> MemStageStallKind {
+        let mut stall_cond = MemStageStallKind::NO_RC_FAIL;
+        let write_sent = cache::event::was_write_sent(events);
+        let read_sent = cache::event::was_read_sent(events);
+        if write_sent {
+            let l1d_config = self.config.data_cache_l1.as_ref().unwrap();
+            let inc_ack = if l1d_config.inner.mshr_kind == mshr::Kind::SECTOR_ASSOC {
+                fetch.data_size() / mem_sub_partition::SECTOR_SIZE
+            } else {
+                1
+            };
+
+            let warp = warps.get_mut(instr.warp_id).unwrap();
+            for _ in 0..inc_ack {
+                warp.num_outstanding_stores += 1;
+            }
+        }
+        if status == cache::RequestStatus::HIT {
+            debug_assert!(!read_sent);
+            instr.mem_access_queue.pop_back();
+            if instr.is_load() {
+                for out_reg in instr.outputs() {
+                    let pending = self
+                        .pending_writes
+                        .get_mut(&instr.warp_id)
+                        .and_then(|p| p.get_mut(out_reg))
+                        .unwrap();
+                    *pending -= 1;
+                    log::trace!(
+                        "warp {} register {}: decrement from {} to {}",
+                        instr.warp_id,
+                        out_reg,
+                        *pending + 1,
+                        *pending
+                    );
+                }
+            }
+        } else if status == cache::RequestStatus::RESERVATION_FAIL {
+            stall_cond = MemStageStallKind::BK_CONF;
+            debug_assert!(!read_sent);
+            debug_assert!(!write_sent);
+        } else {
+            debug_assert!(matches!(
+                status,
+                cache::RequestStatus::MISS | cache::RequestStatus::HIT_RESERVED
+            ));
+            instr.mem_access_queue.pop_back();
+        }
+        if !instr.mem_access_queue.is_empty() && stall_cond == MemStageStallKind::NO_RC_FAIL {
+            stall_cond = MemStageStallKind::COAL_STALL;
+        }
+        stall_cond
+    }
 
     #[must_use]
     pub fn pending_writes(&self, warp_id: usize, reg_id: u32) -> Option<usize> {
@@ -1142,7 +1169,7 @@ where
     fn cycle(
         &mut self,
         operand_collector: &mut dyn OperandCollector,
-        scoreboard: &mut dyn Access<WarpInstruction>,
+        scoreboard: &mut dyn Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
         mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,

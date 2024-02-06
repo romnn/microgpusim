@@ -136,6 +136,76 @@ fn line_size_based_tag_func(addr: address, line_size: u64) -> u64 {
     addr & !(line_size - 1)
 }
 
+fn memory_coalescing_arch_reduce(
+    // &self,
+    is_write: bool,
+    access_kind: mem_fetch::access::Kind,
+    tx: &TransactionInfo,
+    kernel_launch_id: Option<usize>,
+    mut addr: address,
+    segment_size: u64,
+) -> MemAccess {
+    debug_assert_eq!(addr & (segment_size - 1), 0);
+    debug_assert!(tx.chunk_mask.count_ones() >= 1);
+    // halves (used to check if 64 byte segment can be
+    // compressed into a single 32 byte segment)
+    let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
+
+    let mut req_size_bytes = segment_size as u32;
+    if segment_size == 128 {
+        let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
+        let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
+        if lower_half_used && !upper_half_used {
+            // only lower 64 bytes used
+            req_size_bytes = 64;
+            halves |= &tx.chunk_mask[0..2];
+        } else if !lower_half_used && upper_half_used {
+            // only upper 64 bytes used
+            addr += 64;
+            req_size_bytes = 64;
+            halves |= &tx.chunk_mask[2..4];
+        } else {
+            assert!(lower_half_used && upper_half_used);
+        }
+    } else if segment_size == 64 {
+        // need to set halves
+        if addr % 128 == 0 {
+            halves |= &tx.chunk_mask[0..2];
+        } else {
+            debug_assert_eq!(addr % 128, 64);
+            halves |= &tx.chunk_mask[2..4];
+        }
+    }
+
+    if req_size_bytes == 64 {
+        let lower_half_used = halves[0];
+        let upper_half_used = halves[1];
+        if lower_half_used && !upper_half_used {
+            req_size_bytes = 32;
+        } else if !lower_half_used && upper_half_used {
+            addr += 32;
+            req_size_bytes = 32;
+        } else {
+            assert!(lower_half_used && upper_half_used);
+        }
+    }
+
+    let mut access = MemAccessBuilder {
+        kind: access_kind,
+        addr,
+        kernel_launch_id,
+        allocation: None, // we cannot know the allocation start address in this context
+        req_size_bytes,
+        is_write,
+        warp_active_mask: tx.active_mask,
+        byte_mask: tx.byte_mask,
+        sector_mask: tx.chunk_mask,
+    }
+    .build();
+    access.num_uncoalesced_accesses = tx.num_uncoalesced_accesses;
+    access
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BarrierInfo {
     pub id: usize,
@@ -589,10 +659,13 @@ impl WarpInstruction {
 
     pub fn generate_mem_accesses(
         &mut self,
+        // accesses: &mut VecDeque<MemAccess>,
         config: &config::GPU,
         allocations: &crate::allocation::Allocations,
+    ) {
         // allocations: &RwLock<crate::allocation::Allocations>,
-    ) -> Option<Vec<MemAccess>> {
+        // ) -> SmallVec<[MemAccess; 32]> {
+        // ) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -601,11 +674,17 @@ impl WarpInstruction {
                 | ArchOp::STORE_OP
                 | ArchOp::TENSOR_CORE_STORE_OP,
         ) {
-            return None;
+            return;
+            // return smallvec![];
+            // &std::iter::empty();
+            // return None;
         }
         if self.active_thread_count() < 1 {
             // predicated off
-            return None;
+            return;
+            // return smallvec![];
+            // return &std::iter::empty();
+            // return None;
         }
         assert!(self.is_store() || self.is_load());
 
@@ -832,8 +911,11 @@ impl WarpInstruction {
                 // shared memory conflicts modeled as larger initiation interval
                 self.dispatch_delay_cycles = total_accesses;
 
-                // shared mem does not generate mem accesses?
-                None
+                // shared mem does not generate mem accesses
+                return;
+                // return smallvec![];
+                // return &std::iter::empty();
+                // None
             }
             Some(MemorySpace::Texture) => {
                 // if let Some(l1_tex) = &config.tex_cache_l1 {
@@ -857,9 +939,16 @@ impl WarpInstruction {
                         unimplemented!("atomics not supported for now");
                     } else {
                         // here, we return the memory accesses
-                        let accesses =
-                            self.memory_coalescing_arch(is_write, access_kind, config, allocations);
-                        Some(accesses)
+                        // let accesses =
+                        //     self.memory_coalescing_arch(is_write, access_kind, config, allocations);
+                        // Some(accesses)
+                        self.memory_coalescing_arch(
+                            // accesses,
+                            is_write,
+                            access_kind,
+                            config,
+                            allocations,
+                        );
                     }
                 } else {
                     panic!(
@@ -875,14 +964,18 @@ impl WarpInstruction {
     // Perfom memory access coalescing.
     //
     // Note: see the CUDA manual about coalescing rules.
-    // #[inline]
+    #[inline]
     fn memory_coalescing_arch(
-        &self,
+        &mut self,
+        // accesses: &mut VecDeque<MemAccess>,
         is_write: bool,
         access_kind: AccessKind,
         config: &config::GPU,
         allocations: &crate::allocation::Allocations,
-    ) -> Vec<MemAccess> {
+    ) {
+        // ) -> SmallVec<[MemAccess; 32]> {
+        // ) -> Vec<MemAccess> {
+        // ) -> &dyn Iterator<Item = MemAccess> {
         let warp_parts = if config.accelsim_compat {
             config.shared_memory_warp_parts
         } else {
@@ -920,9 +1013,14 @@ impl WarpInstruction {
             subwarp_size,
         );
 
-        let mut accesses: Vec<MemAccess> = Vec::new();
+        // let mut accesses: Vec<MemAccess> = Vec::new();
+        // let mut accesses: SmallVec<[MemAccess; 32]> = SmallVec::new();
+
         for subwarp in 0..warp_parts {
-            let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
+            // let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
+            use vec_collections::VecMap;
+            let mut subwarp_transactions: VecMap<[(address, TransactionInfo); WARP_SIZE]> =
+                VecMap::empty();
 
             // step 1: find all transactions generated by this subwarp
             for i in 0..subwarp_size {
@@ -967,7 +1065,14 @@ impl WarpInstruction {
                     // this is equal to the 7-5=2 bits from the
                     // cache line that identify the sector
                     let chunk = (addr & 127) / 32;
-                    let tx = subwarp_transactions.entry(block_addr).or_default();
+                    // let tx = subwarp_transactions.entry(block_addr).or_default();
+                    let tx = match subwarp_transactions.get_mut(&block_addr) {
+                        Some(tx) => tx,
+                        None => {
+                            subwarp_transactions.insert(block_addr, TransactionInfo::default());
+                            subwarp_transactions.get_mut(&block_addr).unwrap()
+                        }
+                    };
                     tx.num_uncoalesced_accesses += 1;
 
                     tx.chunk_mask.set(chunk as usize, true);
@@ -986,17 +1091,17 @@ impl WarpInstruction {
                     let coalesced_end_addr = addr + u64::from(data_size_coalesced) - 1;
                     if block_addr != line_size_based_tag_func(coalesced_end_addr, segment_size) {
                         todo!("check this again");
-                        let block_addr = line_size_based_tag_func(coalesced_end_addr, segment_size);
-                        let chunk = (coalesced_end_addr & 127) / 32;
-                        let tx = subwarp_transactions.entry(block_addr).or_default();
-                        tx.chunk_mask.set(chunk as usize, true);
-                        tx.active_mask.set(thread_id, true);
-                        for i in 0..data_size_coalesced {
-                            let next_idx = idx as usize + i as usize;
-                            if next_idx < (MAX_MEMORY_ACCESS_SIZE as usize) {
-                                tx.byte_mask.set(next_idx, true);
-                            }
-                        }
+                        // let block_addr = line_size_based_tag_func(coalesced_end_addr, segment_size);
+                        // let chunk = (coalesced_end_addr & 127) / 32;
+                        // let tx = subwarp_transactions.entry(block_addr).or_default();
+                        // tx.chunk_mask.set(chunk as usize, true);
+                        // tx.active_mask.set(thread_id, true);
+                        // for i in 0..data_size_coalesced {
+                        //     let next_idx = idx as usize + i as usize;
+                        //     if next_idx < (MAX_MEMORY_ACCESS_SIZE as usize) {
+                        //         tx.byte_mask.set(next_idx, true);
+                        //     }
+                        // }
                     }
 
                     access += 1;
@@ -1062,26 +1167,29 @@ impl WarpInstruction {
             }
 
             // step 2: reduce each transaction size, if possible
-            accesses.extend(subwarp_accesses.into_iter().map(|(block_addr, tx)| {
-                // dbg!(&tx);
-                self.memory_coalescing_arch_reduce(
-                    is_write,
-                    access_kind,
-                    &tx,
-                    block_addr,
-                    segment_size,
-                )
-            }));
+            self.mem_access_queue
+                .extend(subwarp_accesses.into_iter().map(|(block_addr, tx)| {
+                    // dbg!(&tx);
+                    memory_coalescing_arch_reduce(
+                        is_write,
+                        access_kind,
+                        &tx,
+                        Some(self.kernel_launch_id),
+                        block_addr,
+                        segment_size,
+                    )
+                }));
 
             assert!(
-                self.active_mask.not_any() || !accesses.is_empty(),
+                // self.active_mask.not_any() || !accesses.is_empty(),
+                self.active_mask.not_any() || !self.mem_access_queue.is_empty(),
                 "active memory instruction must coalesce to at least one access"
             );
         }
 
         {
             let allocations = allocations.read();
-            for access in accesses.iter_mut() {
+            for access in self.mem_access_queue.iter_mut() {
                 // set mem accesses allocation start addr, because only core knows
                 access.allocation = allocations.get(&access.addr).cloned();
                 // access.allocation = allocations.try_read().get(&access.addr).cloned();
@@ -1089,12 +1197,12 @@ impl WarpInstruction {
         }
 
         let active_thread_count = self.active_mask.count_ones();
-        let mean_transaction_size = active_thread_count as f32 / accesses.len() as f32;
+        let mean_transaction_size = active_thread_count as f32 / self.mem_access_queue.len() as f32;
         log::warn!(
             "==> coalesced warp instruction {self} into {} transactions (transaction size={:2.2}): {:?}",
-            accesses.len(),
+            self.mem_access_queue.len(),
             mean_transaction_size,
-            accesses.iter().map(ToString::to_string).collect::<Vec<_>>()
+            self.mem_access_queue.iter().map(ToString::to_string).collect::<Vec<_>>()
         );
         // if accesses.len() == warp_parts {
         //     for access in accesses.iter() {
@@ -1113,75 +1221,6 @@ impl WarpInstruction {
         //     mean_transaction_size,
         //     self.active_mask.count_ones() as f32 / accesses.len() as f32,
         // );
-        accesses
-    }
-
-    fn memory_coalescing_arch_reduce(
-        &self,
-        is_write: bool,
-        access_kind: mem_fetch::access::Kind,
-        tx: &TransactionInfo,
-        mut addr: address,
-        segment_size: u64,
-    ) -> MemAccess {
-        debug_assert_eq!(addr & (segment_size - 1), 0);
-        debug_assert!(tx.chunk_mask.count_ones() >= 1);
-        // halves (used to check if 64 byte segment can be
-        // compressed into a single 32 byte segment)
-        let mut halves: BitArr!(for 2, in u8) = BitArray::ZERO;
-
-        let mut req_size_bytes = segment_size as u32;
-        if segment_size == 128 {
-            let lower_half_used = tx.chunk_mask[0] || tx.chunk_mask[1];
-            let upper_half_used = tx.chunk_mask[2] || tx.chunk_mask[3];
-            if lower_half_used && !upper_half_used {
-                // only lower 64 bytes used
-                req_size_bytes = 64;
-                halves |= &tx.chunk_mask[0..2];
-            } else if !lower_half_used && upper_half_used {
-                // only upper 64 bytes used
-                addr += 64;
-                req_size_bytes = 64;
-                halves |= &tx.chunk_mask[2..4];
-            } else {
-                assert!(lower_half_used && upper_half_used);
-            }
-        } else if segment_size == 64 {
-            // need to set halves
-            if addr % 128 == 0 {
-                halves |= &tx.chunk_mask[0..2];
-            } else {
-                debug_assert_eq!(addr % 128, 64);
-                halves |= &tx.chunk_mask[2..4];
-            }
-        }
-
-        if req_size_bytes == 64 {
-            let lower_half_used = halves[0];
-            let upper_half_used = halves[1];
-            if lower_half_used && !upper_half_used {
-                req_size_bytes = 32;
-            } else if !lower_half_used && upper_half_used {
-                addr += 32;
-                req_size_bytes = 32;
-            } else {
-                assert!(lower_half_used && upper_half_used);
-            }
-        }
-
-        let mut access = MemAccessBuilder {
-            kind: access_kind,
-            addr,
-            kernel_launch_id: Some(self.kernel_launch_id),
-            allocation: None, // we cannot know the allocation start address in this context
-            req_size_bytes,
-            is_write,
-            warp_active_mask: tx.active_mask,
-            byte_mask: tx.byte_mask,
-            sector_mask: tx.chunk_mask,
-        }
-        .build();
-        access.num_uncoalesced_accesses = tx.num_uncoalesced_accesses;
-        access
+        // &accesses.into_iter()
     }
 }

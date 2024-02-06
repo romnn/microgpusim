@@ -1,5 +1,12 @@
 use crate::sync::{Arc, Mutex};
-use crate::{address, cache, config, fifo::Fifo, interconn::Packet, mcu, mem_fetch};
+use crate::{
+    address,
+    cache::{self, Bandwidth, Cache, ComputeStats},
+    config,
+    fifo::Fifo,
+    interconn::Packet,
+    mcu, mem_fetch,
+};
 use console::style;
 use std::collections::{HashSet, VecDeque};
 use trace_model::ToBitString;
@@ -13,11 +20,14 @@ pub const NUM_SECTORS: usize = 4;
 pub const SECTOR_SIZE: u32 = 32;
 
 #[inline]
-pub fn breakdown_request_to_sector_requests<'c>(
+pub fn breakdown_request_to_sector_requests<'c, MC>(
     fetch: mem_fetch::MemFetch,
-    mem_controller: &'c dyn mcu::MemoryController,
+    mem_controller: &'c MC,
+    // mem_controller: &'c dyn mcu::MemoryController,
     sector_requests: &mut [Option<mem_fetch::MemFetch>; NUM_SECTORS],
-) {
+) where
+    MC: mcu::MemoryController,
+{
     log::trace!(
         "breakdown to sector requests for {fetch} with data size {} sector mask={}",
         fetch.data_size(),
@@ -165,8 +175,9 @@ pub struct MemorySubPartition<MC> {
     pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
     pub rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
 
-    pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
-
+    pub l2_cache: Option<cache::DataL2<MC>>,
+    // pub l2_cache: Option<Box<dyn cache::Cache>>,
+    // pub l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>>,
     num_pending_requests: usize,
     pub request_tracker: HashSet<mem_fetch::MemFetch>,
 }
@@ -199,21 +210,30 @@ where
 
         let l2_to_interconn_queue = Fifo::new(Some(config.dram_partition_queue_l2_to_interconn));
 
-        let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
-            match &config.data_cache_l2 {
-                Some(l2_config) => {
-                    let data_l2 = cache::DataL2::new(
-                        format!("mem-sub-{:03}-{}", global_id, style("L2-CACHE").blue()),
-                        global_id,
-                        config.clone(),
-                        mem_controller.clone(),
-                        l2_config.clone(),
-                    );
-                    // data_l2.set_top_port(l2_to_dram_queue.clone());
-                    Some(Box::new(data_l2))
-                }
-                None => None,
-            };
+        // let l2_cache: Option<Box<dyn cache::Cache<stats::cache::PerKernel>>> =
+        //     match &config.data_cache_l2 {
+        //         Some(l2_config) => {
+        //             let data_l2 = cache::DataL2::new(
+        //                 format!("mem-sub-{:03}-{}", global_id, style("L2-CACHE").blue()),
+        //                 global_id,
+        //                 config.clone(),
+        //                 mem_controller.clone(),
+        //                 l2_config.clone(),
+        //             );
+        //             // data_l2.set_top_port(l2_to_dram_queue.clone());
+        //             Some(Box::new(data_l2))
+        //         }
+        //         None => None,
+        //     };
+
+        let l2_config = config.data_cache_l2.as_ref().unwrap();
+        let l2_cache = Some(cache::DataL2::new(
+            format!("mem-sub-{:03}-{}", global_id, style("L2-CACHE").blue()),
+            global_id,
+            config.clone(),
+            mem_controller.clone(),
+            l2_config.clone(),
+        ));
 
         let stats = stats::PerKernel::new(config.as_ref().into());
         Self {
@@ -401,14 +421,10 @@ where
     }
 }
 
-impl<MC> MemorySubPartition<MC> {
-    #[must_use]
-    pub fn busy(&self) -> bool {
-        !self.request_tracker.is_empty()
-        // num pending requests does not always work i think
-        // self.num_pending_requests > 0
-    }
-
+impl<MC> MemorySubPartition<MC>
+where
+    MC: crate::mcu::MemoryController,
+{
     pub fn flush_l2(&mut self) {
         if let Some(ref mut l2_cache) = self.l2_cache {
             l2_cache.flush();
@@ -419,43 +435,6 @@ impl<MC> MemorySubPartition<MC> {
         if let Some(l2) = &mut self.l2_cache {
             l2.invalidate();
         }
-    }
-
-    pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
-        use mem_fetch::access::Kind as AccessKind;
-
-        let Packet { fetch, .. } = self.l2_to_interconn_queue.dequeue()?;
-        self.request_tracker.remove(&fetch);
-        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
-        if fetch.is_atomic() {
-            unimplemented!("atomic memory operation");
-        }
-        match fetch.access_kind() {
-            // writeback accesses not counted
-            AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => None,
-            _ => Some(fetch),
-        }
-    }
-
-    pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
-        use mem_fetch::access::Kind as AccessKind;
-        if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
-            .l2_to_interconn_queue
-            .first()
-            .map(|fetch| fetch.access_kind())
-        {
-            let fetch = self.l2_to_interconn_queue.dequeue().unwrap();
-            self.request_tracker.remove(&fetch);
-            self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
-            return None;
-        }
-
-        self.l2_to_interconn_queue.first().map(AsRef::as_ref)
-    }
-
-    pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
-        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
-        self.request_tracker.remove(fetch);
     }
 
     #[tracing::instrument]
@@ -688,5 +667,51 @@ impl<MC> MemorySubPartition<MC> {
                 _ => {}
             }
         }
+    }
+}
+
+impl<MC> MemorySubPartition<MC> {
+    #[must_use]
+    pub fn busy(&self) -> bool {
+        !self.request_tracker.is_empty()
+        // num pending requests does not always work i think
+        // self.num_pending_requests > 0
+    }
+
+    pub fn pop(&mut self) -> Option<mem_fetch::MemFetch> {
+        use mem_fetch::access::Kind as AccessKind;
+
+        let Packet { fetch, .. } = self.l2_to_interconn_queue.dequeue()?;
+        self.request_tracker.remove(&fetch);
+        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
+        if fetch.is_atomic() {
+            unimplemented!("atomic memory operation");
+        }
+        match fetch.access_kind() {
+            // writeback accesses not counted
+            AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC => None,
+            _ => Some(fetch),
+        }
+    }
+
+    pub fn top(&mut self) -> Option<&mem_fetch::MemFetch> {
+        use mem_fetch::access::Kind as AccessKind;
+        if let Some(AccessKind::L2_WRBK_ACC | AccessKind::L1_WRBK_ACC) = self
+            .l2_to_interconn_queue
+            .first()
+            .map(|fetch| fetch.access_kind())
+        {
+            let fetch = self.l2_to_interconn_queue.dequeue().unwrap();
+            self.request_tracker.remove(&fetch);
+            self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
+            return None;
+        }
+
+        self.l2_to_interconn_queue.first().map(AsRef::as_ref)
+    }
+
+    pub fn set_done(&mut self, fetch: &mem_fetch::MemFetch) {
+        self.num_pending_requests = self.num_pending_requests.saturating_sub(1);
+        self.request_tracker.remove(fetch);
     }
 }

@@ -1,6 +1,7 @@
 use super::asserts;
 use crate::{
-    cache, config, func_unit::SimdFunctionUnit, interconn as ic, mem_fetch, register_set, testing,
+    arbitration::Arbitrate, cache, config, func_unit::SimdFunctionUnit, interconn as ic, mem_fetch,
+    register_set, testing,
 };
 use color_eyre::eyre;
 use pretty_assertions_sorted as full_diff;
@@ -182,14 +183,14 @@ fn gather_simulation_state(
                 .collect::<Vec<_>>();
 
             if let Some(l1_data_cache) = load_store_unit.data_l1.as_ref() {
-                let l1_data_cache = l1_data_cache
-                    .as_any()
-                    .downcast_ref::<cache::Data<
-                        MCU,
-                        cache::controller::pascal::L1DataCacheController,
-                        stats::cache::PerKernel,
-                    >>()
-                    .unwrap();
+                // let l1_data_cache = l1_data_cache
+                //     .as_any()
+                //     .downcast_ref::<cache::Data<
+                //         MCU,
+                //         cache::controller::pascal::L1DataCacheController,
+                //         stats::cache::PerKernel,
+                //     >>()
+                //     .unwrap();
 
                 let l1_data_cache = testing::state::Cache::from(&l1_data_cache.inner.tag_array);
                 box_sim_state.l1_cache_per_core[global_core_id] = Some(l1_data_cache);
@@ -208,8 +209,9 @@ fn gather_simulation_state(
                 .map(Into::into),
         );
 
-        let arbiter: &crate::arbitration::ArbitrationUnit =
-            partition.arbiter.as_any().downcast_ref().unwrap();
+        // let arbiter: &crate::arbitration::ArbitrationUnit =
+        //     partition.arbiter.as_any().downcast_ref().unwrap();
+        let arbiter = &partition.arbiter;
         box_sim_state.dram_arbitration_per_partition[partition_id] = testing::state::Arbitration {
             last_borrower: partition.arbiter.last_borrower(),
             shared_credit: arbiter.shared_credit,
@@ -223,7 +225,7 @@ fn gather_simulation_state(
 
             let sub_id = mem_sub.global_id;
             let l2_cache = mem_sub.l2_cache.as_ref().unwrap();
-            let l2_cache: &cache::DataL2<MCU> = l2_cache.as_any().downcast_ref().unwrap();
+            // let l2_cache: &cache::DataL2<MCU> = l2_cache.as_any().downcast_ref().unwrap();
 
             box_sim_state.l2_cache_per_sub[sub_id] = Some((&l2_cache.inner.inner.tag_array).into());
 

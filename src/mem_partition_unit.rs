@@ -1,6 +1,10 @@
 use crate::sync::Arc;
 use crate::{
-    address, arbitration, config, dram, ic::Packet, mem_fetch,
+    address,
+    arbitration::{self, Arbitrate},
+    config, dram,
+    ic::Packet,
+    mem_fetch,
     mem_sub_partition::MemorySubPartition,
 };
 use console::style;
@@ -17,7 +21,8 @@ pub struct MemoryPartitionUnit<MC> {
     pub sub_partitions: Box<[MemorySubPartition<MC>]>,
 
     pub dram_latency_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
-    pub arbiter: Box<dyn arbitration::Arbiter>,
+    pub arbiter: arbitration::ArbitrationUnit,
+    // pub arbiter: Box<dyn arbitration::Arbiter>,
 }
 
 impl<MC> std::fmt::Debug for MemoryPartitionUnit<MC> {
@@ -50,7 +55,8 @@ where
         let stats = stats::PerKernel::new(config.as_ref().into());
         let dram = dram::DRAM::new(&config, stats.clone());
         let arb_config: arbitration::Config = (&(*config)).into();
-        let arbiter = Box::new(arbitration::ArbitrationUnit::new(&arb_config));
+        let arbiter = arbitration::ArbitrationUnit::new(&arb_config);
+        // let arbiter = Box::new(arbiter);
         Self {
             id: partition_id,
             config,

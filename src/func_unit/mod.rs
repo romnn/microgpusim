@@ -44,7 +44,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
     fn cycle(
         &mut self,
         operand_collector: &mut dyn OperandCollector,
-        scoreboard: &mut dyn scoreboard::Access<WarpInstruction>,
+        scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
         mem_port: &mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>,

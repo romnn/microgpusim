@@ -619,6 +619,12 @@ async fn main() -> eyre::Result<()> {
         .flat_map(|(_command, bench_configs)| bench_configs)
         .count();
 
+    println!(
+        "running {} total benchmark configurations ({} different targets)",
+        num_bench_configs,
+        per_command_bench_configs.len()
+    );
+
     for (command, bench_configs) in per_command_bench_configs.iter() {
         log::info!(
             "command {:>30}  =>  {:<4} configurations",

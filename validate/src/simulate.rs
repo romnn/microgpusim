@@ -43,7 +43,7 @@ pub fn simulate_bench_config(
         )
     })?;
 
-    // dbg!(&input);
+    dbg!(&input);
 
     let mut sim_config = gpucachesim::config::gtx1080::build_config(&input)?;
     if let Some(l2_prefill) = l2_prefill {

@@ -78,6 +78,7 @@ where
     // }
 
     // fn issue_to(&mut self, core: &mut dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
+    #[inline]
     fn issue_to<'a>(
         &mut self,
         core: &mut I,
