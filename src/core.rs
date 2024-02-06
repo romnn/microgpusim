@@ -14,7 +14,8 @@ use crate::{
     operand_collector::{self, OperandCollector, RegisterFileUnit},
     register_set,
     scheduler,
-    scoreboard,
+    scheduler::ScheduleWarps,
+    scoreboard::{self, Access as ScoreboardAccess},
     sync::Mutex,
     warp,
     WARP_SIZE,
@@ -101,7 +102,7 @@ impl InstructionFetchBufferState {
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
-pub trait WarpIssuer {
+pub trait WarpIssuer: std::fmt::Debug {
     fn issue_warp(
         &mut self,
         stage: PipelineStage,
@@ -122,7 +123,7 @@ pub trait WarpIssuer {
 }
 
 #[derive()]
-pub struct CoreIssuer<'a> {
+pub struct CoreIssuer<'a, S> {
     pub config: &'a config::GPU,
     pub pipeline_reg: &'a mut [register_set::RegisterSet],
     pub warp_instruction_unique_uid: &'a CachePadded<atomic::AtomicU64>,
@@ -130,17 +131,23 @@ pub struct CoreIssuer<'a> {
     pub global_core_id: usize,
     pub thread_block_size: usize,
     pub max_blocks_per_core: usize,
-    pub scoreboard: &'a mut dyn scoreboard::Access<WarpInstruction>,
+    // pub scoreboard: &'a mut dyn scoreboard::Access<WarpInstruction>,
+    pub scoreboard: &'a mut S,
     pub barriers: &'a mut barrier::BarrierSet,
 }
 
-impl<'a> std::fmt::Debug for CoreIssuer<'a> {
+// impl<'a> std::fmt::Debug for CoreIssuer<'a> {
+impl<'a, S> std::fmt::Debug for CoreIssuer<'a, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CoreIssuer").finish()
     }
 }
 
-impl<'a> WarpIssuer for CoreIssuer<'a> {
+// impl<'a> WarpIssuer for CoreIssuer<'a> {
+impl<'a, S> WarpIssuer for CoreIssuer<'a, S>
+where
+    S: scoreboard::Access<WarpInstruction>,
+{
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         // locking here blocks when we run schedulers in parallel
         let pipeline_stage = &self.pipeline_reg[stage as usize];
@@ -576,7 +583,8 @@ pub struct Core<I, MC> {
 
     // components
     pub interconn: Arc<I>,
-    pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
+    pub scoreboard: scoreboard::Scoreboard,
+    // pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
     pub mem_controller: Arc<MC>,
     pub barriers: barrier::BarrierSet,
     pub register_file: RegisterFileUnit,
@@ -584,7 +592,8 @@ pub struct Core<I, MC> {
     pub result_busses: Box<[ResultBus]>,
     pub functional_units: Vec<Box<dyn fu::SimdFunctionUnit>>,
 
-    pub schedulers: Box<[Box<dyn scheduler::Scheduler>]>,
+    pub schedulers: Box<[scheduler::gto::Scheduler]>,
+    // pub schedulers: Box<[Box<dyn scheduler::Scheduler<CoreIssuer>]>,
     pub scheduler_issue_priority: usize,
 
     /// Custom callback handler that is called when a fetch is returned to its issuer.
@@ -662,11 +671,12 @@ where
         let instr_l1_cache = Box::new(instr_l1_cache);
 
         debug_assert_eq!(config.max_warps_per_core(), warps.len());
-        let scoreboard = Box::new(scoreboard::Scoreboard::new(&scoreboard::Config {
+        let scoreboard = scoreboard::Scoreboard::new(&scoreboard::Config {
             global_core_id,
             cluster_id,
             max_warps: warps.len(),
-        }));
+        });
+        // let scoreboard = Box::new(scoreboard);
 
         // pipeline_stages is the sum of normal pipeline stages
         // and specialized_unit stages * 2 (for ID and EX)
@@ -716,22 +726,30 @@ where
             mem_controller.clone(),
         );
 
-        let scheduler_kind = config::SchedulerKind::GTO;
+        // let scheduler_kind = config::SchedulerKind::GTO;
+        // let schedulers: Box<[Box<dyn scheduler::Scheduler>]> = (0..config.num_schedulers_per_core)
 
-        let schedulers: Box<[Box<dyn scheduler::Scheduler>]> = (0..config.num_schedulers_per_core)
+        let schedulers: Box<[_]> = (0..config.num_schedulers_per_core)
             .map(|sched_id| {
-                let scheduler: Box<dyn scheduler::Scheduler> = match scheduler_kind {
-                    config::SchedulerKind::GTO => {
-                        let gto = scheduler::gto::Scheduler::new(
-                            sched_id,
-                            global_core_id,
-                            cluster_id,
-                            config.clone(),
-                        );
-                        Box::new(gto)
-                    }
-                    scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
-                };
+                let scheduler = scheduler::gto::Scheduler::new(
+                    sched_id,
+                    global_core_id,
+                    cluster_id,
+                    config.clone(),
+                );
+
+                // let scheduler: Box<dyn scheduler::Scheduler> = match scheduler_kind {
+                //     config::SchedulerKind::GTO => {
+                //         let gto = scheduler::gto::Scheduler::new(
+                //             sched_id,
+                //             global_core_id,
+                //             cluster_id,
+                //             config.clone(),
+                //         );
+                //         Box::new(gto)
+                //     }
+                //     scheduler_kind => unimplemented!("scheduler: {:?}", &scheduler_kind),
+                // };
                 scheduler
             })
             .collect();
@@ -1363,7 +1381,7 @@ where
             // let todo = self.mem_port.try_lock();
             fu.cycle(
                 &mut self.register_file,
-                &mut *self.scoreboard,
+                &mut self.scoreboard,
                 &mut self.warps,
                 &mut self.stats,
                 &mut self.mem_port,
@@ -2328,7 +2346,7 @@ where
                 // max_blocks_per_core: self.current_kernel_max_blocks,
                 thread_block_size,
                 max_blocks_per_core,
-                scoreboard: &mut *self.scoreboard,
+                scoreboard: &mut self.scoreboard,
                 barriers: &mut self.barriers,
             };
 

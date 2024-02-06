@@ -114,7 +114,15 @@ fn gather_simulation_state(
             box_sim_state.scheduler_per_core[global_core_id] = core
                 .schedulers
                 .iter()
-                .map(|scheduler| scheduler.deref().into())
+                .map(|scheduler| {
+                    // let scheduler: &dyn crate::scheduler::Scheduler<crate::> = &*scheduler;
+                    // scheduler.into()
+                    // use crate::scheduler::Scheduler;
+                    let prioritized_warp_ids: Vec<_> = scheduler.prioritized_warp_ids().clone();
+                    testing::state::Scheduler {
+                        prioritized_warp_ids,
+                    }
+                })
                 .collect();
 
             // core: pending register writes

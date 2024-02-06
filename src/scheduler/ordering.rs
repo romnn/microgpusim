@@ -20,13 +20,17 @@ use smallvec::SmallVec;
 //     true
 // }
 
-pub fn sort_warps_by_oldest_dynamic_id(
+pub fn sort_warps_by_oldest_dynamic_id<I>(
     // lhs: &(usize, warp::Ref),
     // rhs: &(usize, warp::Ref),
     lhs: &(usize, &mut warp::Warp),
     rhs: &(usize, &mut warp::Warp),
-    issuer: &dyn crate::core::WarpIssuer,
-) -> std::cmp::Ordering {
+    issuer: &I,
+    // issuer: &dyn crate::core::WarpIssuer,
+) -> std::cmp::Ordering
+where
+    I: crate::core::WarpIssuer,
+{
     let lhs_warp = &lhs.1;
     let rhs_warp = &rhs.1;
     // let mut lhs_warp = lhs.1.try_lock();
@@ -79,7 +83,7 @@ pub enum Ordering {
 impl super::Base {
     // impl<'a> super::Base<'a> {
     // pub fn order_by_priority<'a, F, const N: usize>(
-    pub fn order_by_priority<'a, F>(
+    pub fn order_by_priority<'a, F, I>(
         &self,
         // &mut self,
         warps: &mut [(usize, &'a mut warp::Warp)],
@@ -89,7 +93,8 @@ impl super::Base {
         // warps: &mut [&'a mut warp::Warp],
         // warps: &'b [&'a mut warp::Warp],
         ordering: Ordering,
-        _core: &dyn crate::core::WarpIssuer,
+        _core: &I,
+        // _core: &dyn crate::core::WarpIssuer,
         priority_func: F,
     )
     // ) -> impl Iterator<Item = (usize, &'a mut warp::Warp)>

@@ -52,7 +52,10 @@ impl Scheduler {
     }
 }
 
-impl super::Scheduler for Scheduler {
+impl<I> super::ScheduleWarps<I> for Scheduler
+where
+    I: WarpIssuer,
+{
     // impl<'a> super::Scheduler for Scheduler<'a> {
     // fn order_warps(&mut self, core: &dyn WarpIssuer, warps: &[&warp::Warp]) {
     //     self.inner.order_by_priority(
@@ -70,10 +73,6 @@ impl super::Scheduler for Scheduler {
     //     self.inner.supervised_warps.push_back(warp);
     // }
 
-    fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)> {
-        self.inner.prioritized_warp_ids()
-    }
-
     // fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)> {
     //     self.inner.prioritized_warps()
     // }
@@ -81,7 +80,8 @@ impl super::Scheduler for Scheduler {
     // fn issue_to(&mut self, core: &mut dyn WarpIssuer, mut warps: Vec<&mut warp::Warp>, cycle: u64) {
     fn issue_to<'a>(
         &mut self,
-        core: &mut dyn WarpIssuer,
+        core: &mut I,
+        // core: &mut dyn WarpIssuer,
         warps: &mut [(usize, &'a mut warp::Warp)],
         // warps: impl Iterator<Item = &'a mut warp::Warp>,
         // mut warps: SmallVec<[&mut warp::Warp; 64]>,
@@ -92,6 +92,7 @@ impl super::Scheduler for Scheduler {
             "gto scheduler[{}, core {}]: BEFORE: prioritized warp ids: {:?}",
             self.inner.id,
             self.inner.global_core_id,
+            // <self::Scheduler as super::Scheduler<I>>::prioritized_warp_ids(self)
             self.prioritized_warp_ids()
                 .iter()
                 .map(|(_, dyn_warp_id)| dyn_warp_id)
@@ -188,6 +189,7 @@ impl super::Scheduler for Scheduler {
             self.inner.id,
             self.inner.global_core_id,
             // self.prioritized_warp_ids(),
+            // <self::Scheduler as super::Scheduler<I>>::prioritized_warp_ids(self)
             self.prioritized_warp_ids()
                 .iter()
                 .map(|(_, dyn_warp_id)| dyn_warp_id)
@@ -208,5 +210,11 @@ impl super::Scheduler for Scheduler {
             "core::issue::issue_warps",
             self.inner.issue_to(core, warps, cycle)
         );
+    }
+}
+
+impl Scheduler {
+    pub fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)> {
+        self.inner.prioritized_warp_ids()
     }
 }

@@ -30,11 +30,15 @@ enum ExecUnitKind {
 }
 
 // pub trait Scheduler: Send + Sync + std::fmt::Debug + 'static {
-pub trait Scheduler: Send + Sync + std::fmt::Debug {
+pub trait ScheduleWarps<I>: Send + Sync + std::fmt::Debug
+where
+    I: WarpIssuer,
+{
     // fn issue_to<'a, I>(
     fn issue_to(
         &mut self,
-        core: &mut dyn WarpIssuer,
+        core: &mut I,
+        // core: &mut dyn WarpIssuer,
         warps: &mut [(usize, &mut warp::Warp)],
         // warps: Vec<&mut warp::Warp>,
         // warps: SmallVec<[&mut warp::Warp; 64]>,
@@ -43,30 +47,32 @@ pub trait Scheduler: Send + Sync + std::fmt::Debug {
         // warps: SmallVec<[(usize, &mut warp::Warp); 64]>,
         cycle: u64,
     );
-    // where
-    //         I: Iterator<Item = &'a mut warp::Warp>;
-
-    // fn add_supervised_warp(&mut self, warp: warp::Ref);
-    // fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
-
-    fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)>;
-    // fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
-
-    // Order warps based on scheduling policy.
-    // fn order_warps(&mut self, core: &dyn WarpIssuer, warps: &[&warp::Warp]);
+    // fn prioritized_warp_ids(&self) -> &Vec<(usize, usize)>;
 }
 
-impl std::fmt::Debug for &dyn WarpIssuer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WarpIssuer").finish()
-    }
-}
+// where
+//         I: Iterator<Item = &'a mut warp::Warp>;
 
-impl std::fmt::Debug for &mut dyn WarpIssuer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WarpIssuer").finish()
-    }
-}
+// fn add_supervised_warp(&mut self, warp: warp::Ref);
+// fn add_supervised_warp(&mut self, warp: &'a warp::Warp);
+
+// fn prioritized_warps(&self) -> &VecDeque<(usize, warp::Ref)>;
+
+// Order warps based on scheduling policy.
+// fn order_warps(&mut self, core: &dyn WarpIssuer, warps: &[&warp::Warp]);
+// }
+
+// impl std::fmt::Debug for &dyn WarpIssuer {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("WarpIssuer").finish()
+//     }
+// }
+//
+// impl std::fmt::Debug for &mut dyn WarpIssuer {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("WarpIssuer").finish()
+//     }
+// }
 
 #[derive(Debug)]
 pub struct Base {
@@ -140,15 +146,19 @@ impl Base {
     #[tracing::instrument(name = "scheduler_issue")]
     #[must_use]
     // #[inline]
-    fn issue(
+    fn issue<I>(
         &self,
         warp: &mut warp::Warp,
         stage: PipelineStage,
         unit: ExecUnitKind,
         prev_issued_exec_unit: ExecUnitKind,
-        core: &mut dyn WarpIssuer,
+        // core: &mut dyn WarpIssuer,
+        core: &mut I,
         cycle: u64,
-    ) -> bool {
+    ) -> bool
+    where
+        I: WarpIssuer,
+    {
         // if let ExecUnitKind::SFU = unit {
         //     dbg!(warp.current_instr().unwrap().opcode);
         //     dbg!(warp.ibuffer_peek().unwrap().opcode);
@@ -167,15 +177,18 @@ impl Base {
     }
 
     // fn issue_to<const N: usize>(
-    fn issue_to<'a>(
+    fn issue_to<'a, I>(
         &mut self,
-        core: &mut dyn WarpIssuer,
+        core: &mut I,
+        // core: &mut dyn WarpIssuer,
         // warps: Vec<(usize, &mut warp::Warp)>,
         warps: &mut [(usize, &mut warp::Warp)],
         // warps: impl Iterator<Item = (usize, &'a mut warp::Warp)>,
         // warps: SmallVec<[(usize, &mut warp::Warp); N]>,
         cycle: u64,
-    ) {
+    ) where
+        I: WarpIssuer,
+    {
         log::debug!("{}: cycle", style("base scheduler").yellow());
 
         let mut valid_inst = false;
@@ -222,8 +235,6 @@ impl Base {
                     );
                 }
             }
-            let mut checked = 0;
-            let mut num_issued = 0;
 
             let mut prev_issued_exec_unit = ExecUnitKind::NONE;
             let max_issue = self.config.max_instruction_issue_per_warp;
@@ -268,6 +279,10 @@ impl Base {
             // let warp = next_warp_rc;
             // let mut warp = warp.try_lock();
 
+            let mut checked = 0;
+            let mut num_issued = 0;
+
+            // check and issue up to max issue instructions from this warp
             while checked < max_issue
                 && checked <= num_issued
                 && num_issued < max_issue
@@ -320,13 +335,16 @@ impl Base {
                     | ArchOp::MEMORY_BARRIER_OP
                     | ArchOp::TENSOR_CORE_LOAD_OP
                     | ArchOp::TENSOR_CORE_STORE_OP => {
-                        if self.issue(
-                            next_warp,
-                            PipelineStage::ID_OC_MEM,
-                            ExecUnitKind::MEM,
-                            prev_issued_exec_unit,
-                            core,
-                            cycle,
+                        if crate::timeit!(
+                            "core::issue::issue_mem",
+                            self.issue(
+                                next_warp,
+                                PipelineStage::ID_OC_MEM,
+                                ExecUnitKind::MEM,
+                                prev_issued_exec_unit,
+                                core,
+                                cycle,
+                            )
                         ) {
                             num_issued += 1;
                             issued_inst = true;
@@ -507,6 +525,9 @@ impl Base {
                 } else {
                     self.stats.num_dual_issue += 1;
                 }
+
+                // if a warp instruction has been issued, stop checking
+                // other warps
                 break;
             }
         }
@@ -561,18 +582,41 @@ mod tests {
         );
     }
 
-    impl From<&dyn super::Scheduler> for testing::state::Scheduler {
-        fn from(scheduler: &dyn super::Scheduler) -> Self {
-            let prioritized_warp_ids: Vec<_> = scheduler.prioritized_warp_ids().clone();
-            // .iter()
-            // .map(|(_idx, warp)| {
-            //     let warp = warp.try_lock();
-            //     (warp.warp_id, warp.dynamic_warp_id)
-            // })
-            // .collect();
-            Self {
-                prioritized_warp_ids,
-            }
-        }
-    }
+    // impl<I, T> From<T> for testing::state::Scheduler
+    // where
+    //     T: crate::scheduler::Scheduler<I>,
+    //     I: crate::core::WarpIssuer,
+    // {
+    //     // fn from(scheduler: &dyn super::Scheduler<I>) -> Self {
+    //     fn from(scheduler: T) -> Self {
+    //         let prioritized_warp_ids: Vec<_> = scheduler.prioritized_warp_ids().clone();
+    //         // .iter()
+    //         // .map(|(_idx, warp)| {
+    //         //     let warp = warp.try_lock();
+    //         //     (warp.warp_id, warp.dynamic_warp_id)
+    //         // })
+    //         // .collect();
+    //         Self {
+    //             prioritized_warp_ids,
+    //         }
+    //     }
+    // }
+
+    // impl<I> From<&dyn super::Scheduler<I>> for testing::state::Scheduler
+    // where
+    //     I: crate::core::WarpIssuer,
+    // {
+    //     fn from(scheduler: &dyn super::Scheduler<I>) -> Self {
+    //         let prioritized_warp_ids: Vec<_> = scheduler.prioritized_warp_ids().clone();
+    //         // .iter()
+    //         // .map(|(_idx, warp)| {
+    //         //     let warp = warp.try_lock();
+    //         //     (warp.warp_id, warp.dynamic_warp_id)
+    //         // })
+    //         // .collect();
+    //         Self {
+    //             prioritized_warp_ids,
+    //         }
+    //     }
+    // }
 }

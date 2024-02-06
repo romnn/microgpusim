@@ -101,8 +101,8 @@ impl Access<WarpInstruction> for Scoreboard {
         // let mut intersection = instr_registers.intersection(reserved);
         // intersection.next().is_some()
 
-        // creating a new hash set to do an intersection is much slower than this loop.
-        // Note that the number of registers is always very small
+        // creating a new hash set to do an intersection is likely slower
+        // than this loop, as the number of registers should be small
         instr
             .inputs()
             .chain(instr.outputs())
