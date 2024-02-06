@@ -97,6 +97,7 @@ phf = { version = "0.11.1", features = ["macros"] }
 rangemap = "1"
 ndarray = "0"
 smallvec = { version = "1", features = ["const_generics"] }
+vec-collections = "0"
 lockfree = "0" # no used right now, used crossbeam for now
 
 # serde_json_merge = "0"
