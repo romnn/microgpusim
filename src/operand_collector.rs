@@ -67,8 +67,7 @@ impl CollectorUnit {
     fn new(kind: Kind, id: usize) -> Self {
         let src_operands = [(); MAX_REG_OPERANDS * 2].map(|_| None);
         Self {
-            // id: 0,
-            id: 0,
+            id,
             free: true,
             kind,
             warp_instr: None,
@@ -366,9 +365,12 @@ pub struct Arbiter {
     // allocator_round_robin_head: usize,
     /// first cu to check while arb-ing banks (rr)
     last_cu: usize,
-    inmatch: Box<[Option<usize>]>,
-    outmatch: Box<[Option<usize>]>,
-    request: Box<[Box<[Option<usize>]>]>,
+    // inmatch: Box<[Option<usize>]>,
+    inmatch: ndarray::Array1<Option<usize>>,
+    // outmatch: Box<[Option<usize>]>,
+    outmatch: ndarray::Array1<Option<usize>>,
+    // request: Box<[Box<[Option<usize>]>]>,
+    request: ndarray::Array2<Option<usize>>,
 }
 
 impl Arbiter {
@@ -389,11 +391,17 @@ impl Arbiter {
         self.sub_core_model = sub_core_model;
         self.num_banks_per_scheduler = num_banks_per_scheduler;
 
-        self.inmatch = box_slice![None; self.num_banks];
-        self.outmatch = box_slice![None; self.num_collectors];
-        self.request = box_slice![box_slice![None; self.num_collectors]; self.num_banks];
+        // self.inmatch = box_slice![None; self.num_banks];
+        // self.outmatch = box_slice![None; self.num_collectors];
+        // self.request = box_slice![box_slice![None; self.num_collectors]; self.num_banks];
+
+        self.inmatch = ndarray::Array1::from_shape_simple_fn(self.num_banks, || None);
+        self.outmatch = ndarray::Array1::from_shape_simple_fn(self.num_collectors, || None);
+        self.request =
+            ndarray::Array2::from_shape_simple_fn((self.num_banks, self.num_collectors), || None);
 
         self.queue = box_slice![VecDeque::new(); self.num_banks];
+
         self.allocated_banks = box_slice![Allocation::default(); self.num_banks];
 
         self.reset_alloction();
@@ -463,13 +471,15 @@ impl Arbiter {
             debug_assert!(bank < num_inputs);
             for collector in 0..self.num_collectors {
                 debug_assert!(collector < num_outputs);
-                request[bank][collector] = Some(0);
+                request[(bank, collector)] = Some(0);
+                // request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
                 let collector_id = op.collector_unit_id.unwrap();
                 debug_assert!(collector_id < num_outputs);
                 // this causes change in search
-                request[bank][collector_id] = Some(1);
+                request[(bank, collector_id)] = Some(1);
+                // request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
                 inmatch[bank] = Some(0); // write gets priority
@@ -500,7 +510,7 @@ impl Arbiter {
 
                 // banks at the same cycle
                 assert!(output < num_outputs);
-                if inmatch[input].is_none() && request[input][output] != Some(0) {
+                if inmatch[input].is_none() && request[(input, output)] != Some(0) {
                     // Grant!
                     inmatch[input] = Some(output);
                     // outmatch[output] = Some(input);
@@ -514,7 +524,7 @@ impl Arbiter {
             }
         }
 
-        log::trace!("inmatch: {:?}", &Self::compat(inmatch));
+        log::trace!("inmatch: {:?}", &Self::compat(inmatch.as_slice().unwrap()));
         // log::trace!("outmatch: {:?}", &Self::compat(outmatch));
 
         // Round-robin the priority diagonal
