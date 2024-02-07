@@ -106,7 +106,9 @@ def trace_formats():
     default=gpucachesim.stats.DEFAULT_CONFIG_FILE,
     help="Path to GPU config",
 )
-@click.option("-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output")
+@click.option(
+    "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
+)
 
 # @click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
 def trace_overhead(path, bench_name_arg, config_path, verbose):
@@ -142,9 +144,15 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 input_idx = trace_bench_config["input_idx"]
                 input_values = trace_bench_config["values"]
 
-                print(" ===> {:>20} {:>15}@{:<4} {}".format(target, name, input_idx, input_values))
+                print(
+                    " ===> {:>20} {:>15}@{:<4} {}".format(
+                        target, name, input_idx, input_values
+                    )
+                )
 
-                profile_stats = gpucachesim.stats.native.NvprofStats(config, profile_bench_config)
+                profile_stats = gpucachesim.stats.native.NvprofStats(
+                    config, profile_bench_config
+                )
 
                 grouped = profile_stats.result_df.groupby(["kernel_launch_id"])
                 mean_time_per_kernel_launch = grouped["exec_time_sec"].mean()
@@ -154,7 +162,9 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 profile_exec_time_sec = mean_time_per_kernel_launch.sum()
 
                 trace_bench_config: BenchConfig[TraceTargetConfig] = trace_bench_config
-                trace_target_config: TraceConfig = trace_bench_config["target_config"].value
+                trace_target_config: TraceConfig = trace_bench_config[
+                    "target_config"
+                ].value
                 trace_dir = Path(trace_target_config["traces_dir"])
                 # print(trace_dir)
                 # pprint(list(trace_dir.iterdir()))
@@ -200,8 +210,12 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 # pprint(list(profile_dir.iterdir()))
 
         all_stats = pd.concat(all_stats)
-        all_stats["overhead"] = all_stats["trace_exec_time_sec"] / all_stats["profile_exec_time_sec"]
-        all_stats["overhead_str"] = all_stats["overhead"].apply(lambda x: plot.human_format_thousands(x))
+        all_stats["overhead"] = (
+            all_stats["trace_exec_time_sec"] / all_stats["profile_exec_time_sec"]
+        )
+        all_stats["overhead_str"] = all_stats["overhead"].apply(
+            lambda x: plot.human_format_thousands(x)
+        )
         if verbose:
             print(all_stats)
 

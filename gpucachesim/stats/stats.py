@@ -49,7 +49,9 @@ class Stats(common.Stats):
     bench_config: BenchConfig[SimulateTargetConfig]
     target_config: SimulateConfig
 
-    def __init__(self, config: GPUConfig, bench_config: BenchConfig[SimulateTargetConfig]) -> None:
+    def __init__(
+        self, config: GPUConfig, bench_config: BenchConfig[SimulateTargetConfig]
+    ) -> None:
         self.bench_config = bench_config
         self.target_config = self.bench_config["target_config"].value
         self.path = Path(self.target_config["stats_dir"])
@@ -107,12 +109,16 @@ class Stats(common.Stats):
                 instructions_dfs.append(instructions_df)
 
             if all:
-                l1_inst_stats_df = parse_cache_stats(self.path / f"stats.cache.l1i.{r}.csv")
+                l1_inst_stats_df = parse_cache_stats(
+                    self.path / f"stats.cache.l1i.{r}.csv"
+                )
                 l1_inst_stats_df["run"] = r
                 l1_inst_stats_dfs.append(l1_inst_stats_df)
 
             if all:
-                l1_tex_stats_df = parse_cache_stats(self.path / f"stats.cache.l1t.{r}.csv")
+                l1_tex_stats_df = parse_cache_stats(
+                    self.path / f"stats.cache.l1t.{r}.csv"
+                )
                 l1_tex_stats_df["run"] = r
                 l1_tex_stats_dfs.append(l1_tex_stats_df)
 
@@ -121,7 +127,9 @@ class Stats(common.Stats):
             l1_data_stats_dfs.append(l1_data_stats_df)
 
             if all:
-                l1_const_stats_df = parse_cache_stats(self.path / f"stats.cache.l1c.{r}.csv")
+                l1_const_stats_df = parse_cache_stats(
+                    self.path / f"stats.cache.l1c.{r}.csv"
+                )
                 l1_const_stats_df["run"] = r
                 l1_const_stats_dfs.append(l1_const_stats_df)
 
@@ -174,7 +182,9 @@ class Stats(common.Stats):
                 #     print(df.columns)
                 return df
 
-            self.l1_data_stats_df = self.l1_data_stats_df.groupby(INDEX_COLS).apply(test)
+            self.l1_data_stats_df = self.l1_data_stats_df.groupby(INDEX_COLS).apply(
+                test
+            )
 
             raise ValueError("todo")
         # # no_kernel = df["kernel_name"].isna() & df["kernel_name_mangled"].isna()
@@ -256,24 +266,36 @@ class Stats(common.Stats):
         self.result_df["context_id"] = np.nan
         self.result_df["device"] = np.nan
         # self.result_df["kernel_name_mangled"] = self.result_df["kernel_name_mangled"].bfill()
-        self.result_df["kernel_function_signature"] = self.result_df["kernel_name_mangled"].apply(
-            lambda name: np.nan if pd.isnull(name) else cxxfilt.demangle(name)
-        )
-        self.result_df["kernel_name"] = self.result_df["kernel_function_signature"].apply(
-            lambda sig: np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
+        self.result_df["kernel_function_signature"] = self.result_df[
+            "kernel_name_mangled"
+        ].apply(lambda name: np.nan if pd.isnull(name) else cxxfilt.demangle(name))
+        self.result_df["kernel_name"] = self.result_df[
+            "kernel_function_signature"
+        ].apply(
+            lambda sig: np.nan
+            if pd.isnull(sig)
+            else common.function_name_from_signature(sig)
         )
 
     def _compute_l2_read_hit_rate(self):
-        self.result_df["l2_read_hit_rate"] = self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
+        self.result_df["l2_read_hit_rate"] = (
+            self.result_df["l2_read_hits"] / self.result_df["l2_reads"]
+        )
 
     def _compute_l2_read_miss_rate(self):
-        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df["l2_read_hit_rate"].fillna(0.0)
+        self.result_df["l2_read_miss_rate"] = 1.0 - self.result_df[
+            "l2_read_hit_rate"
+        ].fillna(0.0)
 
     def _compute_l2_write_hit_rate(self):
-        self.result_df["l2_write_hit_rate"] = self.result_df["l2_write_hits"] / self.result_df["l2_writes"]
+        self.result_df["l2_write_hit_rate"] = (
+            self.result_df["l2_write_hits"] / self.result_df["l2_writes"]
+        )
 
     def _compute_l2_write_miss_rate(self):
-        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df["l2_write_hit_rate"].fillna(0.0)
+        self.result_df["l2_write_miss_rate"] = 1.0 - self.result_df[
+            "l2_write_hit_rate"
+        ].fillna(0.0)
 
     def _compute_l2_hit_rate(self):
         # print(self.result_df[["l2_hits", "l2_reads", "l2_writes", "l2_accesses"]].fillna(0.0))

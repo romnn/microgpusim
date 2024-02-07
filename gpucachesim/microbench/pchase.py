@@ -132,7 +132,6 @@ def predict_is_hit(latencies, fit=None, num_clusters=4):
         fit = np.nan_to_num(fit, nan=0, posinf=0)
         km.fit(fit)
 
-
     print(km.cluster_centers_.ravel())
     predicted_clusters = km.predict(latencies)
 
@@ -315,7 +314,8 @@ def compute_hits(df, sim, gpu=None, force_misses=True, num_clusters=None):
 
     if force_misses:
         fit_latencies_df = collect_full_latency_distribution(
-            sim=sim, gpu=gpu, repetitions=1 if sim else 100)
+            sim=sim, gpu=gpu, repetitions=1 if sim else 100
+        )
         fit_latencies = fit_latencies_df["latency"].to_numpy()
         combined_latencies = np.hstack([latencies, fit_latencies])
 
@@ -778,7 +778,9 @@ def get_known_cache_num_sets(mem: str, gpu: typing.Optional[enum.Enum] = None) -
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
-def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, stream_output, gpu, force):
+def find_l2_prefetch_size(
+    warmup, repetitions, mem, cached, sim, stream_output, gpu, force
+):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup or 0
 
@@ -786,8 +788,11 @@ def find_l2_prefetch_size(warmup, repetitions, mem, cached, sim, stream_output, 
 
     # predicted_l2_prefetch_percent = get_known_l2_prefetch_percent(mem=mem, gpu=gpu)
     known_l2_cache_size_bytes = get_known_cache_size_bytes(mem=mem, gpu=gpu)
-    print("L2 size: {}".format(
-        humanize.naturalsize(known_l2_cache_size_bytes, binary=True)))
+    print(
+        "L2 size: {}".format(
+            humanize.naturalsize(known_l2_cache_size_bytes, binary=True)
+        )
+    )
     # known_l2_cache_size_bytes = 4 * 128 * KB
 
     match (gpu, mem.lower()):
@@ -3274,12 +3279,14 @@ def agg_miss_rate(clusters, hit_cluster):
     total = cluster_counts["count"].sum()
     return num_misses / total
 
+
 def agg_misses(clusters, hit_cluster):
     cluster_counts = clusters.value_counts().reset_index()
     num_misses = cluster_counts.loc[
         cluster_counts["hit_cluster"] > hit_cluster, "count"
     ].sum()
     return num_misses
+
 
 def agg_l1_hit_rate(hit_clusters):
     cluster_counts = hit_clusters.value_counts().reset_index()
@@ -3840,12 +3847,14 @@ def find_cache_line_size(
 
     plot_df = (
         combined.groupby("n")
-        .agg({
-            "hit_cluster": [
-                partial(agg_miss_rate, hit_cluster=hit_cluster),
-                partial(agg_misses, hit_cluster=hit_cluster),
-            ]
-        })
+        .agg(
+            {
+                "hit_cluster": [
+                    partial(agg_miss_rate, hit_cluster=hit_cluster),
+                    partial(agg_misses, hit_cluster=hit_cluster),
+                ]
+            }
+        )
         .reset_index()
     )
 
@@ -3910,7 +3919,11 @@ def find_cache_line_size(
     )
 
     marker_size = 12
-    y_data = plot_df["hit_cluster_agg_misses"] if absolute else plot_df["hit_cluster_agg_miss_rate"] * 100.0
+    y_data = (
+        plot_df["hit_cluster_agg_misses"]
+        if absolute
+        else plot_df["hit_cluster_agg_miss_rate"] * 100.0
+    )
     ax.scatter(
         plot_df["n"],
         y_data,
@@ -4332,14 +4345,19 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
         )
     else:
         latencies = collect_full_latency_distribution(
-            sim=sim, gpu=gpu, skip_l1=skip_l1, force=force,
+            sim=sim,
+            gpu=gpu,
+            skip_l1=skip_l1,
+            force=force,
             repetitions=repetitions,
         )
         # latencies = pd.DataFrame( # columns=["latency"],)
         # print(latencies)
         latencies = latencies.drop(columns=["r"])
         latencies = (
-            latencies.groupby(["config_id", "n", "k", "index", "virt_addr"]).median().reset_index()
+            latencies.groupby(["config_id", "n", "k", "index", "virt_addr"])
+            .median()
+            .reset_index()
         )
         # print(latencies)
 
@@ -4350,7 +4368,9 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
     if "r" in latencies:
         latencies = latencies.drop(columns=["r"])
     latencies = (
-        latencies.groupby(["config_id", "n", "k", "index", "virt_addr"]).median().reset_index()
+        latencies.groupby(["config_id", "n", "k", "index", "virt_addr"])
+        .median()
+        .reset_index()
     )
 
     bin_size = 20
