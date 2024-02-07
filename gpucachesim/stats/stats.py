@@ -59,7 +59,7 @@ class Stats(common.Stats):
         self.load_converted_stats()
         self.compute_result_df()
 
-    def load_converted_stats(self) -> None:
+    def load_converted_stats(self, all=False) -> None:
         # exec_time_sec_release_dfs = []
         sim_dfs = []
         accesses_dfs = []
@@ -79,12 +79,13 @@ class Stats(common.Stats):
             sim_df["run"] = r
             sim_dfs.append(sim_df)
 
-            accesses_df = pd.read_csv(
-                self.path / f"stats.accesses.{r}.csv",
-                header=0,
-            )
-            accesses_df["run"] = r
-            accesses_dfs.append(accesses_df)
+            if all:
+                accesses_df = pd.read_csv(
+                    self.path / f"stats.accesses.{r}.csv",
+                    header=0,
+                )
+                accesses_df["run"] = r
+                accesses_dfs.append(accesses_df)
 
             dram_banks_df = pd.read_csv(
                 self.path / f"stats.dram.banks.{r}.csv",
@@ -93,44 +94,61 @@ class Stats(common.Stats):
             dram_banks_df["run"] = r
             dram_banks_dfs.append(dram_banks_df)
 
-            try:
-                instructions_df = pd.read_csv(
-                    self.path / f"stats.instructions.{r}.csv",
-                    header=0,
-                )
-            except pd.errors.EmptyDataError:
-                print(self.path / f"stats.instructions.{r}.csv")
-                raise
-            instructions_df["run"] = r
-            instructions_dfs.append(instructions_df)
+            if all:
+                try:
+                    instructions_df = pd.read_csv(
+                        self.path / f"stats.instructions.{r}.csv",
+                        header=0,
+                    )
+                except pd.errors.EmptyDataError:
+                    print(self.path / f"stats.instructions.{r}.csv")
+                    raise
+                instructions_df["run"] = r
+                instructions_dfs.append(instructions_df)
 
-            l1_inst_stats_df = parse_cache_stats(self.path / f"stats.cache.l1i.{r}.csv")
-            l1_inst_stats_df["run"] = r
-            l1_inst_stats_dfs.append(l1_inst_stats_df)
+            if all:
+                l1_inst_stats_df = parse_cache_stats(self.path / f"stats.cache.l1i.{r}.csv")
+                l1_inst_stats_df["run"] = r
+                l1_inst_stats_dfs.append(l1_inst_stats_df)
 
-            l1_tex_stats_df = parse_cache_stats(self.path / f"stats.cache.l1t.{r}.csv")
-            l1_tex_stats_df["run"] = r
-            l1_tex_stats_dfs.append(l1_tex_stats_df)
+            if all:
+                l1_tex_stats_df = parse_cache_stats(self.path / f"stats.cache.l1t.{r}.csv")
+                l1_tex_stats_df["run"] = r
+                l1_tex_stats_dfs.append(l1_tex_stats_df)
 
             l1_data_stats_df = parse_cache_stats(self.path / f"stats.cache.l1d.{r}.csv")
             l1_data_stats_df["run"] = r
             l1_data_stats_dfs.append(l1_data_stats_df)
 
-            l1_const_stats_df = parse_cache_stats(self.path / f"stats.cache.l1c.{r}.csv")
-            l1_const_stats_df["run"] = r
-            l1_const_stats_dfs.append(l1_const_stats_df)
+            if all:
+                l1_const_stats_df = parse_cache_stats(self.path / f"stats.cache.l1c.{r}.csv")
+                l1_const_stats_df["run"] = r
+                l1_const_stats_dfs.append(l1_const_stats_df)
 
             l2_data_stats_df = parse_cache_stats(self.path / f"stats.cache.l2d.{r}.csv")
             l2_data_stats_df["run"] = r
             l2_data_stats_dfs.append(l2_data_stats_df)
 
         self.sim_df = fix_dtypes(pd.concat(sim_dfs))
-        self.accesses_df = fix_dtypes(pd.concat(accesses_dfs))
         self.dram_banks_df = fix_dtypes(pd.concat(dram_banks_dfs))
-        self.instructions_df = fix_dtypes(pd.concat(instructions_dfs))
-        self.l1_inst_stats_df = fix_dtypes(pd.concat(l1_inst_stats_dfs))
-        self.l1_tex_stats_df = fix_dtypes(pd.concat(l1_tex_stats_dfs))
+
+        if len(accesses_dfs) > 0:
+            self.accesses_df = fix_dtypes(pd.concat(accesses_dfs))
+
+        if len(instructions_dfs) > 0:
+            self.instructions_df = fix_dtypes(pd.concat(instructions_dfs))
+
+        if len(l1_inst_stats_dfs) > 0:
+            self.l1_inst_stats_df = fix_dtypes(pd.concat(l1_inst_stats_dfs))
+
+        if len(l1_tex_stats_dfs) > 0:
+            self.l1_tex_stats_df = fix_dtypes(pd.concat(l1_tex_stats_dfs))
+
+        if len(l1_const_stats_dfs) > 0:
+            self.l1_const_stats_df = fix_dtypes(pd.concat(l1_const_stats_dfs))
+
         self.l1_data_stats_df = fix_dtypes(pd.concat(l1_data_stats_dfs))
+        self.l2_data_stats_df = fix_dtypes(pd.concat(l2_data_stats_dfs))
 
         if False:
             print(self.l1_data_stats_df)
@@ -163,9 +181,6 @@ class Stats(common.Stats):
         # global_read = df["access_kind"].isin(["GLOBAL_ACC_R"])
         # hit_mask = df["access_status"].isin(["HIT", "HIT_RESERVED"])
         # miss_mask = df["access_status"].isin(["MISS", "SECTOR_MISS"])
-
-        self.l1_const_stats_df = fix_dtypes(pd.concat(l1_const_stats_dfs))
-        self.l2_data_stats_df = fix_dtypes(pd.concat(l2_data_stats_dfs))
 
         # for df in [
         #     self.sim_df,

@@ -16,8 +16,11 @@ except ImportError:
 from gpucachesim import REPO_ROOT_DIR
 
 import gpucachesim.utils as utils
-import gpucachesim.stats.common as common
 
+BASELINE = dict(
+    cores_per_cluster=1,
+    num_clusters=28,
+)
 
 DEFAULT_BENCH_FILE = REPO_ROOT_DIR / "test-apps/test-apps-materialized.yml"
 
@@ -143,6 +146,7 @@ RATE_COLUMNS = [
     "l1_hit_rate",
     "l1_global_hit_rate",
     "l1_local_hit_rate",
+    "mean_blocks_per_sm",
 ]
 
 NON_NUMERIC_COLS = {
@@ -530,8 +534,8 @@ def table(path, baseline):
             return not baseline or all(
                 [
                     config["values"].get("memory_only") in [False, None],
-                    config["values"].get("num_clusters") in [int(common.BASELINE["num_clusters"]), None],
-                    config["values"].get("cores_per_cluster") in [int(common.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("num_clusters") in [int(BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
                 ]
             )
