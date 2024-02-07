@@ -67,8 +67,8 @@ def aggregate_benchmark_results(
     per_kernel=False,
     inspect=False,
     mean=False,
-    cores_per_cluster=int(common.BASELINE["cores_per_cluster"]),
-    num_clusters=int(common.BASELINE["num_clusters"]),
+    cores_per_cluster=int(benchmarks.BASELINE["cores_per_cluster"]),
+    num_clusters=int(benchmarks.BASELINE["num_clusters"]),
 ) -> typing.Tuple[pd.DataFrame, typing.List[str]]:
     """View results for a benchmark"""
     for col in benchmarks.SIMULATE_INPUT_COLS:
@@ -228,6 +228,10 @@ def build_parallel_table_rows(
 ) -> typing.Sequence[ParallelTableRow]:
     # interleave_n = list(itertools.product([False, True], [5, 10]))
     run_ahead_values = [5, 10]
+    for run_ahead in run_ahead_values:
+        # print(df["input_run_ahead_parallel"].unique())
+        assert run_ahead in df["input_run_ahead_parallel"].unique()
+
     table_rows: typing.Sequence[ParallelTableRow] = []
 
     assert num_bench_configs > 0
@@ -267,13 +271,18 @@ def build_parallel_table_rows(
         # diff = set(preview_cols) - set(list(all_parallel.columns))
         # print(diff)
 
-        print("max speedup for {} threads is {}".format(
-            threads, all_parallel["exec_time_sec_speedup"].max()))
+        # benchmarks.BENCH_TARGET_INDEX_COLS
+        #     + ["kernel_name", "kernel_launch_id", "run"]
+        #     + list(copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS))
+        #     + benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS
+
+        print(color("==> max speedup for {} threads is {}".format(
+            threads, all_parallel["exec_time_sec_speedup"].max()), fg="green"))
+
         weird_mask = all_parallel["exec_time_sec_speedup"] > threads
         weird = all_parallel.loc[weird_mask,preview_cols]
-        print("weird results for {} threads:".format(threads))
         if len(weird) > 0:
-            print(color("WARNING", fg="red"))
+            print(color("WARNING: weird results for {} threads:".format(threads), fg="red"))
             print(weird.T)
             print("===")
         # assert len(weird) == 0
@@ -292,12 +301,13 @@ def build_parallel_table_rows(
                 print(det.loc[det["benchmark"] == "vectorAdd", preview_cols].T)
             else:
                 print(det.loc[:,preview_cols].T)
-        print("===")
+
         all_nondet = df[threads_mask & nondet_mask]
         # nondet_no_interleave = df[threads_mask & nondet_no_interleave_mask]
         # nondet_interleave = df[threads_mask & nondet_interleave_mask]
 
-        print("num det={} num benchmark configs={}".format(len(det), num_bench_configs))
+        print("num deterministic={} num nondeterministic={} num benchmark configs={}".format(len(det), len(all_nondet), num_bench_configs))
+
         # print(det)
         assert len(det) == num_bench_configs
         assert len(all_nondet) == len(run_ahead_values) * num_bench_configs
@@ -316,22 +326,27 @@ def build_parallel_table_rows(
         # )
 
 
+        parallel_preview_cols = list(
+            benchmarks.BENCH_TARGET_INDEX_COLS
+            + ["input_id_serial", "input_id_parallel"]
+            + benchmarks.INDEX_COLS
+            + [c for c in benchmarks.SIMULATE_INPUT_COLS]
+            + [c + "_parallel" for c in benchmarks.SIMULATE_INPUT_COLS]
+            + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+        )
+        parallel_preview_cols += ["total_cores_parallel", "num_blocks_parallel", "mean_blocks_per_sm_parallel", "exec_time_sec_parallel", "exec_time_sec_speedup"]
+        parallel_preview_cols = [col for col in parallel_preview_cols if col in df]
+
+        spacer = " " + ("=" * 20) + " "
+
         # exec time (speedup)
         serial_exec_time = df.loc[threads_mask, "exec_time_sec_serial"].mean()
         det_exec_time = det["exec_time_sec_parallel"].mean()
         det_speedup = det["exec_time_sec_speedup"].mean()
         if multiple_bench_configs:
-            preview_cols = list(
-                benchmarks.BENCH_TARGET_INDEX_COLS
-                + benchmarks.INDEX_COLS
-                + [c for c in benchmarks.SIMULATE_INPUT_COLS]
-                + [c + "_parallel" for c in benchmarks.SIMULATE_INPUT_COLS]
-                + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
-            )
-            preview_cols = [col for col in preview_cols if col in df]
-
-            print("DETERMINISTIC {}".format(det.shape))
-            print(det[preview_cols][:8].T)
+            print("")
+            print(spacer + "DETERMINISTIC {} threads={}".format(det.shape, threads) + spacer)
+            print(det[parallel_preview_cols][:8].T)
 
             # make sure we aggregate a single functional config only
             assert det["input_cores_per_cluster"].nunique() == 1
@@ -344,6 +359,11 @@ def build_parallel_table_rows(
             # nondet = nondet_interleave if interleave else nondet_no_interleave
             # print("run ahead={}".format(run_ahead))
             nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+
+            print("")
+            print(spacer + "NONDETERMINISTIC {} threads={} run ahead={}".format(nondet.shape, threads, run_ahead) + spacer)
+            print(nondet[parallel_preview_cols][:8].T)
+
             # print(nondet.T)
             # assert len(nondet) == 1
             assert len(nondet) == num_bench_configs
@@ -1003,6 +1023,7 @@ def smape(true_values: np.ndarray, values: np.ndarray) -> float:
     true_values = true_values.fillna(0.0)
 
     smape = (values - true_values).abs() / (values.abs() + true_values.abs())
+    smape[values == true_values] = 0.0
     return smape.mean()
 
 
@@ -1196,8 +1217,8 @@ def split_into_target_dfs(
 ) -> TargetDataframes:
     df = df.reset_index()
 
-    baseline_cores_per_cluster = common.BASELINE["cores_per_cluster"]
-    baseline_num_clusters = common.BASELINE["num_clusters"]
+    baseline_cores_per_cluster = benchmarks.BASELINE["cores_per_cluster"]
+    baseline_num_clusters = benchmarks.BASELINE["num_clusters"]
     functional_config = FunctionalConfig(
         cores_per_cluster=baseline_cores_per_cluster,
         num_clusters=baseline_num_clusters,
@@ -2190,7 +2211,7 @@ def result_table(path, bench_name_arg, metric_arg, nsight, verbose):
 @main.command()
 # @click.pass_context
 @click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "bench_name_arg", help="Benchmark name")
+@click.option("--bench", "-b", "bench_name_arg", help="Benchmark name")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 def parallel_table(bench_name_arg, path, nsight):
     profiler = "nsight" if nsight else "nvprof"
@@ -2229,6 +2250,7 @@ def parallel_table(bench_name_arg, path, nsight):
     metric_cols -= set(benchmarks.NON_NUMERIC_COLS)
     metric_cols -= set(["exec_time_sec", "run"])
     metric_cols = list(metric_cols)
+    metric_cols = sorted(metric_cols)
     # pprint(metric_cols)
     # print(serial.loc[
     #     serial["input_id"] == 0,
@@ -2281,16 +2303,31 @@ def parallel_table(bench_name_arg, path, nsight):
     print("parallel input ids", parallel_input_ids)
 
     deterministic = parallel[parallel["input_mode"] == "deterministic"]
+    assert len(deterministic) > 0
     unique_simulation_metrics = deterministic.groupby(
-        deterministic_group_cols, dropna=False
+        deterministic_group_cols, dropna=False,
     )[metric_cols].nunique()
-    assert (unique_simulation_metrics == 1).all(axis=1).all()
+
+    config_with_identical_results = (unique_simulation_metrics == 1).all(axis=1)
+    if not config_with_identical_results.all():
+        bad_configs = unique_simulation_metrics[~config_with_identical_results].reset_index()
+        # print(bad_configs.T)
+        bad = deterministic.merge(
+            bad_configs,
+            on=deterministic_group_cols,
+            how="inner",
+            suffixes=("", "_nunique"),
+        )
+        # print(bad.T)
+        print(bad[deterministic_group_cols + ["run"] + metric_cols].T)
+
+    assert config_with_identical_results.all(), "deterministic configuration results differ for different runs, which makes them rather nondeterministic"
 
     # non deterministic without interleaving is also deterministic actually
     nondeterministic = parallel[parallel["input_mode"] == "nondeterministic"]
-    unique_simulation_metrics = nondeterministic.groupby(
-        deterministic_group_cols, dropna=False
-    )[metric_cols].nunique()
+    # unique_simulation_metrics = nondeterministic.groupby(
+    #     deterministic_group_cols, dropna=False
+    # )[metric_cols].nunique()
     assert len(nondeterministic) > 0
 
     input_id_partitoning = set(serial["input_id"].unique()).intersection(
@@ -2299,28 +2336,18 @@ def parallel_table(bench_name_arg, path, nsight):
     if len(input_id_partitoning) > 0:
         print(color("serial and parallel input ids intersect ", fg="red"))
         for input_id in input_id_partitoning:
-            print("serial input", input_id)
-            print(
-                serial.loc[
-                    serial["input_id"] == input_id,
-                    benchmarks.BENCH_TARGET_INDEX_COLS
+            input_preview_cols = list(["input_id"]
+                    + benchmarks.BENCH_TARGET_INDEX_COLS
                     + ["kernel_launch_id"]
                     + bench_input_cols
-                    + benchmarks.SIMULATE_INPUT_COLS,
-                ]
-            )
+                    + benchmarks.SIMULATE_INPUT_COLS)
+
+            print("serial with input id", input_id)
+            print(serial.loc[ serial["input_id"] == input_id, input_preview_cols])
             print("parallel input", input_id)
-            print(
-                parallel.loc[
-                    parallel["input_id"] == input_id,
-                    benchmarks.BENCH_TARGET_INDEX_COLS
-                    + ["kernel_launch_id"]
-                    + bench_input_cols
-                    + benchmarks.SIMULATE_INPUT_COLS,
-                ]
-            )
+            print(parallel.loc[ parallel["input_id"] == input_id, input_preview_cols])
             break
-        assert len(input_id_partitoning) == 0
+        assert len(input_id_partitoning) == 0, "serial and parallel inputs intersect, this is generally solved by regenerating the aggregated csv stats"
 
     # join based on input_cols, NOT based on mode
     join_cols = list(
@@ -2402,6 +2429,7 @@ def parallel_table(bench_name_arg, path, nsight):
     )
     assert "input_id" not in group_cols
     assert "input_id_serial" not in group_cols
+
     aggregations = {
         **{c: "mean" for c in sorted(joined.columns)},
         **{c: agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
@@ -2533,16 +2561,20 @@ def parallel_table(bench_name_arg, path, nsight):
     )
 
     # build the table data
+    assert 8*benchmarks.BASELINE["num_clusters"] == 224
+
     functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
         dict(
             input_memory_only=False,
-            input_num_clusters=common.BASELINE["num_clusters"],
+            input_num_clusters=benchmarks.BASELINE["num_clusters"],
             input_cores_per_cluster=1,
         ),
         dict(
             input_memory_only=False,
-            input_num_clusters=common.BASELINE["num_clusters"],
-            input_cores_per_cluster=8,
+            input_num_clusters=benchmarks.BASELINE["num_clusters"],
+            input_cores_per_cluster=4,
+            # input_num_clusters=4*benchmarks.BASELINE["num_clusters"],
+            # input_cores_per_cluster=1,
         ),
     ]
     selected_benchmarks: typing.Sequence[typing.Dict[str, typing.Any]] = []
@@ -2555,16 +2587,17 @@ def parallel_table(bench_name_arg, path, nsight):
                     **functional_config,
                 },
             ),
-            # dict(
-            #     name="transpose",
-            #     inputs={
-            #         **{"input_variant": "naive", "input_dim": 512},
-            #         **functional_config,
-            #     },
-            # ),
+            dict(
+                name="babelstream",
+                inputs={
+                    **{"input_size": 102400},
+                    **functional_config,
+                },
+            ),
             dict(
                 name="transpose",
                 inputs={
+                    # **{"input_variant": "naive", "input_dim": 512},
                     **{"input_variant": "coalesced", "input_dim": 512},
                     **functional_config,
                 },
@@ -2724,9 +2757,8 @@ def parallel_table(bench_name_arg, path, nsight):
             mask_values = list(functional_config.values())
             mask = (aggregated[mask_cols] == mask_values).all(axis=1)
 
-            label = "Average @ {} SM's".format(
-                int(aggregated.loc[mask, "total_cores_parallel"].values[0]),
-            )
+            total_cores = int(aggregated.loc[mask, "total_cores_parallel"].values[0])
+            label = "Average @ {} SM's".format(total_cores)
 
             table += "%\n%\n"
             table += (
@@ -2766,17 +2798,16 @@ def parallel_table(bench_name_arg, path, nsight):
         for bench_config in selected_benchmarks:
             bench_inputs: typing.Dict[str, typing.Any] = bench_config["inputs"]
             if not all(aggregated["benchmark"] == bench_config["name"]):
-                print(
-                    color(
-                        "SKIP: want {} (have {})".format(
-                            bench_config["name"], aggregated["benchmark"][0]
-                        ),
-                        fg="red",
-                    )
-                )
+                # print(
+                #     "SKIP: want {} (have {})".format(
+                #         aggregated["benchmark"][0], bench_config["name"]
+                #     )
+                # )
                 continue
 
-            print("==> {}".format(bench_config["name"]))
+            print("")
+            print(color("==> {} {}".format(bench_config["name"], bench_inputs), fg="cyan"))
+
             mask_cols = ["benchmark"] + list(bench_inputs.keys())
             mask_values = [bench_name_arg] + list(bench_inputs.values())
 
@@ -2817,7 +2848,8 @@ def parallel_table(bench_name_arg, path, nsight):
                     #     bold_values = [np.amin(row.values())]
                     # else:
                     #     bold_values = [np.amax(row.values())]
-                print(row.metric, bold_values, row.values())
+                print("writing table row {:<30} values={} bold={}".format(
+                    row.metric, row.values(), bold_values))
                 table += write_table_row(row, bold_values)
 
         # add averaged row
@@ -2826,9 +2858,12 @@ def parallel_table(bench_name_arg, path, nsight):
             mask_values = list(functional_config.values())
             mask = (aggregated[mask_cols] == mask_values).all(axis=1)
 
-            label = "Average @ {} SM's".format(
-                int(aggregated.loc[mask, "total_cores_parallel"].values[0]),
-            )
+            total_cores = int(aggregated.loc[
+                mask, "total_cores_parallel"].values[0])
+
+            print(color("==> AVERAGE for {:<4} SM's {}".format(total_cores, functional_config), fg="cyan"))
+
+            label = "Average @ {} SM's".format(total_cores)
 
             table += "%\n%\n"
             table += (
@@ -2857,7 +2892,9 @@ def parallel_table(bench_name_arg, path, nsight):
                     #     # when exec time is speedup, take maximum
                     bold_values = [np.amax(row.values())]
 
-                print(row.metric, bold_values, row.values())
+                # print(row.metric, bold_values, row.values())
+                print("writing table row {:<30} values={} bold={}".format(
+                    row.metric, row.values(), bold_values))
                 table += write_table_row(row, bold_values)
 
     table += r"""
@@ -3092,8 +3129,8 @@ def correlation_plots(path, bench_name_arg, nsight):
                     4,
                     5,
                     memory_only,
-                    int(common.BASELINE["num_clusters"]),
-                    int(common.BASELINE["cores_per_cluster"]),
+                    int(benchmarks.BASELINE["num_clusters"]),
+                    int(benchmarks.BASELINE["cores_per_cluster"]),
                 )
 
             group_cols = bench_input_cols
@@ -4631,12 +4668,12 @@ def generate(
                     # if input_values.get("memory_only") not in [False, None]:
                     #     continue
                     if input_values.get("cores_per_cluster") not in [
-                        int(common.BASELINE["cores_per_cluster"]),
+                        int(benchmarks.BASELINE["cores_per_cluster"]),
                         None,
                     ]:
                         continue
                     if input_values.get("num_clusters") not in [
-                        int(common.BASELINE["num_clusters"]),
+                        int(benchmarks.BASELINE["num_clusters"]),
                         None,
                     ]:
                         continue
@@ -4723,6 +4760,243 @@ def generate(
             all_stats.to_csv(stats_output_path, index=False)
 
 
+TIMING_COLS_SUMMING_TO_FULL_CYCLE = [
+    "cycle::core",
+    "cycle::dram",
+    "cycle::interconn",
+    "cycle::issue_block_to_core",
+    "cycle::l2",
+    "cycle::subpartitions",
+]
+
+def _build_timings_pie(ax, timings_df, 
+                       sections, colors, 
+                       title=None,
+                       validate=False):
+    if validate:
+        # for _, df in timings_df.groupby(["benchmark", "input_id", "target", "run"]):
+        #     print(df)
+        #     exec_time_sec = df["exec_time_sec"]
+        #     print(exec_time_sec)
+        #     assert len(exec_time_sec.unique()) == 1
+        #
+        #     total = df.loc[cols_summing_to_full_cycle, "total"].sum()
+        #     # total = df.T[cols_summing_to_full_cycle].T["total"] # [cols_summing_to_full_cycle].sum()
+        #     print(total)
+        #     df["abs_diff"] = (total - exec_time_sec).abs()
+        #     # abs_diff = (total - exec_time_sec).abs()
+        #     df["rel_diff"] = (1 - (total / exec_time_sec)).abs()
+        #     # rel_diff = (1 - (total / exec_time_sec)).abs()
+        #
+        #     valid_rel = df["rel_diff"] <= 0.2
+        #     valid_abs = df["abs_diff"] <= 0.1
+        #     # print(timings_df[timings_df["total"] > timings_df["exec_time_sec"]])
+        #     # print(timings_df[~(valid_rel | valid_abs)])
+        #     if not (valid_rel | valid_abs).all():
+        #         invalid = ~(valid_rel | valid_abs)
+        #         print(df.loc[invalid, ["total", "exec_time_sec", "abs_diff", "rel_diff"]])
+        #    
+        #     assert (valid_rel | valid_abs).all()
+        pass
+
+
+    def stderr(df):
+        return df.std() / np.sqrt(len(df))
+
+    averaged = timings_df.groupby("name")[
+        ["total_sec", "share", "mean_sec", "mean_micros", "mean_millis", "exec_time_sec"]
+    ].agg(["min", "max", "mean", "median", "std", "sem", stderr])
+
+    # make sure sem is correct
+    all_sem = averaged.iloc[:, averaged.columns.get_level_values(1) == "sem"]
+    all_sem.columns = all_sem.columns.droplevel(1)
+    all_stderr = averaged.iloc[:, averaged.columns.get_level_values(1) == "stderr"]
+    all_stderr.columns = all_stderr.columns.droplevel(1)
+    assert ((all_sem - all_stderr).abs() > 0.001).sum().sum() == 0
+
+    # total does not really say much, because we are averaging for different
+    # benchmark configurations
+    # print("\n\n=== TOTAL")
+    # pd.options.display.float_format = "{:.2f}".format
+    # print(averaged["total"])
+
+    def compute_ahmdahl_speedup(p, s=None):
+        if s is None:
+            s = 1-p
+        return 1/((1-p) + p/s)
+
+    ahmdahl_speedup = compute_ahmdahl_speedup(
+        p=averaged.loc["cycle::core", ("share", "median")])
+    print("AHMDAHL SPEEDUP = {:<6.3f}".format(ahmdahl_speedup))
+
+    print("\n\n=== MEAN MICROSECONS")
+    pd.options.display.float_format = "{:.6f}".format
+    print(averaged["mean_micros"])
+    print("\n\n=== SHARE")
+    pd.options.display.float_format = "{:.2f}".format
+    print(averaged["share"] * 100.0)
+
+    # validate averaged values
+    total_cycle_share = averaged["share", "mean"].T["cycle::total"]
+    
+    computed_total_cycle_share = averaged["share", "mean"].T[
+        TIMING_COLS_SUMMING_TO_FULL_CYCLE
+    ]
+    if computed_total_cycle_share.sum() > total_cycle_share:
+        print(total_cycle_share, computed_total_cycle_share.sum())
+    assert computed_total_cycle_share.sum() <= total_cycle_share
+
+    # issue blocks = cycle::issue_block_to_core
+    # cores = cycle::core
+    # dram = cycle::dram
+    # interconn = cycle::subpartitions, cycle::interconn
+    # cache cycle = cycle::l2
+
+    # timings_df["rel_err"] = timings_df["total"] / timings_df["exec_time_sec"]
+    # timings_df["abs_err"] = (timings_df["total"] - timings_df["exec_time_sec"]).abs()
+
+    # double check the total duration reported in the timings matches the total exec time sec
+    # valid_rel = computed_total_cycle_share.sum() / timings_df["exec_time_sec"] <= 0.2
+    # valid_abs = (total - exec_time_sec).abs() <= 0.1
+
+    
+    
+    # recipe = ["375 g flour",
+    #           "75 g sugar",
+    #           "250 g butter",
+    #           "300 g berries"]
+    #
+    # data = [float(x.split()[0]) for x in recipe]
+    # ingredients = [x.split()[-1] for x in recipe]
+
+    
+    unit = "mean_micros"
+    agg = "median"
+    idx = pd.MultiIndex.from_product((["share", unit], [agg, "std"]))
+    # print(averaged[idx])
+
+    # sort based on share
+    shares = averaged.loc[sections, idx]
+    shares = shares.sort_values([('share', agg)], ascending=False)
+
+    # compute other
+    other = 1.0 - shares["share", agg].sum()
+    # print("other:", other)
+    shares.loc["other",:] = 0.0
+    shares.loc["other",("share", agg)] = other
+    print(shares)
+
+    # num_sections = len(shares)
+        # colors = list(cmap(np.linspace(0, 1.0, num_sections)))
+    # for i, label in enumerate(shares.index):
+    #     if label.lower() == "other":
+    #         colors[i] = "whitesmoke"
+
+    # colors = [cmap(i) for i in range(len(data))]
+    # print(colors)
+    # colors = [matplotlib.colors.to_hex(cmap(i)) for i in range(len(data))]
+
+
+    # values = shares["share", agg].values * 100.0
+    # bottom = 0
+    # bars = []
+    # for i in range(len(values)):
+    #     bar_color = colors[i]
+    #     share = values[i]
+    #     label = shares.index[i]
+    #     
+    #     bar = plt.bar(0, share, bottom=bottom, color=bar_color, label=label)
+    #     bottom += values[i]
+    #     bars.append(bar)
+    #
+    # ax.set_ylim(0, 100.0)
+    #
+    # ax.legend(bars, shares.index,
+    #       loc="center left",
+    #       bbox_to_anchor=(1, 0, 0.5, 1))
+
+
+    # ax.set_yticks(y_pos, labels=people)
+    # ax.invert_yaxis()  # labels read top-to-bottom
+    # ax.set_xlabel('Mean percentage of total simulation time')
+
+    values = shares["share", agg].values * 100.0
+    wedges, texts, autotexts = ax.pie(
+        values,
+        # autopct=labels,
+        # labels=shares.index,
+        # autopct=compute_label,
+        autopct="",
+        # autopct=lambda pct: func(pct, data),
+        colors=[colors[s] for s in shares.index],
+        # pctdistance=1.1,
+        # labeldistance=1.2,
+        pctdistance=1.0, 
+        # pctdistance=1.1, 
+        # labeldistance=1.1,
+    )
+        # textprops=dict(color="w"))
+
+    labels = shares.index
+    # labels = [r"{} (${:4.1f}\%$)".format(label, values[i]) 
+    #           for i, label in enumerate(shares.index)]
+    # # labels = [label.removeprefix("cycle::").replace("_", " ").capitalize() for label in shares.index]
+    # legend = ax.legend(wedges, labels,
+    #       # title="Ingredients",
+    #       loc="center left",
+    #       bbox_to_anchor=(1, 0, 0.5, 1))
+    #
+    # bbox_extra_artists.append(legend)
+
+    for i, a in enumerate(autotexts):
+        share = values[i]
+        col = shares.index[i].lower()
+
+        # compute desired pct distance
+        if share >= 40.0:
+            label_dist = 0.5
+        else:
+            label_dist = 0.7
+        xi,yi = a.get_position()
+        ri = np.sqrt(xi**2+yi**2)
+        phi = np.arctan2(yi,xi)
+        x = label_dist*ri*np.cos(phi)
+        y = label_dist*ri*np.sin(phi)
+        a.set_position((x,y))
+        # print(col, share, label_dist)
+
+        if share < 5.0 or col == "other":
+                
+            a.set_text("")
+        else:
+            label = r"${:>4.1f}\%".format(share)
+            share_std = shares["share", "std"].iloc[i] * 100.0
+            # label += r" \pm {:>4.1f}\%".format(share_std)
+            label += "$"
+            label += "\n"
+
+            dur = shares[unit, agg].iloc[i]
+            dur_std = shares[unit, "std"].iloc[i]
+            label += r"${:4.1f}\mu s$".format(dur)
+            # label += r"$({:4.1f}ms \pm {:4.2f}ms)$".format(dur_mean, dur_std)
+
+            if col == "cycle::core":
+                dur_per_sm = averaged.loc[
+                        "core::cycle",  (unit, agg)]
+                # temp fix
+                dur_per_sm = dur / 28
+                label += "\n"
+                label += r"${:4.1f}\mu s$ per core".format(dur_per_sm)
+            a.set_text(label)
+
+    # plt.setp(autotexts, size=fontsize, weight="bold")
+
+    if title is not None:
+        ax.set_title(title)
+
+    return wedges, list(labels), texts, autotexts
+
+
 @main.command()
 @click.option(
     "-p",
@@ -4733,7 +5007,8 @@ def generate(
 @click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
 @click.option("--baseline", type=bool, default=True, help="Baseline configurations")
 @click.option("--strict", type=bool, default=True, help="strict mode")
-def timings(path, bench_name_arg, baseline, strict):
+@click.option("--validate", type=bool, is_flag=True, help="validate")
+def timings(path, bench_name_arg, baseline, strict, validate):
     print("loading", path)
     b = Benchmarks(path)
     benches = b.benchmarks[Target.Simulate.value]
@@ -4756,9 +5031,9 @@ def timings(path, bench_name_arg, baseline, strict):
                 [
                     config["values"].get("memory_only") in [False, None],
                     config["values"].get("num_clusters")
-                    in [int(common.BASELINE["num_clusters"]), None],
+                    in [int(benchmarks.BASELINE["num_clusters"]), None],
                     config["values"].get("cores_per_cluster")
-                    in [int(common.BASELINE["cores_per_cluster"]), None],
+                    in [int(benchmarks.BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
                 ]
             )
@@ -4772,18 +5047,28 @@ def timings(path, bench_name_arg, baseline, strict):
             target_config = bench_config["target_config"].value
             stats_dir = Path(target_config["stats_dir"])
             assert bench_config["values"]["mode"] == "serial"
+
+            num_clusters = bench_config["values"].get("num_clusters", benchmarks.BASELINE["num_clusters"])
+            cores_per_cluster = bench_config["values"].get("cores_per_cluster", benchmarks.BASELINE["cores_per_cluster"])
+            total_cores = num_clusters * cores_per_cluster
+            assert total_cores == 28
+
             for r in range(repetitions):
                 sim_df = pd.read_csv(
                     stats_dir / f"stats.sim.{r}.csv",
                     header=0,
                 )
                 sim_df["run"] = r
-                grouped_sim = sim_df.groupby(
+                grouped_sim_including_no_kernel = sim_df.groupby(
                     gpucachesim.stats.stats.INDEX_COLS, dropna=False
                 )
+                grouped_sim_excluding_no_kernel = sim_df.groupby(
+                    gpucachesim.stats.stats.INDEX_COLS, dropna=True
+                )
 
-                # timings_path = stats_dir / f"timings.{r}.csv"
-                timings_path = stats_dir / f"timings.csv"
+
+                timings_path = stats_dir / f"timings.{r}.csv"
+                # timings_path = stats_dir / f"timings.csv"
                 # print(timings_path)
                 if not strict and not timings_path.is_file():
                     continue
@@ -4791,80 +5076,190 @@ def timings(path, bench_name_arg, baseline, strict):
                 assert timings_path.is_file()
 
                 timing_df = pd.read_csv(timings_path, header=0)
+                timing_df = timing_df.rename(
+                        columns={"total": "total_sec"})
                 timing_df["benchmark"] = bench_config["name"]
                 timing_df["input_id"] = bench_config["input_idx"]
                 timing_df["target"] = bench_config["target"]
                 timing_df["run"] = r
-                timing_df["exec_time_sec"] = grouped_sim["elapsed_millis"].sum().sum()
+
+                # print(sim_df[gpucachesim.stats.stats.INDEX_COLS + ["num_blocks"]])
+                # print(grouped_sim["num_blocks"].head())
+                timing_df["mean_blocks_per_sm"] = grouped_sim_excluding_no_kernel["num_blocks"].mean().mean() / total_cores 
+                # grouped_sim["mean_blocks_per_sm"].mean().mean()
+                timing_df["exec_time_sec"] = grouped_sim_including_no_kernel["elapsed_millis"].sum().sum()
                 timing_df["exec_time_sec"] /= 1000.0
 
                 timings_dfs.append(timing_df)
 
     timings_df = pd.concat(timings_dfs)
-    timings_df["max_total"] = timings_df.groupby(
-        ["target", "benchmark", "input_id", "run"]
-    )["total"].transform("max")
-    timings_df["exec_time_sec"] = timings_df["max_total"]
+    timings_df = timings_df.set_index(["name"])
+    # timings_df = timings_df.set_index(["target", "benchmark", "input_id", "run", "name"])
+    index_cols= ["target", "benchmark", "input_id", "run"]
+    timings_df["max_total_sec"] = timings_df.groupby(index_cols)["total_sec"].transform("max")
+
+    def compute_exec_time_sec(df) -> float:
+        time = df.loc[TIMING_COLS_SUMMING_TO_FULL_CYCLE, "total_sec"].sum()
+        # time = df.loc[pd.IndexSlice[,:,:,cols_summing_to_full_cycle], "total"].sum()
+        return time
+
+    computed_exec_time_sec = timings_df.groupby(
+        index_cols
+    )[timings_df.columns].apply(compute_exec_time_sec).rename("computed_exec_time_sec")
+
+    before = len(timings_df)
+    timings_df = timings_df.reset_index().merge(
+        computed_exec_time_sec, on=index_cols, how="left")
+    assert len(timings_df) == before
+
+    if "computed_exec_time_sec" in timings_df:
+        timings_df["abs_diff_to_real"] = (timings_df["computed_exec_time_sec"] - timings_df["exec_time_sec"]).abs()
+        timings_df["rel_diff_to_real"] = (1 - (timings_df["computed_exec_time_sec"] / timings_df["exec_time_sec"])).abs()
+
+    # exec time sec is usually more efficient when timing is disabled.
+    # while its not quite the real thing, we normalize to max total timing
+    timings_df["exec_time_sec"] = timings_df["max_total_sec"]
+
     # timings_df["exec_time_sec"] = timings_df[["max_total", "exec_time_sec"]].max(axis=1)
-    timings_df["mean_sec"] = timings_df["total"] / timings_df["count"]
+    timings_df["mean_sec"] = timings_df["total_sec"] / timings_df["count"]
     timings_df["mean_millis"] = timings_df["mean_sec"] * 1000.0
     timings_df["mean_micros"] = timings_df["mean_millis"] * 1000.0
-    timings_df["share"] = timings_df["total"] / timings_df["exec_time_sec"]
+    timings_df["share"] = timings_df["total_sec"] / timings_df["exec_time_sec"]
+    timings_df = timings_df.set_index("name")
 
-    print(timings_df.head(n=100))
+    # filter
+    sufficient_size_mask = timings_df["mean_blocks_per_sm"] > 1.0
+    sufficient_size_timings_df = timings_df[sufficient_size_mask]
 
-    def stderr(df):
-        return df.std() / np.sqrt(len(df))
+    print(timings_df.head(n=10).T)
+    print(timings_df.head(n=30))
 
-    averaged = timings_df.groupby("name")[
-        ["total", "share", "mean_micros", "mean_millis"]
-    ].agg(["min", "max", "mean", "std", "sem", stderr])
 
-    # make sure sem is correct
-    all_sem = averaged.iloc[:, averaged.columns.get_level_values(1) == "sem"]
-    all_sem.columns = all_sem.columns.droplevel(1)
-    all_stderr = averaged.iloc[:, averaged.columns.get_level_values(1) == "stderr"]
-    all_stderr.columns = all_stderr.columns.droplevel(1)
-    assert ((all_sem - all_stderr).abs() > 0.001).sum().sum() == 0
+    fontsize = plot.FONT_SIZE_PT - 4
+    font_family = "Helvetica"
 
-    print("\n\n=== TOTAL")
-    pd.options.display.float_format = "{:.2f}".format
-    print(averaged["total"])
-    print("\n\n=== MEAN MICROSECONS")
-    pd.options.display.float_format = "{:.6f}".format
-    print(averaged["mean_micros"])
-    print("\n\n=== SHARE")
-    pd.options.display.float_format = "{:.2f}".format
-    print(averaged["share"] * 100.0)
+    plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
 
-    total = averaged["share"]["mean"].T["cycle::total"]
-    summed = averaged["share"]["mean"].T[
-        [
-            "cycle::core",
-            "cycle::dram",
-            "cycle::interconn",
-            "cycle::issue_block_to_core",
-            "cycle::l2",
-            "cycle::subpartitions",
-        ]
+    figsize = (
+        0.8 * plot.DINA4_WIDTH_INCHES,
+        0.2 * plot.DINA4_HEIGHT_INCHES,
+    )
+    # fig = plt.figure(
+    #     figsize=figsize,
+    #     # layout="constrained",
+    #     # subplot_kw=dict(aspect="equal"),
+    # )
+    # ax = plt.axes()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, sharex=True, sharey=True)
+
+    sections = [
+        "cycle::core",
+        "cycle::dram",
+        "cycle::interconn",
+        "cycle::issue_block_to_core",
+        "cycle::l2",
+        "cycle::subpartitions",
     ]
-    print(total, summed.sum())
-    assert summed.sum() <= total
+    cmap = plt.get_cmap('tab20')
+    # cmap = plt.get_cmap('tab20c')
+    # cmap = plt.get_cmap('Set3')
 
-    # issue blocks = cycle::issue_block_to_core
-    # cores = cycle::core
-    # dram = cycle::dram
-    # interconn = cycle::subpartitions, cycle::interconn
-    # cache cycle = cycle::l2
+    colors = cmap(np.linspace(0, 1.0, len(sections)))
+    colors = ['lightskyblue', 'gold', 'yellowgreen', 'lightcoral', "violet", "palegreen"]
+    assert len(colors) == len(sections)
 
-    # timings_df["rel_err"] = timings_df["total"] / timings_df["exec_time_sec"]
-    # timings_df["abs_err"] = (timings_df["total"] - timings_df["exec_time_sec"]).abs()
+    colors = {
+        section: colors[i]
+        for i, section in enumerate(sections)
+    }
+    colors["other"] = "whitesmoke"
 
-    valid_rel = (timings_df["total"] / timings_df["exec_time_sec"]) <= 1.2
-    valid_abs = (timings_df["total"] - timings_df["exec_time_sec"]).abs() <= 0.1
-    # print(timings_df[timings_df["total"] > timings_df["exec_time_sec"]])
-    # print(timings_df[~(valid_rel | valid_abs)])
-    assert (valid_rel | valid_abs).all()
+    args = dict(
+        sections=sections, colors=colors, validate=validate
+    )
+
+    print("=============== CTA/block <= 1 =============")
+    title = r"$N_{\text{CTA}}$/core $\leq 1$"
+    title += "\n({} benchmark samples)".format(len(timings_df))
+
+    # print(timings_df.groupby(index_cols)["total"])
+    # total_sec = timings_df.groupby(index_cols)["total_sec"].first().median()
+    # total_sec = timings_df.loc["cycle::total", "total_sec"].groupby(index_cols)["total_sec"].first().median()
+    # total_micros = total_sec * 1e6
+    # assert 1e6 == 1000_000
+    # print(total)
+    # .loc[("share", "mean_micros")].T["cycle::total"]
+    total_micros = timings_df.loc["cycle::total", :].groupby(index_cols)["mean_micros"].first().median()
+    title += "\n" + r"${:4.1f}\mu s$ total".format(total_micros)
+
+    wedges1, labels1, texts1, autotexts1 = _build_timings_pie(
+        ax1, timings_df, title=title, **args)
+
+    print("=============== CTA/block > 1 =============")
+    title = r"$N_{\text{CTA}}$/core $>1$"
+    title += "\n({} benchmark samples)".format(len(sufficient_size_timings_df))
+
+    total_micros = sufficient_size_timings_df.loc["cycle::total", :].groupby(index_cols)["mean_micros"].first().median()
+    title += "\n" + r"${:4.1f}\mu s$ total".format(total_micros)
+
+    wedges2, labels2, texts2, autotexts2 = _build_timings_pie(
+        ax2, sufficient_size_timings_df, title=title, **args)
+
+    # labels = sections
+    # labels = shares.index
+    # labels = [r"{} (${:4.1f}\%$)".format(label, values[i]) 
+    #           for i, label in enumerate(shares.index)]
+
+    # labels = [label.removeprefix("cycle::").replace("_", " ").capitalize() for label in shares.index]
+    # legend = ax.legend(wedges, labels,
+    #       # title="Ingredients",
+    #       loc="center left",
+    #       bbox_to_anchor=(1, 0, 0.5, 1))
+    #
+    # bbox_extra_artists.append(legend)
+
+    # handles, labels = ax2.get_legend_handles_labels()
+    # print("legend", handles)
+    # handles, labels = plt.gca().get_legend_handles_labels()
+    # print("legend", handles)
+
+    # handles_labels = [ax.get_legend_handles_labels() for ax in fig.axes]
+    # handles, labels = [sum(lol, []) for lol in zip(*handles_labels)]
+    # print(handles, labels)
+    # print("legend", handles)
+
+    # handles = wedges1
+    # print(handles)
+    # labels = sections
+    # fig.legend(wedges1 + wedges2, labels1 + labels2,
+    # fig.legend([wedges1, wedges2], [labels1, labels2],
+    handles = wedges1 + wedges2
+    labels = labels1 + labels2
+    unique = [(h, l) for i, (h, l) in enumerate(
+        zip(handles, labels)) if l not in labels[:i]]
+    # fig.legend(wedges1 + wedges2,
+    legend = fig.legend(*zip(*unique),
+          # title="Ingredients",
+          loc="center left",
+          # loc="lower left",
+          # loc="center right",
+          bbox_to_anchor=(1.0, 0.5),
+          # bbox_to_anchor=(1, 0, 0.5, 1),
+    )
+    bbox_extra_artists = [legend]
+
+    
+    plot_dir = plot.PLOT_DIR
+    plot_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    filename = plot_dir / "timings_pie.pdf"
+
+    print(color("wrote {}".format(filename), fg="cyan"))
+    fig.tight_layout()
+    plt.tight_layout()
+    fig.savefig(filename, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
+
 
 
 if __name__ == "__main__":
