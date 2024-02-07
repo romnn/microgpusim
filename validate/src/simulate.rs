@@ -123,7 +123,6 @@ pub fn simulate_bench_config(
 }
 
 pub fn process_stats<'a>(
-    // stats: impl IntoIterator<Item = &'a stats::Stats>,
     stats: &'a [stats::Stats],
     stats_dir: &Path,
     repetition: usize,

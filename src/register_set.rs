@@ -1,13 +1,10 @@
 use super::instruction::WarpInstruction;
-use crate::sync::{Arc, Mutex};
-
-// pub type Ref = Arc<Mutex<RegisterSet>>;
 
 /// Register set that can hold multiple instructions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisterSet {
     pub stage: super::PipelineStage,
-    pub regs: Vec<Option<WarpInstruction>>,
+    pub regs: Box<[Option<WarpInstruction>]>,
     pub id: usize,
 }
 
@@ -49,6 +46,8 @@ fn oldest_instruction_reducer_mut<'a>(
 }
 
 /// Trait for accessing the register set.
+///
+/// TODO: split this up
 pub trait Access<I> {
     #[must_use]
     fn get(&self, reg_id: usize) -> Option<&Option<I>>;
@@ -158,12 +157,6 @@ impl Access<WarpInstruction> for RegisterSet {
         &mut self,
     ) -> Box<dyn Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_> {
         Box::new(self.iter_occupied_mut())
-        // Box::new(
-        //     self.regs
-        //         .iter_mut()
-        //         .enumerate()
-        //         .filter(|(_, r)| r.is_some()),
-        // )
     }
 
     fn get_free_sub_core_mut(
@@ -202,7 +195,6 @@ impl Access<WarpInstruction> for RegisterSet {
     fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
         self.iter_occupied_mut()
             .reduce(oldest_instruction_reducer_mut)
-        // self.occupied_mut().reduce(oldest_instruction_reducer_mut)
     }
 
     // #[inline]
@@ -256,80 +248,4 @@ impl std::fmt::Display for RegisterSet {
 // #[inline]
 pub fn move_warp<T>(from: Option<T>, to: &mut Option<T>) {
     *to = from;
-}
-
-mod sub_core {
-    // pub fn scheduler_id(&self, reg_id: usize) -> Option<usize> {
-    //     match self.regs.get(reg_id).and_then(Option::as_ref) {
-    //         Some(r) => {
-    //             // debug_assert!(!r.empty());
-    //             r.scheduler_id
-    //         }
-    //         None => None,
-    //     }
-    // }
-
-    // /// in subcore model, each scheduler has a one specific reg to use
-    // /// (based on scheduler id)
-    // #[must_use]
-    // pub fn has_free_sub_core(&self, reg_id: usize) -> bool {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     let Some(reg) = self.regs.get(reg_id) else {
-    //         return false;
-    //     };
-    //
-    //     reg.as_ref().is_none()
-    // }
-
-    // #[must_use]
-    // pub fn get_ready_sub_core(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     self.regs.get(reg_id)
-    // }
-
-    // pub fn get_ready_sub_core_mut(
-    //     &mut self,
-    //     reg_id: usize,
-    // ) -> Option<&mut Option<WarpInstruction>> {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     self.regs.get_mut(reg_id)
-    // }
-
-    // pub fn get_instruction_sub_core(&self, reg_id: usize) -> Option<&WarpInstruction> {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     self.regs.get(reg_id).and_then(Option::as_ref)
-    // }
-    //
-    // pub fn get_instruction_sub_core_mut(&mut self, reg_id: usize) -> Option<&mut WarpInstruction> {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     self.regs.get_mut(reg_id).and_then(Option::as_mut)
-    // }
-
-    // /// In subcore model, each sched has a one specific reg to use (based on sched id)
-    // pub fn get_free_sub_core_mut(
-    //     &mut self,
-    //     reg_id: usize,
-    // ) -> Option<(usize, &mut Option<WarpInstruction>)> {
-    //     debug_assert!(reg_id < self.regs.len());
-    //     self.regs.get_mut(reg_id).map(|r| (reg_id, r))
-    // }
-
-    // pub fn move_in_from_sub_core(
-    //     &mut self,
-    //     reg_id: usize,
-    //     src: Option<WarpInstruction>,
-    // ) {
-    //     let (_, free) = self.get_free_sub_core_mut(reg_id).unwrap();
-    //     move_warp(src, free);
-    // }
-
-    // pub fn move_out_to_sub_core(
-    //     &mut self,
-    //     reg_id: usize,
-    //     dest: &mut Option<WarpInstruction>,
-    // ) {
-    //     let ready: Option<WarpInstruction> =
-    //         self.get_ready_sub_core_mut(reg_id).and_then(Option::take);
-    //     move_warp(ready, dest);
-    // }
 }

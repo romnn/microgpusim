@@ -267,6 +267,7 @@ impl From<crate::register_set::RegisterSet> for RegisterSet {
     fn from(reg: crate::register_set::RegisterSet) -> Self {
         let pipeline = reg
             .regs
+            .to_vec()
             .into_iter()
             .map(|instr| instr.map(std::convert::Into::into))
             .collect();

@@ -26,6 +26,8 @@ void scheduler_unit::cycle() {
                              // waiting for pending register writes
   bool issued_inst = false;  // of these we issued one
 
+  bool should_log = logger->should_log(spdlog::level::debug);
+
   // if (logger->should_log(spdlog::level::debug)) {
   //   std::vector<unsigned> tmp_warp_ids;
   //   std::vector<trace_shd_warp_t *>::const_iterator iter;
@@ -48,16 +50,22 @@ void scheduler_unit::cycle() {
   //       name(), m_id, fmt::join(tmp_warp_ids, ", "));
   // }
 
-  logger->debug(
-      "{}[{}, core {}]: BEFORE: prioritized warp ids: [{}]", name(), m_id,
-      m_shader->m_sid,
-      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ", "));
-  logger->debug(
-      "{}[{}, core {}]: BEFORE: prioritized dynamic warp ids: [{}]", name(),
-      m_id, m_shader->m_sid,
+  if (should_log) {
+    // logger->debug(
+    // fmt::println(
+    //     "{}[{}, core {}]: BEFORE: prioritized warp ids: [{}]", name(), m_id,
+    //     m_shader->m_sid,
+    //     fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids,
+    //               ", "));
+    logger->debug(
+        // fmt::println(
+        "{}[{}, core {}]: BEFORE: prioritized dynamic warp ids: [{}]", name(),
+        m_id, m_shader->m_sid,
 
-      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
-                ", "));
+        fmt::join(
+            m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
+            ", "));
+  }
 
   // TODO REMOVE
   // fmt::println(
@@ -66,9 +74,12 @@ void scheduler_unit::cycle() {
   //     fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ",
   //     "));
 
-  logger->debug("{}[{}, core {}]: last issued from {}", name(), m_id,
-                m_shader->m_sid,
-                (*m_last_supervised_issued)->get_dynamic_warp_id());
+  if (should_log) {
+    // fmt::println(
+    logger->debug("{}[{}, core {}]: last issued from {}", name(), m_id,
+                  m_shader->m_sid,
+                  (*m_last_supervised_issued)->get_dynamic_warp_id());
+  }
   order_warps();
 
   // if (logger->should_log(spdlog::level::debug)) {
@@ -81,10 +92,14 @@ void scheduler_unit::cycle() {
     m_next_cycle_prioritized_warps_lockstep_compat_warp_ids.push_back(
         (*iter)->get_warp_id());
   }
-  logger->debug(
-      "{}[{}, core {}]: AFTER: prioritized warp ids: [{}]", name(), m_id,
-      m_shader->m_sid,
-      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids, ", "));
+  if (should_log) {
+    // logger->debug(
+    // fmt::println(
+    //     "{}[{}, core {}]: AFTER: prioritized warp ids: [{}]", name(), m_id,
+    //     m_shader->m_sid,
+    //     fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_warp_ids,
+    //               ", "));
+  }
 
   m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids.clear();
   for (iter = m_next_cycle_prioritized_warps.begin();
@@ -92,12 +107,15 @@ void scheduler_unit::cycle() {
     m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids.push_back(
         (*iter)->get_dynamic_warp_id());
   }
-  logger->debug(
-      "{}[{}, core {}]: AFTER: prioritized dynamic warp ids: [{}]", name(),
-      m_id, m_shader->m_sid,
-      fmt::join(m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
-                ", "));
-  // }
+  if (should_log) {
+    logger->debug(
+        // fmt::println(
+        "{}[{}, core {}]: AFTER: prioritized dynamic warp ids: [{}]", name(),
+        m_id, m_shader->m_sid,
+        fmt::join(
+            m_next_cycle_prioritized_warps_lockstep_compat_dynamic_warp_ids,
+            ", "));
+  }
 
   // TODO REMOVE
   // fmt::println(
@@ -121,7 +139,9 @@ void scheduler_unit::cycle() {
       continue;
     }
     assert(next_warp->instruction_count() > 0);
-    if (!next_warp->trace_done() && next_warp->instruction_count() > 1) {
+
+    if (should_log && !next_warp->trace_done() &&
+        next_warp->instruction_count() > 1) {
       logger->debug(
           "core[{}][{}] scheduler[{}]: \n\t => testing (warp_id={}, "
           "dynamic_warp_id={}, trace_pc = {}, pc={}, ibuffer=[{}, {}], {} "
@@ -197,7 +217,7 @@ void scheduler_unit::cycle() {
       if (pI) m_shader->get_pdom_stack_top_info(warp_id, pI, &pc, &rpc);
 
       if (pI) {
-        if (logger->should_log(spdlog::level::debug)) {
+        if (should_log) {
           logger->debug(
               "Warp (warp_id {}, dynamic_warp_id {}) instruction buffer[{}] "
               "has "

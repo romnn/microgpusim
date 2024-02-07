@@ -1,24 +1,18 @@
 use crate::{
-    address,
-    barrier,
+    address, barrier,
     cache::{self, Cache, ComputeStats},
-    config,
-    // fifo::Fifo,
-    func_unit as fu,
+    config, func_unit as fu,
     func_unit::SimdFunctionUnit,
     instruction::WarpInstruction,
     interconn as ic,
     kernel::Kernel,
-    mem_fetch,
-    opcodes,
+    mem_fetch, opcodes,
     operand_collector::{self, OperandCollector, RegisterFileUnit},
-    register_set,
-    scheduler,
+    register_set, scheduler,
     scheduler::ScheduleWarps,
     scoreboard::{self, Access as ScoreboardAccess},
     sync::Mutex,
-    warp,
-    WARP_SIZE,
+    warp, WARP_SIZE,
 };
 
 use barrier::Barrier;
@@ -60,7 +54,6 @@ pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 #[derive(Debug)]
 pub struct ThreadState {
     pub active: bool,
-    // pub pc: usize,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -82,22 +75,6 @@ impl InstructionFetchBufferState {
         *self = InstructionFetchBufferState::Valid { warp_id };
     }
 }
-
-// #[derive(Debug, Default)]
-// pub struct InstrFetchBuffer {
-//     valid: bool,
-//     warp_id: usize,
-// }
-//
-// impl InstrFetchBuffer {
-//     #[must_use]
-//     pub fn new() -> Self {
-//         Self {
-//             valid: false,
-//             warp_id: 0,
-//         }
-//     }
-// }
 
 type ResultBus = BitArr!(for fu::MAX_ALU_LATENCY);
 
@@ -130,26 +107,22 @@ pub struct CoreIssuer<'a, S> {
     pub global_core_id: usize,
     pub thread_block_size: usize,
     pub max_blocks_per_core: usize,
-    // pub scoreboard: &'a mut dyn scoreboard::Access<WarpInstruction>,
     pub scoreboard: &'a mut S,
     pub barriers: &'a mut barrier::BarrierSet,
 }
 
-// impl<'a> std::fmt::Debug for CoreIssuer<'a> {
 impl<'a, S> std::fmt::Debug for CoreIssuer<'a, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CoreIssuer").finish()
     }
 }
 
-// impl<'a> WarpIssuer for CoreIssuer<'a> {
 impl<'a, S> WarpIssuer for CoreIssuer<'a, S>
 where
     S: scoreboard::Access,
 {
     #[inline]
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
-        // locking here blocks when we run schedulers in parallel
         let pipeline_stage = &self.pipeline_reg[stage as usize];
 
         if self.config.sub_core_model {
@@ -258,14 +231,9 @@ where
 
         // here, we generate memory acessess
         if pipe_reg_mut.is_load() || pipe_reg_mut.is_store() {
-            // let accesses = crate::timeit!(
             crate::timeit!(
                 "core::issue::generate_mem_accesses",
-                pipe_reg_mut.generate_mem_accesses(
-                    // &mut pipe_reg_mut.mem_access_queue,
-                    &self.config,
-                    &self.allocations
-                )
+                pipe_reg_mut.generate_mem_accesses(&self.config, &self.allocations)
             );
             // pipe_reg_mut.mem_access_queue.extend(accesses.into_iter());
 
@@ -474,9 +442,6 @@ where
 
     // #[inline]
     fn send(&mut self, packet: ic::Packet<mem_fetch::MemFetch>) {
-        // self.core.interconn_simt_to_mem(fetch.get_num_flits(true));
-        // self.cluster.interconn_inject_request_packet(fetch);
-
         let ic::Packet { mut fetch, time } = packet;
 
         let access_kind = fetch.access_kind();
@@ -508,16 +473,8 @@ where
         // m_stats->m_outgoing_traffic_stats->record_traffic(mf, packet_size);
         fetch.status = mem_fetch::Status::IN_ICNT_TO_MEM;
 
-        // if let Packet::Fetch(fetch) = packet {
         fetch.inject_cycle.get_or_insert(time);
 
-        // self.interconn_queue
-        //     .push_back((mem_dest, fetch, packet_size));
-        // self.interconn
-        //     .push(self.cluster_id, mem_dest, Packet::Fetch(fetch), packet_size);
-        // self.interconn_port
-        //     .lock()
-        //     .push_back((mem_dest, fetch, packet_size));
         self.buffer.send(ic::Packet {
             fetch: (mem_dest, fetch, packet_size),
             time,
@@ -547,22 +504,9 @@ pub struct Core<I, MC> {
     /// which aggregates stats for the functional units and mem port.
     stats: stats::PerKernel,
 
-    // pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
-
-    // pub current_kernel_max_blocks: usize,
-
-    // check this again
-    // pub mem_port: Arc<Mutex<CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>>>,
-
-    // this is the buffer to ensure deterministic execution
-
-    // pub thread_block_size: usize,
-    // pub occupied_block_to_hw_thread_id: HashMap<usize, usize>,
-
     // state
     pub current_kernel: Option<Arc<dyn Kernel>>,
     pub warps: Box<[warp::Warp]>,
-    // pub thread_state: Box<[Option<ThreadState>]>,
     pub instr_fetch_buffer_state: InstructionFetchBufferState,
     pub instr_fetch_response_queue: super::cluster::ResponseQueue,
     pub active_threads_per_hardware_block: Box<[usize]>,
@@ -580,26 +524,15 @@ pub struct Core<I, MC> {
     pub dynamic_warp_id: usize,
     pub warp_instruction_unique_uid: Arc<atomic::AtomicU64>,
 
-    // pub instr_fetch_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
-    // pub load_store_response_queue: Arc<Mutex<Fifo<ic::Packet<mem_fetch::MemFetch>>>>,
-
-    // pub please_fill: Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
-    // pub please_fill: Arc<Mutex<Vec<(FetchResponseTarget, mem_fetch::MemFetch, u64)>>,
-
-    // allocations are managed by the driver API, hence we need mutex.
-    // pub allocations: super::allocation::Ref,
-
     // memory and caches
     pub allocations: Arc<super::allocation::Allocations>,
     pub instr_l1_cache: cache::ReadOnly,
-    // pub instr_l1_cache: Box<dyn cache::Cache>,
     pub load_store_unit: fu::LoadStoreUnit<MC>,
     pub mem_port: CoreMemoryConnection<InterconnBuffer<mem_fetch::MemFetch>>,
 
     // components
     pub interconn: Arc<I>,
     pub scoreboard: scoreboard::Scoreboard,
-    // pub scoreboard: Box<dyn scoreboard::Access<WarpInstruction>>,
     pub mem_controller: Arc<MC>,
     pub barriers: barrier::BarrierSet,
     pub register_file: RegisterFileUnit,
@@ -608,7 +541,6 @@ pub struct Core<I, MC> {
     pub functional_units: Vec<Box<dyn fu::SimdFunctionUnit>>,
 
     pub schedulers: Box<[scheduler::gto::Scheduler]>,
-    // pub schedulers: Box<[Box<dyn scheduler::Scheduler<CoreIssuer>]>,
     pub scheduler_issue_priority: usize,
 
     /// Custom callback handler that is called when a fetch is returned to its issuer.
@@ -643,13 +575,11 @@ where
         mem_controller: Arc<MC>,
     ) -> Self {
         assert_eq!(config.max_threads_per_core, crate::MAX_THREADS_PER_SM);
-        // let thread_state: Box<[_]> = (0..config.max_threads_per_core).map(|_| None).collect();
 
         let stats = stats::PerKernel::new(config.as_ref().into());
 
         let warps: Box<[_]> = (0..config.max_warps_per_core())
             .map(|_| warp::Warp::default())
-            // .map(|warp| CachePadded::new(warp))
             .collect();
 
         // assert!(std::mem::size_of::<warp::Warp>() <= 256);
@@ -676,9 +606,6 @@ where
                 style("READONLY-INSTR-CACHE").green(),
             ),
             cache::base::Kind::OnChip,
-            // cluster_id,
-            // cache_stats,
-            // config,
             config.inst_cache_l1.as_ref().unwrap().clone(),
             config.accelsim_compat,
         );
@@ -736,7 +663,6 @@ where
             global_core_id,
             cluster_id,
             load_store_response_queue,
-            // mem_port.clone(),
             config.clone(),
             mem_controller.clone(),
         );
@@ -836,9 +762,7 @@ where
             allocations,
             config,
             mem_controller,
-            // current_kernel: Mutex::new(None),
             current_kernel: None,
-            // current_kernel_max_blocks: 0,
             last_warp_fetched: 0,
             active_thread_mask: BitArray::ZERO,
             occupied_hw_thread_ids: BitArray::ZERO,
@@ -847,16 +771,10 @@ where
             num_active_warps: 0,
             num_active_threads: 0,
             num_occupied_threads: 0,
-            // thread_block_size: 0,
-            // occupied_block_to_hw_thread_id: HashMap::new(),
-            // todo: add configuration option for MAX_CTA_PER_SM
             active_threads_per_hardware_block,
             block_ids_per_hardware_block,
             instr_l1_cache,
-            // please_fill: Mutex::new(Vec::new()),
             instr_fetch_response_queue,
-            // load_store_response_queue,
-            // need_l1_flush: Mutex::new(false),
             instr_fetch_buffer_state: InstructionFetchBufferState::Invalid,
             interconn,
             mem_port,
@@ -867,7 +785,6 @@ where
             scoreboard,
             barriers,
             register_file,
-            // thread_state,
             schedulers,
             scheduler_issue_priority: 0,
             functional_units,
@@ -883,9 +800,7 @@ where
     fn fetch_instruction_from_instruction_cache<C>(
         instr: &WarpInstruction,
         inst_cache: &mut C,
-        // inst_cache: &mut dyn cache::Cache,
         mem_controller: &MC,
-        // mem_controller: &dyn crate::mcu::MemoryController,
         global_core_id: usize,
         cluster_id: usize,
         cycle: u64,
@@ -995,9 +910,6 @@ where
             let kernel_id = warp.kernel_id;
             let block_hw_id = warp.block_id as usize;
             debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len(),);
-
-            // todo: how expensive are arc clones?
-            // let kernel = warp.kernel.as_ref().map(Arc::clone);
 
             let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
 

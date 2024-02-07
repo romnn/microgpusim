@@ -44,14 +44,12 @@ pub struct Operand {
 
 #[derive(Debug, Clone)]
 pub struct CollectorUnit {
-    free: bool,
-    kind: Kind,
-    /// collector unit hw id
     id: usize,
+    is_free: bool,
+    kind: Kind,
     warp_id: Option<usize>,
     warp_instr: Option<WarpInstruction>,
     /// pipeline register to issue to when ready
-    // output_register: Option<register_set::Ref>,
     output_register: Option<PipelineStage>,
     src_operands: [Option<Operand>; MAX_REG_OPERANDS * 2],
     not_ready: BitArr!(for MAX_REG_OPERANDS * 2),
@@ -59,7 +57,7 @@ pub struct CollectorUnit {
     bank_warp_shift: usize,
     sub_core_model: bool,
     num_banks_per_scheduler: usize,
-    /// if sub_core_model enabled, limit regs this cu can r/w
+    // if sub_core_model enabled, limit regs this cu can read or write
     reg_id: usize,
 }
 
@@ -68,7 +66,7 @@ impl CollectorUnit {
         let src_operands = [(); MAX_REG_OPERANDS * 2].map(|_| None);
         Self {
             id,
-            free: true,
+            is_free: true,
             kind,
             warp_instr: None,
             output_register: None,
@@ -103,17 +101,14 @@ impl CollectorUnit {
     }
 
     #[must_use]
-    // pub fn ready(&self, output_register: Option<&register_set::RegisterSet>) -> bool {
-    // pub fn ready(&self, output_register: Option<&register_set::RegisterSet>) -> bool {
     pub fn ready(&self, pipeline_stage: &[register_set::RegisterSet]) -> bool {
-        if self.free {
+        if self.is_free {
             return false;
         }
         let Some(output_register) = self.output_register else {
             return false;
         };
         let output_register = &pipeline_stage[output_register as usize];
-        // let output_register = output_register.try_lock();
         let has_free_register = if self.sub_core_model {
             output_register.has_free_sub_core(self.reg_id)
         } else {
@@ -127,77 +122,42 @@ impl CollectorUnit {
             &output_register
         );
 
-        !self.free && self.not_ready.not_any() && has_free_register
+        !self.is_free && self.not_ready.not_any() && has_free_register
     }
 
     pub fn warp_id(&self) -> Option<usize> {
-        if self.free {
+        if self.is_free {
             None
         } else {
             self.warp_id
         }
     }
 
-    // pub fn reg_id(&self) -> Option<usize> {
-    //     if self.free {
-    //         None
-    //     } else {
-    //         Some(self.reg_id)
-    //     }
-    // }
-
     pub fn dispatch(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
-        // , output_register: &mut Option<register_set::RegisterSet>) {
         debug_assert!(self.not_ready.not_any());
 
         let output_register = self.output_register.take().unwrap();
         let output_register = &mut pipeline_reg[output_register as usize];
-        // let mut output_register = output_register.try_lock();
         let warp_instr = self.warp_instr.take();
 
-        // TODO HOTFIX: workaround
-        // if self.free {
-        //     self.warp_id = None;
-        //     self.reg_id = 0;
-        // }
-
         if self.sub_core_model {
-            // let msg = format!(
-            //     "operand collector: move warp instr {:?} to output register (reg_id={})",
-            //     warp_instr.as_ref().map(ToString::to_string),
-            //     self.reg_id,
-            // );
-            // assert(reg_id < regs.size());
-            //   free = get_free(sub_core_model, reg_id);
-            // }
-            // move_warp(*free, src);  // , msg, logger);
-            // output_register.move_in_from_sub_core(self.reg_id, warp_instr);
             let free_reg = output_register.get_mut(self.reg_id).unwrap();
             assert!(free_reg.is_none());
             log::trace!("found free register at index {}", &self.reg_id);
             register_set::move_warp(warp_instr, free_reg);
-            // unimplemented!("sub core model")
         } else {
-            // let msg = format!(
-            //     "operand collector: move warp instr {:?} to output register",
-            //     warp_instr.as_ref().map(ToString::to_string),
-            // );
             let (_, free_reg) = output_register.get_free_mut().unwrap();
             register_set::move_warp(warp_instr, free_reg);
-            // output_register.move_in_from(warp_instr);
         }
 
-        self.free = true;
+        self.is_free = true;
         self.warp_id = None;
-        // self.reg_id = 0;
-        // self.output_register = None;
         self.src_operands.fill(None);
     }
 
     fn allocate(
         &mut self,
         input_reg_set: &mut register_set::RegisterSet,
-        // output_reg_set: &mut register_set::RegisterSet,
         output_reg_id: PipelineStage,
     ) -> bool {
         log::debug!(
@@ -205,15 +165,11 @@ impl CollectorUnit {
             style(format!("operand collector::allocate({:?})", self.kind)).green(),
         );
 
-        debug_assert!(self.free);
+        debug_assert!(self.is_free);
         debug_assert!(self.not_ready.not_any());
 
-        self.free = false;
-        // self.output_register = None;
-        // self.output_register = Some(Arc::clone(output_reg_set));
+        self.is_free = false;
         self.output_register = Some(output_reg_id);
-
-        // let mut input_reg_set = input_reg_set.try_lock();
 
         if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
             // todo: do we need warp id??
@@ -264,11 +220,6 @@ impl CollectorUnit {
                 self.not_ready.to_bit_string(),
             );
 
-            // let msg = format!(
-            //     "operand collector: move input register {} to warp instruction {:?}",
-            //     &input_reg_set,
-            //     self.warp_instr.as_ref().map(ToString::to_string),
-            // );
             input_reg_set.move_out_to(&mut self.warp_instr);
             true
         } else {
@@ -357,19 +308,15 @@ pub struct Arbiter {
     sub_core_model: bool,
     num_banks_per_scheduler: usize,
 
-    /// bank # -> register that wins
+    /// bank number -> register that wins
     allocated_banks: Box<[Allocation]>,
     queue: Box<[VecDeque<Operand>]>,
-    // allocated: Vec<Operand>,
     /// cu # -> next bank to check for request (rr-arb)
     // allocator_round_robin_head: usize,
     /// first cu to check while arb-ing banks (rr)
     last_cu: usize,
-    // inmatch: Box<[Option<usize>]>,
     inmatch: ndarray::Array1<Option<usize>>,
-    // outmatch: Box<[Option<usize>]>,
     outmatch: ndarray::Array1<Option<usize>>,
-    // request: Box<[Box<[Option<usize>]>]>,
     request: ndarray::Array2<Option<usize>>,
 }
 
@@ -390,10 +337,6 @@ impl Arbiter {
         self.bank_warp_shift = bank_warp_shift;
         self.sub_core_model = sub_core_model;
         self.num_banks_per_scheduler = num_banks_per_scheduler;
-
-        // self.inmatch = box_slice![None; self.num_banks];
-        // self.outmatch = box_slice![None; self.num_collectors];
-        // self.request = box_slice![box_slice![None; self.num_collectors]; self.num_banks];
 
         self.inmatch = ndarray::Array1::from_shape_simple_fn(self.num_banks, || None);
         self.outmatch = ndarray::Array1::from_shape_simple_fn(self.num_collectors, || None);
@@ -448,7 +391,7 @@ impl Arbiter {
             .allocated_banks
             .iter()
             .all(|alloc| alloc.kind == AllocationKind::NO_ALLOC);
-        let empty_queue = self.queue.iter().all(std::collections::VecDeque::is_empty);
+        let empty_queue = self.queue.iter().all(VecDeque::is_empty);
 
         // fast path
         if no_allocation && empty_queue {
@@ -458,28 +401,22 @@ impl Arbiter {
 
         // clear matching
         let mut allocated = Vec::new();
-        // let result = &mut self.result;
         let inmatch = &mut self.inmatch;
-        // let outmatch = &mut self.outmatch;
         let request = &mut self.request;
 
-        // allocated.clear();
         inmatch.fill(None);
-        // outmatch.fill(None);
 
         for bank in 0..self.num_banks {
             debug_assert!(bank < num_inputs);
             for collector in 0..self.num_collectors {
                 debug_assert!(collector < num_outputs);
                 request[(bank, collector)] = Some(0);
-                // request[bank][collector] = Some(0);
             }
             if let Some(op) = self.queue[bank].front() {
                 let collector_id = op.collector_unit_id.unwrap();
                 debug_assert!(collector_id < num_outputs);
                 // this causes change in search
                 request[(bank, collector_id)] = Some(1);
-                // request[bank][collector_id] = Some(1);
             }
             if self.allocated_banks[bank].is_write() {
                 inmatch[bank] = Some(0); // write gets priority
@@ -513,6 +450,9 @@ impl Arbiter {
                 if inmatch[input].is_none() && request[(input, output)] != Some(0) {
                     // Grant!
                     inmatch[input] = Some(output);
+
+                    log::trace!("operand collector: register file granting bank {} to OC {} [scheduler id={:?}, warp={:?}]", input, output, self.queue[input].front().map(|w| w.scheduler_id), self.queue[input].front().map(|w| w.warp_id));
+
                     // outmatch[output] = Some(input);
                     // printf("Register File: granting bank %d to OC %d, schedid %d, warpid
                     // %d, Regid %d\n", input, output, (m_queue[input].front()).get_sid(),
@@ -659,12 +599,9 @@ impl DispatchUnit {
 
     pub fn find_ready<'a>(
         &mut self,
-        // collector_units: &'a Vec<Arc<Mutex<CollectorUnit>>>,
         collector_units: &'a [CollectorUnit],
         set_collector_unit_ids: &'a [usize],
-        // collector_units: &'a [CollectorUnit],
         pipeline_reg: &[register_set::RegisterSet],
-        // ) -> Option<&'a CollectorUnit> {
     ) -> Option<usize> {
         // With sub-core enabled round robin starts with the next cu assigned to a
         // different sub-core than the one that dispatched last
@@ -687,7 +624,6 @@ impl DispatchUnit {
             //     i,
             // );
 
-            // if collector_units[i].try_lock().ready(pipeline_reg) {
             let collector_unit_id = set_collector_unit_ids[i];
             let collector_unit = &collector_units[collector_unit_id];
 
@@ -744,10 +680,9 @@ pub enum Kind {
     GEN_CUS,
 }
 
-// pub type CuSets = HashMap<Kind, Vec<CollectorUnit>>;
 pub type CuSets = HashMap<Kind, Vec<usize>>;
 
-// operand collector based register file unit
+/// Register file
 #[derive(Debug, Clone)]
 pub struct RegisterFileUnit {
     pub config: Arc<config::GPU>,
@@ -764,11 +699,9 @@ pub struct RegisterFileUnit {
     pub in_ports: VecDeque<InputPort>,
     pub collector_units: Vec<CollectorUnit>,
     pub collector_unit_sets: CuSets,
-    // pub collector_unit_sets: CuSets,
     pub dispatch_units: Vec<DispatchUnit>,
 }
 
-// pub type PortVec = Vec<register_set::Ref>;
 pub type PortVec = Vec<PipelineStage>;
 
 pub trait OperandCollector {
@@ -826,7 +759,6 @@ impl RegisterFileUnit {
                 let coll_units_per_scheduler = num_collector_units / self.num_warp_schedulers;
                 reg_id = cu_id / coll_units_per_scheduler;
             }
-            // let mut cu = cu.try_lock();
             cu.init(
                 cu_id,
                 self.num_banks,
@@ -869,29 +801,10 @@ impl RegisterFileUnit {
         for read in read_ops.values() {
             let cu_id = read.collector_unit_id.unwrap();
             assert!(cu_id < self.collector_units.len());
-            // let mut cu = self.collector_units[cu_id].try_lock();
             let cu = &mut self.collector_units[cu_id];
             if let Some(operand) = read.operand {
                 cu.collect_operand(operand);
             }
-
-            // if self.config.clock_gated_reg_file {
-            //     let mut active_count = 0;
-            //     let mut thread_id = 0;
-            //     while thread_id < self.config.warp_size {
-            //         for i in 0..self.config.n_regfile_gating_group {
-            //             if read.active_mask[thread_id + i] {
-            //                 active_count += self.config.n_regfile_gating_group;
-            //                 break;
-            //             }
-            //         }
-            //
-            //         thread_id += self.config.n_regfile_gating_group;
-            //     }
-            //     // self.stats.incregfile_reads(active_count);
-            // } else {
-            //     // self.stats.incregfile_reads(self.config.warp_size);
-            // }
         }
     }
 
@@ -910,9 +823,7 @@ impl RegisterFileUnit {
 
         for (input_port_id, output_port_id) in port.in_ports.iter().zip(port.out_ports.iter()) {
             let input_port = &mut pipeline_reg[*input_port_id as usize];
-            // let output_port = &mut pipeline_reg[*output_port_id as usize];
 
-            // if input_port.try_lock().has_ready() {
             if input_port.has_ready() {
                 // find a free collector unit
                 for cu_set_id in &port.collector_unit_ids {
@@ -922,27 +833,23 @@ impl RegisterFileUnit {
                     let mut cu_upper_bound = cu_set.len();
 
                     if self.sub_core_model {
-                        // sub core model only allocates on the subset of CUs assigned
-                        // to the scheduler that issued
+                        // sub core model only allocates on the subset
+                        // of CUs assigned to the scheduler that issued
                         let (reg_id, _) = input_port.get_ready().unwrap();
-                        // let (reg_id, _) = input_port.try_lock().get_ready().unwrap();
                         debug_assert!(
                             cu_set.len() % self.num_warp_schedulers == 0
                                 && cu_set.len() >= self.num_warp_schedulers
                         );
                         let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
                         let schd_id = input_port.scheduler_id(reg_id).unwrap();
-                        // let schd_id = input_port.try_lock().scheduler_id(reg_id).unwrap();
                         cu_lower_bound = schd_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
                         debug_assert!(cu_upper_bound <= cu_set.len());
                     }
 
                     for collector_unit_id in &cu_set[cu_lower_bound..cu_upper_bound] {
-                        // let mut collector_unit = collector_unit.try_lock();
-
                         let collector_unit = &mut self.collector_units[*collector_unit_id];
-                        if collector_unit.free {
+                        if collector_unit.is_free {
                             log::debug!(
                                 "{} cu={:?}",
                                 style("operand collector::allocate()".to_string()).green(),
@@ -950,7 +857,6 @@ impl RegisterFileUnit {
                             );
 
                             allocated = collector_unit.allocate(input_port, *output_port_id);
-                            // allocated = collector_unit.allocate(input_port, output_port);
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
