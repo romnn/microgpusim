@@ -1,7 +1,7 @@
 use crate::sync::Arc;
 use crate::{
     config, core::PipelineStage, func_unit as fu, instruction::WarpInstruction, interconn as ic,
-    mem_fetch, opcodes, operand_collector::OperandCollector, register_set, scoreboard, warp,
+    mem_fetch, opcodes, register_set, scoreboard, warp,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -102,7 +102,7 @@ impl fu::SimdFunctionUnit for DPUnit {
 
     fn cycle(
         &mut self,
-        _operand_collector: &mut dyn OperandCollector,
+        _operand_collector: &mut dyn crate::operand_collector::Writeback,
         _scoreboard: &mut dyn scoreboard::Access,
         _warps: &mut [warp::Warp],
         _stats: &mut stats::PerKernel,

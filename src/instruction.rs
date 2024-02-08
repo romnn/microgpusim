@@ -357,12 +357,14 @@ impl WarpInstruction {
         // fill latency and init latency
         let (mut latency, initiation_interval) = config.get_latencies(opcode.category);
 
-        // temp workaround for per instruction pascal latencies.
+        // ROMAN: temp workaround for per instruction pascal latencies.
         // TODO: make this configurable and discover the instruction latencies using a
         // custom disassembler in the future
+        //
+        // see page 40 here: https://arxiv.org/pdf/1804.06826.pdf
         if !config.accelsim_compat {
             latency = match opcode.op {
-                Op::IMUL | Op::IMAD => 86,
+                Op::IMUL | Op::IMAD => 86, // imad is emulated in pascal
                 Op::DADD | Op::DMUL | Op::DFMA | Op::Pascal(pascal::op::Op::DMNMX) => 8,
                 Op::FSET | Op::Pascal(pascal::op::Op::DSET) | Op::DSETP | Op::ISETP | Op::FSETP => {
                     12

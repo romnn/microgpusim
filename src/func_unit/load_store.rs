@@ -12,7 +12,6 @@ use crate::{
     mem_fetch,
     mem_sub_partition,
     mshr,
-    operand_collector::OperandCollector,
     register_set::{self},
     scoreboard::{self, Access},
     warp,
@@ -555,7 +554,7 @@ where
 
     pub fn writeback(
         &mut self,
-        operand_collector: &mut dyn OperandCollector,
+        operand_collector: &mut dyn crate::operand_collector::Writeback,
         scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
@@ -570,7 +569,7 @@ where
 
         // this processes the next writeback
         if let Some(ref mut next_writeback) = self.next_writeback {
-            log::trace!(
+            log::error!(
                 "{} => next_writeback={} ({:?})",
                 style("ldst unit writeback").magenta(),
                 next_writeback,
@@ -1168,7 +1167,7 @@ where
 
     fn cycle(
         &mut self,
-        operand_collector: &mut dyn OperandCollector,
+        operand_collector: &mut dyn crate::operand_collector::Writeback,
         scoreboard: &mut dyn Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,

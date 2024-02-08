@@ -7,11 +7,10 @@ use crate::{
     interconn as ic,
     kernel::Kernel,
     mem_fetch, opcodes,
-    operand_collector::{self, OperandCollector, RegisterFileUnit},
+    operand_collector::{self, RegisterFileUnit, Writeback},
     register_set, scheduler,
     scheduler::ScheduleWarps,
     scoreboard::{self, Access as ScoreboardAccess},
-    sync::Mutex,
     warp, WARP_SIZE,
 };
 
@@ -22,10 +21,11 @@ use console::style;
 use ic::SharedConnection;
 use mem_fetch::access::Kind as AccessKind;
 use register_set::Access as RegisterSetAccess;
-use std::collections::{HashMap, VecDeque};
+use smallvec::SmallVec;
+use std::collections::VecDeque;
 use std::sync::{atomic, Arc};
 use strum::IntoEnumIterator;
-use trace_model::{command::KernelLaunch, ToBitString};
+use trace_model::ToBitString;
 
 pub type WarpMask = BitArr!(for crate::MAX_WARPS_PER_CTA);
 
@@ -104,6 +104,7 @@ pub struct CoreIssuer<'a, S> {
     pub pipeline_reg: &'a mut [register_set::RegisterSet],
     pub warp_instruction_unique_uid: &'a atomic::AtomicU64,
     pub allocations: &'a super::allocation::Allocations,
+    pub stats: &'a mut stats::PerKernel,
     pub global_core_id: usize,
     pub thread_block_size: usize,
     pub max_blocks_per_core: usize,
@@ -318,6 +319,13 @@ where
         );
 
         self.scoreboard.reserve_all(&pipe_reg_ref);
+
+        let kernel_stats = self.stats.get_mut(Some(pipe_reg_ref.kernel_launch_id));
+        *kernel_stats
+            .instructions
+            .opcodes
+            .entry(pipe_reg_ref.opcode.to_string())
+            .or_insert(0) += 1;
 
         *pipe_reg = Some(pipe_reg_ref);
 
@@ -536,6 +544,8 @@ pub struct Core<I, MC> {
     pub mem_controller: Arc<MC>,
     pub barriers: barrier::BarrierSet,
     pub register_file: RegisterFileUnit,
+
+    /// The register set for each
     pub pipeline_reg: Box<[register_set::RegisterSet]>,
     pub result_busses: Box<[ResultBus]>,
     pub functional_units: Vec<Box<dyn fu::SimdFunctionUnit>>,
@@ -635,17 +645,23 @@ where
         if config.sub_core_model {
             // in subcore model, each scheduler should has its own
             // issue register, so ensure num scheduler = reg width
-            debug_assert_eq!(
+            let id_oc_sp_width = pipeline_reg[PipelineStage::ID_OC_SP as usize].size();
+            assert_eq!(
                 config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_SP as usize].size()
+                id_oc_sp_width ,
+                "number of schedulers ({}) and ID_OC_SP pipeline register width ({}) does not match", config.num_schedulers_per_core, id_oc_sp_width 
             );
-            debug_assert_eq!(
+            let id_oc_sfu_width = pipeline_reg[PipelineStage::ID_OC_SFU as usize].size();
+            assert_eq!(
                 config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_SFU as usize].size()
+                id_oc_sfu_width,
+                "number of schedulers ({}) and ID_OC_SFU pipeline register width ({}) does not match", config.num_schedulers_per_core, id_oc_sfu_width 
             );
-            debug_assert_eq!(
+            let id_oc_mem_width = pipeline_reg[PipelineStage::ID_OC_MEM as usize].size();
+            assert_eq!(
                 config.num_schedulers_per_core,
-                pipeline_reg[PipelineStage::ID_OC_MEM as usize].size()
+                id_oc_mem_width,
+                "number of schedulers ({}) and ID_OC_SFU pipeline register width ({}) does not match", config.num_schedulers_per_core, id_oc_mem_width 
             );
         }
 
@@ -1120,11 +1136,16 @@ where
         //     );
         // }
 
+        // if the instruction fetch buffer is valid, do not fetch
+        // more instructions
         if !self.instr_fetch_buffer_state.is_valid() {
+            // try to receive an instruction from the l1 inst cache
             if let Some(fetch) = self.instr_l1_cache.next_access() {
                 let warp = &mut self.warps[fetch.warp_id];
                 warp.has_imiss_pending = false;
 
+                // mark the instruction fetch buffer for this warp
+                // as valid, such that no more instructions are fetched.
                 self.instr_fetch_buffer_state.set_valid(fetch.warp_id);
 
                 // verify that we got the instruction we were expecting.
@@ -1132,10 +1153,8 @@ where
                     warp.pc(),
                     Some(fetch.addr() as usize - super::PROGRAM_MEM_START)
                 );
-
-                // self.instr_fetch_buffer.valid = true;
-                // warp.set_last_fetch(m_gpu->gpu_sim_cycle);
             } else {
+                // otherwise, find an active warp to fetch instructions for
                 self.find_active_warp_and_fetch_instructions(cycle);
             }
         }
@@ -1280,11 +1299,7 @@ where
     }
 }
 
-impl<I, MC> Core<I, MC>
-// where
-//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
-//     MC: crate::mcu::MemoryController,
-{
+impl<I, MC> Core<I, MC> {
     pub fn max_warps_per_core(&self) -> usize {
         debug_assert_eq!(self.config.max_warps_per_core(), self.warps.len());
         self.warps.len()
@@ -1309,7 +1324,6 @@ impl<I, MC> Core<I, MC>
             }
         }
 
-        // stats += self.mem_port.lock().stats.clone();
         stats += self.mem_port.stats.clone();
         stats
     }
@@ -1931,10 +1945,7 @@ impl<I, MC> Core<I, MC>
     }
 }
 
-impl<I, MC> Core<I, MC>
-// where
-//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
-{
+impl<I, MC> Core<I, MC> {
     // #[inline]
     fn init_operand_collector(register_file: &mut RegisterFileUnit, config: &config::GPU) {
         register_file.add_cu_set(
@@ -1969,95 +1980,96 @@ impl<I, MC> Core<I, MC>
         }
 
         if config.enable_specialized_operand_collector {
-            for (kind, num_collector_units, num_dispatch_units) in [
-                (
-                    operand_collector::Kind::SP_CUS,
-                    config.operand_collector_num_units_sp,
-                    config.operand_collector_num_out_ports_sp,
-                ),
-                (
-                    operand_collector::Kind::DP_CUS,
-                    config.operand_collector_num_units_dp,
-                    config.operand_collector_num_out_ports_dp,
-                ),
-                (
-                    operand_collector::Kind::SFU_CUS,
-                    config.operand_collector_num_units_sfu,
-                    config.operand_collector_num_out_ports_sfu,
-                ),
-                (
-                    operand_collector::Kind::MEM_CUS,
-                    config.operand_collector_num_units_mem,
-                    config.operand_collector_num_out_ports_mem,
-                ),
-                (
-                    operand_collector::Kind::INT_CUS,
-                    config.operand_collector_num_units_int,
-                    config.operand_collector_num_out_ports_int,
-                ),
-            ] {
-                register_file.add_cu_set(kind, num_collector_units, num_dispatch_units);
-            }
-
-            for _ in 0..config.operand_collector_num_in_ports_sp {
-                let in_ports = vec![PipelineStage::ID_OC_SP];
-                let out_ports = vec![PipelineStage::OC_EX_SP];
-
-                let cu_sets = vec![
-                    operand_collector::Kind::SP_CUS,
-                    operand_collector::Kind::GEN_CUS,
-                ];
-
-                register_file.add_port(in_ports, out_ports, cu_sets);
-            }
-
-            for _ in 0..config.operand_collector_num_in_ports_dp {
-                let in_ports = vec![PipelineStage::ID_OC_DP];
-                let out_ports = vec![PipelineStage::OC_EX_DP];
-
-                let cu_sets = vec![
-                    operand_collector::Kind::DP_CUS,
-                    operand_collector::Kind::GEN_CUS,
-                ];
-
-                register_file.add_port(in_ports, out_ports, cu_sets);
-            }
-
-            for _ in 0..config.operand_collector_num_in_ports_sfu {
-                let in_ports = vec![PipelineStage::ID_OC_SFU];
-                let out_ports = vec![PipelineStage::OC_EX_SFU];
-
-                let cu_sets = vec![
-                    operand_collector::Kind::SFU_CUS,
-                    operand_collector::Kind::GEN_CUS,
-                ];
-
-                register_file.add_port(in_ports, out_ports, cu_sets);
-            }
-
-            for _ in 0..config.operand_collector_num_in_ports_mem {
-                let in_ports = vec![PipelineStage::ID_OC_MEM];
-                let out_ports = vec![PipelineStage::OC_EX_MEM];
-
-                let cu_sets = vec![
-                    operand_collector::Kind::MEM_CUS,
-                    operand_collector::Kind::GEN_CUS,
-                ];
-
-                register_file.add_port(in_ports, out_ports, cu_sets);
-            }
-
-            for _ in 0..config.operand_collector_num_in_ports_int {
-                let in_ports = vec![PipelineStage::ID_OC_INT];
-                let out_ports = vec![PipelineStage::OC_EX_INT];
-
-                let cu_sets = vec![
-                    operand_collector::Kind::INT_CUS,
-                    operand_collector::Kind::GEN_CUS,
-                ];
-
-                register_file.add_port(in_ports, out_ports, cu_sets);
-            }
+            unimplemented!();
+            // for (kind, num_collector_units, num_dispatch_units) in [
+            //     (
+            //         operand_collector::Kind::SP_CUS,
+            //         config.operand_collector_num_units_sp,
+            //         config.operand_collector_num_out_ports_sp,
+            //     ),
+            //     (
+            //         operand_collector::Kind::DP_CUS,
+            //         config.operand_collector_num_units_dp,
+            //         config.operand_collector_num_out_ports_dp,
+            //     ),
+            //     (
+            //         operand_collector::Kind::SFU_CUS,
+            //         config.operand_collector_num_units_sfu,
+            //         config.operand_collector_num_out_ports_sfu,
+            //     ),
+            //     (
+            //         operand_collector::Kind::MEM_CUS,
+            //         config.operand_collector_num_units_mem,
+            //         config.operand_collector_num_out_ports_mem,
+            //     ),
+            //     (
+            //         operand_collector::Kind::INT_CUS,
+            //         config.operand_collector_num_units_int,
+            //         config.operand_collector_num_out_ports_int,
+            //     ),
+            // ] {
+            //     register_file.add_cu_set(kind, num_collector_units, num_dispatch_units);
+            // }
+            //
+            // for _ in 0..config.operand_collector_num_in_ports_sp {
+            //     let in_ports = vec![PipelineStage::ID_OC_SP];
+            //     let out_ports = vec![PipelineStage::OC_EX_SP];
+            //
+            //     let cu_sets = vec![
+            //         operand_collector::Kind::SP_CUS,
+            //         operand_collector::Kind::GEN_CUS,
+            //     ];
+            //
+            //     register_file.add_port(in_ports, out_ports, cu_sets);
+            // }
+            //
+            // for _ in 0..config.operand_collector_num_in_ports_dp {
+            //     let in_ports = vec![PipelineStage::ID_OC_DP];
+            //     let out_ports = vec![PipelineStage::OC_EX_DP];
+            //
+            //     let cu_sets = vec![
+            //         operand_collector::Kind::DP_CUS,
+            //         operand_collector::Kind::GEN_CUS,
+            //     ];
+            //
+            //     register_file.add_port(in_ports, out_ports, cu_sets);
+            // }
+            //
+            // for _ in 0..config.operand_collector_num_in_ports_sfu {
+            //     let in_ports = vec![PipelineStage::ID_OC_SFU];
+            //     let out_ports = vec![PipelineStage::OC_EX_SFU];
+            //
+            //     let cu_sets = vec![
+            //         operand_collector::Kind::SFU_CUS,
+            //         operand_collector::Kind::GEN_CUS,
+            //     ];
+            //
+            //     register_file.add_port(in_ports, out_ports, cu_sets);
+            // }
+            //
+            // for _ in 0..config.operand_collector_num_in_ports_mem {
+            //     let in_ports = vec![PipelineStage::ID_OC_MEM];
+            //     let out_ports = vec![PipelineStage::OC_EX_MEM];
+            //
+            //     let cu_sets = vec![
+            //         operand_collector::Kind::MEM_CUS,
+            //         operand_collector::Kind::GEN_CUS,
+            //     ];
+            //
+            //     register_file.add_port(in_ports, out_ports, cu_sets);
+            // }
+            //
+            // for _ in 0..config.operand_collector_num_in_ports_int {
+            //     let in_ports = vec![PipelineStage::ID_OC_INT];
+            //     let out_ports = vec![PipelineStage::OC_EX_INT];
+            //
+            //     let cu_sets = vec![
+            //         operand_collector::Kind::INT_CUS,
+            //         operand_collector::Kind::GEN_CUS,
+            //     ];
+            //
+            //     register_file.add_port(in_ports, out_ports, cu_sets);
+            // }
         }
 
         // this must be called after we add the collector unit sets!
@@ -2070,9 +2082,7 @@ impl<I, MC> Core<I, MC>
         block_hw_id: usize,
         kernel_id: Option<u64>,
         num_threads_exited: usize,
-        // kernel: &Option<Arc<dyn Kernel>>,
     ) {
-        // let current_kernel: &mut Option<_> = &mut *self.current_kernel.try_lock();
         let global_core_id = self.global_core_id;
         let current_kernel: &mut Option<_> = &mut self.current_kernel;
         let current_kernel_id = current_kernel.as_ref().map(|k| k.id());
@@ -2199,18 +2209,24 @@ impl<I, MC> Core<I, MC>
             .blue()
         );
 
-        // let InstrFetchBuffer { valid, warp_id, .. } = self.instr_fetch_buffer;
+        // instruction fetch buffer state is basically a pipeline register
+        // interpret this as if we have fetched up to two instructions and
+        // now we are encoding them and placing them into the instruction
+        // buffer.
+
+        // if the instruction fetch buffer for this warp is valid,
+        // there are still valid, decoded instructions in the buffer
+        // waiting to be issued, so we do not continue decoding
         let InstructionFetchBufferState::Valid { warp_id } = self.instr_fetch_buffer_state else {
             return;
         };
-        // if !valid {
-        //     return;
-        // }
 
         // decode 1 or 2 instructions and buffer them
         let warp = self.warps.get_mut(warp_id).unwrap();
         debug_assert_eq!(warp.warp_id, warp_id);
 
+        // TODO: maybe reduce memory by actually taking the instructions
+        // from the warp trace
         let instr1 = warp.next_trace_inst().cloned();
         let instr2 = if instr1.is_some() {
             warp.next_trace_inst().cloned()
@@ -2233,7 +2249,7 @@ impl<I, MC> Core<I, MC>
             self.decode_instruction(warp_id, instr2, 1);
         }
 
-        // self.instr_fetch_buffer.valid = false;
+        // this should not be necessary?
         self.instr_fetch_buffer_state.set_invalid();
     }
 
@@ -2263,8 +2279,6 @@ impl<I, MC> Core<I, MC>
             let scheduler_idx = (self.scheduler_issue_priority + scheduler_idx) % num_schedulers;
 
             // compute subset of warps supervised by this scheduler
-            use smallvec::SmallVec;
-            // let scheduler_supervised_warps: Vec<_> = self
             let mut scheduler_supervised_warps = self
                 .warps
                 .iter_mut()
@@ -2300,6 +2314,7 @@ impl<I, MC> Core<I, MC>
                 pipeline_reg: &mut self.pipeline_reg,
                 warp_instruction_unique_uid: &self.warp_instruction_unique_uid,
                 allocations: &self.allocations,
+                stats: &mut self.stats,
                 global_core_id: self.global_core_id,
                 // thread_block_size: self.thread_block_size,
                 // max_blocks_per_core: self.current_kernel_max_blocks,

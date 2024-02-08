@@ -12,7 +12,7 @@ pub use sp::SPUnit;
 
 use crate::{
     config, core::PipelineStage, instruction::WarpInstruction, interconn as ic, mem_fetch,
-    operand_collector::OperandCollector, register_set, scoreboard, warp,
+    register_set, scoreboard, warp,
 };
 use bitvec::{array::BitArray, BitArr};
 use register_set::Access;
@@ -43,7 +43,7 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
 
     fn cycle(
         &mut self,
-        operand_collector: &mut dyn OperandCollector,
+        operand_collector: &mut dyn crate::operand_collector::Writeback,
         scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
@@ -55,7 +55,6 @@ pub trait SimdFunctionUnit: Send + Sync + std::fmt::Display + 'static {
 
 #[derive()]
 pub struct PipelinedSimdUnit {
-    // pub result_port: Option<register_set::Ref>,
     pub id: usize,
     pub name: String,
     pub pipeline_depth: usize,
@@ -116,8 +115,8 @@ impl PipelinedSimdUnit {
     #[must_use]
     pub fn active_lanes_in_pipeline(&self) -> usize {
         let mut active_lanes = warp::ActiveMaskInner::ZERO;
-        for stage in self.pipeline_reg.iter().flatten() {
-            active_lanes |= *stage.active_mask;
+        for instr in self.pipeline_reg.iter().flatten() {
+            active_lanes |= *instr.active_mask;
         }
         active_lanes.count_ones()
     }
@@ -134,6 +133,7 @@ impl PipelinedSimdUnit {
         // }
         // crate::WIP_STATS.lock().executed_instructions += active as u64;
 
+        // let opcode_count = self.stats.entry(src_reg.opcode.to_string()).or_insert();
         register_set::move_warp(
             Some(src_reg),
             &mut self.dispatch_reg,
@@ -154,10 +154,8 @@ impl PipelinedSimdUnit {
     }
     // }
 
-    // impl crate::engine::cycle::Component for PipelinedSimdUnit {
-    // #[inline]
     pub fn cycle(&mut self, result_port: Option<&mut register_set::RegisterSet>, cycle: u64) {
-        log::debug!(
+        log::error!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
             self.id,
             self.name,
@@ -170,8 +168,9 @@ impl PipelinedSimdUnit {
             self.pipeline_reg.len(),
         );
 
+        // write results in the first pipeline register to the result port
         if let Some(result_port) = result_port {
-            if let Some(pipe_reg) = self.pipeline_reg[0].take() {
+            if let Some(result_reg) = self.pipeline_reg[0].take() {
                 // move to EX_WB result port
                 // let mut result_port = result_port.borrow_mut();
                 // let mut result_port = result_port.try_lock();
@@ -179,7 +178,7 @@ impl PipelinedSimdUnit {
                 //     "{}: move pipeline[0] to result port {:?}",
                 //     self.name, result_port.stage
                 // );
-                result_port.move_in_from(Some(pipe_reg));
+                result_port.move_in_from(Some(result_reg));
 
                 debug_assert!(self.active_insts_in_pipeline > 0);
                 self.active_insts_in_pipeline -= 1;
@@ -189,6 +188,8 @@ impl PipelinedSimdUnit {
             self.num_active_instr_in_pipeline(),
             self.active_insts_in_pipeline
         );
+
+        // advance the instruction pipeline
         if self.active_insts_in_pipeline > 0 {
             for stage in 0..(self.pipeline_reg.len() - 1) {
                 let current = self.pipeline_reg[stage + 1].take();
@@ -197,6 +198,8 @@ impl PipelinedSimdUnit {
                 register_set::move_warp(current, next);
             }
         }
+
+        // dispatch register dispatches IN this pipeline
         if let Some(ref mut dispatch) = self.dispatch_reg {
             dispatch.dispatch_delay_cycles = dispatch.dispatch_delay_cycles.saturating_sub(1);
             if dispatch.dispatch_delay_cycles == 0 {

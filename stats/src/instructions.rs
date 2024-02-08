@@ -55,6 +55,18 @@ pub struct CsvRow {
 pub struct InstructionCounts {
     pub kernel_info: super::KernelInfo,
     pub inner: HashMap<(Option<usize>, MemorySpace, bool), u64>,
+    pub opcodes: HashMap<String, u64>,
+}
+
+impl std::ops::AddAssign for InstructionCounts {
+    fn add_assign(&mut self, other: Self) {
+        for (k, v) in other.inner {
+            *self.inner.entry(k).or_insert(0) += v;
+        }
+        for (k, v) in other.opcodes {
+            *self.opcodes.entry(k).or_insert(0) += v;
+        }
+    }
 }
 
 impl Default for InstructionCounts {
@@ -65,17 +77,12 @@ impl Default for InstructionCounts {
             inner.insert((None, memory_space, true), 0);
             inner.insert((None, memory_space, false), 0);
         }
+        let mut opcodes = HashMap::new();
+        opcodes.insert("EXIT".to_string(), 0);
         Self {
             inner,
+            opcodes,
             kernel_info: super::KernelInfo::default(),
-        }
-    }
-}
-
-impl std::ops::AddAssign for InstructionCounts {
-    fn add_assign(&mut self, other: Self) {
-        for (k, v) in other.inner {
-            *self.inner.entry(k).or_insert(0) += v;
         }
     }
 }
@@ -125,7 +132,8 @@ impl InstructionCounts {
 
 impl std::fmt::Debug for InstructionCounts {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut instructions: Vec<_> = self
+        use itertools::Itertools;
+        let instructions = self
             .inner
             .iter()
             .filter(|(_, &count)| count > 0)
@@ -135,12 +143,20 @@ impl std::fmt::Debug for InstructionCounts {
                     count,
                 )
             })
-            .collect();
-        instructions.sort_by_key(|(key, _)| key.clone());
+            .sorted_by_key(|(key, _)| key.clone());
 
-        let mut out = f.debug_struct("InstructionCounts");
+        let opcodes = self
+            .opcodes
+            .iter()
+            .filter(|(_, &count)| count > 0)
+            .sorted_by_key(|(_, count)| *count);
+
+        let mut out = f.debug_struct("Instructions");
         for (key, count) in instructions {
             out.field(&key, count);
+        }
+        for (opcode, count) in opcodes {
+            out.field(&opcode, count);
         }
         out.finish_non_exhaustive()
     }
