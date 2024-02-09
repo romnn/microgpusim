@@ -273,6 +273,8 @@ impl From<StatsBridge> for stats::Stats {
         Self {
             accesses: stats.accesses.into(),
             instructions: stats.instructions.into(),
+            // todo
+            scheduler: stats::Scheduler::default(),
             sim: stats.sim.into(),
             dram: stats.dram.into(),
             l1i_stats: stats.l1i_stats.iter().cloned().collect(),

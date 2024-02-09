@@ -266,6 +266,7 @@ impl TryFrom<Stats> for stats::PerKernel {
                     },
                     dram,
                     instructions,
+                    scheduler: stats::Scheduler::default(), // todo
                     l1i_stats: l1_inst_stats,
                     l1t_stats: l1_tex_stats,
                     l1c_stats: l1_const_stats,

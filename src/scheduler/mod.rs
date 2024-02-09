@@ -13,7 +13,7 @@ use console::style;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, strum::Display)]
 enum ExecUnitKind {
     NONE = 0,
     SP = 1,
@@ -102,7 +102,8 @@ pub struct Base {
 
     // scoreboard: Arc<RwLock<scoreboard::Scoreboard>>,
     config: Arc<config::GPU>,
-    stats: stats::scheduler::Scheduler,
+    pub stats: stats::PerKernel,
+    // pub stats: stats::scheduler::Scheduler,
     // stats: Arc<Mutex<stats::scheduler::Scheduler>>,
 }
 
@@ -119,8 +120,9 @@ impl Base {
     ) -> Self {
         // let supervised_warps = VecDeque::with_capacity(config.max_warps_per_core());
         // let supervised_warps_sorted = Vec::with_capacity(config.max_warps_per_core());
-        // let stats = stats::PerKernel::new(config.as_ref().into());
-        let stats = stats::scheduler::Scheduler::default();
+        let stats = stats::PerKernel::new(config.as_ref().into());
+        // let stats = stats::scheduler::Scheduler::default();
+        // let stats = stats::scheduler::Scheduler::default();
         // to be fair should divide by number of scheudulers
         let capacity = config.max_warps_per_core();
         Self {
@@ -147,7 +149,7 @@ impl Base {
     #[must_use]
     #[inline]
     fn issue<I>(
-        &self,
+        &mut self,
         warp: &mut warp::Warp,
         stage: PipelineStage,
         unit: ExecUnitKind,
@@ -159,21 +161,24 @@ impl Base {
     where
         I: WarpIssuer,
     {
-        // if let ExecUnitKind::SFU = unit {
-        //     dbg!(warp.current_instr().unwrap().opcode);
-        //     dbg!(warp.ibuffer_peek().unwrap().opcode);
-        //     panic!("we do use the sfu unit");
-        // }
         let free_register = core.has_free_register(stage, self.id);
         let can_dual_issue =
             !self.config.dual_issue_only_to_different_exec_units || prev_issued_exec_unit != unit;
 
         if free_register && can_dual_issue {
-            core.issue_warp(stage, warp, self.id, cycle).is_ok()
+            if core.issue_warp(stage, warp, self.id, cycle).is_ok() {
+                let kernel_stats = self.stats.get_mut(warp.kernel_id.map(|id| id as usize));
+                *kernel_stats
+                    .scheduler
+                    .execution_unit_issue
+                    .entry(unit.to_string())
+                    .or_insert(0) += 1;
+                return true;
+            }
         } else {
-            log::debug!("issue failed: no free mem port register");
-            false
+            log::debug!("issue failed: no free port register in {:?}", stage);
         }
+        false
     }
 
     #[inline]
@@ -207,11 +212,15 @@ impl Base {
         //     dbg!(&self.prioritized_warps_ids);
         // }
 
+        let mut kernel_id = None;
+
         for (next_warp_supervised_idx, next_warp) in warps {
             // don't consider warps that are not yet valid
             // let mut next_warp = next_warp_rc.try_lock();
             // let next_warp = *next_warp;
             let (warp_id, dyn_warp_id) = (next_warp.warp_id, next_warp.dynamic_warp_id);
+
+            kernel_id = next_warp.kernel_id;
 
             if next_warp.done_exit() {
                 continue;
@@ -335,6 +344,7 @@ impl Base {
                     | ArchOp::MEMORY_BARRIER_OP
                     | ArchOp::TENSOR_CORE_LOAD_OP
                     | ArchOp::TENSOR_CORE_STORE_OP => {
+                        // we issue to operand collector actually
                         if crate::timeit!(
                             "core::issue::issue_mem",
                             self.issue(
@@ -519,11 +529,14 @@ impl Base {
             if num_issued > 0 {
                 self.last_supervised_issued_idx = *next_warp_supervised_idx;
                 self.num_issued_last_cycle = num_issued;
-                // let mut stats = self.stats.lock();
+
+                let kernel_stats = self
+                    .stats
+                    .get_mut(next_warp.kernel_id.map(|id| id as usize));
                 if num_issued == 1 {
-                    self.stats.num_single_issue += 1;
+                    kernel_stats.scheduler.num_single_issue += 1;
                 } else {
-                    self.stats.num_dual_issue += 1;
+                    kernel_stats.scheduler.num_dual_issue += 1;
                 }
 
                 // if a warp instruction has been issued, stop checking
@@ -533,16 +546,18 @@ impl Base {
         }
 
         // issue stall statistics
-        // let mut stats = self.stats.lock();
+        // note that warps list could be empty
+
+        let kernel_stats = self.stats.get_mut(kernel_id.map(|id| id as usize));
         if !valid_inst {
             // idle or control hazard
-            self.stats.issue_raw_hazard_stall += 1;
+            kernel_stats.scheduler.issue_raw_hazard_stall += 1;
         } else if !ready_inst {
             // waiting for RAW hazards (possibly due to memory)
-            self.stats.issue_control_hazard_stall += 1;
+            kernel_stats.scheduler.issue_control_hazard_stall += 1;
         } else if !issued_inst {
             // pipeline stalled
-            self.stats.issue_pipeline_stall += 1;
+            kernel_stats.scheduler.issue_pipeline_stall += 1;
         }
     }
 }

@@ -256,6 +256,7 @@ fn print_kernel_stats(kernel_stats: &stats::Stats) {
     eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
     eprintln!("SIM: {:#?}", &kernel_stats.sim);
     eprintln!("INSTRUCTIONS: {:#?}", &kernel_stats.instructions);
+    eprintln!("SCHEDULER: {:#?}", &kernel_stats.scheduler);
     eprintln!("ACCESSES: {:#?}", &kernel_stats.accesses);
 
     let l1i_stats = kernel_stats.l1i_stats.reduce();

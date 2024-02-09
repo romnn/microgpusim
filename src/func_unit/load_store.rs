@@ -569,7 +569,7 @@ where
 
         // this processes the next writeback
         if let Some(ref mut next_writeback) = self.next_writeback {
-            log::error!(
+            log::debug!(
                 "{} => next_writeback={} ({:?})",
                 style("ldst unit writeback").magenta(),
                 next_writeback,

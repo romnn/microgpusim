@@ -499,6 +499,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     box_config.accelsim_compat = true;
     box_config.fill_l2_on_memcopy = false;
     box_config.perfect_inst_const_cache = true;
+    box_config.max_sp_latency = 13;
     // box_config.flush_l1_cache = true;
     // box_config.flush_l2_cache = false;
     if !simulate_kernel_launch_latency {

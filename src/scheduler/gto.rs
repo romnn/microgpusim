@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 #[derive(Debug)]
 pub struct Scheduler {
     // pub struct Scheduler<'a> {
-    inner: super::Base,
+    pub inner: super::Base,
     // inner: super::Base<'a>,
 }
 

@@ -663,6 +663,58 @@ where
                 id_oc_mem_width,
                 "number of schedulers ({}) and ID_OC_SFU pipeline register width ({}) does not match", config.num_schedulers_per_core, id_oc_mem_width 
             );
+            // this is not sufficient
+            assert!(
+                config.num_sp_units % config.num_schedulers_per_core == 0,
+                "number of SP execution units ({}) must be multiple of number of schedulers ({})",
+                config.num_sp_units,
+                config.num_schedulers_per_core,
+            );
+            assert!(
+                config.num_dp_units % config.num_schedulers_per_core == 0,
+                "number of DP execution units ({}) must be multiple of number of schedulers ({})",
+                config.num_dp_units,
+                config.num_schedulers_per_core,
+            );
+            assert!(
+                config.num_sfu_units % config.num_schedulers_per_core == 0,
+                "number of SFU execution units ({}) must be multiple of number of schedulers ({})",
+                config.num_sfu_units,
+                config.num_schedulers_per_core,
+            );
+
+            // this is also required
+            if config.num_sp_units > 0 {
+                assert_eq!(
+                    config.num_sp_units, config.num_schedulers_per_core,
+                    "number of SP execution units ({}) must be multiple of number of schedulers ({})",
+                    config.num_sp_units, config.num_schedulers_per_core,
+                );
+            }
+            if config.num_dp_units > 0 {
+                assert_eq!(
+                    config.num_dp_units, config.num_schedulers_per_core,
+                    "number of DP execution units ({}) must be multiple of number of schedulers ({})",
+                    config.num_dp_units,
+                    config.num_schedulers_per_core,
+                );
+            }
+            if config.num_sfu_units > 0 {
+                assert_eq!(
+                    config.num_sfu_units, config.num_schedulers_per_core,
+                    "number of SFU execution units ({}) must be multiple of number of schedulers ({})",
+                    config.num_sfu_units,
+                    config.num_schedulers_per_core,
+                );
+            }
+
+            // writeback stage for sp and sfu is shared
+            let ex_wb_width = pipeline_reg[PipelineStage::EX_WB as usize].size();
+            assert_eq!(
+                config.num_sp_units + config.num_sfu_units,
+                ex_wb_width,
+                "sum of sp and sfu units ({} + {}) and EX_WB pipeline register width ({}) does not match", config.num_sp_units, config.num_sfu_units, id_oc_mem_width 
+            );
         }
 
         // there are as many result buses as the width of the EX_WB stage
@@ -1322,6 +1374,11 @@ impl<I, MC> Core<I, MC> {
                 let kernel_stats = stats.get_mut(Some(kernel_launch_id));
                 kernel_stats.l1d_stats[self.global_core_id] += cache_stats.clone();
             }
+        }
+
+        // add scheduler stats
+        for scheduler in self.schedulers.iter() {
+            stats += scheduler.inner.stats.clone();
         }
 
         stats += self.mem_port.stats.clone();

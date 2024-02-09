@@ -155,7 +155,19 @@ impl PipelinedSimdUnit {
     // }
 
     pub fn cycle(&mut self, result_port: Option<&mut register_set::RegisterSet>, cycle: u64) {
-        log::error!(
+        // fast path
+        let no_result = self.pipeline_reg[0].is_none();
+        let empty_pipeline = self.active_insts_in_pipeline == 0;
+        // let nothing_occupied = self.occupied.not_any();
+        // assert_eq!(nothing_occupied, empty_pipeline);
+        let no_dispatch = self.dispatch_reg.is_none();
+
+        if no_dispatch && no_result && empty_pipeline {
+            self.occupied.shift_left(1);
+            return;
+        }
+
+        log::debug!(
             "fu[{:03}] {:<10} cycle={:03}: \tpipeline={:?} ({}/{} active)",
             self.id,
             self.name,

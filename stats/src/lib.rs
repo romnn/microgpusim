@@ -15,6 +15,7 @@ pub use cache::{Cache, PerCache};
 pub use dram::DRAM;
 pub use instructions::InstructionCounts;
 pub use mem::Accesses;
+pub use scheduler::Scheduler;
 pub use sim::Sim;
 pub use utils::box_slice;
 
@@ -172,6 +173,8 @@ pub struct Stats {
     pub accesses: Accesses,
     /// Instruction count breakdown per memory space and kind.
     pub instructions: InstructionCounts,
+    /// Scheduler stats
+    pub scheduler: Scheduler,
     /// High-level simulation metrics.
     pub sim: Sim,
     /// DRAM access stats.
@@ -194,6 +197,7 @@ impl std::ops::AddAssign for Stats {
     fn add_assign(&mut self, other: Self) {
         self.accesses += other.accesses;
         self.instructions += other.instructions;
+        self.scheduler += other.scheduler;
         self.sim += other.sim;
         self.dram += other.dram;
         self.l1i_stats += other.l1i_stats;
@@ -215,6 +219,7 @@ impl Stats {
         Self {
             accesses: Accesses::default(),
             instructions: InstructionCounts::default(),
+            scheduler: Scheduler::default(),
             sim: Sim::default(),
             dram: DRAM::new(num_total_cores, num_mem_units, num_dram_banks),
             l1i_stats: PerCache::new(num_total_cores),
@@ -231,6 +236,7 @@ impl Stats {
         Self {
             accesses: Accesses::default(),
             instructions: InstructionCounts::default(),
+            scheduler: Scheduler::default(),
             sim: Sim::default(),
             dram: DRAM::new(
                 config.num_total_cores,

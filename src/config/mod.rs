@@ -2,9 +2,7 @@ pub mod accelsim;
 pub mod gtx1080;
 pub mod old;
 
-use crate::{
-    address, cache, core::PipelineStage, kernel::Kernel, mcu, mem_sub_partition, mshr, opcodes,
-};
+use crate::{address, cache, core::PipelineStage, mcu, mem_sub_partition, mshr, opcodes};
 use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -394,7 +392,7 @@ pub struct GPU {
     /// Limits number of concurrent CTAs. (default 8192)
     pub shader_registers: usize, // 65536
     /// Maximum number of registers per CTA. (default 8192)
-    pub registers_per_block: usize, //  8192
+    // pub registers_per_block: usize, //  8192
     pub ignore_resources_limitation: bool, // 0
     /// Maximum number of concurrent CTAs in shader (default 32)
     pub max_concurrent_blocks_per_core: usize, // 32
@@ -413,19 +411,19 @@ pub struct GPU {
     /// Size of shared memory per shader core (default 16kB)
     pub shared_memory_size: u32, // 98304
     /// Option list of shared memory sizes
-    pub shared_memory_option: bool, // 0
+    // pub shared_memory_option: bool, // 0
     /// Size of unified data cache(L1D + shared memory) in KB
     pub unified_l1_data_cache_size: bool, //0
     /// adaptive_cache_config
     pub adaptive_cache_config: bool, // 0
     /// Option list of shared memory sizes
-    pub shared_memory_sizes: Vec<u32>, // 0
+    // pub shared_memory_sizes: Vec<u32>, // 0
     // Size of shared memory per shader core (default 16kB)
     // shared_memory_size_default: usize, // 16384
     /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size_pref_l1: usize, // 16384
+    // pub shared_memory_size_pref_l1: usize, // 16384
     /// Size of shared memory per shader core (default 16kB)
-    pub shared_memory_size_pref_shared: usize, // 16384
+    // pub shared_memory_size_pref_shared: usize, // 16384
     /// Number of banks in the shared memory in each shader core (default 16)
     pub shared_memory_num_banks: usize, // 32
     /// Limit shared memory to do one broadcast per cycle (default on)
@@ -776,14 +774,14 @@ impl GPU {
         }
 
         if self.adaptive_cache_config {
+            unimplemented!("adaptive cache config")
+
             // more info about adaptive cache, see
             // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
-            let total_shared_mem = launch_config.shared_mem_bytes as usize * limit;
-            if let Some(size) = self.shared_memory_sizes.last() {
-                assert!(total_shared_mem <= (*size as usize));
-            }
-
-            unimplemented!("adaptive cache config")
+            // let total_shared_mem = launch_config.shared_mem_bytes as usize * limit;
+            // if let Some(size) = self.shared_memory_sizes.last() {
+            //     assert!(total_shared_mem <= (*size as usize));
+            // }
 
             // Unified cache config is in KB. Converting to B
             // unsigned total_unified = m_L1D_config.m_unified_cache_size * 1024;
@@ -1184,14 +1182,16 @@ impl Default for GPU {
             })),
             shared_memory_latency: 24, // 3 for GTX1080
             // TODO: make this better, or just parse accelsim configs
-            max_sp_latency: 13,
+            max_sp_latency: 14,
             max_int_latency: 4,
             max_dp_latency: 19,
-            max_sfu_latency: 8.max(330),
+            max_sfu_latency: 330,
             global_mem_skip_l1_data_cache: false,
             perfect_mem: false,
+            /// Number of SM registers: num schedulers (4) * 16KiB x 32bit=4 byte  = 4*16*1024*4 =
+            /// 65536 register file size (in bytes)
             shader_registers: 65536,
-            registers_per_block: 8192,
+            // registers_per_block: 8192,
             ignore_resources_limitation: false,
             max_concurrent_blocks_per_core: 32,
             kernel_launch_latency: 5000,
@@ -1203,12 +1203,12 @@ impl Default for GPU {
             num_ldst_response_buffer_size: 2,
             shared_memory_per_block: 48 * KB as usize,
             shared_memory_size: 96 * KB as u32,
-            shared_memory_option: false,
+            // shared_memory_option: false,
             unified_l1_data_cache_size: false,
             adaptive_cache_config: false,
-            shared_memory_sizes: vec![],
-            shared_memory_size_pref_l1: 16 * KB as usize,
-            shared_memory_size_pref_shared: 16 * KB as usize,
+            // shared_memory_sizes: vec![],
+            // shared_memory_size_pref_l1: 16 * KB as usize,
+            // shared_memory_size_pref_shared: 16 * KB as usize,
             shared_memory_num_banks: 32,
             shared_memory_limited_broadcast: false,
             shared_memory_warp_parts: 1,
@@ -1239,35 +1239,53 @@ impl Default for GPU {
             operand_collector_num_out_ports_int: 0,
             operand_collector_num_out_ports_tensor_core: 1,
             operand_collector_num_out_ports_mem: 1,
-            // generic collectors
+            // number of generic operand collectors (2 per scheduler, for dual issue)
             operand_collector_num_units_gen: 8,
+            // number of input ports to the collector units
+            // matches the number of collecor units, each in port has port to 
+            // each execution unit, i.e. 1 in port consist of 1 in port for 
+            // MEM, SFU, and SP each (ID_OC_SP, ID_OC_SFU, ID_OC_MEM)
             operand_collector_num_in_ports_gen: 8,
+            // number of output ports from the collector units
+            // this is the number of dispatch units.
+            // the dispatch unit arbitrates over the in port from SP, SFU, MEM
+            // port to find ready collector unit to push to OC_EX_SP, OC_EX_MEM,
+            // OC_EX_SFU.
             operand_collector_num_out_ports_gen: 8,
             coalescing_arch: Architecture::Pascal,
             num_schedulers_per_core: 4,
             max_instruction_issue_per_warp: 2,
             dual_issue_only_to_different_exec_units: true,
             simt_core_sim_order: SchedulingOrder::RoundRobin,
+            // for these, we always assume x32 threads
             pipeline_widths: HashMap::from_iter([
+                // must match the number of sp units and schedulers
                 (PipelineStage::ID_OC_SP, 4),
                 (PipelineStage::ID_OC_DP, 0),
                 (PipelineStage::ID_OC_INT, 0),
+                // must match the number of sfu units and schedulers
                 (PipelineStage::ID_OC_SFU, 4), // 1 GTX1080
+                // must match the number of mem units and schedulers
                 (PipelineStage::ID_OC_MEM, 4), // 1 GTX1080
+                // must match the number of sp units and schedulers
                 (PipelineStage::OC_EX_SP, 4),
                 (PipelineStage::OC_EX_DP, 0),
                 (PipelineStage::OC_EX_INT, 0),
+                // must match the number of sfu units and schedulers
                 (PipelineStage::OC_EX_SFU, 4), // 1 GTX1080
+                // must match the number of mem units and schedulers
                 (PipelineStage::OC_EX_MEM, 4), // 1 GTX1080
+                // must match the number of sp + sfu units as they share a common
+                // writeback pipeline
                 (PipelineStage::EX_WB, 8),     // 6 GTX1080
                 // don't have tensor cores
                 (PipelineStage::ID_OC_TENSOR_CORE, 0),
                 (PipelineStage::OC_EX_TENSOR_CORE, 0),
             ]),
-            num_sp_units: 4,
+            num_sp_units: 4, // must match the number of schedulers
             num_dp_units: 0,
             num_int_units: 0,
-            num_sfu_units: 4, // 1 GTX1080 ?
+            num_sfu_units: 4, // must match the number of scheudulers
             num_tensor_core_avail: 0,
             num_tensor_core_units: 0,
             scheduler: CoreSchedulerKind::GTO,
@@ -1337,7 +1355,12 @@ impl Default for GPU {
             // format: fill latency and init latency
             trace_opcode_latency_initiation_int: (6, 1),
             trace_opcode_latency_initiation_sp: (6, 1),
+            // double precision is factor 8x slower in both latency and initiation?
             trace_opcode_latency_initiation_dp: (8, 8), // (4, 1)
+            // have only 8 sfu per sub sm allocated to a single scheduler
+            // therefore it makes sense that we model 4 sfu units but in reality
+            // they are pipelined and take 4 cycles for initiation to compute
+            // 32 threads in groups of 8 in a pipelined fashion.
             trace_opcode_latency_initiation_sfu: (14, 4), // (4, 1)
             /// does not have tensor units
             trace_opcode_latency_initiation_tensor: (usize::MAX, 1),

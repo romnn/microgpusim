@@ -76,9 +76,8 @@ pub struct DestinationOperand {
 
 #[derive(Debug, Clone)]
 pub struct PendingCollectorUnitInstruction {
-    /// Warp id assigned to this collector unit.
-    warp_id: usize,
-
+    // Warp id assigned to this collector unit.
+    // warp_id: usize,
     /// Instruction assigned to this collector unit.
     warp_instr: WarpInstruction,
 
@@ -150,6 +149,21 @@ pub struct CollectorUnit {
     reg_id: usize,
 }
 
+impl std::fmt::Display for CollectorUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CollectorUnit")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("reg_id", &self.reg_id)
+            .field("is_free", &self.is_free())
+            .field(
+                "output_register",
+                &self.pending.as_ref().map(|pending| pending.output_register),
+            )
+            .finish()
+    }
+}
+
 impl CollectorUnit {
     fn new(
         kind: Kind,
@@ -217,18 +231,14 @@ impl CollectorUnit {
     //     self.num_banks_per_scheduler = banks_per_scheduler;
     // }
 
-    #[must_use]
+    /// Check if the collector unit is ready to be dispatched.
+    ///
+    /// A collector unit is ready for dispatch once there are no pending operand
+    /// reads in the collector unit and the output pipeline register is free.
     pub fn ready(&self, pipeline_stage: &[register_set::RegisterSet]) -> bool {
-        // if self.is_free {
-        //     return false;
-        // }
-
         let Some(ref pending) = self.pending else {
             return false;
         };
-        // let Some(output_register) = pending.output_register else {
-        //     return false;
-        // };
         let output_register = &pipeline_stage[pending.output_register as usize];
         let has_free_register = if self.sub_core_model {
             output_register.has_free_sub_core(self.reg_id)
@@ -243,18 +253,12 @@ impl CollectorUnit {
             &output_register
         );
 
-        // !self.is_free && self.not_ready.not_any() && has_free_register
-        // !self.is_free && pending.not_ready.not_any() && has_free_register
         pending.not_ready.not_any() && has_free_register
     }
 
-    // pub fn warp_id(&self) -> Option<usize> {
-    //     if self.is_free {
-    //         None
-    //     } else {
-    //         self.warp_id
-    //     }
-    // }
+    pub fn is_free(&self) -> bool {
+        self.pending.is_none()
+    }
 
     pub fn dispatch(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
         let Some(pending) = self.pending.take() else {
@@ -292,14 +296,19 @@ impl CollectorUnit {
             style(format!("operand collector::allocate({:?})", self.kind)).green(),
         );
 
-        debug_assert!(self.pending.is_none());
+        debug_assert!(self.is_free());
         // debug_assert!(self.not_ready.not_any());
 
         // self.is_free = false;
         // self.pending = Some(PendingCollectorUnitInstruction::new());
         // self.output_register = Some(output_reg_id);
 
-        if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
+        // if let Some((_, Some(ready_reg))) = input_reg_set.get_ready() {
+        // if let Some((_, Some(ready_reg))) = input_reg_set
+        if let Some(ready_reg) = input_reg_set
+            .get_ready_mut()
+            .and_then(|(_, ready_reg)| ready_reg.take())
+        {
             // todo: do we need warp id??
             // self.warp_id = Some(ready_reg.warp_id);
 
@@ -355,14 +364,15 @@ impl CollectorUnit {
                 // self.not_ready.to_bit_string(),
             );
 
-            let warp_id = ready_reg.warp_id;
-            let mut warp_instr = None;
-            input_reg_set.move_out_to(&mut warp_instr);
+            // let warp_id = ready_reg.warp_id;
+            // let mut warp_instr = None;
+            // input_reg_set.move_out_to(&mut warp_instr);
 
             // allocate here
             self.pending = Some(PendingCollectorUnitInstruction {
-                warp_id,
-                warp_instr: warp_instr.unwrap(),
+                // warp_id,
+                // warp_instr: warp_instr.unwrap(),
+                warp_instr: ready_reg,
                 not_ready,
                 src_operands,
                 output_register: output_reg_id,
@@ -739,8 +749,8 @@ impl Arbiter {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DispatchUnit {
-    last_cu: usize,
-    next_cu: usize,
+    last_collector_unit: usize,
+    next_collector_unit: usize,
     sub_core_model: bool,
     num_warp_schedulers: usize,
     kind: Kind,
@@ -753,8 +763,8 @@ impl DispatchUnit {
         Self {
             kind,
             id,
-            last_cu: 0,
-            next_cu: 0,
+            last_collector_unit: 0,
+            next_collector_unit: 0,
             sub_core_model: false,
             num_warp_schedulers: 0,
         }
@@ -765,27 +775,29 @@ impl DispatchUnit {
         self.num_warp_schedulers = num_warp_schedulers;
     }
 
+    /// Find a ready collector unit
     pub fn find_ready<'a>(
         &mut self,
         collector_units: &'a [CollectorUnit],
         set_collector_unit_ids: &'a [usize],
         pipeline_reg: &[register_set::RegisterSet],
     ) -> Option<usize> {
-        // With sub-core enabled round robin starts with the next cu assigned to a
-        // different sub-core than the one that dispatched last
+        // With sub-core enabled, round robin starts with the next
+        // collector unit assigned to a different sub-core than the one
+        // that dispatched last
         let num_collector_units = set_collector_unit_ids.len();
         let cus_per_scheduler = num_collector_units / self.num_warp_schedulers;
-        let rr_increment = if self.sub_core_model {
-            cus_per_scheduler - (self.last_cu % cus_per_scheduler)
+        let round_robin_increment = if self.sub_core_model {
+            cus_per_scheduler - (self.last_collector_unit % cus_per_scheduler)
         } else {
             1
         };
 
-        log::debug!("dispatch unit {:?}[{}]: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, self.id, rr_increment, self.last_cu, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
+        log::debug!("dispatch unit {:?}[{}]: find ready: rr_inc = {},last cu = {},num collectors = {}, num warp schedulers = {}, cusPerSched = {}", self.kind, self.id, round_robin_increment, self.last_collector_unit, num_collector_units, self.num_warp_schedulers, cus_per_scheduler);
 
         debug_assert_eq!(num_collector_units, set_collector_unit_ids.len());
         for i in 0..num_collector_units {
-            let i = (self.last_cu + i + rr_increment) % num_collector_units;
+            let i = (self.last_collector_unit + i + round_robin_increment) % num_collector_units;
             // log::trace!(
             //     "dispatch unit {:?}: checking collector unit {}",
             //     self.kind,
@@ -794,9 +806,10 @@ impl DispatchUnit {
 
             let collector_unit_id = set_collector_unit_ids[i];
             let collector_unit = &collector_units[collector_unit_id];
+            assert_eq!(collector_unit_id, collector_unit.id);
 
             if collector_unit.ready(pipeline_reg) {
-                self.last_cu = i;
+                self.last_collector_unit = i;
                 log::debug!(
                     "dispatch unit {:?}[{}]: FOUND ready: chose collector unit {} ({:?})",
                     self.kind,
@@ -804,6 +817,8 @@ impl DispatchUnit {
                     i,
                     collector_units[i].kind
                 );
+
+                // can only dispatch one collector unit per cycle?
                 return Some(collector_unit_id);
             }
         }
@@ -969,16 +984,11 @@ impl RegisterFileUnit {
         self.allocate_reads();
 
         debug_assert!(!self.in_ports.is_empty());
-        for port_num in 0..self.in_ports.len() {
-            self.allocate_cu(pipeline_reg, port_num);
+        for input_port_num in 0..self.in_ports.len() {
+            self.allocate_collector_unit(pipeline_reg, input_port_num);
         }
         self.arbiter.reset_alloction();
-        // self.process_banks();
     }
-
-    // fn process_banks(&mut self) {
-    //     self.arbiter.reset_alloction();
-    // }
 
     /// Process read requests that do not have conflicts
     pub fn allocate_reads(&mut self) {
@@ -1001,29 +1011,40 @@ impl RegisterFileUnit {
         }
     }
 
-    pub fn allocate_cu(&mut self, pipeline_reg: &mut [register_set::RegisterSet], port_num: usize) {
-        let port = &self.in_ports[port_num];
+    pub fn allocate_collector_unit(
+        &mut self,
+        pipeline_reg: &mut [register_set::RegisterSet],
+        input_port_id: usize,
+    ) {
+        let input_ports = &self.in_ports[input_port_id];
         log::debug!(
             "{}",
             style(format!(
-                "operand collector::allocate_cu({:?}: {:?})",
-                port_num, port.collector_unit_ids
+                "operand collector::allocate_cu({}: {:?})",
+                input_port_id, input_ports.collector_unit_ids
             ))
-            .green()
+            .green(),
         );
 
-        debug_assert_eq!(port.in_ports.len(), port.out_ports.len());
+        debug_assert_eq!(input_ports.in_ports.len(), input_ports.out_ports.len());
 
-        for (input_port_id, output_port_id) in port.in_ports.iter().zip(port.out_ports.iter()) {
+        for (input_port_id, output_port_id) in input_ports
+            .in_ports
+            .iter()
+            .zip(input_ports.out_ports.iter())
+        {
             let input_port = &mut pipeline_reg[*input_port_id as usize];
 
             if input_port.has_ready() {
                 // find a free collector unit
-                for cu_set_id in &port.collector_unit_ids {
-                    let cu_set: &Vec<_> = &self.collector_unit_sets[cu_set_id];
+                for cu_set_id in &input_ports.collector_unit_ids {
+                    let cu_set: &Vec<usize> = &self.collector_unit_sets[cu_set_id];
                     let mut allocated = false;
                     let mut cu_lower_bound = 0;
                     let mut cu_upper_bound = cu_set.len();
+
+                    // temp: so we can use them later
+                    let mut scheduler_id = 0;
 
                     if self.sub_core_model {
                         // sub core model only allocates on the subset
@@ -1034,16 +1055,29 @@ impl RegisterFileUnit {
                                 && cu_set.len() >= self.num_warp_schedulers
                         );
                         let cus_per_sched = cu_set.len() / self.num_warp_schedulers;
-                        let schd_id = input_port.scheduler_id(reg_id).unwrap();
-                        cu_lower_bound = schd_id * cus_per_sched;
+                        scheduler_id = input_port.scheduler_id(reg_id).unwrap();
+                        cu_lower_bound = scheduler_id * cus_per_sched;
                         cu_upper_bound = cu_lower_bound + cus_per_sched;
                         debug_assert!(cu_upper_bound <= cu_set.len());
+
+                        // each scheduler manages two cu's (dual issue)
+                        assert_eq!(cu_upper_bound - cu_lower_bound, 2);
+                        // let cus = &cu_set[cu_lower_bound..cu_upper_bound];
+                        // assert!(!cus.iter().any(|cu| self.collector_units[*cu].is_free()));
+                        // println!(
+                        //     "RFU for scheduler {} input port {:?} output port {:?} manages {} cus: {:?}",
+                        //     scheduler_id,
+                        //     input_port_id,
+                        //     output_port_id,
+                        //     cus.len(),
+                        //     cus.iter().map(|cu| &self.collector_units[*cu]).map(ToString::to_string).collect::<Vec<_>>(),
+                        // );
                     }
 
-                    for collector_unit_id in &cu_set[cu_lower_bound..cu_upper_bound] {
+                    let cus = &cu_set[cu_lower_bound..cu_upper_bound];
+                    for collector_unit_id in cus {
                         let collector_unit = &mut self.collector_units[*collector_unit_id];
-                        // if collector_unit.is_free {
-                        if collector_unit.pending.is_none() {
+                        if collector_unit.is_free() {
                             log::debug!(
                                 "{} cu={:?}",
                                 style("operand collector::allocate()".to_string()).green(),
@@ -1051,14 +1085,53 @@ impl RegisterFileUnit {
                             );
 
                             allocated = collector_unit.allocate(input_port, *output_port_id);
+                            // todo: check here if allocated before adding
+                            // read requests...
                             self.arbiter.add_read_requests(&collector_unit);
                             break;
                         }
-                        // }
                     }
 
                     if allocated {
-                        // cu has been allocated, no need to search more.
+                        if log::log_enabled!(log::Level::Trace) {
+                            let num_free = cus
+                                .iter()
+                                .filter(|cu| self.collector_units[**cu].is_free())
+                                .count();
+                            if num_free == 0 {
+                                log::trace!(
+                                "RFU for scheduler {} input port {:?} output port {:?} allocated a collector unit (manages {} cus: {:?})",
+                                scheduler_id,
+                                input_port_id,
+                                output_port_id,
+                                cus.len(),
+                                cus.iter().map(|cu| &self.collector_units[*cu]).map(ToString::to_string).collect::<Vec<_>>(),
+                            );
+                            }
+                        }
+
+                        // this is wrong!
+                        // they could, but the dispatch units would need more
+                        // than one cycle to dispatch to the same pipe reg
+                        // for an execution unit.
+                        // assert!(
+                        //     cus.iter()
+                        //         .filter_map(|cu| self.collector_units[*cu].pending.as_ref())
+                        //         .map(|pending| pending.output_register)
+                        //         .all_unique(),
+                        //     "collector units for the same scheduler never output to the same execution unit pipeliene"
+                        // );
+                        assert_eq!(
+                            cus.iter()
+                                .map(|cu| &self.collector_units[*cu].reg_id)
+                                .dedup()
+                                .count(),
+                            1,
+                            "in sub core model, have the same reg id assigned for this scheduler to both collector units, because execution units (4sp, 4sfu, 4mem) are statically assigned to one scheduler, have 8 opcols for 4 schedulers, 2 opcolds per scheduler and each can either be of kind sp, sfu, or mem but always only dispatch into the same pipeline register in each of the execution units. that there is never an issue they never can dispatch to the same execution unit."
+                        );
+
+                        // a collector unit has been allocated,
+                        // no need to search more.
                         break;
                     }
                 }
@@ -1067,8 +1140,15 @@ impl RegisterFileUnit {
     }
 
     pub fn dispatch_ready_cu(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
+        // can dispatch up to num_dispatch_units per cycle
         for dispatch_unit in &mut self.dispatch_units {
             let set = &self.collector_unit_sets[&dispatch_unit.kind];
+            // log::trace!(
+            //     "dispatch unit {} checking {} collector units ({} collector unit sets in total)",
+            //     dispatch_unit.id,
+            //     set.len(),
+            //     self.collector_unit_sets.len()
+            // );
             if let Some(collector_unit_id) =
                 dispatch_unit.find_ready(&self.collector_units, set, pipeline_reg)
             {
@@ -1257,8 +1337,8 @@ mod test {
     impl From<&super::DispatchUnit> for testing::state::DispatchUnit {
         fn from(unit: &super::DispatchUnit) -> Self {
             Self {
-                last_cu: unit.last_cu,
-                next_cu: unit.next_cu,
+                last_cu: unit.last_collector_unit,
+                next_cu: unit.next_collector_unit,
                 kind: unit.kind.into(),
             }
         }
