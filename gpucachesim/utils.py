@@ -244,8 +244,10 @@ def convert_to_png(
 
 
 @main.command()
-@click.option("-i", "--input", "input_path", help="path to input file")
-@click.option("-o", "--output", "output", help="path to output file")
+# @click.option("-i", "--input", "input_path", help="path to input file")
+@click.argument("input_path", type=click.Path(exists=True))
+# @click.option("-o", "--output", "output", help="path to output file")
+@click.argument("output_path")
 @click.option("-s", "--size", "max_size", help="max size in any dimension")
 @click.option("-q", "--quality", "quality", help="quality")
 @click.option("-d", "--density", "density", help="density")
