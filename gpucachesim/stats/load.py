@@ -11,7 +11,7 @@ from gpucachesim.benchmarks import (
 )
 
 
-def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
+def load_stats(bench_name, profiler="nvprof", path=None, fill=True) -> pd.DataFrame:
     stats = []
     if bench_name is not None:
         stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
@@ -136,8 +136,9 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
     #     if col not in benchmarks.CATEGORICAL_COLS
     # }
 
-    stats_df = stats_df.fillna(fill).infer_objects(copy=False)
-    assert stats_df["run"].isna().sum() == 0
+    if fill:
+        stats_df = stats_df.fillna(fill).infer_objects(copy=False)
+        assert stats_df["run"].isna().sum() == 0
 
     def add_no_kernel_exec_time(df):
         # print(df[benchmarks.PREVIEW_COLS][:4].T)
@@ -187,6 +188,7 @@ def load_stats(bench_name, profiler="nvprof", path=None) -> pd.DataFrame:
     stats_df = stats_df.reset_index(drop=True)
     # raise ValueError("its over")
 
+    assert "run" in stats_df
     assert stats_df["run"].isna().sum() == 0
     # assert stats_df["kernel_launch_id"].isna().sum() == 0
     assert stats_df["num_clusters"].isna().sum() == 0

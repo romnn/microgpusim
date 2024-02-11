@@ -182,6 +182,112 @@ NVPROF_NUMERIC_METRIC_COLUMNS = [
 ]
 
 
+def stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
+    stat_cols = [
+        # GPU load and debug information
+        "num_blocks",
+        "mean_blocks_per_sm",
+        "input_id",
+        # execution time
+        "exec_time_sec",
+        # cycles
+        "cycles",
+        # instructions
+        "instructions",
+        # dram stats
+        "dram_reads",
+        "dram_writes",
+        # l2 stats
+        "l2_accesses",
+        "l2_reads",
+        "l2_writes",
+    ]
+
+    if profiler == "nvprof":
+        # nvprof
+        stat_cols += [
+            "l2_read_hit_rate",
+            "l2_write_hit_rate",
+            "l2_read_hits",
+            "l2_write_hits",
+            "l2_hit_rate",
+            # "l2_hits",
+            # "l2_misses",
+            "l1_accesses",
+            # "l1_reads",
+            # "l1_misses",
+            "l1_hit_rate",
+            "l1_global_hit_rate",
+            "l1_local_hit_rate",
+        ]
+    else:
+        # nsight
+        stat_cols += [
+            "l2_hits",
+            "l2_misses",
+            "l2_hit_rate",
+            "l1_hit_rate",
+        ]
+    return stat_cols
+
+
+def table_stat_cols_for_profiler(profiler: str) -> typing.Sequence[str]:
+    stat_cols = [
+        # "num_blocks",
+        # "mean_blocks_per_sm",
+        # "input_id",
+        # execution time
+        "exec_time_sec",
+        # cycles
+        "cycles",
+        # instructions
+        "instructions",
+    ]
+
+    if profiler == "nvprof":
+        # nvprof
+        stat_cols += [
+            # l1 accesses
+            "l1_accesses",
+            "l1_global_hit_rate",
+            # l2 reads
+            "l2_read_hits",
+            "l2_read_hit_rate",
+            # l2 writes
+            "l2_write_hits",
+            "l2_write_hit_rate",
+            # "l2_hit_rate",
+            # "l2_hits",
+            # "l2_misses",
+            # "l1_reads",
+            # "l1_misses",
+            # "l1_hit_rate",
+            # "l1_local_hit_rate",
+        ]
+    else:
+        # nsight
+        stat_cols += [
+            "l1_hit_rate",
+            "l2_hits",
+            "l2_misses",
+            "l2_hit_rate",
+        ]
+
+    stat_cols += [
+        # dram stats
+        "dram_reads",
+        "dram_writes",
+        # l2 stats
+        # "l2_accesses",
+        # "l2_reads",
+        # "l2_writes",
+    ]
+
+    new_cols = set(stat_cols) - set(stat_cols_for_profiler(profiler))
+    assert len(new_cols) == 0
+    return stat_cols
+
+
 def normalize_nvprof_device_name(name):
     # Strip off device numbers, e.g. (0), (1)
     # that some profiler versions add to the end of device name

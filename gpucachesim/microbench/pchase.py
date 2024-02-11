@@ -778,8 +778,9 @@ def get_known_cache_num_sets(mem: str, gpu: typing.Optional[enum.Enum] = None) -
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_l2_prefetch_size(
-    warmup, repetitions, mem, cached, sim, stream_output, gpu, force
+    warmup, repetitions, mem, cached, sim, stream_output, gpu, force, png
 ):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup or 0
@@ -1037,10 +1038,17 @@ def find_l2_prefetch_size(
         warmup=warmup,
     )
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 def compute_rounds_old(df):
@@ -1392,6 +1400,7 @@ def split_at_indices(s, indices):
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_set_mapping_pchase(
     mem,
     gpu,
@@ -1405,6 +1414,7 @@ def find_cache_set_mapping_pchase(
     cached,
     sim,
     force,
+    png,
 ):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup if warmup is not None else (1 if sim else 2)
@@ -1522,11 +1532,17 @@ def find_cache_set_mapping_pchase(
         size_bytes=known_cache_size_bytes,
         stride_bytes=stride_bytes,
     )
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    print("saved plot to {}".format(filename))
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     # remove first round of loading
     combined = combined[combined["k"] >= known_cache_size_bytes / stride_bytes]
@@ -1852,6 +1868,7 @@ def plot_access_process_latencies(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
 @click.option("--debug", "debug", type=bool, is_flag=True, help="enable debug output")
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_set_mapping(
     mem,
     gpu,
@@ -1869,6 +1886,7 @@ def find_cache_set_mapping(
     sim,
     force,
     debug,
+    png,
 ):
     repetitions = max(1, repetitions if repetitions is not None else (1 if sim else 5))
     warmup = warmup if warmup is not None else (1 if sim else 2)
@@ -2113,10 +2131,17 @@ def find_cache_set_mapping(
         stride_bytes=stride_bytes,
     )
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     # return
 
@@ -2454,6 +2479,7 @@ def find_cache_set_mapping(
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_replacement_policy(
     mem,
     gpu,
@@ -2464,6 +2490,7 @@ def find_cache_replacement_policy(
     cached,
     sim,
     force,
+    png,
 ):
     """
     Determine cache replacement policy.
@@ -3334,6 +3361,7 @@ def agg_l2_hit_rate(hit_clusters):
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_sets(
     mem,
     gpu,
@@ -3344,6 +3372,7 @@ def find_cache_sets(
     repetitions,
     warmup,
     force,
+    png,
 ):
     """
     Determine number of cache sets T.
@@ -3604,10 +3633,17 @@ def find_cache_sets(
         repetitions=repetitions,
     )
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 @main.command()
@@ -3626,6 +3662,7 @@ def find_cache_sets(
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_line_size(
     mem,
     gpu,
@@ -3638,6 +3675,7 @@ def find_cache_line_size(
     warmup,
     rounds,
     force,
+    png,
 ):
     """
     Step 2.
@@ -4002,10 +4040,17 @@ def find_cache_line_size(
         repetitions=repetitions,
     )
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 def default_legend(
@@ -4120,6 +4165,7 @@ def get_yticks_percent(ymax, num_ticks=5):
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def latency_n_graph(
     mem,
     gpu,
@@ -4131,6 +4177,7 @@ def latency_n_graph(
     warmup,
     sim,
     force,
+    png,
 ):
     """
     Compute latency-N graph.
@@ -4313,10 +4360,17 @@ def latency_n_graph(
     ax.set_xticks(xticks, xticklabels)
     ax.legend()
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 CLUSTERS = ["L1_HIT", "L2_HIT", "L2_MISS", "TLB_MISS"]
@@ -4340,7 +4394,8 @@ CLUSTERS = ["L1_HIT", "L2_HIT", "L2_MISS", "TLB_MISS"]
     default=True,
     help="collect l2 latency by skipping L1",
 )
-def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1):
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
+def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1, png):
     if repetitions is None:
         repetitions = 1 if sim else 500
         # repetitions = 1
@@ -4451,11 +4506,18 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
 
     default_legend(ax, repetitions=repetitions)
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
     plt.close(fig)
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     for config in [
         # include 64 l1 miss + l2 hit (l1 size < size_bytes < l2 size)
@@ -4615,11 +4677,22 @@ def plot_latency_distribution(mem, gpu, cached, sim, repetitions, force, skip_l1
             sim=sim,
             gpu=gpu,
         )
-        filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-        filename = filename.with_stem(filename.stem + "-process")
-        fig.savefig(filename)
-        print("saved to ", filename)
+        pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(
+            ".pdf"
+        )
+        pdf_output_path = pdf_output_path.with_stem(pdf_output_path.stem + "-process")
+        fig.savefig(pdf_output_path)
+        print(color("wrote {}".format(pdf_output_path), fg="cyan"))
         plt.close(fig)
+
+        if png:
+            png_output_path = (
+                pdf_output_path.parent / "png" / pdf_output_path.name
+            ).with_suffix(".png")
+            utils.convert_to_png(
+                input_path=pdf_output_path, output_path=png_output_path
+            )
+            print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 def get_cache_file(
@@ -4657,6 +4730,7 @@ def get_cache_file(
 @click.option(
     "--force", "force", type=bool, is_flag=True, help="force re-running experiments"
 )
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def find_cache_size(
     mem,
     gpu,
@@ -4668,6 +4742,7 @@ def find_cache_size(
     repetitions,
     max_rounds,
     force,
+    png,
 ):
     """
     Step 1.
@@ -4883,10 +4958,17 @@ def find_cache_size(
         repetitions=repetitions,
     )
 
-    filename = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
-    filename.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(filename)
-    print("saved to ", filename)
+    pdf_output_path = (PLOT_DIR / cache_file.relative_to(CACHE_DIR)).with_suffix(".pdf")
+    pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(pdf_output_path)
+    print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+    if png:
+        png_output_path = (
+            pdf_output_path.parent / "png" / pdf_output_path.name
+        ).with_suffix(".png")
+        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path)
+        print(color("wrote {}".format(png_output_path), fg="cyan"))
 
 
 @main.command()
