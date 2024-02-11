@@ -340,15 +340,15 @@ pub mod exec {
                 #[derive(Debug, serde::Deserialize)]
                 struct TransposeInput {
                     dim: usize,
+                    #[allow(dead_code)]
                     repeat: Option<usize>,
                     variant: benchmarks::transpose::Variant,
                 }
-                let TransposeInput {
-                    dim,
-                    variant,
-                    repeat,
-                } = serde_json::from_value(values.clone()).map_err(parse_err)?;
-                benchmarks::transpose::benchmark::<f32>(dim, variant, repeat.unwrap_or(0)).await
+                let TransposeInput { dim, variant, .. } =
+                    serde_json::from_value(values.clone()).map_err(parse_err)?;
+                // hotfix .unwrap_or(0)
+                let repeat = 0;
+                benchmarks::transpose::benchmark::<f32>(dim, variant, repeat).await
             }
             "babelstream" => return Err(RunError::Skipped),
             other => {

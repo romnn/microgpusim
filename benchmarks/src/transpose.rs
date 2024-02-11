@@ -331,7 +331,10 @@ where
         rows,
         cols,
     };
+    // run once
     let mut result = transpose::<T, naive::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+
+    // repeat more times
     for _ in 0..repetitions {
         let (commands, traces) =
             transpose::<T, naive::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
