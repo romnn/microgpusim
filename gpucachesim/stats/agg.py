@@ -27,11 +27,19 @@ def aggregate_benchmark_results(
 
     # non_gpucachesim = selected_df["input_mode"].isnull()
     non_gpucachesim = selected_df["target"] != Target.Simulate.value
+    # trace_recon = selected_df["target"] == Target.ExecDrivenSimulate.value
+    # print(
+    #     selected_df.loc[
+    #         trace_recon,
+    #         ["target", "benchmark", "input_id", "kernel_name", "kernel_name_mangled"],
+    #     ]
+    # )
 
     gold_gpucachesim = selected_df["input_mode"] == mode
     gold_gpucachesim &= selected_df["input_memory_only"] == memory_only
     gold_gpucachesim &= selected_df["input_cores_per_cluster"] == cores_per_cluster
     gold_gpucachesim &= selected_df["input_num_clusters"] == num_clusters
+
     assert gold_gpucachesim.sum() > 0
     print(
         "gpucachesim gold input ids:",
@@ -48,7 +56,10 @@ def aggregate_benchmark_results(
 
     # only keep gold gpucachesim and other targets
     no_kernel = selected_df["kernel_name"].isna() | (selected_df["kernel_name"] == "")
-    valid_kernel = selected_df["kernel_name"].isin(kernels)
+
+    # valid_kernel = selected_df["kernel_name"].isin(kernels)
+    valid_kernel = True
+
     selected_df = selected_df[
         (gold_gpucachesim | non_gpucachesim) & (valid_kernel | no_kernel)
     ]

@@ -6,11 +6,12 @@ import pandas as pd
 from wasabi import color
 from pathvalidate import sanitize_filename
 
-import gpucachesim.stats.agg
+from gpucachesim.stats.agg import TargetDataframes, split_into_target_dfs
 import gpucachesim.stats.metrics as metric_funcs
 import gpucachesim.benchmarks as benchmarks
 import gpucachesim.utils as utils
 import gpucachesim.plot as plot
+from gpucachesim.benchmarks import Target
 
 
 class ErrorMetric(enum.Enum):
@@ -27,6 +28,118 @@ class ErrorMetric(enum.Enum):
     # RelErr = ("rel_err", "Rel err.")
 
 
+class Metric(typing.TypedDict):
+    label: str
+    is_percent: bool
+    error_metrics: typing.Sequence[typing.Tuple[str, ErrorMetric]]
+
+
+ALL_METRICS = [
+    Metric(
+        label="DRAM reads",
+        is_percent=False,
+        error_metrics=[
+            ("dram_reads", ErrorMetric.EMALE),
+            ("dram_reads_percent", ErrorMetric.MAPE),
+            ("dram_reads", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="DRAM writes",
+        is_percent=False,
+        error_metrics=[
+            ("dram_writes", ErrorMetric.EMALE),
+            ("dram_writes_percent", ErrorMetric.MAPE),
+            ("dram_writes", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L1 Accesses",
+        is_percent=False,
+        error_metrics=[
+            ("l1_accesses", ErrorMetric.EMALE),
+            ("l1_accesses", ErrorMetric.MAPE),
+            ("l1_accesses", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2 Accesses",
+        is_percent=False,
+        error_metrics=[
+            ("l2_accesses", ErrorMetric.EMALE),
+            ("l2_accesses", ErrorMetric.MAPE),
+            ("l2_accesses", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2 reads",
+        is_percent=False,
+        error_metrics=[
+            ("l2_reads", ErrorMetric.EMALE),
+            ("l2_reads", ErrorMetric.MAPE),
+            ("l2_reads", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2 writes",
+        is_percent=False,
+        error_metrics=[
+            ("l2_writes", ErrorMetric.EMALE),
+            ("l2_writes", ErrorMetric.MAPE),
+            ("l2_writes", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L1D hitrate",
+        is_percent=True,
+        error_metrics=[
+            ("l1_global_hit_rate", ErrorMetric.EMALE),
+            ("l1_global_hit_rate", ErrorMetric.MAE),
+            ("l1_global_hit_rate", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2D hitrate",
+        is_percent=True,
+        error_metrics=[
+            ("l2_hit_rate", ErrorMetric.EMALE),
+            ("l2_hit_rate", ErrorMetric.MAE),
+            ("l2_hit_rate", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2D read hitrate",
+        is_percent=True,
+        error_metrics=[
+            ("l2_read_hit_rate", ErrorMetric.EMALE),
+            ("l2_read_hit_rate", ErrorMetric.MAE),
+            ("l2_read_hit_rate", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="L2D write hitrate",
+        is_percent=True,
+        error_metrics=[
+            ("l2_write_hit_rate", ErrorMetric.EMALE),
+            ("l2_write_hit_rate", ErrorMetric.MAE),
+            ("l2_write_hit_rate", ErrorMetric.Correlation),
+        ],
+    ),
+    Metric(
+        label="Cycles",
+        is_percent=False,
+        error_metrics=[
+            # ("cycles", ErrorMetric.RelErr),
+            ("cycles", ErrorMetric.EMALE),
+            ("cycles", ErrorMetric.ERMSLE),
+            ("cycles", ErrorMetric.SMAPE),
+            ("cycles", ErrorMetric.MAPE),
+            ("cycles", ErrorMetric.Correlation),
+        ],
+    ),
+]
+
+
 # from collections import namedtuple
 
 # ErrorMetric = namedtuple('ErrorMetric', ['value', 'label', 'column'])
@@ -41,6 +154,81 @@ class ErrorMetric(enum.Enum):
 #     green = Color(2, 'Green')
 
 
+def join_targets(
+    target_dfs: TargetDataframes,
+    sim_targets: typing.Dict[str, pd.DataFrame],
+    large=False,
+    verbose=False,
+):
+
+    joined_df = target_dfs.native_df.copy()
+
+    for target, sim_df in sim_targets.items():
+        if verbose:
+            print("computing =>", target)
+        # print(sim_df[benchmarks.PREVIEW_COLS][:4].T)
+        join_cols = list(
+            # we do NOT join based on target
+            ["benchmark", "kernel_launch_id"]
+            + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+            # we do NOT join based on input_memory_only
+            + ["input_num_clusters", "input_cores_per_cluster"],
+        )
+        join_cols = [col for col in join_cols if col in sim_df]
+        # pprint(join_cols)
+
+        missing_df = (
+            joined_df[join_cols]
+            # native_df[join_cols]
+            .merge(
+                sim_df[join_cols],
+                how="left",
+                indicator=True,
+            ).loc[lambda x: x["_merge"] != "both"]
+        )
+        if len(missing_df) > 0:
+            # if target == "_gpucachesim_parallel":
+            #     # temp: ignore for now
+            #     pass
+            if large:
+                # when selecting only large inputs some native input
+                # configs are missing from the filtered simulator inputs
+                pass
+            elif target == "gpucachesim_exec_driven":
+                # we do not have an exec driven version of babelstream
+                missing_exec_driven_benches = sorted(
+                    missing_df["benchmark"].unique().tolist()
+                )
+                if missing_exec_driven_benches != ["babelstream"]:
+                    print("MISSING {}".format(missing_df.shape))
+                    print(missing_df)
+                    raise ValueError(
+                        "missing exec driven {} but should only miss babelstream".format(
+                            missing_exec_driven_benches
+                        )
+                    )
+            else:
+                print("MISSING {}".format(missing_df.shape))
+                print(missing_df)
+                assert len(missing_df) == 0
+
+        # _joined_df = native_df.merge(
+        _joined_df = joined_df.merge(
+            sim_df,
+            on=join_cols,
+            how="left",
+            suffixes=(None, "_" + target),
+        )
+        # assert _joined_df.shape[0] == native_df.shape[0]
+        assert _joined_df.shape[0] == joined_df.shape[0]
+        if len(_joined_df) == 0:
+            raise ValueError("joined dataframe is empty")
+
+        joined_df = _joined_df
+
+    return joined_df
+
+
 def result_table(
     df,
     bench_name: typing.Optional[str] = None,
@@ -48,12 +236,25 @@ def result_table(
         typing.Union[str, typing.List[typing.Optional[str]]]
     ] = None,
     combined_only=False,
+    large=False,
     verbose=False,
     batch=False,
     png=False,
 ):
+    # exec_driven = df["target"] == Target.ExecDrivenSimulate.value
+    # print(df.loc[exec_driven, ["target", "benchmark", "input_id", "total_cores", "num_blocks", "mean_blocks_per_sm"]])
+
     # remove non-kernel results
     df = df[~df["kernel_name"].isna()]
+
+    if large:
+        profile = df["target"] == Target.Profile.value
+        df = df[profile | (df["mean_blocks_per_sm"] > 1.0)]
+        if len(df) < 1:
+            print(color("have no large configurations with blocks/SM > 1", fg="red"))
+            return
+
+    benches = sorted(df["benchmark"].unique().tolist())
 
     # target benchmark histogram
     target_bench_input_count_hist = (
@@ -64,126 +265,6 @@ def result_table(
     )
     if verbose:
         print(target_bench_input_count_hist)
-
-    target_dfs = gpucachesim.stats.agg.split_into_target_dfs(
-        df, per_kernel=False, mean=True
-    )
-    native_df = target_dfs.native_df
-    accelsim_df = target_dfs.accelsim_df
-    serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
-    serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
-    serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
-
-    class Metric(typing.TypedDict):
-        label: str
-        is_percent: bool
-        error_metrics: typing.Sequence[typing.Tuple[str, ErrorMetric]]
-
-    benches = sorted(df["benchmark"].unique().tolist())
-    all_metrics = [
-        Metric(
-            label="DRAM reads",
-            is_percent=False,
-            error_metrics=[
-                ("dram_reads", ErrorMetric.EMALE),
-                ("dram_reads_percent", ErrorMetric.MAPE),
-                ("dram_reads", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="DRAM writes",
-            is_percent=False,
-            error_metrics=[
-                ("dram_writes", ErrorMetric.EMALE),
-                ("dram_writes_percent", ErrorMetric.MAPE),
-                ("dram_writes", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L1 Accesses",
-            is_percent=False,
-            error_metrics=[
-                ("l1_accesses", ErrorMetric.EMALE),
-                ("l1_accesses", ErrorMetric.MAPE),
-                ("l1_accesses", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2 Accesses",
-            is_percent=False,
-            error_metrics=[
-                ("l2_accesses", ErrorMetric.EMALE),
-                ("l2_accesses", ErrorMetric.MAPE),
-                ("l2_accesses", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2 reads",
-            is_percent=False,
-            error_metrics=[
-                ("l2_reads", ErrorMetric.EMALE),
-                ("l2_reads", ErrorMetric.MAPE),
-                ("l2_reads", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2 writes",
-            is_percent=False,
-            error_metrics=[
-                ("l2_writes", ErrorMetric.EMALE),
-                ("l2_writes", ErrorMetric.MAPE),
-                ("l2_writes", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L1D hitrate",
-            is_percent=True,
-            error_metrics=[
-                ("l1_global_hit_rate", ErrorMetric.EMALE),
-                ("l1_global_hit_rate", ErrorMetric.MAE),
-                ("l1_global_hit_rate", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2D hitrate",
-            is_percent=True,
-            error_metrics=[
-                ("l2_hit_rate", ErrorMetric.EMALE),
-                ("l2_hit_rate", ErrorMetric.MAE),
-                ("l2_hit_rate", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2D read hitrate",
-            is_percent=True,
-            error_metrics=[
-                ("l2_read_hit_rate", ErrorMetric.EMALE),
-                ("l2_read_hit_rate", ErrorMetric.MAE),
-                ("l2_read_hit_rate", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="L2D write hitrate",
-            is_percent=True,
-            error_metrics=[
-                ("l2_write_hit_rate", ErrorMetric.EMALE),
-                ("l2_write_hit_rate", ErrorMetric.MAE),
-                ("l2_write_hit_rate", ErrorMetric.Correlation),
-            ],
-        ),
-        Metric(
-            label="Cycles",
-            is_percent=False,
-            error_metrics=[
-                # ("cycles", ErrorMetric.RelErr),
-                ("cycles", ErrorMetric.EMALE),
-                ("cycles", ErrorMetric.ERMSLE),
-                ("cycles", ErrorMetric.SMAPE),
-                ("cycles", ErrorMetric.MAPE),
-                ("cycles", ErrorMetric.Correlation),
-            ],
-        ),
-    ]
 
     if metrics is None:
         metrics_keys = []
@@ -204,11 +285,11 @@ def result_table(
 
     if len(metrics_keys) == 0:
         # only show cycles by default
-        selected_metrics = [all_metrics[-1]]
+        selected_metrics = [ALL_METRICS[-1]]
     else:
         selected_metrics = [
             m
-            for m in all_metrics
+            for m in ALL_METRICS
             if m["label"].replace(" ", "").lower() in metrics_keys
         ]
         if len(selected_metrics) == 0:
@@ -216,7 +297,7 @@ def result_table(
                 "invalid metrics {} ({}), have {}",
                 metrics,
                 metrics_keys,
-                [m["label"].replace(" ", "").lower() for m in all_metrics],
+                [m["label"].replace(" ", "").lower() for m in ALL_METRICS],
             )
 
     if verbose:
@@ -230,6 +311,14 @@ def result_table(
             )
         )
 
+    target_dfs = split_into_target_dfs(df, per_kernel=False, mean=True)
+
+    # native_df = target_dfs.native_df
+    # accelsim_df = target_dfs.accelsim_df
+    # serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
+    # serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
+    # serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
+
     # dtypes = {
     #     **{col: "float64" for col in native_df.columns},
     #     **{col: "object" for col in benchmarks.NON_NUMERIC_COLS.keys()},
@@ -239,89 +328,40 @@ def result_table(
 
     dtypes = dict()
     sim_targets = {
-        "accelsim": accelsim_df.astype(dtypes),
-        "gpucachesim": serial_gpucachesim_df.astype(dtypes),
-        "gpucachesim_mem_only": serial_gpucachesim_mem_only_df.astype(dtypes),
-        "gpucachesim_exec_driven": serial_gpucachesim_exec_driven_df.astype(dtypes),
+        "accelsim": target_dfs.accelsim_df.astype(dtypes),
+        "gpucachesim": target_dfs.serial_gpucachesim_df.astype(dtypes),
+        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(
+            dtypes
+        ),
+        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(
+            dtypes
+        ),
     }
 
-    for target, sim_df in sim_targets.items():
-        if verbose:
-            print("computing =>", target)
-        # print(sim_df[benchmarks.PREVIEW_COLS][:4].T)
-        join_cols = list(
-            # we do NOT join based on target
-            ["benchmark", "kernel_launch_id"]
-            + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
-            # we do NOT join based on input_memory_only
-            + ["input_num_clusters", "input_cores_per_cluster"],
-        )
-        join_cols = [col for col in join_cols if col in df]
-        # pprint(join_cols)
+    joined_df = join_targets(target_dfs, sim_targets, large=large, verbose=verbose)
 
-        missing_df = (
-            native_df[join_cols]
-            .merge(
-                sim_df[join_cols],
-                how="left",
-                indicator=True,
-            )
-            .loc[lambda x: x["_merge"] != "both"]
-        )
-        if len(missing_df) > 0:
-            # if target == "_gpucachesim_parallel":
-            #     # temp: ignore for now
-            #     pass
-            if target == "gpucachesim_exec_driven":
-                # we do not have an exec driven version of babelstream
-                missing_exec_driven_benches = sorted(
-                    missing_df["benchmark"].unique().tolist()
-                )
-                if missing_exec_driven_benches != ["babelstream"]:
-                    print("MISSING {}".format(missing_df.shape))
-                    print(missing_df)
-                    raise ValueError(
-                        "missing exec driven {} but should only miss babelstream".format(
-                            missing_exec_driven_benches
-                        )
-                    )
-            else:
-                print("MISSING {}".format(missing_df.shape))
-                print(missing_df)
-                assert len(missing_df) == 0
-
-        joined_df = native_df.merge(
-            sim_df,
-            on=join_cols,
-            how="left",
-            suffixes=(None, "_" + target),
-        )
-        assert joined_df.shape[0] == native_df.shape[0]
-        if len(joined_df) == 0:
-            raise ValueError("joined dataframe is empty")
-
-        native_df = joined_df
-        # break
+    # remove nan rows
+    joined_df = joined_df[~joined_df["input_id_gpucachesim"].isna()]
 
     for target in list(sim_targets.keys()) + [""]:
         suffix = ("_" + target) if target != "" else ""
-        native_df["dram_reads_percent" + suffix] = native_df[
+        joined_df["dram_reads_percent" + suffix] = joined_df[
             "dram_reads" + suffix
         ].fillna(0.0)
         scale = (
-            native_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
+            joined_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
         )
-        native_df["dram_reads_percent" + suffix] /= scale
-        native_df["dram_writes_percent" + suffix] = native_df[
+        joined_df["dram_reads_percent" + suffix] /= scale
+        joined_df["dram_writes_percent" + suffix] = joined_df[
             "dram_writes" + suffix
         ].fillna(0.0)
-        native_df["dram_writes_percent" + suffix] /= scale
-        assert (native_df["dram_writes_percent" + suffix] <= 1.0).all()
-        assert (native_df["dram_reads_percent" + suffix] <= 1.0).all()
+        joined_df["dram_writes_percent" + suffix] /= scale
+        assert (joined_df["dram_writes_percent" + suffix] <= 1.0).all()
+        assert (joined_df["dram_reads_percent" + suffix] <= 1.0).all()
 
     assert all(
         [
-            col in native_df
+            col in joined_df
             for col, _ in utils.flatten([m["error_metrics"] for m in selected_metrics])
         ]
     )
@@ -363,7 +403,7 @@ def result_table(
                     # ["", "_accelsim", "_gpucachesim"],
                 )
             ]
-            print(native_df[preview_cols])
+            print(joined_df[preview_cols])
 
     if bench_name is None and combined_only:
         selected_benches = [None]
@@ -375,12 +415,32 @@ def result_table(
     table = ""
     for bench in selected_benches:
         if bench is None:
-            header_label = "Combined"
+            label = "Combined"
         else:
-            header_label = benchmarks.benchmark_name_human_readable(bench)
+            label = benchmarks.benchmark_name_human_readable(bench)
+
+        if bench is not None:
+            bench_df = joined_df[joined_df["benchmark"] == bench]
+        else:
+            bench_df = joined_df
+
+        # print(bench_df[["target", "benchmark", "input_id", "input_id_accelsim", "input_id_gpucachesim", "input_id_gpucachesim_mem_only", "input_id_gpucachesim_exec_driven"]])
+        total_cores = bench_df["total_cores_gpucachesim"].dropna().unique()
+        assert len(total_cores) == 1
+        total_cores = int(total_cores[0])
+
+        num_unique_bench_configs = len(
+            bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates()
+        )
+
+        label += " ({} benchmark configurations) @ {} SM's".format(
+            num_unique_bench_configs, total_cores
+        )
+        if large:
+            label += " [blocks/SM > 1]"
 
         table += r"\rowcolor{gray!10}"
-        table += r"\multicolumn{6}{c}{\textbf{" + header_label + r"}} \\"
+        table += r"\multicolumn{6}{c}{\textbf{" + label + r"}} \\"
         if bench is None:
             table += r"\hline \hline"
         else:
@@ -390,12 +450,6 @@ def result_table(
         for metric in selected_metrics:
             if verbose:
                 print(bench, metric["label"])
-
-            if bench is not None:
-                bench_df = native_df[native_df["benchmark"] == bench]
-            else:
-                bench_df = native_df
-                # continue
 
             table += r"\multirow{" + str(len(metric["error_metrics"])) + "}{*}{"
             table += " ".join(str(metric["label"]).split("_"))
@@ -703,6 +757,8 @@ def result_table(
         filename += "_all"
     else:
         filename += "_{}".format(bench_name)
+    if large:
+        filename += "_large"
     if combined_only:
         filename += "_combined_only"
     filename += "_{}".format(

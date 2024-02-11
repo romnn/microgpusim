@@ -5,11 +5,13 @@ import itertools
 from pprint import pprint
 from wasabi import color
 
-import gpucachesim.stats.agg
+from gpucachesim.stats.agg import TargetDataframes, split_into_target_dfs
 import gpucachesim.plot as plot
 import gpucachesim.stats.metrics as metrics
 import gpucachesim.benchmarks as benchmarks
 import gpucachesim.utils as utils
+import gpucachesim.stats.result_table
+from gpucachesim.benchmarks import Target
 
 
 def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
@@ -31,25 +33,43 @@ def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
 
 
 def speed_table(
-    df, bench_name, include_mean_time=False, verbose=False, batch=False, png=False
+    df,
+    bench_name,
+    include_mean_time=False,
+    large=False,
+    verbose=False,
+    batch=False,
+    png=False,
 ):
     # remove non-kernel results
     no_kernel_mask = df["kernel_name"].isna()
-    selected_df = df[~no_kernel_mask]
+    df = df[~no_kernel_mask]
 
-    # print(selected_df.loc[
-    #     (selected_df["target"] == Target.Simulate.value)
-    #         & (selected_df["input_id"] == 210),
+    if large:
+        profile = df["target"] == Target.Profile.value
+        df = df[profile | (df["mean_blocks_per_sm"] > 1.0)]
+        if len(df) < 1:
+            print(
+                color(
+                    "{} has no large configurations with blocks/SM > 1".format(
+                        bench_name
+                    ),
+                    fg="red",
+                )
+            )
+            return
+
+    # print(df.loc[
+    #     (df["target"] == Target.Simulate.value)
+    #         & (df["input_id"] == 210),
     #     benchmarks.PREVIEW_COLS + ["cycles", "exec_time_sec"]].T)
 
-    # print(selected_df.loc[
-    #     (selected_df["target"] == Target.AccelsimSimulate.value)
-    #         & (selected_df["input_id"] == 3),
+    # print(df.loc[
+    #     (df["target"] == Target.AccelsimSimulate.value)
+    #         & (df["input_id"] == 3),
     #     benchmarks.PREVIEW_COLS + ["cycles", "exec_time_sec"]].T)
 
-    target_dfs = gpucachesim.stats.agg.split_into_target_dfs(
-        selected_df, per_kernel=False, mean=True
-    )
+    target_dfs = split_into_target_dfs(df, per_kernel=False, mean=True)
 
     # print(target_dfs.serial_gpucachesim_df.loc[
     #     target_dfs.serial_gpucachesim_df["input_id"] == 210,
@@ -59,11 +79,11 @@ def speed_table(
     #     target_dfs.accelsim_df["input_id"] == 3,
     #     benchmarks.PREVIEW_COLS + ["cycles", "exec_time_sec"]].T)
 
-    native_df = target_dfs.native_df
-    accelsim_df = target_dfs.accelsim_df
-    serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
-    serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
-    serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
+    # native_df = target_dfs.native_df
+    # accelsim_df = target_dfs.accelsim_df
+    # serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
+    # serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
+    # serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
     parallel_gpucachesim_df = choose_fastest_parallel_implementation(
         target_dfs.parallel_gpucachesim_df
     )
@@ -72,8 +92,6 @@ def speed_table(
             "fastest parallel gpucachesim", parallel_gpucachesim_df.shape
         )
     )
-
-    benches = sorted(selected_df["benchmark"].unique().tolist())
 
     # dtypes = {
     #     **{col: "float64" for col in native_df.columns},
@@ -84,74 +102,83 @@ def speed_table(
 
     dtypes = dict()
     sim_targets = {
-        "accelsim": accelsim_df.astype(dtypes),
-        "gpucachesim": serial_gpucachesim_df.astype(dtypes),
-        "gpucachesim_mem_only": serial_gpucachesim_mem_only_df.astype(dtypes),
-        "gpucachesim_exec_driven": serial_gpucachesim_exec_driven_df.astype(dtypes),
+        "accelsim": target_dfs.accelsim_df.astype(dtypes),
+        "gpucachesim": target_dfs.serial_gpucachesim_df.astype(dtypes),
+        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(
+            dtypes
+        ),
+        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(
+            dtypes
+        ),
         "gpucachesim_parallel": parallel_gpucachesim_df.astype(dtypes),
     }
 
-    if verbose:
-        print("\n")
+    # if verbose:
+    #     print("\n")
+    #
+    # for target, sim_df in sim_targets.items():
+    #     if verbose:
+    #         print("computing =>", target)
+    #     # print(sim_df[benchmarks.PREVIEW_COLS][:4].T)
+    #     join_cols = list(
+    #         # we do NOT join based on target
+    #         ["benchmark", "kernel_launch_id"]
+    #         + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
+    #         # we do NOT join based on input_memory_only
+    #         + ["input_num_clusters", "input_cores_per_cluster"],
+    #     )
+    #     join_cols = [col for col in join_cols if col in df]
+    #     # pprint(join_cols)
+    #
+    #     missing_df = (
+    #         native_df[join_cols]
+    #         .merge(
+    #             sim_df[join_cols],
+    #             how="left",
+    #             indicator=True,
+    #         )
+    #         .loc[lambda x: x["_merge"] != "both"]
+    #     )
+    #     if len(missing_df) > 0:
+    #         if large:
+    #             pass
+    #         # if target == "gpucachesim_parallel":
+    #         #     # temp: ignore for now
+    #         #     pass
+    #         elif target == "gpucachesim_exec_driven":
+    #             # we do not have an exec driven version of babelstream
+    #             missing_exec_driven_benches = sorted(missing_df["benchmark"].unique().tolist())
+    #             if missing_exec_driven_benches != ["babelstream"]:
+    #                 print("MISSING {}".format(missing_df.shape))
+    #                 print(missing_df)
+    #                 raise ValueError(
+    #                     "missing exec driven {} but should only miss babelstream".format(missing_exec_driven_benches)
+    #                 )
+    #         else:
+    #             print("MISSING {}".format(missing_df.shape))
+    #             print(missing_df)
+    #             assert len(missing_df) == 0
+    #
+    #     joined_df = native_df.merge(
+    #         sim_df,
+    #         on=join_cols,
+    #         how="left",
+    #         suffixes=(None, "_" + target),
+    #     )
+    #     assert joined_df.shape[0] == native_df.shape[0]
+    #     if len(joined_df) == 0:
+    #         raise ValueError("joined dataframe is empty")
+    #
+    #     native_df = joined_df
 
-    for target, sim_df in sim_targets.items():
-        if verbose:
-            print("computing =>", target)
-        # print(sim_df[benchmarks.PREVIEW_COLS][:4].T)
-        join_cols = list(
-            # we do NOT join based on target
-            ["benchmark", "kernel_launch_id"]
-            + list(benchmarks.ALL_BENCHMARK_INPUT_COLS)
-            # we do NOT join based on input_memory_only
-            + ["input_num_clusters", "input_cores_per_cluster"],
-        )
-        join_cols = [col for col in join_cols if col in selected_df]
-        # pprint(join_cols)
+    joined_df = gpucachesim.stats.result_table.join_targets(
+        target_dfs, sim_targets, large=large, verbose=verbose
+    )
 
-        missing_df = (
-            native_df[join_cols]
-            .merge(
-                sim_df[join_cols],
-                how="left",
-                indicator=True,
-            )
-            .loc[lambda x: x["_merge"] != "both"]
-        )
-        if len(missing_df) > 0:
-            if target == "gpucachesim_parallel":
-                # temp: ignore for now
-                pass
-            elif target == "gpucachesim_exec_driven":
-                # we do not have an exec driven version of babelstream
-                missing_exec_driven_benches = sorted(
-                    missing_df["benchmark"].unique().tolist()
-                )
-                if missing_exec_driven_benches != ["babelstream"]:
-                    print("MISSING {}".format(missing_df.shape))
-                    print(missing_df)
-                    raise ValueError(
-                        "missing exec driven {} but should only miss babelstream".format(
-                            missing_exec_driven_benches
-                        )
-                    )
-            else:
-                print("MISSING {}".format(missing_df.shape))
-                print(missing_df)
-                assert len(missing_df) == 0
+    # remove nan rows
+    joined_df = joined_df[~joined_df["input_id_gpucachesim"].isna()]
 
-        joined_df = native_df.merge(
-            sim_df,
-            on=join_cols,
-            how="left",
-            suffixes=(None, "_" + target),
-        )
-        assert joined_df.shape[0] == native_df.shape[0]
-        if len(joined_df) == 0:
-            raise ValueError("joined dataframe is empty")
-
-        native_df = joined_df
-
-    native_df["exec_time_nsec"] = native_df["exec_time_sec"] * 1e9
+    joined_df["exec_time_nsec"] = joined_df["exec_time_sec"] * 1e9
     # preview_metrics = ["cycles", "instructions", "exec_time_sec", "input_id"]
     preview_metrics = ["input_id", "kernel_name", "exec_time_sec"]
     preview_cols = ["benchmark", "exec_time_nsec"] + [
@@ -161,32 +188,50 @@ def speed_table(
         )
     ]
 
+    benches = sorted(df["benchmark"].unique().tolist())
+
     all_slowdowns_over_native = []
 
     table = ""
     for bench in benches + [None]:
         if verbose:
             print(bench)
-        if bench is None:
-            header_label = "Combined"
+        if bench is not None:
+            bench_df = joined_df[joined_df["benchmark"] == bench]
         else:
-            header_label = benchmarks.benchmark_name_human_readable(bench)
+            bench_df = joined_df
+
+        bench_df = bench_df.copy()
+
+        if bench is None:
+            label = "Combined"
+        else:
+            label = benchmarks.benchmark_name_human_readable(bench)
+
+        assert len(bench_df) > 0
+
+        total_cores = bench_df["total_cores_gpucachesim"].dropna().unique()
+        assert len(total_cores) == 1
+        total_cores = int(total_cores[0])
+
+        num_unique_bench_configs = len(
+            bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates()
+        )
+
+        label += " ({} benchmark configurations) @ {} SM's".format(
+            num_unique_bench_configs, total_cores
+        )
+        if large:
+            label += " [blocks/SM > 1]"
 
         table += r"\rowcolor{gray!10}"
-        table += r"\multicolumn{6}{c}{\textbf{" + header_label + r"}} \\"
+        table += r"\multicolumn{6}{c}{\textbf{" + label + r"}} \\"
         if bench is None:
             table += r"\hline \hline"
         else:
             table += r"\hline"
         table += "\n"
 
-        # for metric in metrics:
-        if bench is not None:
-            bench_df = native_df[native_df["benchmark"] == bench]
-        else:
-            bench_df = native_df
-
-        bench_df = bench_df.copy()
         if verbose:
             print(bench_df[preview_cols + benchmarks.BENCHMARK_INPUT_COLS[bench]])
             print(bench_df.shape)
@@ -376,6 +421,8 @@ instructions per second (KIPS)."""
         filename += "_all"
     else:
         filename += "_{}".format(bench_name)
+    if large:
+        filename += "_large"
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:
         utils.render_latex(tex_code, output_path=pdf_output_path)

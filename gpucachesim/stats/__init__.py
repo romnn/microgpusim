@@ -60,7 +60,6 @@ DEFAULT_CONFIG_FILE = REPO_ROOT_DIR / "./accelsim/gtx1080/gpgpusim.original.conf
 
 
 @click.group()
-# @click.pass_context
 def main():
     # ctx.ensure_object(dict)
     pass
@@ -220,26 +219,33 @@ def different_cols(df):
     help="include mean time",
 )
 @click.option(
+    "--large",
+    "large",
+    type=bool,
+    is_flag=True,
+    help="only consider large inputs when computing the average speedup",
+)
+@click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
 )
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
-def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, png):
+def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, large, png):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
     gpucachesim.stats.speed_table.speed_table(
         selected_df,
         bench_name,
         include_mean_time=include_mean_time,
+        large=large,
         verbose=verbose,
         png=png,
     )
 
 
 @main.command(name="result-table")
-# @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "bench_name", help="Benchmark name")
-@click.option("--metric", "metric", type=str, help="metric")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name", help="Benchmark name")
+@click.option("-m", "--metric", "metric", type=str, help="metric")
 @click.option(
     "--combined-only",
     "combined_only",
@@ -247,18 +253,28 @@ def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, png):
     is_flag=True,
     help="only output combined metrics",
 )
+@click.option(
+    "--large",
+    "large",
+    type=bool,
+    is_flag=True,
+    help="only consider large inputs when computing the average speedup",
+)
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
 )
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
-def run_result_table(path, bench_name, metric, combined_only, nsight, verbose, png):
+def run_result_table(
+    path, bench_name, metric, combined_only, large, nsight, verbose, png
+):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
     gpucachesim.stats.result_table.result_table(
         selected_df,
         bench_name=bench_name,
         metrics=[metric],
+        large=large,
         combined_only=combined_only,
         verbose=verbose,
         png=png,
@@ -266,10 +282,9 @@ def run_result_table(path, bench_name, metric, combined_only, nsight, verbose, p
 
 
 @main.command(name="all-result-table")
-# @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "bench_name", help="Benchmark name")
-@click.option("--metric", "metric", type=str, help="metric")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name", help="Benchmark name")
+@click.option("-m", "--metric", "metric", type=str, help="metric")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
@@ -295,15 +310,20 @@ def all_result_table(path, bench_name, metric, nsight, verbose, png):
 
     options = dict(verbose=verbose, png=png)
 
-    for bench_name in all_benches:
+    for bench_name, large in itertools.product(all_benches, [True, False]):
         gpucachesim.stats.result_table.result_table(
-            selected_df.copy(), bench_name=bench_name, metrics=metrics, **options
+            selected_df.copy(),
+            bench_name=bench_name,
+            large=large,
+            metrics=metrics,
+            **options,
         )
 
-    for combined_only in [True, False]:
+    for combined_only, large in itertools.product([True, False], [True, False]):
         gpucachesim.stats.result_table.result_table(
             selected_df.copy(),
             bench_name=None,
+            large=large,
             metrics=metrics,
             combined_only=combined_only,
             **options,
@@ -311,9 +331,8 @@ def all_result_table(path, bench_name, metric, nsight, verbose, png):
 
 
 @main.command(name="parallel-table")
-# @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "-b", "bench_name", help="Benchmark name")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name", help="Benchmark name")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
     "--scale-clusters",
@@ -390,8 +409,8 @@ def run_all_parallel_table(path, nsight, png):
 
 
 @main.command()
-@click.option("--path", help="Path to materialized benchmark config")
-@click.option("--bench", "bench_name_arg", help="Benchmark name")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name_arg", help="Benchmark name")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 def correlation_plots(path, bench_name_arg, nsight):
     profiler = "nsight" if nsight else "nvprof"
@@ -808,8 +827,7 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
 
 
 @main.command(name="view")
-# @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
 @click.option("-b", "--bench", "bench_name", help="Benchmark name")
 @click.option("--plot", "should_plot", type=bool, default=True, help="generate plots")
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
@@ -852,8 +870,7 @@ def run_view(
 
 
 @main.command(name="generate")
-# @click.pass_context
-@click.option("--path", help="Path to materialized benchmark config")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
 @click.option(
     "--config", "config_path", default=DEFAULT_CONFIG_FILE, help="Path to GPU config"
 )

@@ -167,6 +167,10 @@ def mape(true_values: np.ndarray, values: np.ndarray) -> np.array:
 def correlation(true_values: np.ndarray, values: np.ndarray, atol=None) -> float:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
+
+    assert len(values) == len(true_values)
+    if len(values) <= 1:
+        return np.nan
     # print("true values", true_values)
     # print("values", values)
     # print("values sum", values.sum())
@@ -189,7 +193,6 @@ def correlation(true_values: np.ndarray, values: np.ndarray, atol=None) -> float
     ):
         return 1.0
     else:
-        assert len(values) == len(true_values)
         assert len(np.amin([values, true_values], axis=0)) == len(values)
         a = np.amin([values, true_values], axis=0)
         b = np.amax([values, true_values], axis=0)

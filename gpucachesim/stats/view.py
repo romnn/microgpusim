@@ -476,6 +476,7 @@ def view(
     preview_per_config_pivoted = per_config_pivoted.T.copy()
     preview_target_name = {
         Target.Simulate.value.lower(): "Ours",
+        Target.ExecDrivenSimulate.value.lower(): "TR",
         Target.AccelsimSimulate.value.lower(): "Accel",
         Target.PlaygroundSimulate.value.lower(): "Play",
         Target.Profile.value.lower(): "Native",
