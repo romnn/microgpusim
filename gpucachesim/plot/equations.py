@@ -139,7 +139,9 @@ S_{\text{Gustafson}}(0.83, 8) = 6.8
         print(color("wrote {}".format(pdf_output_path), fg="cyan"))
 
         png_output_path = (plot.EQUATIONS_DIR / "png" / name).with_suffix(".png")
-        utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path, density=600)
+        utils.convert_to_png(
+            input_path=pdf_output_path, output_path=png_output_path, density=600
+        )
         print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     pass

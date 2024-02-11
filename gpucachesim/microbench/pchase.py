@@ -2322,13 +2322,18 @@ def find_cache_set_mapping(
     print(combined.shape)
 
     combined_binary = combined.copy()
-    combined_binary["offset"] = combined_binary["offset"].apply(lambda x: np.binary_repr(x, width=num_sets_log2))
-    combined_binary["set"] = combined_binary["set"].apply(lambda x: np.binary_repr(x, width=num_sets_log2))
+    combined_binary["offset"] = combined_binary["offset"].apply(
+        lambda x: np.binary_repr(x, width=num_sets_log2)
+    )
+    combined_binary["set"] = combined_binary["set"].apply(
+        lambda x: np.binary_repr(x, width=num_sets_log2)
+    )
     highest_virt_addr = combined_binary["virt_addr"].max()
-    combined_binary["virt_addr"] = combined_binary["virt_addr"].apply(lambda x: np.binary_repr(x, width=int(np.ceil(np.log2(highest_virt_addr))) + 1))
+    combined_binary["virt_addr"] = combined_binary["virt_addr"].apply(
+        lambda x: np.binary_repr(x, width=int(np.ceil(np.log2(highest_virt_addr))) + 1)
+    )
     print(combined_binary.head(n=10))
     print(combined_binary.shape)
-
 
     print(compute_set_probability(combined))
 

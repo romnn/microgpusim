@@ -16,6 +16,7 @@ from gpucachesim.benchmarks import (
     Target,
 )
 
+
 class ParallelTableRow(typing.NamedTuple):
     metric: str
     threads: int
@@ -48,8 +49,9 @@ def build_parallel_table_rows(
 
     table_rows: typing.Sequence[ParallelTableRow] = []
 
-
-    multiple_bench_configs = len(df[["target", "benchmark", "input_id_serial"]].drop_duplicates()) > 1
+    multiple_bench_configs = (
+        len(df[["target", "benchmark", "input_id_serial"]].drop_duplicates()) > 1
+    )
 
     # assert num_bench_configs > 0
     # multiple_bench_configs = num_bench_configs > 1
@@ -138,7 +140,8 @@ def build_parallel_table_rows(
             print(
                 "num deterministic={} num nondeterministic={}".format(
                     #  num benchmark configs={}".format(
-                    len(det), len(all_nondet), # num_bench_configs
+                    len(det),
+                    len(all_nondet),  # num_bench_configs
                 )
             )
 
@@ -773,6 +776,7 @@ def build_parallel_table_rows(
         )
     return table_rows
 
+
 def compute_table_row_label(bench_config, df):
     benchmark = df["benchmark"]
     bench_input_cols = copy.deepcopy(benchmarks.BENCHMARK_INPUT_COLS[benchmark])
@@ -841,7 +845,10 @@ def compute_table_row_label(bench_config, df):
     )
     return label
 
-def write_table_row(row: ParallelTableRow, _bold_values: typing.Optional[typing.Sequence[float]]=None):
+
+def write_table_row(
+    row: ParallelTableRow, _bold_values: typing.Optional[typing.Sequence[float]] = None
+):
     if _bold_values is None:
         bold_values = set()
     else:
@@ -895,9 +902,15 @@ def write_table_row(row: ParallelTableRow, _bold_values: typing.Optional[typing.
     return table_row
 
 
-
-
-def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, verbose=True, batch=False, png=False):
+def parallel_table(
+    selected_df,
+    bench_name,
+    scale_clusters=True,
+    large=False,
+    verbose=True,
+    batch=False,
+    png=False,
+):
     all_benchmarks = bench_name is None
 
     if verbose:
@@ -980,16 +993,19 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
     # those are fully distinct
     serial_input_ids = sorted(serial["input_id"].unique().tolist())
     parallel_input_ids = sorted(parallel["input_id"].unique().tolist())
-    
+
     if verbose:
         print("{:>3} serial input ids".format(len(serial_input_ids), serial_input_ids))
-        print("{:>3} parallel input ids".format(len(parallel_input_ids), parallel_input_ids))
+        print(
+            "{:>3} parallel input ids".format(
+                len(parallel_input_ids), parallel_input_ids
+            )
+        )
 
     if len(serial_input_ids) == 0:
         raise ValueError("have zero serial benchmark configurations")
     if len(parallel_input_ids) == 0:
         raise ValueError("have zero parallel benchmark configurations")
-
 
     deterministic = parallel[parallel["input_mode"] == "deterministic"]
     assert len(deterministic) > 0
@@ -1219,7 +1235,6 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
     grouped[joined.columns].apply(_inspect)
 
     aggregated = grouped.agg(aggregations, squeeze=False)
-    
 
     # speedup
     def compute_speedup(df):
@@ -1236,7 +1251,9 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
 
     if True:
         # exec time speedup
-        aggregated["exec_time_sec_speedup"] = grouped[joined.columns].apply(compute_speedup)
+        aggregated["exec_time_sec_speedup"] = grouped[joined.columns].apply(
+            compute_speedup
+        )
 
         # cycles error
         aggregated["cycles_mape"] = grouped[joined.columns].apply(
@@ -1277,40 +1294,41 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
         # exec time speedup
         aggregated["exec_time_sec_speedup"] = metrics.speedup(
             baseline=aggregated["exec_time_sec_serial"],
-            values=aggregated[
-                ["exec_time_sec_serial", "exec_time_sec_parallel"]
-            ].min(axis=1))
+            values=aggregated[["exec_time_sec_serial", "exec_time_sec_parallel"]].min(
+                axis=1
+            ),
+        )
 
         # cycles error
         aggregated["cycles_mape"] = metrics.mape(
-            true_values=aggregated["cycles_serial"], values=aggregated["cycles_parallel"]
+            true_values=aggregated["cycles_serial"],
+            values=aggregated["cycles_parallel"],
         )
 
         # l1 hit rate error
         aggregated["l1_hit_rate_mae"] = metrics.abs_err(
             true_values=aggregated["l1_hit_rate_serial"],
-            values=aggregated["l1_hit_rate_parallel"]
+            values=aggregated["l1_hit_rate_parallel"],
         )
 
-    
         # l2 hit rate error
         aggregated["l2_hit_rate_mae"] = metrics.abs_err(
-            true_values=aggregated["l2_hit_rate_serial"], values=aggregated["l2_hit_rate_parallel"]
+            true_values=aggregated["l2_hit_rate_serial"],
+            values=aggregated["l2_hit_rate_parallel"],
         )
 
-    
         # dram reads error
         aggregated["dram_reads_smape"] = metrics.smape(
-            true_values=aggregated["dram_reads_serial"], values=aggregated["dram_reads_parallel"]
+            true_values=aggregated["dram_reads_serial"],
+            values=aggregated["dram_reads_parallel"],
         )
 
-    
         # dram writes error
         aggregated["dram_writes_smape"] = metrics.smape(
-            true_values=aggregated["dram_writes_serial"], values=aggregated["dram_writes_parallel"]
+            true_values=aggregated["dram_writes_serial"],
+            values=aggregated["dram_writes_parallel"],
         )
 
-    
     # print(aggregated[[
     #     "target",
     #     "benchmark",
@@ -1411,7 +1429,6 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
             ),
         ]
 
-    
     table = ""
 
     # absolute_exec_time = not all_benchmarks
@@ -1432,7 +1449,9 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
 
             total_cores = int(aggregated.loc[mask, "total_cores_parallel"].values[0])
 
-            num_unique_bench_configs = len(aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates())
+            num_unique_bench_configs = len(
+                aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates()
+            )
             label = "Average ({} benchmark configurations) @ {} SM's".format(
                 num_unique_bench_configs, total_cores
             )
@@ -1523,9 +1542,10 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
             #     + ["exec_time_sec_serial", "exec_time_sec_parallel", "exec_time_sec_speedup"]
             #     )])
 
-
             # assert len(aggregated.loc[mask, ["target", "benchmark", "input_id_serial"]].drop_duplicates()) == 1
-            num_unique_bench_configs = len(aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates())
+            num_unique_bench_configs = len(
+                aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates()
+            )
             assert num_unique_bench_configs == 1
             table_rows: typing.Sequence[ParallelTableRow] = build_parallel_table_rows(
                 aggregated[mask],
@@ -1570,7 +1590,9 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
                     )
                 )
 
-            num_unique_bench_configs = len(aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates())
+            num_unique_bench_configs = len(
+                aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates()
+            )
             if num_unique_bench_configs == 1:
                 # does not make sense to average this, we have this in the
                 # previous section
@@ -1648,7 +1670,6 @@ def parallel_table(selected_df, bench_name, scale_clusters=True, large=False, ve
         print(clipboard_table)
         utils.copy_to_clipboard(clipboard_table)
         print("copied table to clipboard")
-
 
     caption = r"Average relative speedup and percentage error for serial and parallel simulation using \textsc{gpucachesim} on selected simulation output metrics using $t$ threads."
 

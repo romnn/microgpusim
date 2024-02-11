@@ -205,7 +205,6 @@ def different_cols(df):
     return [col for col in df.columns if len(df[col].value_counts()) > 1]
 
 
-
 @main.command(name="speed-table")
 @click.option("-p", "--path", help="Path to materialized benchmark config")
 @click.option("-b", "--bench", "bench_name", help="Benchmark name")
@@ -224,9 +223,13 @@ def different_cols(df):
 def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, png):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
-    gpucachesim.stats.speed_table.speed_table(selected_df, bench_name, include_mean_time=include_mean_time, verbose=verbose, png=png)
-
-    
+    gpucachesim.stats.speed_table.speed_table(
+        selected_df,
+        bench_name,
+        include_mean_time=include_mean_time,
+        verbose=verbose,
+        png=png,
+    )
 
 
 @main.command(name="result-table")
@@ -235,7 +238,11 @@ def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, png):
 @click.option("--bench", "bench_name", help="Benchmark name")
 @click.option("--metric", "metric", type=str, help="metric")
 @click.option(
-    "--combined-only", "combined_only", type=bool, is_flag=True, help="only output combined metrics"
+    "--combined-only",
+    "combined_only",
+    type=bool,
+    is_flag=True,
+    help="only output combined metrics",
 )
 @click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
 @click.option(
@@ -245,7 +252,15 @@ def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, png):
 def run_result_table(path, bench_name, metric, combined_only, nsight, verbose, png):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
-    gpucachesim.stats.result_table.result_table(selected_df, bench_name=bench_name, metrics=[metric], combined_only=combined_only, verbose=verbose, png=png)
+    gpucachesim.stats.result_table.result_table(
+        selected_df,
+        bench_name=bench_name,
+        metrics=[metric],
+        combined_only=combined_only,
+        verbose=verbose,
+        png=png,
+    )
+
 
 @main.command(name="all-result-table")
 # @click.pass_context
@@ -263,20 +278,34 @@ def all_result_table(path, bench_name, metric, nsight, verbose, png):
 
     all_benches = sorted(list(selected_df["benchmark"].unique()))
     if metric is None:
-        metrics = ["dramreads", "dramwrites", "l2accesses", "l2dhitrate", "l1accesses", "l1dhitrate", "cycles"]
+        metrics = [
+            "dramreads",
+            "dramwrites",
+            "l2accesses",
+            "l2dhitrate",
+            "l1accesses",
+            "l1dhitrate",
+            "cycles",
+        ]
     else:
         metrics = [metric]
 
     options = dict(verbose=verbose, png=png)
 
     for bench_name in all_benches:
-        gpucachesim.stats.result_table.result_table(selected_df.copy(), bench_name=bench_name, metrics=metrics, **options)
+        gpucachesim.stats.result_table.result_table(
+            selected_df.copy(), bench_name=bench_name, metrics=metrics, **options
+        )
 
     for combined_only in [True, False]:
-        gpucachesim.stats.result_table.result_table(selected_df.copy(), bench_name=None, metrics=metrics, combined_only=combined_only, **options)
+        gpucachesim.stats.result_table.result_table(
+            selected_df.copy(),
+            bench_name=None,
+            metrics=metrics,
+            combined_only=combined_only,
+            **options,
+        )
 
-
-    
 
 @main.command(name="parallel-table")
 # @click.pass_context
@@ -309,7 +338,13 @@ def run_parallel_table(bench_name, path, nsight, scale_clusters, large, verbose,
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
     gpucachesim.stats.parallel_table.parallel_table(
-        selected_df, bench_name=bench_name, scale_clusters=scale_clusters, large=large, verbose=verbose, png=png)
+        selected_df,
+        bench_name=bench_name,
+        scale_clusters=scale_clusters,
+        large=large,
+        verbose=verbose,
+        png=png,
+    )
 
 
 @main.command(name="all-parallel-table")
@@ -318,8 +353,7 @@ def run_parallel_table(bench_name, path, nsight, scale_clusters, large, verbose,
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def run_all_parallel_table(path, nsight, png):
     profiler = "nsight" if nsight else "nvprof"
-    selected_df = load_stats(
-        bench_name=None, profiler=profiler, path=path)
+    selected_df = load_stats(bench_name=None, profiler=profiler, path=path)
 
     bench_names = sorted(list(selected_df["benchmark"].unique()))
     configs = list(itertools.product([True, False], [True, False]))
@@ -329,17 +363,23 @@ def run_all_parallel_table(path, nsight, png):
     options = dict(batch=True, verbose=False, png=png)
 
     done = 0
-    for (scale_clusters, large) in configs:
+    for scale_clusters, large in configs:
         print("========= {:>4}/{:<4} =======".format(done, total))
         gpucachesim.stats.parallel_table.parallel_table(
-            selected_df, bench_name=None, scale_clusters=scale_clusters, large=large, **options)
+            selected_df,
+            bench_name=None,
+            scale_clusters=scale_clusters,
+            large=large,
+            **options,
+        )
 
         # for all benchmarks
         for bench_name in bench_names:
             mask = selected_df["benchmark"] == bench_name
             bench_df = selected_df[mask].copy()
             gpucachesim.stats.parallel_table.parallel_table(
-                bench_df, bench_name=bench_name,
+                bench_df,
+                bench_name=bench_name,
                 scale_clusters=scale_clusters,
                 **options,
             )

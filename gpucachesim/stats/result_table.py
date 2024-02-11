@@ -41,7 +41,17 @@ class ErrorMetric(enum.Enum):
 #     green = Color(2, 'Green')
 
 
-def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Optional[typing.Union[str, typing.List[typing.Optional[str]]]]=None, combined_only=False, verbose=False, batch=False, png=False):
+def result_table(
+    df,
+    bench_name: typing.Optional[str] = None,
+    metrics: typing.Optional[
+        typing.Union[str, typing.List[typing.Optional[str]]]
+    ] = None,
+    combined_only=False,
+    verbose=False,
+    batch=False,
+    png=False,
+):
     # remove non-kernel results
     df = df[~df["kernel_name"].isna()]
 
@@ -55,7 +65,9 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
     if verbose:
         print(target_bench_input_count_hist)
 
-    target_dfs = gpucachesim.stats.agg.split_into_target_dfs(df, per_kernel=False, mean=True)
+    target_dfs = gpucachesim.stats.agg.split_into_target_dfs(
+        df, per_kernel=False, mean=True
+    )
     native_df = target_dfs.native_df
     accelsim_df = target_dfs.accelsim_df
     serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
@@ -180,16 +192,24 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
     elif isinstance(metrics, list):
         metrics_keys = metrics
     else:
-        raise ValueError("metrics must be either a string or list of strings, have {}".format(metrics))
+        raise ValueError(
+            "metrics must be either a string or list of strings, have {}".format(
+                metrics
+            )
+        )
 
-    metrics_keys = [metric.replace(" ", "").lower() for metric in metrics_keys if metric is not None]
+    metrics_keys = [
+        metric.replace(" ", "").lower() for metric in metrics_keys if metric is not None
+    ]
 
     if len(metrics_keys) == 0:
         # only show cycles by default
         selected_metrics = [all_metrics[-1]]
     else:
         selected_metrics = [
-            m for m in all_metrics if m["label"].replace(" ", "").lower() in metrics_keys
+            m
+            for m in all_metrics
+            if m["label"].replace(" ", "").lower() in metrics_keys
         ]
         if len(selected_metrics) == 0:
             raise ValueError(
@@ -254,12 +274,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
             #     pass
             if target == "gpucachesim_exec_driven":
                 # we do not have an exec driven version of babelstream
-                missing_exec_driven_benches = sorted(missing_df["benchmark"].unique().tolist())
+                missing_exec_driven_benches = sorted(
+                    missing_df["benchmark"].unique().tolist()
+                )
                 if missing_exec_driven_benches != ["babelstream"]:
                     print("MISSING {}".format(missing_df.shape))
                     print(missing_df)
                     raise ValueError(
-                        "missing exec driven {} but should only miss babelstream".format(missing_exec_driven_benches)
+                        "missing exec driven {} but should only miss babelstream".format(
+                            missing_exec_driven_benches
+                        )
                     )
             else:
                 print("MISSING {}".format(missing_df.shape))
@@ -281,15 +305,26 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
 
     for target in list(sim_targets.keys()) + [""]:
         suffix = ("_" + target) if target != "" else ""
-        native_df["dram_reads_percent" + suffix] = native_df["dram_reads" + suffix].fillna(0.0)
-        scale = native_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
+        native_df["dram_reads_percent" + suffix] = native_df[
+            "dram_reads" + suffix
+        ].fillna(0.0)
+        scale = (
+            native_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
+        )
         native_df["dram_reads_percent" + suffix] /= scale
-        native_df["dram_writes_percent" + suffix] = native_df["dram_writes" + suffix].fillna(0.0)
+        native_df["dram_writes_percent" + suffix] = native_df[
+            "dram_writes" + suffix
+        ].fillna(0.0)
         native_df["dram_writes_percent" + suffix] /= scale
         assert (native_df["dram_writes_percent" + suffix] <= 1.0).all()
         assert (native_df["dram_reads_percent" + suffix] <= 1.0).all()
 
-    assert all([col in native_df for col, _ in utils.flatten([m["error_metrics"] for m in selected_metrics])])
+    assert all(
+        [
+            col in native_df
+            for col, _ in utils.flatten([m["error_metrics"] for m in selected_metrics])
+        ]
+    )
 
     # preview_cols = [
     #     "benchmark",
@@ -311,7 +346,9 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
 
     if verbose:
         for metric in selected_metrics:
-            metric_cols = sorted(list(set([metric_col for metric_col, _ in metric["error_metrics"]])))
+            metric_cols = sorted(
+                list(set([metric_col for metric_col, _ in metric["error_metrics"]]))
+            )
             print("==> PREVIEW: {}".format(metric_cols))
             preview_cols = [
                 "benchmark",
@@ -327,7 +364,6 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                 )
             ]
             print(native_df[preview_cols])
-
 
     if bench_name is None and combined_only:
         selected_benches = [None]
@@ -368,12 +404,18 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
             for metric_col, error_metric in metric["error_metrics"]:
                 preview_cols = ["benchmark"] + [
                     col + "_" + target
-                    for col, target in itertools.product([metric_col], [""] + list(sim_targets.keys()))
+                    for col, target in itertools.product(
+                        [metric_col], [""] + list(sim_targets.keys())
+                    )
                 ]
 
                 bench_df = bench_df.copy()
                 if bench is not None and verbose:
-                    print(bench_df[preview_cols + benchmarks.BENCHMARK_INPUT_COLS[bench]].fillna(0.0))
+                    print(
+                        bench_df[
+                            preview_cols + benchmarks.BENCHMARK_INPUT_COLS[bench]
+                        ].fillna(0.0)
+                    )
                     print(bench_df.shape)
 
                 error_values: pd.DataFrame
@@ -388,8 +430,12 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
                             atol = 1.0 if metric_is_percent else 0.1
-                            error = metric_funcs.correlation(true_values=true_values, values=values, atol=atol)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + target] = error
+                            error = metric_funcs.correlation(
+                                true_values=true_values, values=values, atol=atol
+                            )
+                            bench_df[
+                                metric_col + "_" + error_metric.name.lower() + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values = error_values.mean(axis=1)
@@ -411,8 +457,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         for target in sim_targets.keys():
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
-                            error = metric_funcs.emale(true_values=true_values, values=values)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + "_" + target] = error
+                            error = metric_funcs.emale(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values = error_values.mean(axis=1)
@@ -422,8 +476,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         for target in sim_targets.keys():
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
-                            error = metric_funcs.ermsle(true_values=true_values, values=values)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + "_" + target] = error
+                            error = metric_funcs.ermsle(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values = error_values.mean(axis=1)
@@ -433,8 +495,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         for target in sim_targets.keys():
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
-                            error = metric_funcs.abs_err(true_values=true_values, values=values)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + "_" + target] = error
+                            error = metric_funcs.abs_err(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values = error_values.mean(axis=1)
@@ -444,8 +514,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         for target in sim_targets.keys():
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
-                            error = metric_funcs.smape(true_values=true_values, values=values)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + "_" + target] = error
+                            error = metric_funcs.smape(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values *= 100.0
@@ -456,8 +534,16 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         for target in sim_targets.keys():
                             true_values = bench_df[metric_col] * value_scale
                             values = bench_df[metric_col + "_" + target] * value_scale
-                            error = metric_funcs.mape(true_values=true_values, values=values)
-                            bench_df[metric_col + "_" + error_metric.name.lower() + "_" + target] = error
+                            error = metric_funcs.mape(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
                             error_values.append(error)
                         error_values = pd.DataFrame(error_values)
                         error_values *= 100.0
@@ -479,7 +565,9 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         # bench_df[keys] = error_values.to_numpy().ravel()
                         # error_values = error_values.mean(axis=1)
                     case _:
-                        raise ValueError("unknown error metric {}".format(error_metric.name))
+                        raise ValueError(
+                            "unknown error metric {}".format(error_metric.name)
+                        )
 
                 # assert isinstance(error_values, (np.ndarray, pd.Series))
                 for col, target in enumerate(sim_targets.keys()):
@@ -519,14 +607,18 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                         case ErrorMetric.SMAPE | ErrorMetric.MAPE:
                             if value == np.nanmin(error_values):
                                 table += r"\boldmath"
-                            table += "${}\\%$".format(plot.human_format_thousands(value))
+                            table += "${}\\%$".format(
+                                plot.human_format_thousands(value)
+                            )
                         case ErrorMetric.EMALE | ErrorMetric.ERMSLE | ErrorMetric.MAE:
                             if value == np.nanmin(error_values):
                                 table += r"\boldmath"
                             if metric_is_percent:
                                 table += "${:5.2f}\\%$".format(value)
                             else:
-                                table += "${}$".format(plot.human_format_thousands(value))
+                                table += "${}$".format(
+                                    plot.human_format_thousands(value)
+                                )
 
                 table += r"\\" + "\n"
 
@@ -546,7 +638,11 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
                             # + [sim + "_rmse" for sim in ["accelsim", "gpucachesim"]]
                             preview_cols
                             + [
-                                metric_col + "_" + error_metric.name.lower() + "_" + target
+                                metric_col
+                                + "_"
+                                + error_metric.name.lower()
+                                + "_"
+                                + target
                                 for target in ["accelsim", "gpucachesim"]
                             ]
                             # + [sim + "_rpd" for sim in ["accelsim", "gpucachesim"]]
@@ -609,7 +705,11 @@ def result_table(df, bench_name: typing.Optional[str]=None, metrics: typing.Opti
         filename += "_{}".format(bench_name)
     if combined_only:
         filename += "_combined_only"
-    filename += "_{}".format("_".join([metric["label"].lower().replace(" ", "_") for metric in selected_metrics]))
+    filename += "_{}".format(
+        "_".join(
+            [metric["label"].lower().replace(" ", "_") for metric in selected_metrics]
+        )
+    )
     filename = sanitize_filename(filename)
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:

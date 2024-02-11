@@ -17,7 +17,12 @@ def aggregate_mean_input_config_stats(
 ) -> typing.Tuple[pd.DataFrame, typing.List[str]]:
     bench_input_cols = copy.deepcopy(list(benchmarks.ALL_BENCHMARK_INPUT_COLS))
     input_cols = copy.deepcopy(benchmarks.SIMULATE_INPUT_COLS)
-    input_config_group_cols = list(benchmarks.BENCH_TARGET_INDEX_COLS + input_cols + bench_input_cols + ["input_id"])
+    input_config_group_cols = list(
+        benchmarks.BENCH_TARGET_INDEX_COLS
+        + input_cols
+        + bench_input_cols
+        + ["input_id"]
+    )
     input_config_group_cols = [col for col in input_config_group_cols if col in df]
 
     preview_cols = [
@@ -46,7 +51,11 @@ def aggregate_mean_input_config_stats(
             # **{c: "first" for c in bench_input_cols + input_cols},
             **benchmarks.NON_NUMERIC_COLS,
         }
-        aggregations = {col: agg for col, agg in aggregations.items() if col in df and not col in group_cols}
+        aggregations = {
+            col: agg
+            for col, agg in aggregations.items()
+            if col in df and not col in group_cols
+        }
 
         grouped = df.groupby(group_cols, dropna=False)
 
@@ -73,7 +82,11 @@ def aggregate_mean_input_config_stats(
             **{c: "first" for c in bench_input_cols + input_cols},
             **benchmarks.NON_NUMERIC_COLS,
         }
-        aggregations = {col: agg for col, agg in aggregations.items() if col in df and not col in group_cols}
+        aggregations = {
+            col: agg
+            for col, agg in aggregations.items()
+            if col in df and not col in group_cols
+        }
         grouped = df.groupby(group_cols, dropna=False)
 
         def _inspect_per_config_per_kernel(df):
@@ -123,13 +136,17 @@ def split_into_target_dfs(
     # native
     native_mask = df["target"] == Target.Profile.value
     native_df = df[native_mask]
-    native_df, _ = aggregate_mean_input_config_stats(native_df, per_kernel=per_kernel, mean=mean)
+    native_df, _ = aggregate_mean_input_config_stats(
+        native_df, per_kernel=per_kernel, mean=mean
+    )
     print(_label("native", native_df.shape))
 
     # accelsim
     accelsim_mask = df["target"] == Target.AccelsimSimulate.value
     accelsim_df = df[accelsim_mask]
-    accelsim_df, _ = aggregate_mean_input_config_stats(accelsim_df, per_kernel=per_kernel, mean=mean)
+    accelsim_df, _ = aggregate_mean_input_config_stats(
+        accelsim_df, per_kernel=per_kernel, mean=mean
+    )
     print(_label("accelsim", accelsim_df.shape))
 
     # gpucachesim (serial)
@@ -137,8 +154,12 @@ def split_into_target_dfs(
     serial_gpucachesim_mask &= df["input_mode"].isin(["serial", np.nan])
     serial_gpucachesim_mask &= df["input_memory_only"] == False
     if functional_config is not None:
-        serial_gpucachesim_mask &= df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
-        serial_gpucachesim_mask &= df["input_num_clusters"] == functional_config["num_clusters"]
+        serial_gpucachesim_mask &= (
+            df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
+        )
+        serial_gpucachesim_mask &= (
+            df["input_num_clusters"] == functional_config["num_clusters"]
+        )
     serial_gpucachesim_df = df[serial_gpucachesim_mask]
     serial_gpucachesim_df, _ = aggregate_mean_input_config_stats(
         serial_gpucachesim_df, per_kernel=per_kernel, mean=mean
@@ -150,8 +171,12 @@ def split_into_target_dfs(
     serial_gpucachesim_mem_only_mask &= df["input_memory_only"] == True
     serial_gpucachesim_mem_only_mask &= df["input_mode"].isin(["serial", np.nan])
     if functional_config is not None:
-        serial_gpucachesim_mem_only_mask &= df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
-        serial_gpucachesim_mem_only_mask &= df["input_num_clusters"] == functional_config["num_clusters"]
+        serial_gpucachesim_mem_only_mask &= (
+            df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
+        )
+        serial_gpucachesim_mem_only_mask &= (
+            df["input_num_clusters"] == functional_config["num_clusters"]
+        )
     serial_gpucachesim_mem_only_df = df[serial_gpucachesim_mem_only_mask]
     serial_gpucachesim_mem_only_df, _ = aggregate_mean_input_config_stats(
         serial_gpucachesim_mem_only_df, per_kernel=per_kernel, mean=mean
@@ -159,7 +184,9 @@ def split_into_target_dfs(
     print(_label("serial gpucachesim (mem only)", serial_gpucachesim_mem_only_df.shape))
 
     # gpucachesim (serial, exec-driven)
-    serial_gpucachesim_exec_driven_mask = df["target"] == Target.ExecDrivenSimulate.value
+    serial_gpucachesim_exec_driven_mask = (
+        df["target"] == Target.ExecDrivenSimulate.value
+    )
     # print("mask num", sum(serial_gpucachesim_exec_driven_mask))
     # print(df.loc[serial_gpucachesim_exec_driven_mask, ["target", "input_memory_only", "input_mode"]])
     serial_gpucachesim_exec_driven_mask &= df["input_mode"].isin(["serial", "", np.nan])
@@ -167,15 +194,23 @@ def split_into_target_dfs(
     serial_gpucachesim_exec_driven_df, _ = aggregate_mean_input_config_stats(
         serial_gpucachesim_exec_driven_df, per_kernel=per_kernel, mean=mean
     )
-    print(_label("serial gpucachesim (exec driven)", serial_gpucachesim_exec_driven_df.shape))
+    print(
+        _label(
+            "serial gpucachesim (exec driven)", serial_gpucachesim_exec_driven_df.shape
+        )
+    )
 
     # gpucachesim (parallel)
     parallel_gpucachesim_mask = df["target"] == Target.Simulate.value
     parallel_gpucachesim_mask &= df["input_mode"] != "serial"
     parallel_gpucachesim_mask &= df["input_memory_only"] == False
     if functional_config is not None:
-        parallel_gpucachesim_mask &= df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
-        parallel_gpucachesim_mask &= df["input_num_clusters"] == functional_config["num_clusters"]
+        parallel_gpucachesim_mask &= (
+            df["input_cores_per_cluster"] == functional_config["cores_per_cluster"]
+        )
+        parallel_gpucachesim_mask &= (
+            df["input_num_clusters"] == functional_config["num_clusters"]
+        )
     parallel_gpucachesim_df = df[parallel_gpucachesim_mask]
     parallel_gpucachesim_df, _ = aggregate_mean_input_config_stats(
         parallel_gpucachesim_df, per_kernel=per_kernel, mean=mean
