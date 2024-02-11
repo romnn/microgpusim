@@ -210,9 +210,9 @@ def cache(
             alloc_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
                 "sector_alloc_time"
             ].to_numpy()
-            last_access_times[
-                int(partition_id), int(set_id), int(assoc_id), :
-            ] = row_df["last_sector_access_time"].to_numpy()
+            last_access_times[int(partition_id), int(set_id), int(assoc_id), :] = (
+                row_df["last_sector_access_time"].to_numpy()
+            )
 
         states = states.reshape((partitions, sets, -1))
         allocations = allocations.reshape((partitions, sets, -1))

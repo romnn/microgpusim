@@ -487,9 +487,11 @@ def find_cache_set_mapping():
                     # "xor_bit": sym.logic.boolalg.Or(*[sym.logic.boolalg.And(term, sym.symbols(f"b{bit}")) for term in ff.args]),
                     "xor_bit": sym.logic.boolalg.Or(
                         *[
-                            sym.logic.boolalg.Xor(term, bit)
-                            if contains_var(f.args[i], var=bit)
-                            else term
+                            (
+                                sym.logic.boolalg.Xor(term, bit)
+                                if contains_var(f.args[i], var=bit)
+                                else term
+                            )
                             for i, term in enumerate(ff.args)
                         ]
                     ),
@@ -892,9 +894,11 @@ def find_cache_set_mapping():
                     str(
                         color(
                             int(predicted),
-                            fg="green"
-                            if bool(predicted) == bool(target_bit)
-                            else "red",
+                            fg=(
+                                "green"
+                                if bool(predicted) == bool(target_bit)
+                                else "red"
+                            ),
                         )
                     ),
                     str(color("<==", fg="blue")) if addr in marks else "",

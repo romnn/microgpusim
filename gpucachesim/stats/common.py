@@ -5,12 +5,7 @@ import numpy as np
 import re
 import typing
 import os
-
-
-BASELINE = dict(
-    cores_per_cluster=1,
-    num_clusters=28,
-)
+import gpucachesim.benchmarks as benchmarks
 
 
 def function_name_from_signature(sig: str) -> str:
@@ -44,13 +39,15 @@ class Stats:
     def cores_per_cluster(self):
         return int(
             self.bench_config["values"].get(
-                "cores_per_cluster", BASELINE["cores_per_cluster"]
+                "cores_per_cluster", benchmarks.BASELINE["cores_per_cluster"]
             )
         )
 
     def num_clusters(self):
         return int(
-            self.bench_config["values"].get("num_clusters", BASELINE["num_clusters"])
+            self.bench_config["values"].get(
+                "num_clusters", benchmarks.BASELINE["num_clusters"]
+            )
         )
 
     def total_cores(self):

@@ -28,13 +28,11 @@ config:
     keep_log_file: true
   # for simulation, we do not set a limit on concurrency
   exec_simulate:
-    # No concurrency limit for now (until we implement multi-threading)
-    concurrency: 1 # null
+    concurrency: 1
     repetitions: 1
     # l2_prefill: true
   simulate:
-    # No concurrency limit for now (until we implement multi-threading)
-    concurrency: 1 # null
+    concurrency: 1
     repetitions: 2
     # l2_prefill: true
     # this is added to all inputs
@@ -45,22 +43,38 @@ config:
         - nondeterministic
         # - nondeterministic_interleave
       threads: [4, 8]
+      # run_ahead: [10]
       run_ahead: [5, 10]
-      num_clusters: [28, 56]
+      # num_clusters: [28]
+      # scaling num clusters works well
+      num_clusters: [28, 112]
       # cores_per_cluster: [1, 4, 8]
-      cores_per_cluster: [1, 8]
+      # scaling cores per cluster does not work well
+      cores_per_cluster: [1, 4]
       memory_only: [false, true]
       exclude:
+        # do not run serial for more threads
         - mode: serial
           threads: 8
+        # do not run for different run ahead for serial and determinisic
         - mode: serial
           run_ahead: 10
         - mode: deterministic
           run_ahead: 10
-        - num_clusters: 56
-          cores_per_cluster: 8
-        - num_clusters: 56
-          cores_per_cluster: 8
+        # do not run memory only for anything but the baseline
+        - mode: deterministic
+          memory_only: true
+        - mode: nondeterministic
+          memory_only: true
+        - mode: serial
+          cores_per_cluster: 4
+          memory_only: true
+        - mode: serial
+          num_clusters: 112
+          memory_only: true
+        # do not run for 448 cores
+        - num_clusters: 112
+          cores_per_cluster: 4
   # for accelsim simulation, we do not set a limit on concurrency
   accelsim_simulate:
     # No concurrency limit as accelsim is single threaded.

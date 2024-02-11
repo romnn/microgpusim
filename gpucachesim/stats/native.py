@@ -694,9 +694,9 @@ class NvprofStats(common.Stats):
         self.result_df["kernel_name"] = self.result_df[
             "kernel_function_signature"
         ].apply(
-            lambda sig: np.nan
-            if pd.isnull(sig)
-            else common.function_name_from_signature(sig)
+            lambda sig: (
+                np.nan if pd.isnull(sig) else common.function_name_from_signature(sig)
+            )
         )
 
         # map sorted correlation ids to increasing launch ids

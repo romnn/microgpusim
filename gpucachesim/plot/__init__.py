@@ -5,6 +5,8 @@ import math
 from gpucachesim import REPO_ROOT_DIR
 
 PLOT_DIR = REPO_ROOT_DIR / "plot"
+TABLE_DIR = REPO_ROOT_DIR / "plot/tables"
+EQUATIONS_DIR = REPO_ROOT_DIR / "plot/equations"
 
 PLOTLY_PDF_OPTS = dict(format="pdf", scale=8)
 
@@ -131,8 +133,6 @@ def human_format_thousands(num, round_to=2, variable_precision=False):
             ["", "K", "M", "G", "T", "P"][magnitude],
         )
     return "{}{}".format(
-        round_to_precision_str(
-            num, round_to=round_to, variable_precision=variable_precision
-        ),
+        round_to_precision_str(num, round_to=round_to, variable_precision=variable_precision),
         ["", "K", "M", "G", "T", "P"][magnitude],
     )

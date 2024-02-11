@@ -40,6 +40,8 @@ pycryptosat = "*"
 logicmin = "*"
 pyeda = "*"
 pyarrow = "*"
+Pygments = "*"
+pathvalidate = "*"
 
 [dev-packages]
 invoke = "*"
