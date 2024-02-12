@@ -184,8 +184,8 @@ impl std::fmt::Debug for InstructionComparator {
         enum AddressFormat {
             Original(Vec<u64>),
             BaseStride {
-                base: u64,
-                stride: u64,
+                base: i128,
+                stride: i128,
                 count: usize,
             },
             SingleAddress {
@@ -197,13 +197,13 @@ impl std::fmt::Debug for InstructionComparator {
         let address_format = if valid_addresses.len() > 1 {
             let strides = valid_addresses
                 .windows(2)
-                .map(|w| w[1] - w[0])
+                .map(|w| w[1] as i128 - w[0] as i128)
                 .collect::<Vec<_>>();
             if strides.iter().all_equal() {
                 if strides[0] != 0 {
                     AddressFormat::BaseStride {
-                        base: valid_addresses[0],
-                        stride: strides[0],
+                        base: valid_addresses[0] as i128,
+                        stride: strides[0] as i128,
                         count: valid_addresses.len(),
                     }
                 } else {
@@ -251,8 +251,9 @@ impl std::fmt::Debug for InstructionComparator {
                         stride,
                         count,
                     } => {
-                        let start = format_addr(*base, &self.allocations);
-                        let end = format_addr(base + stride * *count as u64, &self.allocations);
+                        let start = format_addr(*base as u64, &self.allocations);
+                        let end =
+                            format_addr((base + stride * *count as i128) as u64, &self.allocations);
                         write!(
                             f,
                             "{:>2}x {:>7} - {:<7} stride={:<3}",
