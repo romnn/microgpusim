@@ -95,6 +95,7 @@ pub fn simulate_bench_config(
         // dbg!(&kernel_stats.dram.reduce());
         // dbg!(&kernel_stats.sim);
         eprintln!("SIM: {:#?}", &kernel_stats.sim);
+        eprintln!("INST: {:#?}", &kernel_stats.instructions);
         eprintln!("DRAM: {:#?}", &kernel_stats.dram.reduce());
         eprintln!("L1D: {:#?}", &kernel_stats.l1d_stats.reduce());
         eprintln!("L2D: {:#?}", &kernel_stats.l2d_stats.reduce());
@@ -288,6 +289,7 @@ pub mod exec {
         let values: serde_json::Value = serde_json::to_value(&bench.values).map_err(parse_err)?;
         // dbg!(&values);
 
+        let start = std::time::Instant::now();
         let (commands, kernel_traces) = match bench.name.to_lowercase().as_str() {
             "vectoradd" => {
                 #[derive(Debug, serde::Deserialize)]
@@ -346,7 +348,8 @@ pub mod exec {
                 }
                 let TransposeInput { dim, variant, .. } =
                     serde_json::from_value(values.clone()).map_err(parse_err)?;
-                // hotfix .unwrap_or(0)
+                dbg!(&variant);
+                // hotfix
                 let repeat = 0;
                 benchmarks::transpose::benchmark::<f32>(dim, variant, repeat).await
             }
@@ -358,6 +361,14 @@ pub mod exec {
                 )))
             }
         }?;
+        let dur = start.elapsed();
+
+        let trace_dur_file = stats_dir.join("trace_reconstruction_time.json");
+        serde_json::to_writer_pretty(
+            utils::fs::open_writable(trace_dur_file).map_err(eyre::Report::from)?,
+            &dur.as_millis(),
+        )
+        .map_err(eyre::Report::from)?;
 
         let traces_dir = stats_dir.join("traces");
         gpucachesim::exec::write_traces(commands, kernel_traces, &traces_dir)?;

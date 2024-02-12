@@ -8,9 +8,9 @@ use crate::{
 use color_eyre::{eyre, Help};
 use remote::{scp::Client as ScpClient, slurm::Client as SlurmClient, Remote};
 use std::fmt::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
-use utils::fs::{Bytes, PathExt};
+use utils::fs::Bytes;
 
 fn job_name(gpu: &str, executable: impl AsRef<Path> + Send, args: &[String]) -> String {
     [
