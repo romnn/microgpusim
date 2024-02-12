@@ -1192,7 +1192,7 @@ where
         // more instructions
         if !self.instr_fetch_buffer_state.is_valid() {
             // try to receive an instruction from the l1 inst cache
-            if let Some(fetch) = self.instr_l1_cache.next_access() {
+            if let Some(fetch) = self.instr_l1_cache.pop_next_ready_access() {
                 let warp = &mut self.warps[fetch.warp_id];
                 warp.has_imiss_pending = false;
 

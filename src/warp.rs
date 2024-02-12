@@ -1,9 +1,6 @@
-use crate::sync::{Arc, Mutex};
-use crate::{instruction::WarpInstruction, kernel::Kernel};
+use crate::instruction::WarpInstruction;
 use std::collections::VecDeque;
 pub use trace_model::{active_mask::Inner as ActiveMaskInner, ActiveMask, WARP_SIZE};
-
-// pub type Ref = Arc<Mutex<Warp>>;
 
 #[derive(Debug)]
 // #[repr(align(256))]
@@ -27,8 +24,6 @@ pub struct Warp {
     pub has_imiss_pending: bool,
 
     pub instr_buffer: InstructionBuffer,
-    // pub instr_buffer: Vec<Option<WarpInstruction>>,
-    // pub next: usize,
 }
 
 impl std::fmt::Display for Warp {

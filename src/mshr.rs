@@ -82,7 +82,7 @@ pub trait MSHR<F> {
     fn add(&mut self, block_addr: address, fetch: F);
 
     /// Remove access.
-    fn remove(&mut self, block_addr: address);
+    // fn remove(&mut self, block_addr: address);
 
     /// Clear the miss status handling register.
     fn clear(&mut self);
@@ -125,9 +125,9 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
     }
 
     // #[inline]
-    fn remove(&mut self, block_addr: address) {
-        self.entries.remove(&block_addr);
-    }
+    // fn remove(&mut self, block_addr: address) {
+    //     self.entries.remove(&block_addr);
+    // }
 }
 
 impl Table<mem_fetch::MemFetch> {
@@ -201,8 +201,9 @@ impl Table<mem_fetch::MemFetch> {
     }
 
     /// Returns next ready access
-    pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
+    pub fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch> {
         let Some(block_addr) = self.current_response.front() else {
+            // check if we have a ready access
             return None;
         };
 
@@ -213,6 +214,8 @@ impl Table<mem_fetch::MemFetch> {
         debug_assert!(!entry.requests.is_empty());
         let fetch = entry.requests.pop_front();
 
+        // check if this was the last request.
+        // If so, clear the current response and remove the entry
         let should_remove = entry.requests.is_empty();
         if should_remove {
             self.entries.remove(block_addr);

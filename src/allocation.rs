@@ -57,7 +57,7 @@ impl std::fmt::Display for Allocation {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Allocations(RwLock<rangemap::RangeMap<address, Allocation>>);
 
 impl std::ops::Deref for Allocations {
@@ -69,9 +69,11 @@ impl std::ops::Deref for Allocations {
     }
 }
 
-// impl AsRef<RwLock<rangemap::RangeMap<address, Allocation>>> Allocations {
-//     pub
-// }
+impl Default for Allocations {
+    fn default() -> Self {
+        Self(RwLock::new(rangemap::RangeMap::new()))
+    }
+}
 
 impl Allocations {
     // pub fn iter(&self) -> rangemap::map::Iter<'_, u64, Allocation> {

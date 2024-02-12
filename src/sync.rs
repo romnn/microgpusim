@@ -233,7 +233,8 @@ pub mod default {
 #[cfg(feature = "parking_lot")]
 pub use self::parking_lot::{Mutex, RwLock};
 #[cfg(feature = "parking_lot")]
-pub type FairMutex<T> = self::parking_lot::Mutex<T>;
+pub type FairMutex<T> = self::parking_lot::FairMutex<T>;
+// pub type FairMutex<T> = self::parking_lot::Mutex<T>;
 
 #[cfg(not(feature = "parking_lot"))]
 pub use default::{Mutex, RwLock};

@@ -98,8 +98,8 @@ impl cache::Cache for ReadOnly {
     }
 
     // #[inline]
-    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        self.inner.next_access()
+    fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.inner.pop_next_ready_access()
     }
 
     // #[inline]

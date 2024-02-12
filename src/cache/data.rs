@@ -1153,8 +1153,8 @@ where
         self.inner.cache_config.write_allocate_policy
     }
 
-    fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        self.inner.next_access()
+    fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.inner.pop_next_ready_access()
     }
 
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {

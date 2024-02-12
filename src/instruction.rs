@@ -247,6 +247,7 @@ pub struct WarpInstruction {
     // access only via the iterators that use in and out counts
     outputs: [Option<u32>; 8],
     inputs: [Option<u32>; 24],
+
     /// register number for bank conflict evaluation
     pub src_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
     pub dest_arch_reg: [Option<u32>; opcoll::MAX_REG_OPERANDS],
@@ -340,6 +341,11 @@ impl WarpInstruction {
         let num_src_regs = trace.num_src_regs as usize;
         let num_dest_regs = trace.num_dest_regs as usize;
 
+        assert!(num_dest_regs <= 1);
+        assert!(num_src_regs <= 5);
+
+        // TODO: input and output sizes here are really overkill,
+        // but i guess thats fine.
         let mut outputs: [Option<u32>; 8] = [None; 8];
         for m in 0..num_dest_regs {
             // increment by one because GPGPU-sim starts from R1, while SASS starts from R0

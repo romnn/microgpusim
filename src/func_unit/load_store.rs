@@ -19,7 +19,7 @@ use crate::{
 use utils::box_slice;
 
 use console::style;
-use ic::{Iter, SharedConnection};
+use ic::SharedConnection;
 use mem_fetch::{access::Kind as AccessKind, MemFetch};
 use std::collections::{HashMap, VecDeque};
 use strum::EnumCount;
@@ -588,6 +588,8 @@ where
                         scoreboard.release(next_writeback.warp_id, *out_reg);
                         instr_completed = true;
                     } else {
+                        // the entire warp is stalled on the writeback
+                        // pipeline waiting for the last pending write.
                         let pending = self
                             .pending_writes
                             .entry(next_writeback.warp_id)
@@ -684,7 +686,7 @@ where
                 WritebackClient::L1D => {
                     debug_assert!(self.data_l1.is_some());
                     if let Some(ref mut data_l1) = self.data_l1 {
-                        if let Some(fetch) = data_l1.next_access() {
+                        if let Some(fetch) = data_l1.pop_next_ready_access() {
                             log::trace!("l1 cache got ready access {} cycle={}", &fetch, cycle);
                             self.next_writeback = fetch.instr;
                             serviced_client = Some(next_client_id);
@@ -1201,6 +1203,8 @@ where
 
         let simd_unit = &mut self.inner;
         debug_assert!(simd_unit.pipeline_depth > 0);
+
+        // advance each stage of the pipeline
         for stage in 0..(simd_unit.pipeline_depth - 1) {
             let current = stage + 1;
             let next = stage;
@@ -1225,6 +1229,7 @@ where
             // let mut response_queue_lock = self.response_queue.lock();
             // let response_queue_lock = &self.response_queue;
 
+            // check for new responses from memory forwarded via cluster
             if self.current_response.is_none() {
                 self.current_response = self.response_queue.receive();
             }
@@ -1336,6 +1341,7 @@ where
             return;
         }
 
+        // process instructions exiting the memory pipeline
         let simd_unit = &mut self.inner;
         if let Some(ref pipe_reg) = simd_unit.dispatch_reg {
             // ldst unit got instr from dispatch reg
@@ -1357,11 +1363,11 @@ where
                 } else {
                     let pending = self.pending_writes.entry(warp_id).or_default();
 
-                    let mut has_pending_requests = false;
+                    let mut has_pending_writes = false;
                     for reg_id in pipe_reg.outputs() {
                         match pending.get(reg_id) {
                             Some(&p) if p > 0 => {
-                                has_pending_requests = true;
+                                has_pending_writes = true;
                                 break;
                             }
                             _ => {
@@ -1373,7 +1379,7 @@ where
 
                     let mut dispatch_reg = simd_unit.dispatch_reg.take().unwrap();
 
-                    if !has_pending_requests {
+                    if !has_pending_writes {
                         crate::warp_inst_complete(&mut dispatch_reg, &mut *stats);
 
                         scoreboard.release_all(&dispatch_reg);

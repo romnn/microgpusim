@@ -441,8 +441,8 @@ impl<B, CC> Base<B, CC> {
     /// Pop next ready access
     ///
     /// Note: does not include accesses that "HIT"
-    pub fn next_access(&mut self) -> Option<mem_fetch::MemFetch> {
-        self.mshrs.next_access()
+    pub fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch> {
+        self.mshrs.pop_next_ready_access()
     }
 
     // #[inline]

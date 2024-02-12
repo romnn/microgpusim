@@ -18,7 +18,6 @@ pub use l2::DataL2;
 pub use readonly::ReadOnly;
 
 use super::{address, interconn as ic, mem_fetch};
-use crate::sync::{Arc, Mutex};
 use color_eyre::eyre;
 use std::collections::VecDeque;
 
@@ -184,7 +183,7 @@ pub trait Cache: Send + Sync + Bandwidth + 'static {
     }
 
     /// Take the next ready access.
-    fn next_access(&mut self) -> Option<mem_fetch::MemFetch>;
+    fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch>;
 
     /// Fill the cache.
     fn fill(&mut self, _fetch: mem_fetch::MemFetch, _time: u64);

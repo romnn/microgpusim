@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{
     address,
     cache::{self, Bandwidth, Cache, ComputeStats},
@@ -481,7 +481,7 @@ where
             // todo: move config into l2
             let l2_config = self.config.data_cache_l2.as_ref().unwrap();
             if l2_cache.has_ready_accesses() && !queue_full {
-                let mut fetch = l2_cache.next_access().unwrap();
+                let mut fetch = l2_cache.pop_next_ready_access().unwrap();
 
                 // Don't pass write allocate read request back to top level cache
                 if fetch.access_kind() != AccessKind::L2_WR_ALLOC_R {
