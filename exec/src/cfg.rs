@@ -1,4 +1,4 @@
-use crate::model::{Instruction, MemInstruction, ThreadInstruction};
+use crate::model::{Instruction, ThreadInstruction};
 use petgraph::prelude::*;
 
 #[derive(Debug)]
@@ -61,18 +61,18 @@ impl TraceNode {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Node {
+pub enum WarpNode {
     Branch { id: usize, branch_id: usize },
     Reconverge { id: usize, branch_id: usize },
 }
 
-impl std::fmt::Display for Node {
+impl std::fmt::Display for WarpNode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Debug::fmt(self, f)
     }
 }
 
-impl Node {
+impl WarpNode {
     // #[inline]
     #[must_use]
     pub fn id(&self) -> usize {
@@ -90,7 +90,7 @@ impl Node {
 }
 
 #[allow(clippy::match_same_arms)]
-impl PartialEq<TraceNode> for Node {
+impl PartialEq<TraceNode> for WarpNode {
     fn eq(&self, other: &TraceNode) -> bool {
         match (self, other) {
             (Self::Branch { .. }, TraceNode::Branch { .. }) => {
@@ -104,7 +104,7 @@ impl PartialEq<TraceNode> for Node {
     }
 }
 
-pub type CFG = petgraph::graph::DiGraph<Node, bool>;
+pub type WarpCFG = petgraph::graph::DiGraph<WarpNode, bool>;
 pub type ThreadCFG = petgraph::graph::DiGraph<TraceNode, bool>;
 
 pub trait UniqueGraph<N, E, Ix> {
@@ -208,7 +208,8 @@ where
                         .chain([(Some(edge.id()), to)])
                         .collect::<TargetColl>();
                     return Some(path);
-                } else if !visited.contains(&(Some(edge.id()), child)) {
+                }
+                if !visited.contains(&(Some(edge.id()), child)) {
                     visited.insert((Some(edge.id()), child));
                     stack.push(graph.edges_directed(child, Outgoing));
                 }
@@ -223,16 +224,16 @@ where
 
 pub fn build_control_flow_graph(
     thread_instructions: &[ThreadInstruction],
-    super_cfg: &mut CFG,
+    warp_cfg: &mut WarpCFG,
 ) -> (ThreadCFG, (NodeIndex, NodeIndex)) {
     use std::collections::HashMap;
     let mut thread_cfg = ThreadCFG::new();
 
-    let super_cfg_root_node_idx = super_cfg.add_unique_node(Node::Branch {
+    let warp_cfg_root_node_idx = warp_cfg.add_unique_node(WarpNode::Branch {
         id: 0, // there cannot be more than one source node
         branch_id: 0,
     });
-    let mut last_super_cfg_node_idx = super_cfg_root_node_idx;
+    let mut last_warp_cfg_node_idx = warp_cfg_root_node_idx;
 
     let thread_cfg_root_node_idx = thread_cfg.add_node(TraceNode::Branch {
         id: 0, // there cannot be more than one source node
@@ -257,12 +258,12 @@ pub fn build_control_flow_graph(
                 let took_branch = branch_taken.get(&last_branch_id).copied().unwrap_or(false);
 
                 {
-                    let super_node_idx = super_cfg.add_unique_node(Node::Branch {
+                    let super_node_idx = warp_cfg.add_unique_node(WarpNode::Branch {
                         id: node_id,
                         branch_id: *branch_id,
                     });
-                    super_cfg.add_unique_edge(last_super_cfg_node_idx, super_node_idx, took_branch);
-                    last_super_cfg_node_idx = super_node_idx;
+                    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, super_node_idx, took_branch);
+                    last_warp_cfg_node_idx = super_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
@@ -280,16 +281,16 @@ pub fn build_control_flow_graph(
                 let reconverge_took_branch = branch_taken.get(&branch_id).copied().unwrap_or(false);
 
                 {
-                    let super_node_idx = super_cfg.add_unique_node(Node::Reconverge {
+                    let super_node_idx = warp_cfg.add_unique_node(WarpNode::Reconverge {
                         id: *node_id,
                         branch_id: *branch_id,
                     });
-                    super_cfg.add_unique_edge(
-                        last_super_cfg_node_idx,
+                    warp_cfg.add_unique_edge(
+                        last_warp_cfg_node_idx,
                         super_node_idx,
                         reconverge_took_branch,
                     );
-                    last_super_cfg_node_idx = super_node_idx;
+                    last_warp_cfg_node_idx = super_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
@@ -314,11 +315,11 @@ pub fn build_control_flow_graph(
     }
 
     // reconverge branch 0
-    let super_cfg_sink_node_idx = super_cfg.add_unique_node(Node::Reconverge {
+    let warp_cfg_sink_node_idx = warp_cfg.add_unique_node(WarpNode::Reconverge {
         id: 0, // there cannot be more than one sink node
         branch_id: 0,
     });
-    super_cfg.add_unique_edge(last_super_cfg_node_idx, super_cfg_sink_node_idx, true);
+    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, warp_cfg_sink_node_idx, true);
 
     let thread_cfg_sink_node_idx = thread_cfg.add_node(TraceNode::Reconverge {
         id: 0, // there cannot be more than one sink node
@@ -351,7 +352,7 @@ where
     })
 }
 
-pub fn add_missing_control_flow_edges<D, Ix>(graph: &mut petgraph::Graph<Node, bool, D, Ix>)
+pub fn add_missing_control_flow_edges<D, Ix>(graph: &mut petgraph::Graph<WarpNode, bool, D, Ix>)
 where
     Ix: petgraph::graph::IndexType,
     D: petgraph::EdgeType,
@@ -359,7 +360,7 @@ where
     use std::collections::HashSet;
     let mut added = 0;
     for node_idx in graph.node_indices() {
-        let Node::Branch { id, branch_id } = graph[node_idx] else {
+        let WarpNode::Branch { id, branch_id } = graph[node_idx] else {
             continue;
         };
         let edges: HashSet<bool> = graph
@@ -370,7 +371,7 @@ where
         assert!(!edges.is_empty());
         assert!(edges.len() <= 2);
         let reconvergence_node_idx = graph
-            .find_node(&Node::Reconverge { id, branch_id })
+            .find_node(&WarpNode::Reconverge { id, branch_id })
             .unwrap();
         if !edges.contains(&true) {
             graph.add_unique_edge(node_idx, reconvergence_node_idx, true);
@@ -385,7 +386,7 @@ where
 }
 
 pub mod visit {
-    use super::{Neighbors, Node, CFG};
+    use super::{Neighbors, WarpCFG, WarpNode};
     use petgraph::graph::{EdgeIndex, NodeIndex};
     use std::collections::HashSet;
 
@@ -397,16 +398,16 @@ pub mod visit {
         visited: HashSet<(EdgeIndex, NodeIndex)>,
         stack: Vec<(EdgeIndex, NodeIndex)>,
         path: Path,
-        graph: &'a CFG,
+        graph: &'a WarpCFG,
     }
 
     impl<'a> DominatedDfs<'a> {
         #[must_use]
-        pub fn new(graph: &'a CFG, root_node_idx: NodeIndex) -> Self {
+        pub fn new(graph: &'a WarpCFG, root_node_idx: NodeIndex) -> Self {
             let mut dominator_stack = Vec::new();
             let mut stack = Vec::new();
 
-            if let Node::Branch { .. } = graph[root_node_idx] {
+            if let WarpNode::Branch { .. } = graph[root_node_idx] {
                 dominator_stack.push(root_node_idx);
             }
 
@@ -445,7 +446,7 @@ pub mod visit {
             self.path.clear();
 
             match &self.graph[node_idx] {
-                Node::Reconverge { branch_id, .. } => {
+                WarpNode::Reconverge { branch_id, .. } => {
                     // Encountered a reconvergence point.
                     //
                     // Jump back to the last branch node to serialize other possible
@@ -500,7 +501,7 @@ pub mod visit {
                     // do not add children of reconvergence node until all control flow paths
                     // reached convergence.
                 }
-                Node::Branch { .. } => {
+                WarpNode::Branch { .. } => {
                     // add new branch and reconvergence point on the stack
                     self.dominator_stack.push(node_idx);
 
@@ -521,6 +522,108 @@ pub mod visit {
             }
 
             Some((edge_idx, node_idx))
+        }
+    }
+}
+
+pub mod render {
+    use std::path::Path;
+
+    pub trait Render {
+        /// Render graph as an svg image.
+        ///
+        /// # Errors
+        /// If writing to the specified output path fails.
+        fn render_to(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error>;
+    }
+
+    impl<N, E, D, Ix> Render for petgraph::Graph<N, E, D, Ix>
+    where
+        D: petgraph::EdgeType,
+        Ix: petgraph::graph::IndexType,
+        E: std::fmt::Display,
+        N: std::fmt::Display,
+    {
+        fn render_to(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error> {
+            use layout::adt::dag::NodeHandle;
+            use layout::backends::svg::SVGWriter;
+            use layout::core::{self, base::Orientation, color::Color, style};
+            use layout::std_shapes::shapes;
+            use layout::topo::layout::VisualGraph;
+            use petgraph::graph::NodeIndex;
+            use std::collections::HashMap;
+            use std::io::{BufWriter, Write};
+
+            fn node<N>(node: &N) -> shapes::Element
+            where
+                N: std::fmt::Display,
+            {
+                let node_style = style::StyleAttr {
+                    line_color: Color::new(0x0000_00FF),
+                    line_width: 2,
+                    fill_color: Some(Color::new(0xB4B3_B2FF)),
+                    rounded: 0,
+                    font_size: 15,
+                };
+                let size = core::geometry::Point { x: 100.0, y: 100.0 };
+                shapes::Element::create(
+                    shapes::ShapeKind::Circle(format!("{node}")),
+                    node_style,
+                    Orientation::TopToBottom,
+                    size,
+                )
+            }
+
+            let mut graph = VisualGraph::new(Orientation::TopToBottom);
+            let mut handles: HashMap<NodeIndex<Ix>, NodeHandle> = HashMap::new();
+
+            for edge_idx in self.edge_indices() {
+                let Some((src_node, dest_node)) = self.edge_endpoints(edge_idx) else {
+                    continue;
+                };
+                let src_handle = *handles
+                    .entry(src_node)
+                    .or_insert_with(|| graph.add_node(node(self.node_weight(src_node).unwrap())));
+
+                let dest_handle = *handles
+                    .entry(src_node)
+                    .or_insert_with(|| graph.add_node(node(self.node_weight(dest_node).unwrap())));
+
+                let edge_weight = self.edge_weight(edge_idx).unwrap();
+                let arrow = shapes::Arrow {
+                    start: shapes::LineEndKind::None,
+                    end: shapes::LineEndKind::Arrow,
+                    line_style: style::LineStyleKind::Normal,
+                    text: format!("{edge_weight}"),
+                    look: style::StyleAttr {
+                        line_color: Color::new(0x0000_00FF),
+                        line_width: 2,
+                        fill_color: Some(Color::new(0xB4B3_B2FF)),
+                        rounded: 0,
+                        font_size: 15,
+                    },
+                    src_port: None,
+                    dst_port: None,
+                };
+                graph.add_edge(arrow, src_handle, dest_handle);
+            }
+
+            // https://docs.rs/layout-rs/latest/src/layout/backends/svg.rs.html#200
+            let mut backend = SVGWriter::new();
+            let debug_mode = false;
+            let disable_opt = false;
+            let disable_layout = false;
+            graph.do_it(debug_mode, disable_opt, disable_layout, &mut backend);
+            let content = backend.finalize();
+
+            let file = std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .create(true)
+                .open(path.as_ref())?;
+            let mut writer = BufWriter::new(file);
+            writer.write_all(content.as_bytes())?;
+            Ok(())
         }
     }
 }

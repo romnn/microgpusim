@@ -3,6 +3,10 @@ name = "exec"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["render"]
+render = ["dep:layout-rs"]
+
 [dependencies]
 color-eyre = "0"
 thiserror = "1"
@@ -25,6 +29,9 @@ async-trait = "0"
 
 trace-model = { path = "../trace/model" }
 exec-derive = { path = "./derive" }
+
+# optional: render control flow graphs
+layout-rs = { version = "0.1", optional = true }
 
 # todo: remove in the future
 log = "0"
