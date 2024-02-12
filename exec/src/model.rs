@@ -33,8 +33,8 @@ pub enum MemAccessKind {
     Store,
 }
 
-/// Warp instruction
-#[derive(Debug, Clone, Ord, PartialOrd)]
+/// Memory instruction
+#[derive(Debug, Clone, Hash, Ord, PartialOrd)]
 pub struct MemInstruction {
     pub mem_space: MemorySpace,
     pub kind: MemAccessKind,
@@ -58,10 +58,18 @@ impl PartialEq for MemInstruction {
     }
 }
 
-/// Warp instruction
+/// Instruction
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
+pub enum Instruction {
+    Memory(MemInstruction),
+    Barrier,
+}
+
+/// Thread instruction
 #[derive(Debug, Clone, PartialOrd, Ord)]
 pub enum ThreadInstruction {
     Access(MemInstruction),
+    Barrier,
     Nop,
     Branch(usize),
     TookBranch(usize),

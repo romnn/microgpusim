@@ -1,7 +1,7 @@
 use super::alloc::{self, Allocatable, DevicePtr};
 use super::cfg::{self, UniqueGraph};
 use super::kernel::{Kernel, ThreadBlock, ThreadIndex};
-use super::model::{self, MemInstruction, ThreadInstruction};
+use super::model::{self, Instruction, MemInstruction, ThreadInstruction};
 use futures::StreamExt;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -27,6 +27,11 @@ pub enum TraceError {
     MissingReconvergencePoints,
 }
 
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Options {
+    pub no_data_dependency: bool,
+}
+
 #[async_trait::async_trait]
 pub trait TraceGenerator {
     type Error;
@@ -37,6 +42,7 @@ pub trait TraceGenerator {
         grid: G,
         block_size: B,
         kernel: &mut K,
+        options: &Options,
     ) -> Result<
         (
             trace_model::command::KernelLaunch,
@@ -199,7 +205,7 @@ pub(crate) fn active_threads<'a>(
     thread_graphs: &'a [cfg::ThreadCFG; WARP_SIZE as usize],
     branch_node: &'a cfg::Node,
     took_branch: bool,
-) -> impl Iterator<Item = (usize, &'a [MemInstruction])> + 'a {
+) -> impl Iterator<Item = (usize, &'a [Instruction])> + 'a {
     thread_graphs
         .iter()
         .enumerate()
@@ -386,6 +392,7 @@ impl TraceGenerator for Tracer {
         grid: G,
         block_size: B,
         kernel: &mut K,
+        options: &Options,
     ) -> Result<
         (
             trace_model::command::KernelLaunch,
@@ -611,38 +618,55 @@ impl TraceGenerator for Tracer {
                 let mut branch_trace: Vec<_> = longest_thread_trace
                     .iter()
                     .enumerate()
-                    .map(|(instr_idx, access)| {
-                        let is_load = access.kind == model::MemAccessKind::Load;
-                        let is_store = access.kind == model::MemAccessKind::Store;
-                        let mut instr_opcode = match access.mem_space {
-                            model::MemorySpace::Local if is_load => "LDL.E".to_string(),
-                            model::MemorySpace::Global if is_load => "LDG.E".to_string(),
-                            model::MemorySpace::Shared if is_load => "LDS.E".to_string(),
-                            // MemorySpace::Texture if is_load => "LDG".to_string(),
-                            model::MemorySpace::Constant if is_load => "LDC.E".to_string(),
-                            model::MemorySpace::Local if is_store => "STL.E".to_string(),
-                            model::MemorySpace::Global if is_store => "STG.E".to_string(),
-                            model::MemorySpace::Shared if is_store => "STS.E".to_string(),
-                            // MemorySpace::Texture if is_store => "LDG".to_string(),
-                            model::MemorySpace::Constant if is_store => {
-                                todo!("constant store")
+                    .map(|(instr_idx, instr)| {
+                        match instr {
+                            Instruction::Memory(access) => {
+                                let is_load = access.kind == model::MemAccessKind::Load;
+                                let is_store = access.kind == model::MemAccessKind::Store;
+                                let mut instr_opcode = match access.mem_space {
+                                    model::MemorySpace::Local if is_load => "LDL.E".to_string(),
+                                    model::MemorySpace::Global if is_load => "LDG.E".to_string(),
+                                    model::MemorySpace::Shared if is_load => "LDS.E".to_string(),
+                                    // MemorySpace::Texture if is_load => "LDG".to_string(),
+                                    model::MemorySpace::Constant if is_load => "LDC.E".to_string(),
+                                    model::MemorySpace::Local if is_store => "STL.E".to_string(),
+                                    model::MemorySpace::Global if is_store => "STG.E".to_string(),
+                                    model::MemorySpace::Shared if is_store => "STS.E".to_string(),
+                                    // MemorySpace::Texture if is_store => "LDG".to_string(),
+                                    model::MemorySpace::Constant if is_store => {
+                                        todo!("constant store")
+                                    }
+                                    other => panic!("unknown memory space {other:?}"),
+                                };
+
+                                if access.bypass_l1 {
+                                    instr_opcode += ".CG";
+                                }
+
+                                trace_model::MemAccessTraceEntry {
+                                    instr_opcode: instr_opcode.to_string(),
+                                    instr_is_mem: true,
+                                    instr_is_store: is_store,
+                                    instr_is_load: is_load,
+                                    instr_is_extended: false,
+                                    instr_mem_space: access.mem_space.into(),
+                                    instr_idx: instr_idx as u32,
+                                    ..warp_instruction.clone()
+                                }
                             }
-                            other => panic!("unknown memory space {other:?}"),
-                        };
-
-                        if access.bypass_l1 {
-                            instr_opcode += ".CG";
-                        }
-
-                        trace_model::MemAccessTraceEntry {
-                            instr_opcode: instr_opcode.to_string(),
-                            instr_is_mem: true,
-                            instr_is_store: is_store,
-                            instr_is_load: is_load,
-                            instr_is_extended: true,
-                            instr_mem_space: access.mem_space.into(),
-                            instr_idx: instr_idx as u32,
-                            ..warp_instruction.clone()
+                            Instruction::Barrier => {
+                                trace_model::MemAccessTraceEntry {
+                                    instr_opcode: "BAR".to_string(), // or "BAR",
+                                    // instr_opcode: "MEMBAR".to_string(), // or "BAR",
+                                    instr_is_mem: false,
+                                    instr_is_store: false,
+                                    instr_is_load: false,
+                                    instr_is_extended: false,
+                                    instr_mem_space: trace_model::MemorySpace::None,
+                                    instr_idx: instr_idx as u32,
+                                    ..warp_instruction.clone()
+                                }
+                            }
                         }
                     })
                     .collect();
@@ -650,26 +674,36 @@ impl TraceGenerator for Tracer {
                 // push the instructions for this branch
                 for (instr_idx, instr) in branch_trace.iter_mut().enumerate() {
                     for (tid, instructions) in &active_threads {
-                        if let Some(access) = instructions.get(instr_idx) {
+                        if instructions.get(instr_idx).is_some() {
                             instr.active_mask.set(*tid, true);
-                            instr.addrs[*tid] = access.addr;
-                            // TODO: find a way to add the thread idx here
-                            // instr.thread_indices[*tid] = access.addr;
-                            instr.instr_offset = pc;
+                        }
+                        match instructions.get(instr_idx) {
+                            Some(Instruction::Memory(access)) => {
+                                instr.addrs[*tid] = access.addr;
+                                // TODO: find a way to add the thread idx here
+                                // instr.thread_indices[*tid] = access.addr;
+                                instr.instr_offset = pc;
 
-                            // We assume memory instructions are all data dependant.
-                            //
-                            // This assumption does not always hold, but one could
-                            // argue that it makes sense if compute instructions are
-                            // skipped.
-                            if instr.instr_is_load {
-                                // read address R1 and store to R1.
-                                instr.set_source_registers([1]);
-                                instr.set_dest_registers([1]);
-                            } else if instr.instr_is_store {
-                                // store data R1 to R2 (no destination register)
-                                instr.set_source_registers([1, 2]);
+                                if options.no_data_dependency {
+                                    instr.set_source_registers([]);
+                                    instr.set_dest_registers([]);
+                                } else {
+                                    // We assume memory instructions are all data dependant.
+                                    //
+                                    // This assumption does not always hold, but one could
+                                    // argue that it makes sense if compute instructions are
+                                    // skipped.
+                                    if instr.instr_is_load {
+                                        // read address R1 and store to R1.
+                                        instr.set_source_registers([1]);
+                                        instr.set_dest_registers([1]);
+                                    } else if instr.instr_is_store {
+                                        // store data R1 to R2 (no destination register)
+                                        instr.set_source_registers([1, 2]);
+                                    }
+                                }
                             }
+                            _ => {}
                         }
                     }
                     pc += 1;
@@ -906,8 +940,9 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
+        let options = super::Options::default();
         let (_launch_config, trace) = tracer
-            .trace_kernel(1, 32, &mut SingleForLoopKernel {})
+            .trace_kernel(1, 32, &mut SingleForLoopKernel {}, &options)
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -964,7 +999,10 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut SingleIfKernel {}).await?;
+        let options = super::Options::default();
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, &mut SingleIfKernel {}, &options)
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1086,8 +1124,9 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
+        let options = super::Options::default();
         let (_launch_config, trace) = tracer
-            .trace_kernel(1, 32, &mut TwoLevelNestedForLoops {})
+            .trace_kernel(1, 32, &mut TwoLevelNestedForLoops {}, &options)
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -1160,8 +1199,9 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
+        let options = super::Options::default();
         let (_launch_config, trace) = tracer
-            .trace_kernel(1, 32, &mut TwoLevelNestedMultipleSerialIf {})
+            .trace_kernel(1, 32, &mut TwoLevelNestedMultipleSerialIf {}, &options)
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -1228,7 +1268,10 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut Balanced {}).await?;
+        let options = &super::Options::default();
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, &mut Balanced {}, &options)
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1288,7 +1331,10 @@ mod tests {
         }
 
         let tracer = super::Tracer::new();
-        let (_launch_config, trace) = tracer.trace_kernel(1, 32, &mut Imbalanced {}).await?;
+        let options = &super::Options::default();
+        let (_launch_config, trace) = tracer
+            .trace_kernel(1, 32, &mut Imbalanced {}, &options)
+            .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
         for inst in fmt::simplify_warp_trace(first_warp, true) {
@@ -1420,8 +1466,9 @@ mod tests {
             n,
         };
         let grid_size = (n as f64 / f64::from(block_size)).ceil() as u32;
+        let options = super::Options::default();
         let (_launch_config, trace) = tracer
-            .trace_kernel(grid_size, block_size, &mut kernel)
+            .trace_kernel(grid_size, block_size, &mut kernel, &options)
             .await?;
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
@@ -1435,8 +1482,8 @@ mod tests {
             have: fmt::simplify_warp_trace(first_warp, true).collect::<Vec<_>>(),
             want: [
                 ("LDG.E", Some(0), "11111111111111111111000000000000", 0),
-                ("LDG.E", Some(512), "11111111111111111111000000000000", 1),
-                ("STG.E", Some(1024), "11111111111111111111000000000000", 2),
+                ("LDG.E", Some(256), "11111111111111111111000000000000", 1),
+                ("STG.E", Some(512), "11111111111111111111000000000000", 2),
                 ("EXIT", None, "11111111111111111111111111111111", 3),
             ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
         );

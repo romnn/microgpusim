@@ -2,7 +2,7 @@ use color_eyre::eyre;
 use gpucachesim::exec::{
     alloc,
     model::{Dim, MemorySpace},
-    tracegen::{TraceGenerator, Tracer},
+    tracegen::{self, TraceGenerator, Tracer},
     Kernel,
 };
 use num_traits::{Float, NumCast, Zero};
@@ -117,6 +117,7 @@ pub mod coalesced {
 
                 let tile_idx = (tid.thread_idx.y + i) * TILE_DIM + tid.thread_idx.x;
                 let mat_idx = index_in + i as usize * self.cols;
+                dbg!(mat_idx);
                 tiles[(tid, tile_idx as usize)] = dev_mat[(tid, mat_idx)];
                 i += BLOCK_ROWS;
             }
@@ -239,6 +240,7 @@ where
     Debug, Clone, Copy, Hash, strum::EnumString, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize,
 )]
 #[serde(rename_all = "lowercase")]
+#[strum(ascii_case_insensitive)]
 pub enum Variant {
     Naive,
     Coalesced,
@@ -401,8 +403,11 @@ where
         rows,
         cols,
     };
+    // run once
     let mut result =
         transpose::<T, coalesced::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
+
+    // run more times
     for _ in 0..repetitions {
         let (commands, traces) =
             transpose::<T, coalesced::Transpose<T>>(&tracer, rows, cols, &mut kernel).await?;
@@ -506,7 +511,12 @@ where
     assert!(grid_dim.y > 0);
     assert!(grid_dim.z > 0);
 
-    let trace = tracer.trace_kernel(grid_dim, block_dim, kernel).await?;
+    let options = tracegen::Options {
+        no_data_dependency: true,
+    };
+    let trace = tracer
+        .trace_kernel(grid_dim, block_dim, kernel, &options)
+        .await?;
     Ok((tracer.commands().await, vec![trace]))
 }
 

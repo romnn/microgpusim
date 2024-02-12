@@ -1,4 +1,4 @@
-use gpucachesim::exec::tracegen::{TraceGenerator, Tracer};
+use gpucachesim::exec::tracegen::{self, TraceGenerator, Tracer};
 use gpucachesim::exec::{alloc, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
 use num_traits::{Float, Zero};
 
@@ -123,8 +123,9 @@ where
         dev_result: Mutex::new(dev_result),
         n,
     };
+    let options = tracegen::Options::default();
     let trace = tracer
-        .trace_kernel(grid_size, BLOCK_SIZE, &mut kernel)
+        .trace_kernel(grid_size, BLOCK_SIZE, &mut kernel, &options)
         .await?;
     Ok((tracer.commands().await, vec![trace]))
 }

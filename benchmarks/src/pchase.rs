@@ -2,10 +2,9 @@
 
 use gpucachesim::exec::{
     alloc,
-    tracegen::{TraceGenerator, Tracer},
+    tracegen::{self, TraceGenerator, Tracer},
     Kernel, MemorySpace, ThreadBlock, ThreadIndex,
 };
-// use num_traits::{Float, Zero};
 
 use tokio::sync::Mutex;
 
@@ -119,8 +118,9 @@ pub async fn pchase(
     };
     let grid_size = 1;
     let block_size = 1;
+    let options = tracegen::Options::default();
     let trace = tracer
-        .trace_kernel(grid_size, block_size, &mut kernel)
+        .trace_kernel(grid_size, block_size, &mut kernel, &options)
         .await?;
     traces.push(trace);
     Ok((tracer.commands().await, traces))

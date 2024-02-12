@@ -1,7 +1,7 @@
 use gpucachesim::exec::{
     alloc,
     model::{Dim, MemorySpace},
-    tracegen::{TraceGenerator, Tracer},
+    tracegen::{self, TraceGenerator, Tracer},
     Kernel, ThreadBlock, ThreadIndex,
 };
 use num_traits::{Float, NumCast, Zero};
@@ -175,8 +175,9 @@ where
         n,
         p,
     };
+    let options = tracegen::Options::default();
     let trace = tracer
-        .trace_kernel(grid_dim, block_dim, &mut kernel)
+        .trace_kernel(grid_dim, block_dim, &mut kernel, &options)
         .await?;
     Ok((tracer.commands().await, vec![trace]))
 }

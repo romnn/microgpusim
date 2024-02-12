@@ -9,6 +9,8 @@ pub struct ThreadBlock {
 
 impl ThreadBlock {
     pub async fn synchronize_threads(&self) {
+        let inst = model::ThreadInstruction::Barrier;
+        self.memory.push_thread_instruction(&self.thread_id, inst);
         self.barrier.wait().await;
     }
 

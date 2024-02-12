@@ -1,4 +1,4 @@
-use crate::model::{MemInstruction, ThreadInstruction};
+use crate::model::{Instruction, MemInstruction, ThreadInstruction};
 use petgraph::prelude::*;
 
 #[derive(Debug)]
@@ -6,12 +6,12 @@ pub enum TraceNode {
     Branch {
         branch_id: usize,
         id: usize,
-        instructions: Vec<MemInstruction>,
+        instructions: Vec<Instruction>,
     },
     Reconverge {
         branch_id: usize,
         id: usize,
-        instructions: Vec<MemInstruction>,
+        instructions: Vec<Instruction>,
     },
 }
 
@@ -51,7 +51,7 @@ impl TraceNode {
 
     // #[inline]
     #[must_use]
-    pub fn instructions(&self) -> &[MemInstruction] {
+    pub fn instructions(&self) -> &[Instruction] {
         match self {
             Self::Branch { instructions, .. } | Self::Reconverge { instructions, .. } => {
                 instructions
@@ -240,7 +240,7 @@ pub fn build_control_flow_graph(
         instructions: vec![],
     });
     let mut last_thread_cfg_node_idx = thread_cfg_root_node_idx;
-    let mut current_instructions = Vec::new();
+    let mut current_instructions: Vec<Instruction> = Vec::new();
     let mut branch_taken: HashMap<usize, bool> = HashMap::new();
 
     let mut unique_node_ids: HashMap<usize, usize> = HashMap::new();
@@ -305,7 +305,10 @@ pub fn build_control_flow_graph(
                 *node_id += 1;
             }
             ThreadInstruction::Access(access) => {
-                current_instructions.push(access.clone());
+                current_instructions.push(Instruction::Memory(access.clone()));
+            }
+            ThreadInstruction::Barrier => {
+                current_instructions.push(Instruction::Barrier);
             }
         }
     }
