@@ -965,7 +965,6 @@ mod tests {
     use super::{alloc, DevicePtr, ThreadBlock, ThreadIndex, TraceGenerator};
     use crate::model::MemorySpace;
     use color_eyre::eyre;
-    use num_traits::Float;
     use rand::Rng;
     use std::path::PathBuf;
     use tokio::sync::Mutex;
@@ -1729,28 +1728,22 @@ mod tests {
     async fn test_vectoradd() -> eyre::Result<()> {
         crate::tests::init_test();
 
-        fn reference_vectoradd<T>(a: &[T], b: &[T], result: &mut [T])
-        where
-            T: Float,
-        {
+        fn reference_vectoradd(a: &[f32], b: &[f32], result: &mut [f32]) {
             for (i, sum) in result.iter_mut().enumerate() {
                 *sum = a[i] + b[i];
             }
         }
 
         #[derive(Debug)]
-        struct VecAdd<'a, T> {
-            dev_a: Mutex<DevicePtr<&'a mut Vec<T>>>,
-            dev_b: Mutex<DevicePtr<&'a mut Vec<T>>>,
-            dev_result: Mutex<DevicePtr<&'a mut Vec<T>>>,
+        struct VecAdd<'a> {
+            dev_a: Mutex<DevicePtr<&'a mut Vec<f32>>>,
+            dev_b: Mutex<DevicePtr<&'a mut Vec<f32>>>,
+            dev_result: Mutex<DevicePtr<&'a mut Vec<f32>>>,
             n: usize,
         }
 
         #[async_trait::async_trait]
-        impl<'a, T> super::Kernel for VecAdd<'a, T>
-        where
-            T: Float + std::fmt::Debug + Send + Sync,
-        {
+        impl<'a> super::Kernel for VecAdd<'a> {
             type Error = std::convert::Infallible;
 
             #[crate::instrument_control_flow]
@@ -1820,7 +1813,7 @@ mod tests {
             )
             .await;
 
-        let mut kernel: VecAdd<f32> = VecAdd {
+        let mut kernel = VecAdd {
             dev_a: Mutex::new(dev_a),
             dev_b: Mutex::new(dev_b),
             dev_result: Mutex::new(dev_result),

@@ -1,7 +1,6 @@
 use gpucachesim::exec::tracegen::{self, TraceGenerator, Tracer};
 use gpucachesim::exec::{alloc, Kernel, MemorySpace, ThreadBlock, ThreadIndex};
 use num_traits::{Float, Zero};
-
 use tokio::sync::Mutex;
 
 struct VecAdd<'a, T> {
@@ -133,7 +132,7 @@ where
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use gpucachesim::exec::tracegen::fmt::{self, SimplifiedTraceInstruction};
+    use gpucachesim::exec::tracegen::fmt::{self, Addresses, SimplifiedTraceInstruction};
     use ndarray::Array1;
     use utils::diff;
 
@@ -182,20 +181,49 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = fmt::simplify_warp_trace(&first_warp, true).collect::<Vec<_>>();
-        for inst in &simplified_trace {
+        let have: Vec<_> = fmt::simplify_warp_trace(&first_warp, true).collect();
+        for inst in &have {
             println!("{}", inst);
         }
-        diff::assert_eq!(
-            have: simplified_trace,
-            want: [
-                ("LDG.E", Some(0), "11111111111111111111111111111111", 0),
-                ("LDG.E", Some(512), "11111111111111111111111111111111", 1),
-                ("STG.E", Some(1024), "11111111111111111111111111111111", 2),
-                ("EXIT", None, "11111111111111111111111111111111", 3),
-            ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
-        );
+        let want: Vec<_> = [
+            (
+                "LDG.E",
+                Addresses::BaseStride { base: 0, stride: 4 },
+                "11111111111111111111111111111111",
+                0,
+            ),
+            (
+                "LDG.E",
+                Addresses::BaseStride {
+                    base: 512,
+                    stride: 4,
+                },
+                "11111111111111111111111111111111",
+                1,
+            ),
+            (
+                "STG.E",
+                Addresses::BaseStride {
+                    base: 1024,
+                    stride: 4,
+                },
+                "11111111111111111111111111111111",
+                2,
+            ),
+            (
+                "EXIT",
+                Addresses::None,
+                "11111111111111111111111111111111",
+                3,
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(SimplifiedTraceInstruction::from)
+        .collect();
 
+        dbg!(&have);
+        diff::assert_eq!(have: have, want: want);
         Ok(())
     }
 }

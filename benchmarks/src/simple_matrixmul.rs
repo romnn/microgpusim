@@ -239,17 +239,10 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = fmt::simplify_warp_trace(&first_warp, true).collect::<Vec<_>>();
+        let simplified_trace: Vec<_> = fmt::simplify_warp_trace(&first_warp, true).collect();
         for inst in &simplified_trace {
             println!("{}", inst);
         }
-
-        // diff::assert_eq!(
-        //     have: simplified_trace,
-        //     want: [
-        //         ("LDG", 0, "11111111111111111111000000000000", 0),
-        //     ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
-        // );
         Ok(())
     }
 }

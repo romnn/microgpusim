@@ -29,11 +29,7 @@ pub struct FineGrainPChase<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> Kernel for FineGrainPChase<'a>
-// impl<'a, T> Kernel for FineGrainPChase<'a, T>
-// where
-//     T: Float + Send + Sync,
-{
+impl<'a> Kernel for FineGrainPChase<'a> {
     type Error = std::convert::Infallible;
 
     #[gpucachesim::exec::instrument_control_flow]
@@ -151,8 +147,6 @@ mod tests {
         let (_commands, kernel_traces) = super::pchase(
             super::Memory::L1Data,
             size_bytes,
-            // size_bytes,
-            // 1,
             stride_bytes,
             warmup_iterations,
             iter_size,
@@ -163,7 +157,7 @@ mod tests {
         let warp_traces = trace.clone().to_warp_traces();
         let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
 
-        let simplified_trace = fmt::simplify_warp_trace(&first_warp, true).collect::<Vec<_>>();
+        let simplified_trace: Vec<_> = fmt::simplify_warp_trace(&first_warp, true).collect();
         for inst in &simplified_trace {
             println!("{}", inst);
         }
