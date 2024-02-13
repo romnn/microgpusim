@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::{atomic, Arc};
 use std::time::Instant;
 use tokio::sync::Mutex;
+use trace_model::ActiveMask;
 use trace_model::WARP_SIZE;
 
 #[derive(thiserror::Error, Debug)]
@@ -402,6 +403,7 @@ impl Tracer {
             }
 
             let mut warp_cfg = cfg::WarpCFG::new();
+            let mut warp_active_mask = ActiveMask::ZERO;
             let warp_cfg_root_node_idx = warp_cfg.add_unique_node(cfg::WarpNode::Branch {
                 id: 0,
                 branch_id: 0,
@@ -409,9 +411,9 @@ impl Tracer {
 
             let start = Instant::now();
             let mut thread_graphs = [(); WARP_SIZE as usize].map(|_| cfg::ThreadCFG::default());
-            for (ti, thread_instructions) in per_thread_instructions.iter().enumerate() {
+            for (tid, thread_instructions) in per_thread_instructions.iter().enumerate() {
                 let (thread_cfg, (thread_cfg_root_node_idx, thread_cfg_sink_node_idx)) =
-                    cfg::build_control_flow_graph(thread_instructions, &mut warp_cfg);
+                    cfg::build_control_flow_graph(thread_instructions, &mut warp_cfg, &mut warp_active_mask, tid);
 
                 #[cfg(debug_assertions)]
                 {
@@ -427,12 +429,12 @@ impl Tracer {
                     debug_assert_eq!(paths.len(), 1);
                     log::trace!(
                         "thread[{:2}] = {:?}",
-                        ti,
+                        tid,
                         cfg::format_control_flow_path(&thread_cfg, &paths[0]).join(" ")
                     );
                 }
 
-                thread_graphs[ti] = thread_cfg;
+                thread_graphs[tid] = thread_cfg;
             }
 
             if log::log_enabled!(log::Level::Debug) {
@@ -596,7 +598,7 @@ impl TraceGenerator for Tracer {
                 num_dest_regs: 0,
                 src_regs: [0; 5],
                 num_src_regs: 0,
-                active_mask: trace_model::ActiveMask::ZERO,
+                active_mask: ActiveMask::ZERO,
                 addrs: [0; 32],
                 thread_indices: [(0, 0, 0); 32],
             };
@@ -744,7 +746,7 @@ impl TraceGenerator for Tracer {
 
                 trace.extend(branch_trace.into_iter());
 
-                let mut active_mask = trace_model::ActiveMask::ZERO;
+                let mut active_mask = ActiveMask::ZERO;
                 for (tid, _) in &active_threads {
                     active_mask.set(*tid, true);
                 }
@@ -755,7 +757,7 @@ impl TraceGenerator for Tracer {
                 instr_opcode: "EXIT".to_string(),
                 instr_idx: trace.len() as u32,
                 instr_offset: pc,
-                active_mask: trace_model::ActiveMask::all_ones(),
+                active_mask: ActiveMask::all_ones(),
                 ..warp_instruction.clone()
             });
         }
@@ -1412,23 +1414,30 @@ mod tests {
         cfg_iter: impl Iterator<Item = super::WarpTrace>,
         name: &str,
     ) -> Result<(), std::io::Error> {
-        use crate::cfg::render::Render;
+        #[cfg(feature = "render")]
+        {
+            use crate::cfg::render::Render;
+            let graphs_dir = testing_dir().join(name);
+            std::fs::create_dir_all(&graphs_dir).ok();
+            for (warp_id, warp_cfg, thread_cfgs) in cfg_iter {
+                // dbg!(&warp_id, &warp_cfg, &thread_cfgs);
+                let super::WarpId {
+                    block_id,
+                    warp_id_in_block,
+                } = warp_id;
+                let name = format!(
+                    "block_{:_>3}_{:_>3}_{:_>3}_warp_{:_>2}",
+                    block_id.x, block_id.y, block_id.z, warp_id_in_block
+                );
+                let graph_path = graphs_dir.join(format!("{}.svg", name));
+                dbg!(&graph_path);
+                warp_cfg.render_to(&graph_path)?;
 
-        let graphs_dir = testing_dir().join(name);
-        std::fs::create_dir_all(&graphs_dir).ok();
-        for (warp_id, warp_cfg, _thread_cfgs) in cfg_iter {
-            // dbg!(&warp_id, &warp_cfg, &thread_cfgs);
-            let super::WarpId {
-                block_id,
-                warp_id_in_block,
-            } = warp_id;
-            let name = format!(
-                "block_{:_>3}_{:_>3}_{:_>3}_warp_{:_>2}",
-                block_id.x, block_id.y, block_id.z, warp_id_in_block
-            );
-            let graph_path = graphs_dir.join(format!("{}.svg", name));
-            dbg!(&graph_path);
-            warp_cfg.render_to(&graph_path)?;
+                for (tid, thread_cfg) in thread_cfgs.iter().enumerate() {
+                    let graph_path = graphs_dir.join(format!("{}_thread_{:_>2}.svg", name, tid));
+                    thread_cfg.render_to(&graph_path)?;
+                }
+            }
         }
         Ok(())
     }

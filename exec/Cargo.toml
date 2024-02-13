@@ -5,7 +5,7 @@ edition = "2021"
 
 [features]
 default = ["render"]
-render = ["dep:layout-rs"]
+render = ["dep:layout-rs", "dep:colorsys", "dep:rand", "dep:rand_chacha"]
 
 [dependencies]
 color-eyre = "0"
@@ -32,6 +32,9 @@ exec-derive = { path = "./derive" }
 
 # optional: render control flow graphs
 layout-rs = { version = "0.1", optional = true }
+colorsys = { version = "0", optional = true }
+rand = { version = "0", optional = true }
+rand_chacha = { version = "0", optional = true }
 
 # todo: remove in the future
 log = "0"

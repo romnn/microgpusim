@@ -1,5 +1,9 @@
 use crate::model::{Instruction, ThreadInstruction};
-use petgraph::prelude::*;
+use petgraph::{
+    data::{DataMap, DataMapMut},
+    prelude::*,
+};
+use trace_model::ActiveMask;
 
 #[derive(Debug)]
 pub enum ThreadNode {
@@ -62,8 +66,15 @@ impl ThreadNode {
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarpNode {
-    Branch { id: usize, branch_id: usize },
-    Reconverge { id: usize, branch_id: usize },
+    Branch {
+        id: usize,
+        branch_id: usize,
+        // active_mask: Active,
+    },
+    Reconverge {
+        id: usize,
+        branch_id: usize,
+    },
 }
 
 impl std::fmt::Display for WarpNode {
@@ -104,23 +115,52 @@ impl PartialEq<ThreadNode> for WarpNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct Edge(bool);
+#[derive(Debug, Clone, Copy)]
+pub struct Edge {
+    pub took_branch: bool,
+    pub active_mask: ActiveMask,
+}
+
+impl Eq for Edge {}
+
+impl Ord for Edge {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.took_branch.cmp(&other.took_branch)
+    }
+}
+
+impl PartialOrd for Edge {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(Ord::cmp(self, other))
+    }
+}
+
+impl PartialEq<Edge> for Edge {
+    fn eq(&self, other: &Edge) -> bool {
+        self.took_branch.eq(&other.took_branch)
+    }
+}
 
 impl Edge {
+    pub fn new(took_branch: bool) -> Self {
+        Self {
+            took_branch,
+            active_mask: ActiveMask::ZERO,
+        }
+    }
+
     pub fn took_branch(&self) -> bool {
-        self.0
+        self.took_branch
     }
 
     pub fn taken(&self) -> bool {
-        self.0
+        self.took_branch
     }
 }
 
 impl std::fmt::Display for Edge {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+        self.took_branch.fmt(f)
     }
 }
 
@@ -245,6 +285,8 @@ where
 pub fn build_control_flow_graph(
     thread_instructions: &[ThreadInstruction],
     warp_cfg: &mut WarpCFG,
+    active_mask: &mut ActiveMask,
+    tid: usize,
 ) -> (ThreadCFG, (NodeIndex, NodeIndex)) {
     use std::collections::HashMap;
     let mut thread_cfg = ThreadCFG::new();
@@ -278,16 +320,21 @@ pub fn build_control_flow_graph(
                 let took_branch = branch_taken.get(&last_branch_id).copied().unwrap_or(false);
 
                 {
-                    let super_node_idx = warp_cfg.add_unique_node(WarpNode::Branch {
+                    let warp_node_idx = warp_cfg.add_unique_node(WarpNode::Branch {
                         id: node_id,
                         branch_id: *branch_id,
                     });
-                    warp_cfg.add_unique_edge(
+                    let mut edge_idx = warp_cfg.add_unique_edge(
                         last_warp_cfg_node_idx,
-                        super_node_idx,
-                        Edge(took_branch),
+                        warp_node_idx,
+                        Edge::new(took_branch),
                     );
-                    last_warp_cfg_node_idx = super_node_idx;
+                    warp_cfg
+                        .edge_weight_mut(edge_idx)
+                        .unwrap()
+                        .active_mask
+                        .set(tid, true);
+                    last_warp_cfg_node_idx = warp_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
@@ -296,7 +343,7 @@ pub fn build_control_flow_graph(
                         branch_id: *branch_id,
                         instructions,
                     });
-                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, Edge(took_branch));
+                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, Edge::new(took_branch));
                     last_thread_cfg_node_idx = node_idx;
                 }
             }
@@ -305,16 +352,22 @@ pub fn build_control_flow_graph(
                 let reconverge_took_branch = branch_taken.get(&branch_id).copied().unwrap_or(false);
 
                 {
-                    let super_node_idx = warp_cfg.add_unique_node(WarpNode::Reconverge {
+                    let warp_node_idx = warp_cfg.add_unique_node(WarpNode::Reconverge {
                         id: *node_id,
                         branch_id: *branch_id,
                     });
-                    warp_cfg.add_unique_edge(
+                    let edge_idx = warp_cfg.add_unique_edge(
                         last_warp_cfg_node_idx,
-                        super_node_idx,
-                        Edge(reconverge_took_branch),
+                        warp_node_idx,
+                        Edge::new(reconverge_took_branch),
                     );
-                    last_warp_cfg_node_idx = super_node_idx;
+                    warp_cfg
+                        .edge_weight_mut(edge_idx)
+                        .unwrap()
+                        .active_mask
+                        .set(tid, true);
+
+                    last_warp_cfg_node_idx = warp_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
@@ -326,7 +379,7 @@ pub fn build_control_flow_graph(
                     thread_cfg.add_edge(
                         last_thread_cfg_node_idx,
                         node_idx,
-                        Edge(reconverge_took_branch),
+                        Edge::new(reconverge_took_branch),
                     );
                     last_thread_cfg_node_idx = node_idx;
                 }
@@ -347,7 +400,14 @@ pub fn build_control_flow_graph(
         id: 0, // there cannot be more than one sink node
         branch_id: 0,
     });
-    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, warp_cfg_sink_node_idx, Edge(true));
+    warp_cfg.add_unique_edge(
+        last_warp_cfg_node_idx,
+        warp_cfg_sink_node_idx,
+        Edge {
+            took_branch: true,
+            active_mask: ActiveMask::all_ones(),
+        },
+    );
 
     let thread_cfg_sink_node_idx = thread_cfg.add_node(ThreadNode::Reconverge {
         id: 0, // there cannot be more than one sink node
@@ -357,7 +417,7 @@ pub fn build_control_flow_graph(
     thread_cfg.add_edge(
         last_thread_cfg_node_idx,
         thread_cfg_sink_node_idx,
-        Edge(true),
+        Edge::new(true),
     );
     (
         thread_cfg,
@@ -558,23 +618,58 @@ pub mod visit {
     }
 }
 
+#[cfg(feature = "render")]
 pub mod render {
+    use colorsys::ColorAlpha;
+    use layout::core::color::Color;
     use std::path::Path;
+    use trace_model::{ToBitString, WARP_SIZE};
 
     pub trait Label {
         fn label(&self) -> String;
+        fn fill_color(&self) -> Option<Color> {
+            // Color::new(0x0000_00FF)
+            None
+        }
+    }
+
+    /// Get color for branch ID.
+    pub fn color_for_branch_id(branch_id: usize) -> Color {
+        use rand::prelude::*;
+        use rand_chacha::ChaCha8Rng;
+        let mut rng = ChaCha8Rng::seed_from_u64(branch_id as u64);
+
+        // let num_hues = 12;
+        // let hue = (self.branch_id() as f64 / num_hues as f64) % 1.0;
+        let hue: f64 = rng.gen_range(0.0..1.0);
+
+        let saturation = 0.85; // high saturation
+        let luminance = 0.75; // high luminance for black font
+        let hsl = colorsys::Hsl::new(hue * 365.0, saturation * 100.0, luminance * 100.0, None);
+        let rgb: colorsys::Rgb = hsl.into();
+
+        let mut hex = ((rgb.red() * 1.0) as u32) << 6 * 4;
+        hex += ((rgb.green() * 1.0) as u32) << 4 * 4;
+        hex += ((rgb.blue() * 1.0) as u32) << 2 * 4;
+        hex += (rgb.alpha() * 255.0) as u32;
+
+        Color::new(hex)
     }
 
     impl Label for crate::cfg::WarpNode {
         fn label(&self) -> String {
             match self {
                 crate::cfg::WarpNode::Branch { id, branch_id } => {
-                    format!("BRANCH {branch_id}\n#{id}")
+                    format!("BRANCH {branch_id}\n #{id}")
                 }
                 crate::cfg::WarpNode::Reconverge { id, branch_id } => {
-                    format!("RECONVERGE {branch_id}\n#{id}")
+                    format!("RECONVERGE {branch_id}\n #{id}")
                 }
             }
+        }
+
+        fn fill_color(&self) -> Option<Color> {
+            Some(color_for_branch_id(self.branch_id()))
         }
     }
 
@@ -586,7 +681,7 @@ pub mod render {
                     branch_id,
                     instructions,
                 } => {
-                    format!("BRANCH {branch_id}\n#{id}\n{} instr", instructions.len())
+                    format!("BRANCH {branch_id}\n# {id}\n{} instr", instructions.len())
                 }
                 crate::cfg::ThreadNode::Reconverge {
                     id,
@@ -594,17 +689,25 @@ pub mod render {
                     instructions,
                 } => {
                     format!(
-                        "RECONVERGE {branch_id}\n#{id}\n{} instr",
+                        "RECONVERGE {branch_id}\n# {id}\n{} instr",
                         instructions.len()
                     )
                 }
             }
         }
+
+        fn fill_color(&self) -> Option<Color> {
+            Some(color_for_branch_id(self.branch_id()))
+        }
     }
 
     impl Label for crate::cfg::Edge {
         fn label(&self) -> String {
-            format!("took branch = {}", self.0)
+            format!(
+                "took branch = {}\n{}",
+                self.took_branch,
+                self.active_mask[..WARP_SIZE].to_bit_string()
+            )
         }
     }
 
@@ -626,7 +729,7 @@ pub mod render {
         fn render_to(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error> {
             use layout::adt::dag::NodeHandle;
             use layout::backends::svg::SVGWriter;
-            use layout::core::{self, base::Orientation, color::Color, style};
+            use layout::core::{base::Orientation, geometry, style};
             use layout::std_shapes::shapes;
             use layout::topo::layout::VisualGraph;
             use petgraph::graph::NodeIndex;
@@ -637,16 +740,19 @@ pub mod render {
             where
                 N: Label,
             {
+                let size = geometry::Point { x: 150.0, y: 70.0 };
+                // 10 percent of smaller dimension rounding
+                let rounding = 0.1 * size.x.min(size.y) as f64;
                 let node_style = style::StyleAttr {
                     line_color: Color::new(0x0000_00FF),
                     line_width: 2,
-                    fill_color: Some(Color::new(0xB4B3_B2FF)),
-                    rounded: 0,
+                    fill_color: node.fill_color(),
+                    rounded: rounding.floor() as usize,
                     font_size: 15,
                 };
-                let size = core::geometry::Point { x: 100.0, y: 100.0 };
                 shapes::Element::create(
-                    shapes::ShapeKind::Circle(node.label()),
+                    shapes::ShapeKind::Box(node.label()),
+                    // shapes::ShapeKind::Circle(node.label()),
                     node_style,
                     Orientation::TopToBottom,
                     size,
@@ -666,20 +772,9 @@ pub mod render {
 
             // add edges
             for edge_idx in self.edge_indices() {
-                // let Some((src_node, dest_node)) = self.edge_endpoints(edge_idx) else {
                 let (src_node_idx, dest_node_idx) = self.edge_endpoints(edge_idx).unwrap();
-                // let src_handle = *handles
-                //     .entry(src_node)
-                //     .or_insert_with(|| graph.add_node(node(self.node_weight(src_node).unwrap())));
-                //
-                // let dest_handle = *handles
-                //     .entry(src_node)
-                //     .or_insert_with(|| graph.add_node(node(self.node_weight(dest_node).unwrap())));
-
-                // let src_handle = handles[&src_node_idx];
-                // let dest_handle = handles[&dest_node_idx];
-
                 let edge = self.edge_weight(edge_idx).unwrap();
+
                 let arrow = shapes::Arrow {
                     start: shapes::LineEndKind::None,
                     end: shapes::LineEndKind::Arrow,
@@ -695,14 +790,14 @@ pub mod render {
                     src_port: None,
                     dst_port: None,
                 };
-                eprintln!(
-                    "edge {} from {:?} to {:?} => {:?} to {:?}",
-                    edge.label(),
-                    src_node_idx,
-                    dest_node_idx,
-                    handles[&src_node_idx],
-                    handles[&dest_node_idx]
-                );
+                // eprintln!(
+                //     "edge {} from {:?} to {:?} => {:?} to {:?}",
+                //     edge.label(),
+                //     src_node_idx,
+                //     dest_node_idx,
+                //     handles[&src_node_idx],
+                //     handles[&dest_node_idx]
+                // );
                 graph.add_edge(arrow, handles[&src_node_idx], handles[&dest_node_idx]);
             }
 
