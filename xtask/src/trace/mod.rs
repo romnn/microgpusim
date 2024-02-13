@@ -182,13 +182,13 @@ impl std::fmt::Debug for InstructionComparator {
         let valid_addresses = self.inner.valid_addresses().collect::<Vec<_>>();
 
         enum AddressFormat {
-            Original(Vec<u64>),
+            PerThread(Vec<u64>),
             BaseStride {
                 base: i128,
                 stride: i128,
                 count: usize,
             },
-            SingleAddress {
+            Uniform {
                 addr: u64,
                 count: usize,
             },
@@ -207,16 +207,16 @@ impl std::fmt::Debug for InstructionComparator {
                         count: valid_addresses.len(),
                     }
                 } else {
-                    AddressFormat::SingleAddress {
+                    AddressFormat::Uniform {
                         addr: valid_addresses[0],
                         count: valid_addresses.len(),
                     }
                 }
             } else {
-                AddressFormat::Original(valid_addresses)
+                AddressFormat::PerThread(valid_addresses)
             }
         } else {
-            AddressFormat::Original(valid_addresses)
+            AddressFormat::PerThread(valid_addresses)
         };
 
         struct Addresses<'a> {
@@ -227,7 +227,7 @@ impl std::fmt::Debug for InstructionComparator {
         impl<'a> std::fmt::Display for Addresses<'a> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match &self.format {
-                    AddressFormat::Original(addresses) => {
+                    AddressFormat::PerThread(addresses) => {
                         write!(
                             f,
                             "{:>2}x [{}]",
@@ -238,7 +238,7 @@ impl std::fmt::Debug for InstructionComparator {
                                 .join(", ")
                         )
                     }
-                    AddressFormat::SingleAddress { addr, count } => {
+                    AddressFormat::Uniform { addr, count } => {
                         write!(
                             f,
                             "{:>2}x {:>7}",

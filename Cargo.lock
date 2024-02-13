@@ -1138,6 +1138,7 @@ dependencies = [
 name = "exec"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "async-trait",
  "bitvec",
  "color-eyre",
@@ -1149,6 +1150,7 @@ dependencies = [
  "itertools 0.12.1",
  "layout-rs",
  "log",
+ "ndarray",
  "num-traits",
  "petgraph",
  "rand",

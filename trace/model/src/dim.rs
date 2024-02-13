@@ -193,54 +193,98 @@ impl Point {
     }
 }
 
-/// Iterates over 3-dimensional coordinates.
-#[derive(Debug, Clone)]
-pub struct Iter {
-    bounds: Dim,
-    current: u64,
-}
+pub mod iter {
+    use super::{Dim, Point};
 
-impl Iter {
-    #[must_use]
-    // #[inline]
-    pub fn size(&self) -> u64 {
-        self.bounds.size()
+    /// Iterates over 3-dimensional coordinates in lexical order.
+    #[derive(Debug, Clone)]
+    #[deprecated = "lexical ordering of grid and block dimensions is not accurate"]
+    pub struct LexicalOrderIter {
+        bounds: Dim,
+        current: u64,
     }
-}
 
-impl Iterator for Iter {
-    type Item = Point;
-
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_lossless)]
-    fn next(&mut self) -> Option<Self::Item> {
-        let Self { current, bounds } = self;
-        if *current >= bounds.size() {
-            return None;
+    impl LexicalOrderIter {
+        pub fn new(bounds: Dim) -> Self {
+            Self { bounds, current: 0 }
         }
-        let x = *current / (bounds.y * bounds.z) as u64;
-        let yz = *current % (bounds.y * bounds.z) as u64;
-        let y = yz / bounds.z as u64;
-        let z = yz % bounds.z as u64;
-        self.current += 1;
-        Some(Point {
-            x: x as u32,
-            y: y as u32,
-            z: z as u32,
-            bounds: bounds.clone(),
-        })
+
+        pub fn size(&self) -> u64 {
+            self.bounds.size()
+        }
+    }
+
+    impl Iterator for LexicalOrderIter {
+        type Item = Point;
+
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_lossless)]
+        fn next(&mut self) -> Option<Self::Item> {
+            let Self { current, bounds } = self;
+            if *current >= bounds.size() {
+                return None;
+            }
+            let x = *current / (bounds.y * bounds.z) as u64;
+            let yz = *current % (bounds.y * bounds.z) as u64;
+            let y = yz / bounds.z as u64;
+            let z = yz % bounds.z as u64;
+            self.current += 1;
+            Some(Point {
+                x: x as u32,
+                y: y as u32,
+                z: z as u32,
+                bounds: bounds.clone(),
+            })
+        }
+    }
+
+    /// Iterates over 3-dimensional coordinates in reverse lexical order.
+    #[derive(Debug, Clone)]
+    pub struct ReverseLexicalOrderIter {
+        bounds: Dim,
+        current: u64,
+    }
+
+    impl ReverseLexicalOrderIter {
+        pub fn new(bounds: Dim) -> Self {
+            Self { bounds, current: 0 }
+        }
+
+        pub fn size(&self) -> u64 {
+            self.bounds.size()
+        }
+    }
+
+    impl Iterator for ReverseLexicalOrderIter {
+        type Item = Point;
+
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_lossless)]
+        fn next(&mut self) -> Option<Self::Item> {
+            let Self { current, bounds } = self;
+            if *current >= bounds.size() {
+                return None;
+            }
+            let x = *current % bounds.x as u64;
+            let y = (*current / bounds.x as u64) % bounds.y as u64;
+            let z = *current / (bounds.x as u64 * bounds.y as u64);
+            self.current += 1;
+            Some(Point {
+                x: x as u32,
+                y: y as u32,
+                z: z as u32,
+                bounds: bounds.clone(),
+            })
+        }
     }
 }
 
 impl IntoIterator for Dim {
     type Item = Point;
-    type IntoIter = Iter;
+    type IntoIter = iter::ReverseLexicalOrderIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter {
-            bounds: self,
-            current: 0,
-        }
+        iter::ReverseLexicalOrderIter::new(self)
     }
 }
 
@@ -257,40 +301,60 @@ mod tests {
     }
 
     #[test]
-    fn test_block_sorting() {
-        let grid = Dim { x: 3, y: 4, z: 2 };
-        let mut blocks: Vec<_> = grid.into_iter().collect();
-        blocks.sort_by_key(super::Point::accelsim_id);
-        let blocks: Vec<_> = blocks.iter().map(|p| p.to_dim().into_tuple()).collect();
-        dbg!(&blocks);
-        diff::assert_eq!(
-            have: blocks,
-            want: vec![
-                (0, 0, 0),
-                (1, 0, 0),
-                (2, 0, 0),
-                (0, 1, 0),
-                (1, 1, 0),
-                (2, 1, 0),
-                (0, 2, 0),
-                (1, 2, 0),
-                (2, 2, 0),
-                (0, 3, 0),
-                (1, 3, 0),
-                (2, 3, 0),
-                (0, 0, 1),
-                (1, 0, 1),
-                (2, 0, 1),
-                (0, 1, 1),
-                (1, 1, 1),
-                (2, 1, 1),
-                (0, 2, 1),
-                (1, 2, 1),
-                (2, 2, 1),
-                (0, 3, 1),
-                (1, 3, 1),
-                (2, 3, 1),
-            ]
-        );
+    fn test_iteration_order() {
+        use itertools::Itertools;
+        let block_size = Dim { x: 3, y: 4, z: 2 };
+        let ours: Vec<_> = block_size
+            .clone()
+            .into_iter()
+            .map(|p| p.to_dim().into_tuple())
+            .collect();
+
+        let accelsim: Vec<_> = block_size
+            .clone()
+            .into_iter()
+            .sorted_by_key(super::Point::accelsim_id)
+            .map(|p| p.to_dim().into_tuple())
+            .collect();
+
+        let reversed_dims: Vec<_> = block_size
+            .clone()
+            .into_iter()
+            .sorted_unstable_by_key(|dim| (dim.z, dim.y, dim.x))
+            .map(|p| p.to_dim().into_tuple())
+            .collect();
+
+        dbg!(&reversed_dims);
+        dbg!(&accelsim);
+        dbg!(&ours);
+        let want = vec![
+            (0, 0, 0),
+            (1, 0, 0),
+            (2, 0, 0),
+            (0, 1, 0),
+            (1, 1, 0),
+            (2, 1, 0),
+            (0, 2, 0),
+            (1, 2, 0),
+            (2, 2, 0),
+            (0, 3, 0),
+            (1, 3, 0),
+            (2, 3, 0),
+            (0, 0, 1),
+            (1, 0, 1),
+            (2, 0, 1),
+            (0, 1, 1),
+            (1, 1, 1),
+            (2, 1, 1),
+            (0, 2, 1),
+            (1, 2, 1),
+            (2, 2, 1),
+            (0, 3, 1),
+            (1, 3, 1),
+            (2, 3, 1),
+        ];
+        diff::assert_eq!(ours: ours, want: want);
+        diff::assert_eq!(accelsim: accelsim, want: want);
+        diff::assert_eq!(reversed_dims: reversed_dims, want: want);
     }
 }
