@@ -2,7 +2,7 @@ use crate::model::{Instruction, ThreadInstruction};
 use petgraph::prelude::*;
 
 #[derive(Debug)]
-pub enum TraceNode {
+pub enum ThreadNode {
     Branch {
         branch_id: usize,
         id: usize,
@@ -15,7 +15,7 @@ pub enum TraceNode {
     },
 }
 
-impl std::fmt::Display for TraceNode {
+impl std::fmt::Display for ThreadNode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let branch_id = self.branch_id();
         let id = self.id();
@@ -32,7 +32,7 @@ impl std::fmt::Display for TraceNode {
     }
 }
 
-impl TraceNode {
+impl ThreadNode {
     // #[inline]
     #[must_use]
     pub fn branch_id(&self) -> usize {
@@ -90,13 +90,13 @@ impl WarpNode {
 }
 
 #[allow(clippy::match_same_arms)]
-impl PartialEq<TraceNode> for WarpNode {
-    fn eq(&self, other: &TraceNode) -> bool {
+impl PartialEq<ThreadNode> for WarpNode {
+    fn eq(&self, other: &ThreadNode) -> bool {
         match (self, other) {
-            (Self::Branch { .. }, TraceNode::Branch { .. }) => {
+            (Self::Branch { .. }, ThreadNode::Branch { .. }) => {
                 self.id() == other.id() && self.branch_id() == other.branch_id()
             }
-            (Self::Reconverge { .. }, TraceNode::Reconverge { .. }) => {
+            (Self::Reconverge { .. }, ThreadNode::Reconverge { .. }) => {
                 self.id() == other.id() && self.branch_id() == other.branch_id()
             }
             _ => false,
@@ -104,8 +104,28 @@ impl PartialEq<TraceNode> for WarpNode {
     }
 }
 
-pub type WarpCFG = petgraph::graph::DiGraph<WarpNode, bool>;
-pub type ThreadCFG = petgraph::graph::DiGraph<TraceNode, bool>;
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+pub struct Edge(bool);
+
+impl Edge {
+    pub fn took_branch(&self) -> bool {
+        self.0
+    }
+
+    pub fn taken(&self) -> bool {
+        self.0
+    }
+}
+
+impl std::fmt::Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+pub type WarpCFG = petgraph::graph::DiGraph<WarpNode, Edge>;
+pub type ThreadCFG = petgraph::graph::DiGraph<ThreadNode, Edge>;
 
 pub trait UniqueGraph<N, E, Ix> {
     fn add_unique_edge(&mut self, a: NodeIndex<Ix>, b: NodeIndex<Ix>, weight: E) -> EdgeIndex<Ix>
@@ -235,7 +255,7 @@ pub fn build_control_flow_graph(
     });
     let mut last_warp_cfg_node_idx = warp_cfg_root_node_idx;
 
-    let thread_cfg_root_node_idx = thread_cfg.add_node(TraceNode::Branch {
+    let thread_cfg_root_node_idx = thread_cfg.add_node(ThreadNode::Branch {
         id: 0, // there cannot be more than one source node
         branch_id: 0,
         instructions: vec![],
@@ -262,17 +282,21 @@ pub fn build_control_flow_graph(
                         id: node_id,
                         branch_id: *branch_id,
                     });
-                    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, super_node_idx, took_branch);
+                    warp_cfg.add_unique_edge(
+                        last_warp_cfg_node_idx,
+                        super_node_idx,
+                        Edge(took_branch),
+                    );
                     last_warp_cfg_node_idx = super_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
-                    let node_idx = thread_cfg.add_node(TraceNode::Branch {
+                    let node_idx = thread_cfg.add_node(ThreadNode::Branch {
                         id: node_id,
                         branch_id: *branch_id,
                         instructions,
                     });
-                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, took_branch);
+                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, Edge(took_branch));
                     last_thread_cfg_node_idx = node_idx;
                 }
             }
@@ -288,18 +312,22 @@ pub fn build_control_flow_graph(
                     warp_cfg.add_unique_edge(
                         last_warp_cfg_node_idx,
                         super_node_idx,
-                        reconverge_took_branch,
+                        Edge(reconverge_took_branch),
                     );
                     last_warp_cfg_node_idx = super_node_idx;
                 }
                 {
                     let instructions = std::mem::take(&mut current_instructions);
-                    let node_idx = thread_cfg.add_node(TraceNode::Reconverge {
+                    let node_idx = thread_cfg.add_node(ThreadNode::Reconverge {
                         id: *node_id,
                         branch_id: *branch_id,
                         instructions,
                     });
-                    thread_cfg.add_edge(last_thread_cfg_node_idx, node_idx, reconverge_took_branch);
+                    thread_cfg.add_edge(
+                        last_thread_cfg_node_idx,
+                        node_idx,
+                        Edge(reconverge_took_branch),
+                    );
                     last_thread_cfg_node_idx = node_idx;
                 }
 
@@ -319,14 +347,18 @@ pub fn build_control_flow_graph(
         id: 0, // there cannot be more than one sink node
         branch_id: 0,
     });
-    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, warp_cfg_sink_node_idx, true);
+    warp_cfg.add_unique_edge(last_warp_cfg_node_idx, warp_cfg_sink_node_idx, Edge(true));
 
-    let thread_cfg_sink_node_idx = thread_cfg.add_node(TraceNode::Reconverge {
+    let thread_cfg_sink_node_idx = thread_cfg.add_node(ThreadNode::Reconverge {
         id: 0, // there cannot be more than one sink node
         branch_id: 0,
         instructions: std::mem::take(&mut current_instructions),
     });
-    thread_cfg.add_edge(last_thread_cfg_node_idx, thread_cfg_sink_node_idx, true);
+    thread_cfg.add_edge(
+        last_thread_cfg_node_idx,
+        thread_cfg_sink_node_idx,
+        Edge(true),
+    );
     (
         thread_cfg,
         (thread_cfg_root_node_idx, thread_cfg_sink_node_idx),
@@ -529,6 +561,53 @@ pub mod visit {
 pub mod render {
     use std::path::Path;
 
+    pub trait Label {
+        fn label(&self) -> String;
+    }
+
+    impl Label for crate::cfg::WarpNode {
+        fn label(&self) -> String {
+            match self {
+                crate::cfg::WarpNode::Branch { id, branch_id } => {
+                    format!("BRANCH {branch_id}\n#{id}")
+                }
+                crate::cfg::WarpNode::Reconverge { id, branch_id } => {
+                    format!("RECONVERGE {branch_id}\n#{id}")
+                }
+            }
+        }
+    }
+
+    impl Label for crate::cfg::ThreadNode {
+        fn label(&self) -> String {
+            match self {
+                crate::cfg::ThreadNode::Branch {
+                    id,
+                    branch_id,
+                    instructions,
+                } => {
+                    format!("BRANCH {branch_id}\n#{id}\n{} instr", instructions.len())
+                }
+                crate::cfg::ThreadNode::Reconverge {
+                    id,
+                    branch_id,
+                    instructions,
+                } => {
+                    format!(
+                        "RECONVERGE {branch_id}\n#{id}\n{} instr",
+                        instructions.len()
+                    )
+                }
+            }
+        }
+    }
+
+    impl Label for crate::cfg::Edge {
+        fn label(&self) -> String {
+            format!("took branch = {}", self.0)
+        }
+    }
+
     pub trait Render {
         /// Render graph as an svg image.
         ///
@@ -541,8 +620,8 @@ pub mod render {
     where
         D: petgraph::EdgeType,
         Ix: petgraph::graph::IndexType,
-        E: std::fmt::Display,
-        N: std::fmt::Display,
+        E: Label,
+        N: Label,
     {
         fn render_to(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error> {
             use layout::adt::dag::NodeHandle;
@@ -554,9 +633,9 @@ pub mod render {
             use std::collections::HashMap;
             use std::io::{BufWriter, Write};
 
-            fn node<N>(node: &N) -> shapes::Element
+            fn node_circle<N>(node: &N) -> shapes::Element
             where
-                N: std::fmt::Display,
+                N: Label,
             {
                 let node_style = style::StyleAttr {
                     line_color: Color::new(0x0000_00FF),
@@ -567,7 +646,7 @@ pub mod render {
                 };
                 let size = core::geometry::Point { x: 100.0, y: 100.0 };
                 shapes::Element::create(
-                    shapes::ShapeKind::Circle(format!("{node}")),
+                    shapes::ShapeKind::Circle(node.label()),
                     node_style,
                     Orientation::TopToBottom,
                     size,
@@ -577,24 +656,35 @@ pub mod render {
             let mut graph = VisualGraph::new(Orientation::TopToBottom);
             let mut handles: HashMap<NodeIndex<Ix>, NodeHandle> = HashMap::new();
 
+            // add nodes
+            for node_idx in self.node_indices() {
+                let node = self.node_weight(node_idx).unwrap();
+                handles
+                    .entry(node_idx)
+                    .or_insert_with(|| graph.add_node(node_circle(node)));
+            }
+
+            // add edges
             for edge_idx in self.edge_indices() {
-                let Some((src_node, dest_node)) = self.edge_endpoints(edge_idx) else {
-                    continue;
-                };
-                let src_handle = *handles
-                    .entry(src_node)
-                    .or_insert_with(|| graph.add_node(node(self.node_weight(src_node).unwrap())));
+                // let Some((src_node, dest_node)) = self.edge_endpoints(edge_idx) else {
+                let (src_node_idx, dest_node_idx) = self.edge_endpoints(edge_idx).unwrap();
+                // let src_handle = *handles
+                //     .entry(src_node)
+                //     .or_insert_with(|| graph.add_node(node(self.node_weight(src_node).unwrap())));
+                //
+                // let dest_handle = *handles
+                //     .entry(src_node)
+                //     .or_insert_with(|| graph.add_node(node(self.node_weight(dest_node).unwrap())));
 
-                let dest_handle = *handles
-                    .entry(src_node)
-                    .or_insert_with(|| graph.add_node(node(self.node_weight(dest_node).unwrap())));
+                // let src_handle = handles[&src_node_idx];
+                // let dest_handle = handles[&dest_node_idx];
 
-                let edge_weight = self.edge_weight(edge_idx).unwrap();
+                let edge = self.edge_weight(edge_idx).unwrap();
                 let arrow = shapes::Arrow {
                     start: shapes::LineEndKind::None,
                     end: shapes::LineEndKind::Arrow,
                     line_style: style::LineStyleKind::Normal,
-                    text: format!("{edge_weight}"),
+                    text: edge.label(),
                     look: style::StyleAttr {
                         line_color: Color::new(0x0000_00FF),
                         line_width: 2,
@@ -605,7 +695,15 @@ pub mod render {
                     src_port: None,
                     dst_port: None,
                 };
-                graph.add_edge(arrow, src_handle, dest_handle);
+                eprintln!(
+                    "edge {} from {:?} to {:?} => {:?} to {:?}",
+                    edge.label(),
+                    src_node_idx,
+                    dest_node_idx,
+                    handles[&src_node_idx],
+                    handles[&dest_node_idx]
+                );
+                graph.add_edge(arrow, handles[&src_node_idx], handles[&dest_node_idx]);
             }
 
             // https://docs.rs/layout-rs/latest/src/layout/backends/svg.rs.html#200
