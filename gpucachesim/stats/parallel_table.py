@@ -191,8 +191,6 @@ def build_parallel_table_rows(
 
         spacer = " " + ("=" * 20) + " "
 
-        
-        
         # l1 data hit rate (rel err)
         serial_l1_hit_rate = df.loc[threads_mask, "l1_hit_rate_serial"].mean()
         det_l1_hit_rate = det["l1_hit_rate_parallel"].mean()
@@ -786,7 +784,6 @@ def build_parallel_table_rows(
                 nondet_values=nondet_values,
             )
         )
-
 
     return table_rows
 
@@ -1495,7 +1492,9 @@ def parallel_table(
 
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            table_rows = sorted(
+                table_rows, key=lambda row: (row.order, row.metric, row.threads)
+            )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []
@@ -1577,7 +1576,9 @@ def parallel_table(
 
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            table_rows = sorted(
+                table_rows, key=lambda row: (row.order, row.metric, row.threads)
+            )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []
@@ -1658,7 +1659,9 @@ def parallel_table(
             )
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            table_rows = sorted(
+                table_rows, key=lambda row: (row.order, row.metric, row.threads)
+            )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []

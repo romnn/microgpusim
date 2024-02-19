@@ -19,11 +19,15 @@ def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
     # note, we do NOT group by SIMULATE_EXECUTION_CONFIG_COLS or SIMULATE_INPUT_COLS.
     # this means we do NOT group on input_mode, input_run_ahead, or input_threads
     functinoal_input_cols = copy.deepcopy(benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS)
-    input_config_group_cols = ["target", "benchmark"] + functinoal_input_cols + bench_input_cols
+    input_config_group_cols = (
+        ["target", "benchmark"] + functinoal_input_cols + bench_input_cols
+    )
     input_config_group_cols = [col for col in input_config_group_cols if col in df]
 
     group_cols = input_config_group_cols + ["run"]
-    min_exec_times = df.groupby(group_cols, dropna=False)["exec_time_sec"].transform("min")
+    min_exec_times = df.groupby(group_cols, dropna=False)["exec_time_sec"].transform(
+        "min"
+    )
     df = df[df["exec_time_sec"] == min_exec_times]
     return df
 
@@ -59,7 +63,9 @@ def speed_table(
         if len(df) < 1:
             print(
                 color(
-                    "{} has no large configurations with blocks/SM > 1".format(bench_name),
+                    "{} has no large configurations with blocks/SM > 1".format(
+                        bench_name
+                    ),
                     fg="red",
                 )
             )
@@ -90,8 +96,14 @@ def speed_table(
     # serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
     # serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
     # serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
-    parallel_gpucachesim_df = choose_fastest_parallel_implementation(target_dfs.parallel_gpucachesim_df)
-    print("{:>50}\t{}".format("fastest parallel gpucachesim", parallel_gpucachesim_df.shape))
+    parallel_gpucachesim_df = choose_fastest_parallel_implementation(
+        target_dfs.parallel_gpucachesim_df
+    )
+    print(
+        "{:>50}\t{}".format(
+            "fastest parallel gpucachesim", parallel_gpucachesim_df.shape
+        )
+    )
 
     # dtypes = {
     #     **{col: "float64" for col in native_df.columns},
@@ -104,8 +116,12 @@ def speed_table(
     sim_targets = {
         "accelsim": target_dfs.accelsim_df.astype(dtypes),
         "gpucachesim": target_dfs.serial_gpucachesim_df.astype(dtypes),
-        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(dtypes),
-        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(dtypes),
+        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(
+            dtypes
+        ),
+        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(
+            dtypes
+        ),
         "gpucachesim_parallel": parallel_gpucachesim_df.astype(dtypes),
     }
 
@@ -170,7 +186,9 @@ def speed_table(
     #
     #     native_df = joined_df
 
-    joined_df = gpucachesim.stats.result_table.join_targets(target_dfs, sim_targets, large=large, verbose=verbose)
+    joined_df = gpucachesim.stats.result_table.join_targets(
+        target_dfs, sim_targets, large=large, verbose=verbose
+    )
 
     # remove nan rows
     joined_df = joined_df[~joined_df["input_id_gpucachesim"].isna()]
@@ -179,7 +197,10 @@ def speed_table(
     # preview_metrics = ["cycles", "instructions", "exec_time_sec", "input_id"]
     preview_metrics = ["input_id", "kernel_name", "exec_time_sec"]
     preview_cols = ["benchmark", "exec_time_nsec"] + [
-        col + "_" + target for col, target in itertools.product(preview_metrics, [""] + list(sim_targets.keys()))
+        col + "_" + target
+        for col, target in itertools.product(
+            preview_metrics, [""] + list(sim_targets.keys())
+        )
     ]
 
     benches = sorted(df["benchmark"].unique().tolist())
@@ -217,9 +238,13 @@ def speed_table(
         assert len(total_cores) == 1
         total_cores = int(total_cores[0])
 
-        num_unique_bench_configs = len(bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates())
+        num_unique_bench_configs = len(
+            bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates()
+        )
 
-        label += " ({} benchmark configurations) @ {} SM's".format(num_unique_bench_configs, total_cores)
+        label += " ({} benchmark configurations) @ {} SM's".format(
+            num_unique_bench_configs, total_cores
+        )
         if large:
             label += " [blocks/SM > 1]"
 
@@ -258,7 +283,9 @@ def speed_table(
                 values=bench_df["exec_time_sec_gpucachesim_parallel"],
             ),
         ]
-        assert all([len(s) == len(slowdowns_over_native[0]) for s in slowdowns_over_native])
+        assert all(
+            [len(s) == len(slowdowns_over_native[0]) for s in slowdowns_over_native]
+        )
 
         if bench is None:
             slowdowns_over_native = np.nanmean(slowdowns_over_native, axis=1)
@@ -271,7 +298,9 @@ def speed_table(
             table += " & "
             if np.isnan(slowdown_value):
                 continue
-            bold = np.isfinite(slowdown_value) and slowdown_value == np.nanmin(slowdowns_over_native)
+            bold = np.isfinite(slowdown_value) and slowdown_value == np.nanmin(
+                slowdowns_over_native
+            )
             if bold:
                 table += r"\boldmath"
             table += "${}$".format(plot.human_format_thousands(slowdown_value))
@@ -279,11 +308,15 @@ def speed_table(
 
         table += r"KIPS"
         native_kilo_instructions = bench_df["instructions"] / 1000.0
-        bench_df["kips_accelsim"] = native_kilo_instructions / bench_df["exec_time_sec_accelsim"]
-        bench_df["kips_gpucachesim"] = native_kilo_instructions / bench_df["exec_time_sec_gpucachesim"]
-        bench_df["kips_gpucachesim_mem_only"] = (bench_df["instructions_gpucachesim_mem_only"] / 1000.0) / bench_df[
-            "exec_time_sec_gpucachesim_mem_only"
-        ]
+        bench_df["kips_accelsim"] = (
+            native_kilo_instructions / bench_df["exec_time_sec_accelsim"]
+        )
+        bench_df["kips_gpucachesim"] = (
+            native_kilo_instructions / bench_df["exec_time_sec_gpucachesim"]
+        )
+        bench_df["kips_gpucachesim_mem_only"] = (
+            bench_df["instructions_gpucachesim_mem_only"] / 1000.0
+        ) / bench_df["exec_time_sec_gpucachesim_mem_only"]
         bench_df["kips_gpucachesim_exec_driven"] = (
             bench_df["instructions_gpucachesim_exec_driven"] / 1000.0
         ) / bench_df["exec_time_sec_gpucachesim_exec_driven"]
@@ -349,7 +382,9 @@ def speed_table(
                 table += " & "
                 if np.isnan(mean_time_value):
                     continue
-                bold = np.isfinite(mean_time_value) and mean_time_value == np.nanmin(mean_time)
+                bold = np.isfinite(mean_time_value) and mean_time_value == np.nanmin(
+                    mean_time
+                )
                 if bold:
                     table += r"\boldmath"
                 table += "${:5.1f}s$".format(mean_time_value)
@@ -369,7 +404,8 @@ def speed_table(
     )
 
     speedup_over_accel = (
-        all_slowdowns_over_native["accelsim"].iloc[-1] / all_slowdowns_over_native["gpucachesim_parallel"].iloc[-1]
+        all_slowdowns_over_native["accelsim"].iloc[-1]
+        / all_slowdowns_over_native["gpucachesim_parallel"].iloc[-1]
     )
     print(
         color(

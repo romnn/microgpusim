@@ -22,7 +22,9 @@ def geo_mean(values: np.ndarray) -> np.ndarray:
 #     return np.exp(np.log(values).mean())
 
 
-def bounded_relative_absolute_error(true_values: np.ndarray, values: np.ndarray, **kwargs) -> np.ndarray:
+def bounded_relative_absolute_error(
+    true_values: np.ndarray, values: np.ndarray, **kwargs
+) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values
@@ -38,7 +40,9 @@ def bounded_relative_absolute_error(true_values: np.ndarray, values: np.ndarray,
     return brae
 
 
-def rel_err(true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None) -> np.ndarray:
+def rel_err(
+    true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None
+) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values

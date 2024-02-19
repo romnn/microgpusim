@@ -338,7 +338,9 @@ b_{n,1} & b_{n,2} & \cdots & b_{n,p}
 
         if png:
             png_output_path = (plot.EQUATIONS_DIR / "png" / name).with_suffix(".png")
-            utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path, density=600)
+            utils.convert_to_png(
+                input_path=pdf_output_path, output_path=png_output_path, density=600
+            )
             print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     pass

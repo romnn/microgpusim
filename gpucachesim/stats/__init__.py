@@ -242,11 +242,20 @@ def different_cols(df):
 @click.option(
     "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
 )
-@click.option(
-    "--inspect", "inspect", type=bool, is_flag=True, help="inspect"
-)
+@click.option("--inspect", "inspect", type=bool, is_flag=True, help="inspect")
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
-def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, large, combined_only, no_combined, inspect, png):
+def run_speed_table(
+    bench_name,
+    path,
+    nsight,
+    verbose,
+    include_mean_time,
+    large,
+    combined_only,
+    no_combined,
+    inspect,
+    png,
+):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
     gpucachesim.stats.speed_table.speed_table(
@@ -260,6 +269,7 @@ def run_speed_table(bench_name, path, nsight, verbose, include_mean_time, large,
         inspect=inspect,
         png=png,
     )
+
 
 @main.command(name="all-speed-table")
 @click.option("-p", "--path", "path", help="Path to materialized benchmark config")
@@ -286,7 +296,9 @@ def all_speed_table(path, nsight, include_mean_time, verbose, png):
     )
 
     # combined metrics
-    for combined_only, no_combined, large in itertools.product([True, False], [True, False], [True, False]):
+    for combined_only, no_combined, large in itertools.product(
+        [True, False], [True, False], [True, False]
+    ):
         gpucachesim.stats.speed_table.speed_table(
             selected_df,
             bench_name=None,
@@ -304,12 +316,10 @@ def all_speed_table(path, nsight, include_mean_time, verbose, png):
             bench_name=bench_name,
             large=large,
             combined_only=False,
-            # equivalent to True here 
+            # equivalent to True here
             no_combined=False,
             **options,
         )
-
-
 
 
 @main.command(name="result-table")
@@ -357,7 +367,17 @@ def all_speed_table(path, nsight, include_mean_time, verbose, png):
 )
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
 def run_result_table(
-    path, bench_name, metric, combined_only, no_combined, large, scaled_clusters, scaled_cores, nsight, verbose, png
+    path,
+    bench_name,
+    metric,
+    combined_only,
+    no_combined,
+    large,
+    scaled_clusters,
+    scaled_cores,
+    nsight,
+    verbose,
+    png,
 ):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
@@ -438,8 +458,10 @@ def all_result_table(path, metric, nsight, verbose, png):
         )
 
     return
-    # single metrics for each benchmark and combined 
-    for valid_metric, combined_only, large in itertools.product(metrics, [True, False], [True, False]):
+    # single metrics for each benchmark and combined
+    for valid_metric, combined_only, large in itertools.product(
+        metrics, [True, False], [True, False]
+    ):
         gpucachesim.stats.result_table.result_table(
             selected_df.copy(),
             bench_name=None,
@@ -490,7 +512,17 @@ def all_result_table(path, metric, nsight, verbose, png):
     help="verbose output",
 )
 @click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
-def run_parallel_table(bench_name, path, nsight, scale_clusters, combined_only, no_combined, large, verbose, png):
+def run_parallel_table(
+    bench_name,
+    path,
+    nsight,
+    scale_clusters,
+    combined_only,
+    no_combined,
+    large,
+    verbose,
+    png,
+):
     profiler = "nsight" if nsight else "nvprof"
     selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
     gpucachesim.stats.parallel_table.parallel_table(
@@ -534,7 +566,9 @@ def all_parallel_table(path, nsight, png):
         )
 
         # for each benchmarks
-        for bench_name, combined_only, no_combined in itertools.product(bench_names, [True, False], [True, False]):
+        for bench_name, combined_only, no_combined in itertools.product(
+            bench_names, [True, False], [True, False]
+        ):
             if combined_only and no_combined:
                 continue
             mask = selected_df["benchmark"] == bench_name

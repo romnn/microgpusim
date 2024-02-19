@@ -7,7 +7,11 @@ from pprint import pprint
 from wasabi import color
 from pathvalidate import sanitize_filename
 
-from gpucachesim.stats.agg import FunctionalConfig, TargetDataframes, split_into_target_dfs
+from gpucachesim.stats.agg import (
+    FunctionalConfig,
+    TargetDataframes,
+    split_into_target_dfs,
+)
 import gpucachesim.stats.metrics as metric_funcs
 import gpucachesim.benchmarks as benchmarks
 import gpucachesim.utils as utils
@@ -30,6 +34,7 @@ class ErrorMetricID(enum.Enum):
     # Correlation = ("corr", "Corr.")
     # RelErr = ("rel_err", "Rel err.")
 
+
 class ErrorMetric(typing.NamedTuple):
     column: str
     is_percent: bool
@@ -51,9 +56,15 @@ ALL_METRICS = [
             # ("dram_reads", ErrorMetric.EMALE),
             # ("dram_reads_percent", ErrorMetric.MAPE),
             # ("dram_reads_percent", ErrorMetric.Correlation),
-            ErrorMetric(column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="dram_reads", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="dram_reads", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -64,9 +75,15 @@ ALL_METRICS = [
             # ErrorMetric(column="dram_writes", is_percent=False, metric=ErrorMetricID.EMALE),
             # (column="dram_writes_percent", metric=ErrorMetric.MAPE),
             # (column="dram_writes_percent", metric=ErrorMetric.Correlation),
-            ErrorMetric(column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="dram_writes", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="dram_writes", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -75,9 +92,15 @@ ALL_METRICS = [
         # is_percent=False,
         error_metrics=[
             # ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.RMSPE),
-            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.MAPE),
-            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l1_accesses", is_percent=False, metric=ErrorMetricID.RMSPE
+            ),
+            ErrorMetric(
+                column="l1_accesses", is_percent=False, metric=ErrorMetricID.MAPE
+            ),
+            ErrorMetric(
+                column="l1_accesses", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -86,9 +109,15 @@ ALL_METRICS = [
         # is_percent=False,
         error_metrics=[
             # ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.RMSPE),
-            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.MAPE),
-            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_accesses", is_percent=False, metric=ErrorMetricID.RMSPE
+            ),
+            ErrorMetric(
+                column="l2_accesses", is_percent=False, metric=ErrorMetricID.MAPE
+            ),
+            ErrorMetric(
+                column="l2_accesses", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -97,9 +126,13 @@ ALL_METRICS = [
         # is_percent=False,
         error_metrics=[
             # ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.RMSPE),
+            ErrorMetric(
+                column="l2_reads", is_percent=False, metric=ErrorMetricID.RMSPE
+            ),
             ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.MAPE),
-            ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_reads", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -108,9 +141,15 @@ ALL_METRICS = [
         # is_percent=False,
         error_metrics=[
             # ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.RMSPE),
-            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.MAPE),
-            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_writes", is_percent=False, metric=ErrorMetricID.RMSPE
+            ),
+            ErrorMetric(
+                column="l2_writes", is_percent=False, metric=ErrorMetricID.MAPE
+            ),
+            ErrorMetric(
+                column="l2_writes", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -119,9 +158,17 @@ ALL_METRICS = [
         # is_percent=True,
         error_metrics=[
             # ErrorMetric(column="l1_global_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="l1_global_hit_rate",
+                is_percent=True,
+                metric=ErrorMetricID.Correlation,
+            ),
         ],
     ),
     Metric(
@@ -130,9 +177,15 @@ ALL_METRICS = [
         # is_percent=True,
         error_metrics=[
             # ErrorMetric(column="l2_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
     Metric(
@@ -141,9 +194,17 @@ ALL_METRICS = [
         # is_percent=True,
         error_metrics=[
             # ErrorMetric(column="l2_read_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="l2_read_hit_rate",
+                is_percent=True,
+                metric=ErrorMetricID.Correlation,
+            ),
         ],
     ),
     Metric(
@@ -152,9 +213,17 @@ ALL_METRICS = [
         # is_percent=True,
         error_metrics=[
             # ErrorMetric(column="l2_write_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
-            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
-            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
-            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE
+            ),
+            ErrorMetric(
+                column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.MAE
+            ),
+            ErrorMetric(
+                column="l2_write_hit_rate",
+                is_percent=True,
+                metric=ErrorMetricID.Correlation,
+            ),
         ],
     ),
     Metric(
@@ -168,10 +237,11 @@ ALL_METRICS = [
             # ErrorMetric(column="cycles", metric=ErrorMetric.SMAPE),
             ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.RMSPE),
             ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.MAPE),
-            ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.Correlation),
+            ErrorMetric(
+                column="cycles", is_percent=False, metric=ErrorMetricID.Correlation
+            ),
         ],
     ),
-
 ]
 
 
@@ -327,16 +397,15 @@ def result_table(
         selected_metrics = [ALL_METRICS[-1]]
     else:
         selected_metrics = [
-            m
-            for m in ALL_METRICS
-            if m.key.replace(" ", "").lower() in metrics_keys
+            m for m in ALL_METRICS if m.key.replace(" ", "").lower() in metrics_keys
         ]
         if len(selected_metrics) == 0:
             raise ValueError(
                 "invalid metrics {} (keys={}), have {}".format(
-                metrics,
-                metrics_keys,
-                [m.key.replace(" ", "").lower() for m in ALL_METRICS]),
+                    metrics,
+                    metrics_keys,
+                    [m.key.replace(" ", "").lower() for m in ALL_METRICS],
+                ),
             )
 
     if verbose:
@@ -368,11 +437,10 @@ def result_table(
             num_clusters=baseline_num_clusters,
         )
 
-
     pprint(functional_config)
-    target_dfs = split_into_target_dfs(df,
-       per_kernel=False, mean=True,
-       functional_config=functional_config)
+    target_dfs = split_into_target_dfs(
+        df, per_kernel=False, mean=True, functional_config=functional_config
+    )
 
     # native_df = target_dfs.native_df
     # accelsim_df = target_dfs.accelsim_df
@@ -430,8 +498,28 @@ def result_table(
         for target in list(sim_targets.keys()):
             print(target)
             suffix = "_" + target
-            print(joined_df[["num_global_loads", "dram_reads", "dram_reads_percent", "dram_reads" + suffix, "dram_reads_percent" + suffix]])
-            print(joined_df[["num_global_stores", "dram_writes", "dram_writes_percent", "dram_writes" + suffix, "dram_writes_percent" + suffix]])
+            print(
+                joined_df[
+                    [
+                        "num_global_loads",
+                        "dram_reads",
+                        "dram_reads_percent",
+                        "dram_reads" + suffix,
+                        "dram_reads_percent" + suffix,
+                    ]
+                ]
+            )
+            print(
+                joined_df[
+                    [
+                        "num_global_stores",
+                        "dram_writes",
+                        "dram_writes_percent",
+                        "dram_writes" + suffix,
+                        "dram_writes_percent" + suffix,
+                    ]
+                ]
+            )
 
     assert all(
         [
@@ -488,7 +576,6 @@ def result_table(
     else:
         selected_benches = [bench_name]
 
-
     table = ""
     for bench in selected_benches:
         if bench is None:
@@ -500,8 +587,6 @@ def result_table(
             bench_df = joined_df[joined_df["benchmark"] == bench]
         else:
             bench_df = joined_df
-
-        
 
         # print(bench_df[["target", "benchmark", "input_id", "input_id_accelsim", "input_id_gpucachesim", "input_id_gpucachesim_mem_only", "input_id_gpucachesim_exec_driven"]])
         assert len(bench_df) > 0
@@ -572,7 +657,13 @@ def result_table(
                         for target in sim_targets.keys():
                             if False:
                                 print(target)
-                                print(bench_df[["target", "benchmark", "input_id"] + benchmarks.BENCHMARK_INPUT_COLS[bench or ""] + [err.column, err.column + "_" + target]])
+                                print(
+                                    bench_df[
+                                        ["target", "benchmark", "input_id"]
+                                        + benchmarks.BENCHMARK_INPUT_COLS[bench or ""]
+                                        + [err.column, err.column + "_" + target]
+                                    ]
+                                )
 
                             # print(err.column + "_" + target)
                             true_values = bench_df[err.column] * value_scale
@@ -799,8 +890,12 @@ def result_table(
                             precision = 3
                             # print("value", plot.round_to_precision(value, precision))
                             # print("best", plot.round_to_precision(np.nanmax(error_values_df), precision))
-                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmax(error_values_df), precision):
-                            # if np.allclose([value], [np.nanmax(error_values_df)], atol=1e-4):
+                            if plot.round_to_precision(
+                                value, precision
+                            ) == plot.round_to_precision(
+                                np.nanmax(error_values_df), precision
+                            ):
+                                # if np.allclose([value], [np.nanmax(error_values_df)], atol=1e-4):
                                 table += r"\boldmath"
                             table += "${:5.3f}$".format(value)
                         # case ErrorMetric.RelErr:
@@ -819,30 +914,49 @@ def result_table(
                         #     table += "${}\\%$".format(
                         #         plot.human_format_thousands(value)
                         #     )
-                        case ErrorMetricID.SMAPE | ErrorMetricID.MAPE | ErrorMetricID.RMSPE:
+                        case (
+                            ErrorMetricID.SMAPE
+                            | ErrorMetricID.MAPE
+                            | ErrorMetricID.RMSPE
+                        ):
                             precision = 2
                             # atol = 10**-(precision+1)
                             # print("atol", atol)
-                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmin(error_values_df), precision):
-                            # np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
-                            # if value == np.nanmin(error_values_df):
+                            if plot.round_to_precision(
+                                value, precision
+                            ) == plot.round_to_precision(
+                                np.nanmin(error_values_df), precision
+                            ):
+                                # np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
+                                # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             table += "${}\\%$".format(
                                 plot.human_format_thousands(value, round_to=precision)
                             )
-                        case ErrorMetricID.EMALE | ErrorMetricID.RMSE | ErrorMetricID.ERMSLE | ErrorMetricID.MAE:
+                        case (
+                            ErrorMetricID.EMALE
+                            | ErrorMetricID.RMSE
+                            | ErrorMetricID.ERMSLE
+                            | ErrorMetricID.MAE
+                        ):
                             precision = 2
                             # atol = 10**-(precision+1)
                             # print("atol", atol)
                             # if np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
-                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmin(error_values_df), precision):
-                            # if value == np.nanmin(error_values_df):
+                            if plot.round_to_precision(
+                                value, precision
+                            ) == plot.round_to_precision(
+                                np.nanmin(error_values_df), precision
+                            ):
+                                # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             if metric_is_percent:
                                 table += "${:5.2f}\\%$".format(value)
                             else:
                                 table += "${}$".format(
-                                    plot.human_format_thousands(value, round_to=precision)
+                                    plot.human_format_thousands(
+                                        value, round_to=precision
+                                    )
                                 )
                         case other:
                             raise ValueError("unhandled metric {}".format(other))

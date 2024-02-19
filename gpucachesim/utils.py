@@ -270,7 +270,9 @@ def convert_to_png(
 @click.argument("input_path", type=click.Path(exists=True))
 # @click.option("-o", "--output", "output", help="path to output file")
 @click.argument("output_path")
-@click.option("-s", "--size", "max_size", default=4096 * 2, help="max size in any dimension")
+@click.option(
+    "-s", "--size", "max_size", default=4096 * 2, help="max size in any dimension"
+)
 @click.option("-q", "--quality", "quality", default=100, help="quality")
 @click.option("-d", "--density", "density", default=300, help="density")
 @click.option("-v", "--verbose", "verbose", is_flag=True, help="verbose output")

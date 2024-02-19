@@ -978,7 +978,9 @@ def view(
             # pprint([col for col in group_cols if col in target_df])
             # print(target_df[[col for col in group_cols if col in target_df]])
             input_dfs = list(
-                target_df.groupby([col for col in group_cols if col in target_df], dropna=False)
+                target_df.groupby(
+                    [col for col in group_cols if col in target_df], dropna=False
+                )
             )
             assert len(input_dfs) > 0
             for input_idx, (_, input_values_df) in enumerate(input_dfs):
@@ -1236,7 +1238,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path,
+                input_path=pdf_output_path,
+                output_path=png_output_path,
                 density=600,
             )
 
@@ -1254,7 +1257,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path,
+                input_path=pdf_output_path,
+                output_path=png_output_path,
                 density=600,
             )
 
@@ -1283,7 +1287,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path,
+                input_path=pdf_output_path,
+                output_path=png_output_path,
                 density=600,
             )
             print(color("wrote {}".format(png_output_path), fg="cyan"))
@@ -1300,7 +1305,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path,
+                input_path=pdf_output_path,
+                output_path=png_output_path,
                 density=600,
             )
             # print(color("wrote {}".format(png_output_path), fg="cyan"))
@@ -1319,6 +1325,7 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path,
+                input_path=pdf_output_path,
+                output_path=png_output_path,
                 density=600,
             )

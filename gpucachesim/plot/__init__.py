@@ -133,6 +133,8 @@ def human_format_thousands(num, round_to=2, variable_precision=False):
             ["", "K", "M", "G", "T", "P"][magnitude],
         )
     return "{}{}".format(
-        round_to_precision_str(num, round_to=round_to, variable_precision=variable_precision),
+        round_to_precision_str(
+            num, round_to=round_to, variable_precision=variable_precision
+        ),
         ["", "K", "M", "G", "T", "P", "E", "Z"][magnitude],
     )
