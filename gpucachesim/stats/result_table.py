@@ -3,20 +3,23 @@ import typing
 import itertools
 import numpy as np
 import pandas as pd
+from pprint import pprint
 from wasabi import color
 from pathvalidate import sanitize_filename
 
-from gpucachesim.stats.agg import TargetDataframes, split_into_target_dfs
+from gpucachesim.stats.agg import FunctionalConfig, TargetDataframes, split_into_target_dfs
 import gpucachesim.stats.metrics as metric_funcs
 import gpucachesim.benchmarks as benchmarks
 import gpucachesim.utils as utils
 import gpucachesim.plot as plot
-from gpucachesim.benchmarks import Target
+from gpucachesim.benchmarks import BENCHMARK_INPUT_COLS, Target
 
 
-class ErrorMetric(enum.Enum):
+class ErrorMetricID(enum.Enum):
     MAPE = "MAPE"
     SMAPE = "SMAPE"
+    RMSPE = "RMSPE"
+    RMSE = "RMSE"
     MAE = "MAE"
     Correlation = "Corr."
     EMALE = "EMALE"
@@ -27,116 +30,148 @@ class ErrorMetric(enum.Enum):
     # Correlation = ("corr", "Corr.")
     # RelErr = ("rel_err", "Rel err.")
 
-
-class Metric(typing.TypedDict):
-    label: str
+class ErrorMetric(typing.NamedTuple):
+    column: str
     is_percent: bool
-    error_metrics: typing.Sequence[typing.Tuple[str, ErrorMetric]]
+    metric: ErrorMetricID
+
+
+# class Metric(typing.TypedDict):
+class Metric(typing.NamedTuple):
+    key: str
+    label: str
+    error_metrics: typing.Sequence[ErrorMetric]
 
 
 ALL_METRICS = [
     Metric(
-        label="DRAM reads",
-        is_percent=False,
+        key=r"dramreads",
+        label=r"DRAM\\reads",
         error_metrics=[
-            ("dram_reads", ErrorMetric.EMALE),
-            ("dram_reads_percent", ErrorMetric.MAPE),
-            ("dram_reads", ErrorMetric.Correlation),
+            # ("dram_reads", ErrorMetric.EMALE),
+            # ("dram_reads_percent", ErrorMetric.MAPE),
+            # ("dram_reads_percent", ErrorMetric.Correlation),
+            ErrorMetric(column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="dram_reads_percent", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="dram_reads", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="DRAM writes",
-        is_percent=False,
+        key=r"dramwrites",
+        label=r"DRAM\\writes",
+        # is_percent=False,
         error_metrics=[
-            ("dram_writes", ErrorMetric.EMALE),
-            ("dram_writes_percent", ErrorMetric.MAPE),
-            ("dram_writes", ErrorMetric.Correlation),
+            # ErrorMetric(column="dram_writes", is_percent=False, metric=ErrorMetricID.EMALE),
+            # (column="dram_writes_percent", metric=ErrorMetric.MAPE),
+            # (column="dram_writes_percent", metric=ErrorMetric.Correlation),
+            ErrorMetric(column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="dram_writes_percent", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="dram_writes", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L1 Accesses",
-        is_percent=False,
+        key=r"l1daccesses",
+        label=r"L1D\\Accesses",
+        # is_percent=False,
         error_metrics=[
-            ("l1_accesses", ErrorMetric.EMALE),
-            ("l1_accesses", ErrorMetric.MAPE),
-            ("l1_accesses", ErrorMetric.Correlation),
+            # ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.RMSPE),
+            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.MAPE),
+            ErrorMetric(column="l1_accesses", is_percent=False,metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2 Accesses",
-        is_percent=False,
+        key=r"l2daccesses",
+        label=r"L2D\\Accesses",
+        # is_percent=False,
         error_metrics=[
-            ("l2_accesses", ErrorMetric.EMALE),
-            ("l2_accesses", ErrorMetric.MAPE),
-            ("l2_accesses", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.RMSPE),
+            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.MAPE),
+            ErrorMetric(column="l2_accesses", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2 reads",
-        is_percent=False,
+        key=r"l2dreads",
+        label=r"L2D\\reads",
+        # is_percent=False,
         error_metrics=[
-            ("l2_reads", ErrorMetric.EMALE),
-            ("l2_reads", ErrorMetric.MAPE),
-            ("l2_reads", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.RMSPE),
+            ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.MAPE),
+            ErrorMetric(column="l2_reads", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2 writes",
-        is_percent=False,
+        key=r"l2dwrites",
+        label=r"L2D\\writes",
+        # is_percent=False,
         error_metrics=[
-            ("l2_writes", ErrorMetric.EMALE),
-            ("l2_writes", ErrorMetric.MAPE),
-            ("l2_writes", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.RMSPE),
+            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.MAPE),
+            ErrorMetric(column="l2_writes", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L1D hitrate",
-        is_percent=True,
+        key="l1dhitrate",
+        label=r"L1D\\hit rate",
+        # is_percent=True,
         error_metrics=[
-            ("l1_global_hit_rate", ErrorMetric.EMALE),
-            ("l1_global_hit_rate", ErrorMetric.MAE),
-            ("l1_global_hit_rate", ErrorMetric.Correlation),
+            # ErrorMetric(column="l1_global_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="l1_global_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2D hitrate",
-        is_percent=True,
+        key=r"l2dhitrate",
+        label=r"L2D\\hitrate",
+        # is_percent=True,
         error_metrics=[
-            ("l2_hit_rate", ErrorMetric.EMALE),
-            ("l2_hit_rate", ErrorMetric.MAE),
-            ("l2_hit_rate", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="l2_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2D read hitrate",
-        is_percent=True,
+        key=r"l2dreadhitrate",
+        label=r"L2D read\\hit rate",
+        # is_percent=True,
         error_metrics=[
-            ("l2_read_hit_rate", ErrorMetric.EMALE),
-            ("l2_read_hit_rate", ErrorMetric.MAE),
-            ("l2_read_hit_rate", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_read_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="l2_read_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="L2D write hitrate",
-        is_percent=True,
+        key=r"l2dwritehitrate",
+        label=r"L2D write\\hit rate",
+        # is_percent=True,
         error_metrics=[
-            ("l2_write_hit_rate", ErrorMetric.EMALE),
-            ("l2_write_hit_rate", ErrorMetric.MAE),
-            ("l2_write_hit_rate", ErrorMetric.Correlation),
+            # ErrorMetric(column="l2_write_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
+            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.RMSE),
+            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.MAE),
+            ErrorMetric(column="l2_write_hit_rate", is_percent=True, metric=ErrorMetricID.Correlation),
         ],
     ),
     Metric(
-        label="Cycles",
-        is_percent=False,
+        key=r"cycles",
+        label=r"Cycles",
+        # is_percent=False,
         error_metrics=[
-            # ("cycles", ErrorMetric.RelErr),
-            ("cycles", ErrorMetric.EMALE),
-            ("cycles", ErrorMetric.ERMSLE),
-            ("cycles", ErrorMetric.SMAPE),
-            ("cycles", ErrorMetric.MAPE),
-            ("cycles", ErrorMetric.Correlation),
+            # ErrorMetric(column="cycles", metric=ErrorMetric.RelErr),
+            # ErrorMetric(column="cycles", metric=ErrorMetric.EMALE),
+            # ErrorMetric(column="cycles", metric=ErrorMetric.ERMSLE),
+            # ErrorMetric(column="cycles", metric=ErrorMetric.SMAPE),
+            ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.RMSPE),
+            ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.MAPE),
+            ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.Correlation),
         ],
     ),
+
 ]
 
 
@@ -236,6 +271,9 @@ def result_table(
         typing.Union[str, typing.List[typing.Optional[str]]]
     ] = None,
     combined_only=False,
+    no_combined=False,
+    scaled_clusters=False,
+    scaled_cores=False,
     large=False,
     verbose=False,
     batch=False,
@@ -249,7 +287,8 @@ def result_table(
 
     if large:
         profile = df["target"] == Target.Profile.value
-        df = df[profile | (df["mean_blocks_per_sm"] > 1.0)]
+        # df = df[profile | (df["mean_blocks_per_sm"] > 1.0)]
+        df = df[profile | (df["mean_blocks_per_sm_all_kernels"] > 1.0)]
         if len(df) < 1:
             print(color("have no large configurations with blocks/SM > 1", fg="red"))
             return
@@ -290,14 +329,14 @@ def result_table(
         selected_metrics = [
             m
             for m in ALL_METRICS
-            if m["label"].replace(" ", "").lower() in metrics_keys
+            if m.key.replace(" ", "").lower() in metrics_keys
         ]
         if len(selected_metrics) == 0:
             raise ValueError(
-                "invalid metrics {} ({}), have {}",
+                "invalid metrics {} (keys={}), have {}".format(
                 metrics,
                 metrics_keys,
-                [m["label"].replace(" ", "").lower() for m in ALL_METRICS],
+                [m.key.replace(" ", "").lower() for m in ALL_METRICS]),
             )
 
     if verbose:
@@ -305,13 +344,35 @@ def result_table(
         print(
             "computing {} metrics: {} for {} benches: {}".format(
                 len(selected_metrics),
-                [m["label"] for m in selected_metrics],
+                [m.key for m in selected_metrics],
                 len(benches),
                 benches,
             )
         )
 
-    target_dfs = split_into_target_dfs(df, per_kernel=False, mean=True)
+    baseline_cores_per_cluster = benchmarks.BASELINE["cores_per_cluster"]
+    baseline_num_clusters = benchmarks.BASELINE["num_clusters"]
+    if scaled_clusters:
+        functional_config = FunctionalConfig(
+            cores_per_cluster=baseline_cores_per_cluster,
+            num_clusters=baseline_num_clusters * 4,
+        )
+    elif scaled_cores:
+        functional_config = FunctionalConfig(
+            cores_per_cluster=baseline_cores_per_cluster * 4,
+            num_clusters=baseline_num_clusters,
+        )
+    else:
+        functional_config = FunctionalConfig(
+            cores_per_cluster=baseline_cores_per_cluster,
+            num_clusters=baseline_num_clusters,
+        )
+
+
+    pprint(functional_config)
+    target_dfs = split_into_target_dfs(df,
+       per_kernel=False, mean=True,
+       functional_config=functional_config)
 
     # native_df = target_dfs.native_df
     # accelsim_df = target_dfs.accelsim_df
@@ -342,27 +403,40 @@ def result_table(
 
     # remove nan rows
     joined_df = joined_df[~joined_df["input_id_gpucachesim"].isna()]
+    assert len(joined_df) > 0
 
     for target in list(sim_targets.keys()) + [""]:
         suffix = ("_" + target) if target != "" else ""
+        num_global_loads = joined_df["num_global_loads"]
+        num_global_stores = joined_df["num_global_stores"]
+
         joined_df["dram_reads_percent" + suffix] = joined_df[
             "dram_reads" + suffix
         ].fillna(0.0)
-        scale = (
-            joined_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
-        )
-        joined_df["dram_reads_percent" + suffix] /= scale
+        # scale = (
+        #     joined_df[["num_global_loads", "num_global_stores"]].max(axis=1) + 0.00001
+        # )
+        joined_df["dram_reads_percent" + suffix] /= num_global_loads
+
         joined_df["dram_writes_percent" + suffix] = joined_df[
             "dram_writes" + suffix
         ].fillna(0.0)
-        joined_df["dram_writes_percent" + suffix] /= scale
-        assert (joined_df["dram_writes_percent" + suffix] <= 1.0).all()
-        assert (joined_df["dram_reads_percent" + suffix] <= 1.0).all()
+        joined_df["dram_writes_percent" + suffix] /= num_global_stores
+
+        # assert (joined_df["dram_writes_percent" + suffix] <= 1.0).all()
+        # assert (joined_df["dram_reads_percent" + suffix] <= 1.0).all()
+
+    if verbose:
+        for target in list(sim_targets.keys()):
+            print(target)
+            suffix = "_" + target
+            print(joined_df[["num_global_loads", "dram_reads", "dram_reads_percent", "dram_reads" + suffix, "dram_reads_percent" + suffix]])
+            print(joined_df[["num_global_stores", "dram_writes", "dram_writes_percent", "dram_writes" + suffix, "dram_writes_percent" + suffix]])
 
     assert all(
         [
-            col in joined_df
-            for col, _ in utils.flatten([m["error_metrics"] for m in selected_metrics])
+            err.column in joined_df
+            for err in utils.flatten([m.error_metrics for m in selected_metrics])
         ]
     )
 
@@ -387,7 +461,7 @@ def result_table(
     if verbose:
         for metric in selected_metrics:
             metric_cols = sorted(
-                list(set([metric_col for metric_col, _ in metric["error_metrics"]]))
+                list(set([err.column for err in metric.error_metrics]))
             )
             print("==> PREVIEW: {}".format(metric_cols))
             preview_cols = [
@@ -405,17 +479,20 @@ def result_table(
             ]
             print(joined_df[preview_cols])
 
-    if bench_name is None and combined_only:
+    if (bench_name is None and combined_only) and not no_combined:
         selected_benches = [None]
+    elif bench_name is None and no_combined:
+        selected_benches = benches
     elif bench_name is None:
         selected_benches = benches + [None]
     else:
-        selected_benches = benches
+        selected_benches = [bench_name]
+
 
     table = ""
     for bench in selected_benches:
         if bench is None:
-            label = "Combined"
+            label = "Average"
         else:
             label = benchmarks.benchmark_name_human_readable(bench)
 
@@ -424,8 +501,13 @@ def result_table(
         else:
             bench_df = joined_df
 
+        
+
         # print(bench_df[["target", "benchmark", "input_id", "input_id_accelsim", "input_id_gpucachesim", "input_id_gpucachesim_mem_only", "input_id_gpucachesim_exec_driven"]])
+        assert len(bench_df) > 0
         total_cores = bench_df["total_cores_gpucachesim"].dropna().unique()
+        # print(total_cores)
+        # if not scaled_cores:
         assert len(total_cores) == 1
         total_cores = int(total_cores[0])
 
@@ -449,17 +531,19 @@ def result_table(
 
         for metric in selected_metrics:
             if verbose:
-                print(bench, metric["label"])
+                print(bench, metric.label)
 
-            table += r"\multirow{" + str(len(metric["error_metrics"])) + "}{*}{"
-            table += " ".join(str(metric["label"]).split("_"))
-            table += "} \n"
+            table += r"\multirow{"
+            table += str(len(metric.error_metrics))
+            table += r"}{*}{\shortstack[r]{"
+            table += " ".join(str(metric.label).split("_"))
+            table += "}} \n"
 
-            for metric_col, error_metric in metric["error_metrics"]:
+            for err in metric.error_metrics:
                 preview_cols = ["benchmark"] + [
                     col + "_" + target
                     for col, target in itertools.product(
-                        [metric_col], [""] + list(sim_targets.keys())
+                        [err.column], [""] + list(sim_targets.keys())
                     )
                 ]
 
@@ -472,27 +556,39 @@ def result_table(
                     )
                     print(bench_df.shape)
 
-                error_values: pd.DataFrame
+                bench_df = bench_df.sort_values("input_id")
+                if bench is not None:
+                    print(bench_df[["target", "benchmark", "input_id"]])
+                    assert bench_df["input_id"].nunique() == len(bench_df["input_id"])
 
-                metric_is_percent = metric["is_percent"]
+                # print(bench_df[["num_global_loads", "dram_reads", "dram_reads_percent", "dram_reads_gpucachesim", "dram_reads_percent_gpucachesim", "dram_reads_accelsim", "dram_reads_percent_accelsim"]])
+
+                metric_is_percent = err.is_percent
                 value_scale = 100.0 if metric_is_percent else 1.0
 
-                match error_metric:
-                    case ErrorMetric.Correlation:
+                match err.metric:
+                    case ErrorMetricID.Correlation:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            if False:
+                                print(target)
+                                print(bench_df[["target", "benchmark", "input_id"] + benchmarks.BENCHMARK_INPUT_COLS[bench or ""] + [err.column, err.column + "_" + target]])
+
+                            # print(err.column + "_" + target)
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             atol = 1.0 if metric_is_percent else 0.1
                             error = metric_funcs.correlation(
                                 true_values=true_values, values=values, atol=atol
                             )
                             bench_df[
-                                metric_col + "_" + error_metric.name.lower() + target
+                                err.column + "_" + err.metric.name.lower() + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df = error_values_df.mean(axis=1)
 
                     # case ErrorMetric.RelErr:
                     #     error_values = []
@@ -506,102 +602,117 @@ def result_table(
                     #     error_values = error_values.mean(axis=1)
                     #     # error_values *= 100.0
 
-                    case ErrorMetric.EMALE:
+                    case ErrorMetricID.EMALE:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             error = metric_funcs.emale(
                                 true_values=true_values, values=values
                             )
                             bench_df[
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df = error_values_df.mean(axis=1)
 
-                    case ErrorMetric.ERMSLE:
+                    case ErrorMetricID.ERMSLE:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             error = metric_funcs.ermsle(
                                 true_values=true_values, values=values
                             )
                             bench_df[
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df = error_values_df.mean(axis=1)
 
-                    case ErrorMetric.MAE:
+                    case ErrorMetricID.MAE:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             error = metric_funcs.abs_err(
                                 true_values=true_values, values=values
                             )
                             bench_df[
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error[:] = np.nan
+                            # print(target, err.column + "_" + target)
+                            # print(error)
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        # print("MAE: ")
+                        # print(error_values_df)
+                        error_values_df = error_values_df.mean(axis=1)
+                        # print(error_values_df)
 
-                    case ErrorMetric.SMAPE:
+                    case ErrorMetricID.SMAPE:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             error = metric_funcs.smape(
                                 true_values=true_values, values=values
                             )
                             bench_df[
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values *= 100.0
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df *= 100.0
+                        error_values_df = error_values_df.mean(axis=1)
 
-                    case ErrorMetric.MAPE:
+                    case ErrorMetricID.MAPE:
                         error_values = []
                         for target in sim_targets.keys():
-                            true_values = bench_df[metric_col] * value_scale
-                            values = bench_df[metric_col + "_" + target] * value_scale
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
                             error = metric_funcs.mape(
                                 true_values=true_values, values=values
                             )
                             bench_df[
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                             ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
                             error_values.append(error)
-                        error_values = pd.DataFrame(error_values)
-                        error_values *= 100.0
-                        error_values = error_values.mean(axis=1)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df *= 100.0
+                        error_values_df = error_values_df.mean(axis=1)
                         # error_values = error_values.aggregate(scipy.stats.gmean, axis=1)
                         # .apply(np.exp)
                         # error_values = pd.DataFrame([
@@ -618,28 +729,78 @@ def result_table(
                         # print(error_values.shape)
                         # bench_df[keys] = error_values.to_numpy().ravel()
                         # error_values = error_values.mean(axis=1)
+
+                    case ErrorMetricID.RMSPE:
+                        error_values = []
+                        for target in sim_targets.keys():
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
+                            error = metric_funcs.rmspe(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                err.column
+                                + "_"
+                                + err.metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
+                            error_values.append(error)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df *= 100.0
+                        error_values_df = error_values_df.mean(axis=1)
+                    case ErrorMetricID.RMSE:
+                        error_values = []
+                        for target in sim_targets.keys():
+                            true_values = bench_df[err.column] * value_scale
+                            values = bench_df[err.column + "_" + target] * value_scale
+                            error = metric_funcs.rmse(
+                                true_values=true_values, values=values
+                            )
+                            bench_df[
+                                err.column
+                                + "_"
+                                + err.metric.name.lower()
+                                + "_"
+                                + target
+                            ] = error
+                            # if bench_df["cycles" + "_" + target].isna().all():
+                            #     error = np.nan
+                            error_values.append(error)
+                        error_values_df = pd.DataFrame(error_values)
+                        error_values_df *= 100.0
+                        error_values_df = error_values_df.mean(axis=1)
+
                     case _:
                         raise ValueError(
-                            "unknown error metric {}".format(error_metric.name)
+                            "unknown error metric {}".format(err.metric.name)
                         )
 
-                # assert isinstance(error_values, (np.ndarray, pd.Series))
+                assert isinstance(error_values_df, (np.ndarray, pd.Series))
                 for col, target in enumerate(sim_targets.keys()):
-                    valid = not np.isnan(bench_df[metric_col + "_" + target]).all()
-                    if not valid:
-                        error_values[col] = np.nan
+                    target_valid = not np.isnan(bench_df["cycles" + "_" + target]).all()
+                    valid = not np.isnan(bench_df[err.column + "_" + target]).all()
+                    if not (valid and target_valid):
+                        error_values_df[col] = np.nan
 
-                table += r" & {} ".format(error_metric.value)
+                table += r" & {} ".format(err.metric.value)
                 if verbose:
-                    print(error_metric.name)
-                    print(error_values)
-                for value in error_values:
+                    print(err.metric.name)
+                    print(error_values_df)
+                for value in error_values_df:
                     table += " & "
                     if np.isnan(value):
                         continue
-                    match error_metric:
-                        case ErrorMetric.Correlation:
-                            if value == np.nanmax(error_values):
+                    match err.metric:
+                        case ErrorMetricID.Correlation:
+                            # if value == np.nanmax(error_values_df):
+                            precision = 3
+                            # print("value", plot.round_to_precision(value, precision))
+                            # print("best", plot.round_to_precision(np.nanmax(error_values_df), precision))
+                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmax(error_values_df), precision):
+                            # if np.allclose([value], [np.nanmax(error_values_df)], atol=1e-4):
                                 table += r"\boldmath"
                             table += "${:5.3f}$".format(value)
                         # case ErrorMetric.RelErr:
@@ -658,21 +819,33 @@ def result_table(
                         #     table += "${}\\%$".format(
                         #         plot.human_format_thousands(value)
                         #     )
-                        case ErrorMetric.SMAPE | ErrorMetric.MAPE:
-                            if value == np.nanmin(error_values):
+                        case ErrorMetricID.SMAPE | ErrorMetricID.MAPE | ErrorMetricID.RMSPE:
+                            precision = 2
+                            # atol = 10**-(precision+1)
+                            # print("atol", atol)
+                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmin(error_values_df), precision):
+                            # np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
+                            # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             table += "${}\\%$".format(
-                                plot.human_format_thousands(value)
+                                plot.human_format_thousands(value, round_to=precision)
                             )
-                        case ErrorMetric.EMALE | ErrorMetric.ERMSLE | ErrorMetric.MAE:
-                            if value == np.nanmin(error_values):
+                        case ErrorMetricID.EMALE | ErrorMetricID.RMSE | ErrorMetricID.ERMSLE | ErrorMetricID.MAE:
+                            precision = 2
+                            # atol = 10**-(precision+1)
+                            # print("atol", atol)
+                            # if np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
+                            if plot.round_to_precision(value, precision) == plot.round_to_precision(np.nanmin(error_values_df), precision):
+                            # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             if metric_is_percent:
                                 table += "${:5.2f}\\%$".format(value)
                             else:
                                 table += "${}$".format(
-                                    plot.human_format_thousands(value)
+                                    plot.human_format_thousands(value, round_to=precision)
                                 )
+                        case other:
+                            raise ValueError("unhandled metric {}".format(other))
 
                 table += r"\\" + "\n"
 
@@ -692,9 +865,9 @@ def result_table(
                             # + [sim + "_rmse" for sim in ["accelsim", "gpucachesim"]]
                             preview_cols
                             + [
-                                metric_col
+                                err.column
                                 + "_"
-                                + error_metric.name.lower()
+                                + err.metric.name.lower()
                                 + "_"
                                 + target
                                 for target in ["accelsim", "gpucachesim"]
@@ -757,13 +930,20 @@ def result_table(
         filename += "_all"
     else:
         filename += "_{}".format(bench_name)
-    if large:
-        filename += "_large"
     if combined_only:
         filename += "_combined_only"
+    elif no_combined:
+        filename += "_no_combined"
+    if large:
+        filename += "_large"
+    if scaled_clusters:
+        filename += "_scaled_clusters"
+    elif scaled_cores:
+        filename += "_scaled_cores"
+
     filename += "_{}".format(
         "_".join(
-            [metric["label"].lower().replace(" ", "_") for metric in selected_metrics]
+            [metric.label.lower().replace(" ", "_") for metric in selected_metrics]
         )
     )
     filename = sanitize_filename(filename)

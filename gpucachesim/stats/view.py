@@ -4,6 +4,7 @@ import typing
 import numpy as np
 import itertools
 import pandas as pd
+from pprint import pprint
 from os import PathLike
 from wasabi import color
 import matplotlib.pyplot as plt
@@ -245,7 +246,7 @@ def view(
     mem_only=False,
     verbose=False,
     strict=True,
-    per_kernel=False,
+    per_kernel: typing.Optional[bool] = None,
     inspect=False,
     png=False,
 ):
@@ -253,6 +254,9 @@ def view(
     selected_df = gpucachesim.stats.load.load_stats(
         bench_name=bench_name, profiler=profiler, path=path
     )
+
+    if per_kernel is None:
+        per_kernel = False
 
     # gpucachesim stats include "no kernel" (e.g. memcopies) stats
     assert selected_df["kernel_name"].isna().sum() > 0
@@ -740,24 +744,27 @@ def view(
     # print(sorted(per_config_pivoted.index.names))
     # print(sorted(selected_table_benchmarks.columns))
     # assert sorted(per_config_pivoted.index.names) == sorted(selected_table_benchmarks.columns)
-    table_index = (
-        per_config_pivoted.index.to_frame()
-        .reset_index(drop=True)
-        .merge(selected_table_benchmarks, how="inner")
-    )
-    table_index = pd.MultiIndex.from_frame(table_index)
-    assert len(table_index) == len(table_index.drop_duplicates())
 
-    # print(table_index)
-    # print(per_config_pivoted.index)
+    if bench_name is not None:
+        # do not show statistics table for all benchmarks combined
+        table_index = (
+            per_config_pivoted.index.to_frame()
+            .reset_index(drop=True)
+            .merge(selected_table_benchmarks, how="inner")
+        )
+        table_index = pd.MultiIndex.from_frame(table_index)
+        assert len(table_index) == len(table_index.drop_duplicates())
 
-    # build table
-    table_per_config_pivoted = per_config_pivoted.loc[table_index, :]
-    table = build_per_config_table(table_per_config_pivoted[table_stat_cols])
-    print("\n\n\n")
-    print(table)
-    utils.copy_to_clipboard(table)
-    print("copied table to clipboard")
+        # print(table_index)
+        # print(per_config_pivoted.index)
+
+        # build table
+        table_per_config_pivoted = per_config_pivoted.loc[table_index, :]
+        table = build_per_config_table(table_per_config_pivoted[table_stat_cols])
+        print("\n\n\n")
+        print(table)
+        utils.copy_to_clipboard(table)
+        print("copied table to clipboard")
 
     if not should_plot:
         return
@@ -811,20 +818,12 @@ def view(
         ["target", "benchmark"] + list(selected_table_benchmarks.columns),
         # group_cols,
     )
+    plot_per_config = plot_per_config.sort_index()
     # print(sorted(group_cols))
     # print(sorted(["target", "benchmark"] + list(selected_table_benchmarks.columns)))
     assert "input_size" in plot_per_config.index.names
 
-    # print(plot_per_config)
-
-    # plot_per_config = per_config.loc[plot_index,:] #.reset_index()
-    # print(plot_per_config)
-
-    # plot_targets = [
-    #     target
-    #     for target in targets
-    #     if target in ["Profile", "Simulate", "AccelsimSimulate"]
-    # ]
+    # print(plot_per_config[[col for col in preview_cols if col in plot_per_config]])
 
     for stat_col, benchmark in itertools.product(plot_stat_cols, benches):
         print(stat_col, benchmark)
@@ -926,6 +925,7 @@ def view(
 
         # for (target_idx, target), (input_idx, input_values) in target_bench_configs:
         for target_idx, target in enumerate(plot_targets):
+            # print(target_idx, target)
             # print(table_per_config_pivoted)
 
             # print(per_config.loc[table_index, :])
@@ -945,10 +945,13 @@ def view(
             # print(target_df)
 
             target_df = plot_per_config.loc[(target, benchmark), :]
+            assert len(target_df) > 0
             assert target_df["run"].nunique() > 1
             assert "input_size" in target_df.index.names
 
             target_df = target_df.reset_index()
+            # leave the sorting manual, e.g. when we have different dtype
+            # target_df = target_df.sort_values(["num_blocks", "input_id"])
             # target_df = target_df.reset_index(drop=True)
             assert "input_size" in target_df
             # print(target_df)
@@ -972,20 +975,26 @@ def view(
             #     continue
 
             # for input_idx, input_values_df in target_df.iterrows():
-            for input_idx, (_, input_values_df) in enumerate(
-                target_df.groupby([col for col in group_cols if col in target_df])
-            ):
+            # pprint([col for col in group_cols if col in target_df])
+            # print(target_df[[col for col in group_cols if col in target_df]])
+            input_dfs = list(
+                target_df.groupby([col for col in group_cols if col in target_df], dropna=False)
+            )
+            assert len(input_dfs) > 0
+            for input_idx, (_, input_values_df) in enumerate(input_dfs):
                 # for input_idx, (_input_id, input_values_df) in enumerate(target_df.groupby("input_id")):
 
                 # key = (target, benchmark) + tuple(input_values.values)
 
                 # print(input_idx, input_values)
+                # print(input_values_df[[col for col in all_input_cols if col in input_values_df]].drop_duplicates())
+
                 input_values = (
                     input_values_df[
                         [col for col in all_input_cols if col in input_values_df]
                     ]
                     .drop_duplicates()
-                    .dropna()
+                    .dropna(axis="columns")
                 )
                 assert len(input_values) == 1
                 input_values = dict(input_values.iloc[0])
@@ -1121,7 +1130,7 @@ def view(
         # print(simulate_df[bar_group_cols + ["label"]])
         # pprint(group_cols)
         # pprint(bar_group_cols)
-        simulate_grouped = simulate_df.groupby(bar_group_cols, dropna=False)
+        simulate_grouped = simulate_df.groupby(bar_group_cols, dropna=False, sort=False)
         # simulate_grouped = simulate_df.groupby([col for col in bar_group_cols if col in simulate_df], dropna=False)
 
         # print(simulate_grouped["label"].first())
@@ -1227,7 +1236,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path
+                input_path=pdf_output_path, output_path=png_output_path,
+                density=600,
             )
 
         # plot with xticks but without legend (bottom)
@@ -1244,7 +1254,8 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path
+                input_path=pdf_output_path, output_path=png_output_path,
+                density=600,
             )
 
         # plot with legend and xticks (default)
@@ -1261,7 +1272,7 @@ def view(
             ncols=4,
         )
 
-        fig.set_size_inches(new_width, height)
+        fig.set_size_inches(new_width, 1.6 * height)
 
         filename = "{}.{}.{}.pdf".format(profiler, benchmark, stat_col)
         pdf_output_path = plot_dir / filename
@@ -1272,9 +1283,27 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path
+                input_path=pdf_output_path, output_path=png_output_path,
+                density=600,
             )
             print(color("wrote {}".format(png_output_path), fg="cyan"))
+
+        # plot with legend and xticks (default) but LARGE
+        fig.set_size_inches(new_width, 3 * height)
+
+        filename = "{}.{}.{}_large.pdf".format(profiler, benchmark, stat_col)
+        pdf_output_path = plot_dir / filename
+        pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(pdf_output_path)
+        print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
+        if png:
+            png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
+            utils.convert_to_png(
+                input_path=pdf_output_path, output_path=png_output_path,
+                density=600,
+            )
+            # print(color("wrote {}".format(png_output_path), fg="cyan"))
 
         # plot with legend but without xticks (top)
         ax.set_xticks(xtick_values, ["" for _ in range(len(xtick_values))], rotation=0)
@@ -1290,5 +1319,6 @@ def view(
         if png:
             png_output_path = (plot_dir / "png" / filename).with_suffix(".png")
             utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path
+                input_path=pdf_output_path, output_path=png_output_path,
+                density=600,
             )

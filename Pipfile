@@ -42,6 +42,7 @@ pyeda = "*"
 pyarrow = "*"
 Pygments = "*"
 pathvalidate = "*"
+sktime = "*"
 
 [dev-packages]
 invoke = "*"

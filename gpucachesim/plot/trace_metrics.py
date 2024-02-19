@@ -107,7 +107,7 @@ def trace_formats():
     help="Path to GPU config",
 )
 @click.option(
-    "-v", "--vebose", "verbose", type=bool, is_flag=True, help="enable verbose output"
+    "-v", "--verbose", "verbose", type=bool, is_flag=True, help="enable verbose output"
 )
 
 # @click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
@@ -176,7 +176,7 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 slowdown = trace_exec_time_sec / profile_exec_time_sec
                 if verbose:
                     print(
-                        "overhead: {:>6.3f} vs {:>12.9f} sec => slowdown factor {:>12}\t\t{:>20.3f}x".format(
+                        "overhead: {:>6.3f} (trace) vs {:>12.9f} (native) sec => slowdown factor {:>12}\t\t{:>20.3f}x".format(
                             trace_exec_time_sec,
                             profile_exec_time_sec,
                             plot.human_format_thousands(slowdown),

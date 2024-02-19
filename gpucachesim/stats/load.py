@@ -14,9 +14,7 @@ from gpucachesim.benchmarks import (
 def load_stats(bench_name, profiler="nvprof", path=None, fill=True) -> pd.DataFrame:
     stats = []
     if bench_name is not None:
-        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
-            profiler, bench_name
-        )
+        stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(profiler, bench_name)
         print("loading {}".format(stats_file))
         df = pd.read_csv(stats_file, header=0)
         if len(df) < 1:
@@ -28,9 +26,7 @@ def load_stats(bench_name, profiler="nvprof", path=None, fill=True) -> pd.DataFr
         benches = utils.flatten(list(b.benchmarks[Target.Profile.value].values()))
         bench_names = set([b["name"] for b in benches])
         for name in bench_names:
-            stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(
-                profiler, name
-            )
+            stats_file = REPO_ROOT_DIR / "results/combined.stats.{}.{}.csv".format(profiler, name)
             print("loading {}".format(stats_file))
             df = pd.read_csv(stats_file, header=0)
             if len(df) < 1:
@@ -93,21 +89,22 @@ def load_stats(bench_name, profiler="nvprof", path=None, fill=True) -> pd.DataFr
         Target.PlaygroundSimulate.value,
     ]
     simulation_targets_df = stats_df[stats_df["target"].isin(simulation_targets)]
+
     if not (simulation_targets_df["is_release_build"] == True).all():
         print(color("WARNING: non release results:", fg="red"))
-        non_release_results = simulation_targets_df[
-            simulation_targets_df["is_release_build"] == True
+        non_release_results = simulation_targets_df[simulation_targets_df["is_release_build"] == False]
+        group_cols = [
+            col
+            for col in ["benchmark", "target"] + sorted(list(benchmarks.ALL_BENCHMARK_INPUT_COLS))
+            if col in non_release_results
         ]
-        grouped = non_release_results.groupby(["benchmark", "target"])
+        group_cols = ["benchmark", "target", "input_id"]
+        grouped = non_release_results.groupby(group_cols)
         print(grouped["input_id"].count())
         print("====")
 
     non_float_cols = set(
-        [
-            col
-            for col, dtype in benchmarks.SPECIAL_DTYPES.items()
-            if dtype not in ["float", "float64", "int", "int64"]
-        ]
+        [col for col, dtype in benchmarks.SPECIAL_DTYPES.items() if dtype not in ["float", "float64", "int", "int64"]]
     )
     nan_dtype = pd.NA
     fill = {
@@ -147,9 +144,7 @@ def load_stats(bench_name, profiler="nvprof", path=None, fill=True) -> pd.DataFr
             if df["target"].iloc[0] != Target.Simulate.value:
                 return df
 
-            assert (
-                len(df) >= 2
-            ), "expected at least two rows: a no kernel row and at least one kernel for the config"
+            assert len(df) >= 2, "expected at least two rows: a no kernel row and at least one kernel for the config"
             # print("df")
             # print(df)
             valid_kernels = ~df["kernel_name"].isna()

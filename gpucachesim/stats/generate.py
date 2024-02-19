@@ -53,16 +53,18 @@ def generate(
     benches = defaultdict(list)
     for valid_target in valid_targets:
         if bench_name is None:
-            bench_names = b.benchmarks[valid_target.value].keys()
+            valid_bench_names = b.benchmarks[valid_target.value].keys()
         elif isinstance(bench_name, str):
-            bench_names = [bench_name]
+            valid_bench_names = [bench_name]
         elif isinstance(bench_name, list):
-            bench_names = bench_name
+            valid_bench_names = bench_name
         else:
             raise ValueError
 
-        for bench_name in bench_names:
-            benches[bench_name].extend(b.benchmarks[valid_target.value][bench_name])
+        for valid_bench_name in valid_bench_names:
+            benches[valid_bench_name].extend(b.benchmarks[valid_target.value][valid_bench_name])
+
+    benches = dict(benches)
 
     print(
         "processing {} benchmark configurations ({} targets)".format(
@@ -87,7 +89,7 @@ def generate(
                 bench_target = bench_config["target"]
                 input_idx = bench_config["input_idx"]
                 input_values = bench_config["values"]
-                target_name = f"[{target}]"
+                target_name = f"[{bench_target}]"
 
                 if quick:
                     if input_values.get("mode") not in ["serial", None]:
@@ -110,33 +112,26 @@ def generate(
                 )
 
                 try:
-                    match (bench_target.lower(), profiler):
-                        case ("profile", "nvprof"):
+                    valid_bench_target = Target(bench_target)
+                except Exception as e:
+                    raise e
+
+                try:
+                    match (valid_bench_target, profiler):
+                        case (Target.Profile, "nvprof"):
                             target_name += "[nvprof]"
-                            bench_stats = gpucachesim.stats.native.NvprofStats(
-                                config, bench_config
-                            )
-                        case ("profile", "nsight"):
+                            bench_stats = gpucachesim.stats.native.NvprofStats(config, bench_config)
+                        case (Target.Profile, "nsight"):
                             target_name += "[nsight]"
-                            bench_stats = gpucachesim.stats.native.NsightStats(
-                                config, bench_config
-                            )
-                        case ("simulate", _):
-                            bench_stats = gpucachesim.stats.stats.Stats(
-                                config, bench_config
-                            )
-                        case ("execdrivensimulate", _):
-                            bench_stats = gpucachesim.stats.stats.ExecDrivenStats(
-                                config, bench_config
-                            )
-                        case ("accelsimsimulate", _):
-                            bench_stats = gpucachesim.stats.accelsim.Stats(
-                                config, bench_config
-                            )
-                        case ("playgroundsimulate", _):
-                            bench_stats = gpucachesim.stats.playground.Stats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.native.NsightStats(config, bench_config)
+                        case (Target.Simulate, _):
+                            bench_stats = gpucachesim.stats.stats.Stats(config, bench_config)
+                        case (Target.ExecDrivenSimulate, _):
+                            bench_stats = gpucachesim.stats.stats.ExecDrivenStats(config, bench_config)
+                        case (Target.AccelsimSimulate, _):
+                            bench_stats = gpucachesim.stats.accelsim.Stats(config, bench_config)
+                        case (Target.PlaygroundSimulate, _):
+                            bench_stats = gpucachesim.stats.playground.Stats(config, bench_config)
                         case other:
                             print(
                                 color(
@@ -148,8 +143,8 @@ def generate(
                     print(current_bench_log_line)
                 except Exception as e:
                     # allow babelstream for exec driven to be missing
-                    if (bench_target.lower(), name.lower()) == (
-                        "execdrivensimulate",
+                    if (valid_bench_target, name.lower()) == (
+                        Target.ExecDrivenSimulate,
                         "babelstream",
                     ):
                         continue
@@ -163,13 +158,16 @@ def generate(
                 values.columns = ["input_" + c for c in values.columns]
 
                 # this will be the new index
-                print(bench_target)
                 values["target"] = bench_target
                 values["benchmark"] = name
                 values["input_id"] = input_idx
 
                 values = bench_stats.result_df.merge(values, how="cross")
                 assert "run" in values.columns
+                if valid_bench_target != Target.Profile:
+                    assert "is_release_build" in values.columns
+                    if strict:
+                        assert values["is_release_build"].all()
 
                 if verbose:
                     print(values.T)
@@ -179,9 +177,8 @@ def generate(
             if verbose:
                 print(all_stats)
 
-            stats_output_path = (
-                results_dir / f"combined.stats.{profiler}.{valid_bench_name}.csv"
-            )
+            print(all_stats.value_counts(["target", "benchmark"]))
+            stats_output_path = results_dir / f"combined.stats.{profiler}.{valid_bench_name}.csv"
 
             if output_path is not None:
                 stats_output_path = Path(output_path)

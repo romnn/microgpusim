@@ -18,6 +18,7 @@ from gpucachesim.benchmarks import (
 
 
 class ParallelTableRow(typing.NamedTuple):
+    order: int
     metric: str
     threads: int
     serial_value: typing.Optional[typing.Tuple[float, typing.Union[float, int, str]]]
@@ -32,6 +33,9 @@ class ParallelTableRow(typing.NamedTuple):
             values.append(self.det_value[0])
         values += [v[0] for v in self.nondet_values]
         return values
+
+    def metric_key(self) -> str:
+        return self.metric.replace(r"\\", "").lower()
 
 
 def build_parallel_table_rows(
@@ -187,6 +191,493 @@ def build_parallel_table_rows(
 
         spacer = " " + ("=" * 20) + " "
 
+        
+        
+        # l1 data hit rate (rel err)
+        serial_l1_hit_rate = df.loc[threads_mask, "l1_hit_rate_serial"].mean()
+        det_l1_hit_rate = det["l1_hit_rate_parallel"].mean()
+        det_rel_err = det["l1_hit_rate_mae"].mean()
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            # assert len(nondet) == num_bench_configs
+
+            nondet_l1_hit_rate = nondet["l1_hit_rate_parallel"].mean()
+            nondet_rel_err = nondet["l1_hit_rate_mae"].mean()
+            if multiple_bench_configs:
+                nondet_values.append(
+                    (
+                        100.0 * nondet_rel_err,
+                        "${}\\%$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+            else:
+                nondet_values.append(
+                    (
+                        100.0 * nondet_l1_hit_rate,
+                        "${}\\%~({}\\%)$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_l1_hit_rate,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+
+        serial_value = (
+            None
+            if multiple_bench_configs
+            else (
+                100.0 * serial_l1_hit_rate,
+                "${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
+            )
+        )
+        if multiple_bench_configs:
+            det_value = (
+                100.0 * det_rel_err,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        else:
+            det_value = (
+                100.0 * det_l1_hit_rate,
+                "${}\\%~({}\\%)$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_l1_hit_rate,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+
+        table_rows.append(
+            ParallelTableRow(
+                order=0,
+                metric=r"L1D\\hit rate",
+                threads=threads,
+                serial_value=serial_value,
+                det_value=det_value,
+                nondet_values=nondet_values,
+            )
+        )
+
+        # l2 data hit rate (rel err)
+        serial_l2_hit_rate = df.loc[threads_mask, "l2_hit_rate_serial"].mean()
+        det_l2_hit_rate = det["l2_hit_rate_parallel"].mean()
+        det_rel_err = det["l2_hit_rate_mae"].mean()
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            # assert len(nondet) == num_bench_configs
+
+            nondet_l2_hit_rate = nondet["l2_hit_rate_parallel"].mean()
+            nondet_rel_err = nondet["l2_hit_rate_mae"].mean()
+            if multiple_bench_configs:
+                nondet_values.append(
+                    (
+                        100.0 * nondet_rel_err,
+                        "${}\\%$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+            else:
+                nondet_values.append(
+                    (
+                        100.0 * nondet_l2_hit_rate,
+                        "${}\\%~({}\\%)$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_l2_hit_rate,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+
+        serial_value = (
+            None
+            if multiple_bench_configs
+            else (
+                100.0 * serial_l2_hit_rate,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * serial_l2_hit_rate,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    )
+                ),
+            )
+        )
+        if multiple_bench_configs:
+            det_value = (
+                100.0 * det_rel_err,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        else:
+            det_value = (
+                100.0 * det_l2_hit_rate,
+                "${}\\%~({}\\%)$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_l2_hit_rate,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        table_rows.append(
+            ParallelTableRow(
+                order=100,
+                metric=r"L2D\\hit rate",
+                threads=threads,
+                serial_value=serial_value,
+                det_value=det_value,
+                nondet_values=nondet_values,
+            )
+        )
+
+        # dram reads (rel err)
+        serial_dram_reads = int(df.loc[threads_mask, "dram_reads_serial"].mean())
+        det_dram_reads = int(det["dram_reads_parallel"].mean())
+        det_rel_err = det["dram_reads_smape"].mean()
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            # assert len(nondet) == num_bench_configs
+
+            nondet_dram_reads = int(nondet["dram_reads_parallel"].mean())
+            nondet_rel_err = nondet["dram_reads_smape"].mean()
+            if multiple_bench_configs:
+                nondet_values.append(
+                    (
+                        nondet_rel_err,
+                        "${}\\%$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+            else:
+                nondet_values.append(
+                    (
+                        nondet_dram_reads,
+                        "${} ({}\\%)$".format(
+                            plot.human_format_thousands(
+                                nondet_dram_reads,
+                                round_to=thousands_round_to,
+                                variable_precision=variable_precision,
+                            ),
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+
+        serial_value = (
+            None
+            if multiple_bench_configs
+            else (
+                serial_dram_reads,
+                "${}$".format(
+                    plot.human_format_thousands(
+                        serial_dram_reads,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    )
+                ),
+            )
+        )
+        if multiple_bench_configs:
+            det_value = (
+                100.0 * det_rel_err,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        else:
+            det_value = (
+                det_dram_reads,
+                "${} ({}\\%)$".format(
+                    plot.human_format_thousands(
+                        det_dram_reads,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    ),
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+
+        table_rows.append(
+            ParallelTableRow(
+                order=200,
+                metric=r"DRAM\\reads",
+                threads=threads,
+                serial_value=serial_value,
+                det_value=det_value,
+                nondet_values=nondet_values,
+            )
+        )
+
+        # dram writes (rel err)
+        serial_dram_writes = int(df.loc[threads_mask, "dram_writes_serial"].mean())
+        det_dram_writes = int(det["dram_writes_parallel"].mean())
+        det_rel_err = det["dram_writes_smape"].mean()
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == 1
+            # assert len(nondet) == num_bench_configs
+
+            nondet_dram_writes = int(nondet["dram_writes_parallel"].mean())
+            nondet_rel_err = nondet["dram_writes_smape"].mean()
+            if multiple_bench_configs:
+                nondet_values.append(
+                    (
+                        100.0 * nondet_rel_err,
+                        "${}\\%$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+            else:
+                nondet_values.append(
+                    (
+                        nondet_dram_writes,
+                        "${} ({}\\%)$".format(
+                            plot.human_format_thousands(
+                                nondet_dram_writes,
+                                round_to=thousands_round_to,
+                                variable_precision=variable_precision,
+                            ),
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+
+        serial_value = (
+            None
+            if multiple_bench_configs
+            else (
+                serial_dram_writes,
+                "${}$".format(
+                    plot.human_format_thousands(
+                        serial_dram_writes,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    )
+                ),
+            )
+        )
+        if multiple_bench_configs:
+            det_value = (
+                100.0 * det_rel_err,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        else:
+            det_value = (
+                det_dram_writes,
+                "${} ({}\\%)$".format(
+                    plot.human_format_thousands(
+                        det_dram_writes,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    ),
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        table_rows.append(
+            ParallelTableRow(
+                order=300,
+                metric=r"DRAM\\writes",
+                threads=threads,
+                serial_value=serial_value,
+                det_value=det_value,
+                nondet_values=nondet_values,
+            )
+        )
+
+        # cycles (rel err)
+        serial_cycles = int(df.loc[threads_mask, "cycles_serial"].mean())
+        det_cycles = int(det["cycles_parallel"].mean())
+        det_rel_err = det["cycles_mape"].mean()
+        nondet_values = []
+        # for interleave, n in interleave_n:
+        for run_ahead in run_ahead_values:
+            # nondet = nondet_interleave if interleave else nondet_no_interleave
+            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
+            # assert len(nondet) == num_bench_configs
+
+            nondet_cycles = int(nondet["cycles_parallel"].mean())
+            nondet_rel_err = nondet["cycles_mape"].mean()
+            if multiple_bench_configs:
+                nondet_values.append(
+                    (
+                        nondet_rel_err,
+                        "${}\\%$".format(
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            )
+                        ),
+                    )
+                )
+            else:
+                nondet_values.append(
+                    (
+                        nondet_cycles,
+                        "${} ({}\\%)$".format(
+                            plot.human_format_thousands(
+                                nondet_cycles,
+                                round_to=thousands_round_to,
+                                variable_precision=variable_precision,
+                            ),
+                            plot.round_to_precision_str(
+                                100.0 * nondet_rel_err,
+                                round_to=1,
+                                variable_precision=variable_precision,
+                            ),
+                        ),
+                    )
+                )
+
+        serial_value = (
+            None
+            if multiple_bench_configs
+            else (
+                serial_cycles,
+                "${}$".format(
+                    plot.human_format_thousands(
+                        serial_cycles,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    )
+                ),
+            )
+        )
+        if multiple_bench_configs:
+            det_value = (
+                100.0 * det_rel_err,
+                "${}\\%$".format(
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    )
+                ),
+            )
+        else:
+            det_value = (
+                det_cycles,
+                "${} ({}\\%)$".format(
+                    plot.human_format_thousands(
+                        det_cycles,
+                        round_to=thousands_round_to,
+                        variable_precision=variable_precision,
+                    ),
+                    plot.round_to_precision_str(
+                        100.0 * det_rel_err,
+                        round_to=1,
+                        variable_precision=variable_precision,
+                    ),
+                ),
+            )
+        table_rows.append(
+            ParallelTableRow(
+                order=900,
+                metric="Cycles",
+                threads=threads,
+                serial_value=serial_value,
+                det_value=det_value,
+                nondet_values=nondet_values,
+            )
+        )
+
         # exec time (speedup)
         serial_exec_time = df.loc[threads_mask, "exec_time_sec_serial"].mean()
         det_exec_time = det["exec_time_sec_parallel"].mean()
@@ -287,7 +778,8 @@ def build_parallel_table_rows(
             )
         table_rows.append(
             ParallelTableRow(
-                metric=r"exec\\time",
+                order=1000,
+                metric=r"Exec\\time",
                 threads=threads,
                 serial_value=serial_value,
                 det_value=det_value,
@@ -295,485 +787,7 @@ def build_parallel_table_rows(
             )
         )
 
-        # cycles (rel err)
-        serial_cycles = int(df.loc[threads_mask, "cycles_serial"].mean())
-        det_cycles = int(det["cycles_parallel"].mean())
-        det_rel_err = det["cycles_mape"].mean()
-        nondet_values = []
-        # for interleave, n in interleave_n:
-        for run_ahead in run_ahead_values:
-            # nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
-            # assert len(nondet) == num_bench_configs
 
-            nondet_cycles = int(nondet["cycles_parallel"].mean())
-            nondet_rel_err = nondet["cycles_mape"].mean()
-            if multiple_bench_configs:
-                nondet_values.append(
-                    (
-                        nondet_rel_err,
-                        "${}\\%$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            )
-                        ),
-                    )
-                )
-            else:
-                nondet_values.append(
-                    (
-                        nondet_cycles,
-                        "${} ({}\\%)$".format(
-                            plot.human_format_thousands(
-                                nondet_cycles,
-                                round_to=thousands_round_to,
-                                variable_precision=variable_precision,
-                            ),
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-
-        serial_value = (
-            None
-            if multiple_bench_configs
-            else (
-                serial_cycles,
-                "${}$".format(
-                    plot.human_format_thousands(
-                        serial_cycles,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    )
-                ),
-            )
-        )
-        if multiple_bench_configs:
-            det_value = (
-                100.0 * det_rel_err,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    )
-                ),
-            )
-        else:
-            det_value = (
-                det_cycles,
-                "${} ({}\\%)$".format(
-                    plot.human_format_thousands(
-                        det_cycles,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    ),
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        table_rows.append(
-            ParallelTableRow(
-                metric="cycles",
-                threads=threads,
-                serial_value=serial_value,
-                det_value=det_value,
-                nondet_values=nondet_values,
-            )
-        )
-
-        # l1 data hit rate (rel err)
-        serial_l1_hit_rate = df.loc[threads_mask, "l1_hit_rate_serial"].mean()
-        det_l1_hit_rate = det["l1_hit_rate_parallel"].mean()
-        det_rel_err = det["l1_hit_rate_mae"].mean()
-        nondet_values = []
-        # for interleave, n in interleave_n:
-        for run_ahead in run_ahead_values:
-            # nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
-            # assert len(nondet) == 1
-            # assert len(nondet) == num_bench_configs
-
-            nondet_l1_hit_rate = nondet["l1_hit_rate_parallel"].mean()
-            nondet_rel_err = nondet["l1_hit_rate_mae"].mean()
-            if multiple_bench_configs:
-                nondet_values.append(
-                    (
-                        100.0 * nondet_rel_err,
-                        "${}\\%$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-            else:
-                nondet_values.append(
-                    (
-                        100.0 * nondet_l1_hit_rate,
-                        "${}\\%~({}\\%)$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_l1_hit_rate,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-
-        serial_value = (
-            None
-            if multiple_bench_configs
-            else (
-                100.0 * serial_l1_hit_rate,
-                "${:>2.1f}\\%$".format(100.0 * serial_l1_hit_rate),
-            )
-        )
-        if multiple_bench_configs:
-            det_value = (
-                100.0 * det_rel_err,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        else:
-            det_value = (
-                100.0 * det_l1_hit_rate,
-                "${}\\%~({}\\%)$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_l1_hit_rate,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-
-        table_rows.append(
-            ParallelTableRow(
-                metric=r"L1D\\hit rate",
-                threads=threads,
-                serial_value=serial_value,
-                det_value=det_value,
-                nondet_values=nondet_values,
-            )
-        )
-
-        # l2 data hit rate (rel err)
-        serial_l2_hit_rate = df.loc[threads_mask, "l2_hit_rate_serial"].mean()
-        det_l2_hit_rate = det["l2_hit_rate_parallel"].mean()
-        det_rel_err = det["l2_hit_rate_mae"].mean()
-        nondet_values = []
-        # for interleave, n in interleave_n:
-        for run_ahead in run_ahead_values:
-            # nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
-            # assert len(nondet) == 1
-            # assert len(nondet) == num_bench_configs
-
-            nondet_l2_hit_rate = nondet["l2_hit_rate_parallel"].mean()
-            nondet_rel_err = nondet["l2_hit_rate_mae"].mean()
-            if multiple_bench_configs:
-                nondet_values.append(
-                    (
-                        100.0 * nondet_rel_err,
-                        "${}\\%$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-            else:
-                nondet_values.append(
-                    (
-                        100.0 * nondet_l2_hit_rate,
-                        "${}\\%~({}\\%)$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_l2_hit_rate,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-
-        serial_value = (
-            None
-            if multiple_bench_configs
-            else (
-                100.0 * serial_l2_hit_rate,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * serial_l2_hit_rate,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    )
-                ),
-            )
-        )
-        if multiple_bench_configs:
-            det_value = (
-                100.0 * det_rel_err,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        else:
-            det_value = (
-                100.0 * det_l2_hit_rate,
-                "${}\\%~({}\\%)$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_l2_hit_rate,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        table_rows.append(
-            ParallelTableRow(
-                metric=r"L2D\\hit rate",
-                threads=threads,
-                serial_value=serial_value,
-                det_value=det_value,
-                nondet_values=nondet_values,
-            )
-        )
-
-        # dram reads (rel err)
-        serial_dram_reads = int(df.loc[threads_mask, "dram_reads_serial"].mean())
-        det_dram_reads = int(det["dram_reads_parallel"].mean())
-        det_rel_err = det["dram_reads_smape"].mean()
-        nondet_values = []
-        # for interleave, n in interleave_n:
-        for run_ahead in run_ahead_values:
-            # nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
-            # assert len(nondet) == 1
-            # assert len(nondet) == num_bench_configs
-
-            nondet_dram_reads = int(nondet["dram_reads_parallel"].mean())
-            nondet_rel_err = nondet["dram_reads_smape"].mean()
-            if multiple_bench_configs:
-                nondet_values.append(
-                    (
-                        nondet_rel_err,
-                        "${}\\%$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-            else:
-                nondet_values.append(
-                    (
-                        nondet_dram_reads,
-                        "${} ({}\\%)$".format(
-                            plot.human_format_thousands(
-                                nondet_dram_reads,
-                                round_to=thousands_round_to,
-                                variable_precision=variable_precision,
-                            ),
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-
-        serial_value = (
-            None
-            if multiple_bench_configs
-            else (
-                serial_dram_reads,
-                "${}$".format(
-                    plot.human_format_thousands(
-                        serial_dram_reads,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    )
-                ),
-            )
-        )
-        if multiple_bench_configs:
-            det_value = (
-                100.0 * det_rel_err,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        else:
-            det_value = (
-                det_dram_reads,
-                "${} ({}\\%)$".format(
-                    plot.human_format_thousands(
-                        det_dram_reads,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    ),
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-
-        table_rows.append(
-            ParallelTableRow(
-                metric=r"DRAM\\reads",
-                threads=threads,
-                serial_value=serial_value,
-                det_value=det_value,
-                nondet_values=nondet_values,
-            )
-        )
-
-        # dram writes (rel err)
-        serial_dram_writes = int(df.loc[threads_mask, "dram_writes_serial"].mean())
-        det_dram_writes = int(det["dram_writes_parallel"].mean())
-        det_rel_err = det["dram_writes_smape"].mean()
-        nondet_values = []
-        # for interleave, n in interleave_n:
-        for run_ahead in run_ahead_values:
-            # nondet = nondet_interleave if interleave else nondet_no_interleave
-            nondet = all_nondet[all_nondet["input_run_ahead_parallel"] == run_ahead]
-            # assert len(nondet) == 1
-            # assert len(nondet) == num_bench_configs
-
-            nondet_dram_writes = int(nondet["dram_writes_parallel"].mean())
-            nondet_rel_err = nondet["dram_writes_smape"].mean()
-            if multiple_bench_configs:
-                nondet_values.append(
-                    (
-                        100.0 * nondet_rel_err,
-                        "${}\\%$".format(
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-            else:
-                nondet_values.append(
-                    (
-                        nondet_dram_writes,
-                        "${} ({}\\%)$".format(
-                            plot.human_format_thousands(
-                                nondet_dram_writes,
-                                round_to=thousands_round_to,
-                                variable_precision=variable_precision,
-                            ),
-                            plot.round_to_precision_str(
-                                100.0 * nondet_rel_err,
-                                round_to=1,
-                                variable_precision=variable_precision,
-                            ),
-                        ),
-                    )
-                )
-
-        serial_value = (
-            None
-            if multiple_bench_configs
-            else (
-                serial_dram_writes,
-                "${}$".format(
-                    plot.human_format_thousands(
-                        serial_dram_writes,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    )
-                ),
-            )
-        )
-        if multiple_bench_configs:
-            det_value = (
-                100.0 * det_rel_err,
-                "${}\\%$".format(
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        else:
-            det_value = (
-                det_dram_writes,
-                "${} ({}\\%)$".format(
-                    plot.human_format_thousands(
-                        det_dram_writes,
-                        round_to=thousands_round_to,
-                        variable_precision=variable_precision,
-                    ),
-                    plot.round_to_precision_str(
-                        100.0 * det_rel_err,
-                        round_to=1,
-                        variable_precision=variable_precision,
-                    ),
-                ),
-            )
-        table_rows.append(
-            ParallelTableRow(
-                metric=r"DRAM\\writes",
-                threads=threads,
-                serial_value=serial_value,
-                det_value=det_value,
-                nondet_values=nondet_values,
-            )
-        )
     return table_rows
 
 
@@ -908,6 +922,8 @@ def parallel_table(
     scale_clusters=True,
     large=False,
     verbose=True,
+    combined_only=False,
+    no_combined=False,
     batch=False,
     png=False,
 ):
@@ -1141,7 +1157,7 @@ def parallel_table(
         raise ValueError("joined parallel and serial dataframe is empty")
 
     if large:
-        joined = joined[joined["mean_blocks_per_sm_parallel"] > 1.0]
+        joined = joined[joined["mean_blocks_per_sm_all_kernels_parallel"] > 1.0]
 
     preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
     preview_cols = list(
@@ -1357,7 +1373,7 @@ def parallel_table(
     # )
 
     # build the table data
-    assert 8 * benchmarks.BASELINE["num_clusters"] == 224
+    assert 4 * benchmarks.BASELINE["num_clusters"] == 112
 
     functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
         dict(
@@ -1479,10 +1495,11 @@ def parallel_table(
 
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.metric, row.threads))
+            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []
-                if row.metric == r"exec\\time":
+                if row.metric_key() == r"exectime":
                     bold_values = [np.amax(row.values())]
                     # bold_values = [np.amin(row.values())]
                     # if absolute_exec_time:
@@ -1493,10 +1510,15 @@ def parallel_table(
                     #     bold_values = [np.amax(row.values())]
                 if verbose:
                     print(row.metric, bold_values, row.values())
+
+                print(row.metric, bold_values, row.values())
                 table += write_table_row(row, bold_values)
 
     else:
+        assert not (combined_only and no_combined)
         for bench_config in selected_benchmarks:
+            if combined_only:
+                continue
             bench_inputs: typing.Dict[str, typing.Any] = bench_config["inputs"]
             if not all(aggregated["benchmark"] == bench_config["name"]):
                 # print(
@@ -1555,10 +1577,11 @@ def parallel_table(
 
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.metric, row.threads))
+            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []
-                if row.metric == r"exec\\time":
+                if row.metric_key() == r"exectime":
                     bold_values = [np.amin(row.values())]
                     # if absolute_exec_time:
                     #     bold_values = [np.amin(row.values())]
@@ -1574,6 +1597,8 @@ def parallel_table(
 
         # add averaged row
         for functional_config in functional_configs:
+            if no_combined:
+                continue
             mask_cols = list(functional_config.keys())
             mask_values = list(functional_config.values())
             mask = (aggregated[mask_cols] == mask_values).all(axis=1)
@@ -1633,7 +1658,8 @@ def parallel_table(
             )
             table += "%\n%\n"
 
-            table_rows = sorted(table_rows, key=lambda row: (row.metric, row.threads))
+            table_rows = sorted(table_rows, key=lambda row: (row.order, row.metric, row.threads))
+            # table_rows = sorted(table_rows, key=lambda row: (row.threads))
             for row in table_rows:
                 bold_values = []
                 if row.metric == r"exec\\time":
@@ -1714,8 +1740,15 @@ def parallel_table(
         filename += "_{}".format(bench_name)
     if scale_clusters:
         filename += "_scaled_clusters"
+
+    if combined_only:
+        filename += "_combined_only"
+    elif no_combined:
+        filename += "_no_combined"
+
     if large:
         filename += "_large"
+
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:
         utils.render_latex(tex_code, output_path=pdf_output_path)

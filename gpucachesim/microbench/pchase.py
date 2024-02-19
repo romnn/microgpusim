@@ -467,11 +467,11 @@ def pchase(
 
         unit = 1 * MIN if sim else 1 * SEC
         per_size_timeout = [
-            ((derived_iter_size * (1 + warmup)) / 1000) * unit
+            ((derived_iter_size * (1 + warmup)) / 100) * unit
             for _ in range(start_size_bytes, end_size_bytes + 1, step_size_bytes)
         ]
         timeout_sec = repetitions * sum(per_size_timeout)
-        timeout_sec = max(5, 2 * timeout_sec)
+        timeout_sec = max(5, timeout_sec)
 
         print(
             "[stream={}, l2 state={} timeout {: >5.1f} sec]\t{}".format(

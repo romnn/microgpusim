@@ -1,5 +1,7 @@
 import typing
 import numpy as np
+import sktime
+import sktime.performance_metrics.forecasting
 import sklearn.metrics
 
 
@@ -20,9 +22,7 @@ def geo_mean(values: np.ndarray) -> np.ndarray:
 #     return np.exp(np.log(values).mean())
 
 
-def bounded_relative_absolute_error(
-    true_values: np.ndarray, values: np.ndarray, **kwargs
-) -> np.ndarray:
+def bounded_relative_absolute_error(true_values: np.ndarray, values: np.ndarray, **kwargs) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values
@@ -38,9 +38,7 @@ def bounded_relative_absolute_error(
     return brae
 
 
-def rel_err(
-    true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None
-) -> np.ndarray:
+def rel_err(true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values
@@ -83,13 +81,13 @@ def mse(true_values, values) -> float:
     return sklearn.metrics.mean_squared_error(true_values, values)
 
 
-def rmse_real(true_values, values) -> float:
+def rmse(true_values, values) -> float:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     return ((values - true_values) ** 2).mean() ** 0.5
 
 
-def rmse(true_values, values) -> float:
+def rmse_scaled(true_values, values) -> float:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     diff = values - true_values
@@ -142,9 +140,15 @@ def emale(true_values: np.ndarray, values: np.ndarray) -> float:
     true_values = true_values.fillna(0.0)
     ratios = values / true_values
     ratios[values == true_values] = 1.0
+    # print("want", np.array(true_values))
+    # print("have", np.array(values))
+    # print("emale ratios", np.array(ratios))
 
     log_ratios = np.empty_like(ratios)
     valid_mask = np.isfinite(ratios) & ratios != 0
+    if (ratios == 0.0).any():
+        # invalid, cannot compute
+        return np.nan
 
     # temp
     ratios[~valid_mask] = 1.0
@@ -162,6 +166,14 @@ def mape(true_values: np.ndarray, values: np.ndarray) -> np.array:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     return sklearn.metrics.mean_absolute_percentage_error(true_values, values)
+
+
+def rmspe(true_values: np.ndarray, values: np.ndarray) -> float:
+    values = values.fillna(0.0)
+    true_values = true_values.fillna(0.0)
+    return sktime.performance_metrics.forecasting.mean_squared_percentage_error(
+        y_true=true_values, y_pred=values, square_root=True, symmetric=False
+    )
 
 
 def correlation(true_values: np.ndarray, values: np.ndarray, atol=None) -> float:
@@ -184,18 +196,25 @@ def correlation(true_values: np.ndarray, values: np.ndarray, atol=None) -> float
     # values += 1.0
     # true_values += 1.0
 
+    print("correlation have", np.array(values))
+    print("correlation want", np.array(true_values))
+
     if values.std() != 0 and true_values.std() != 0:
         return np.corrcoef(true_values, values)[0][1]
+    # else:
+    #     return np.nan
     elif atol is not None and np.allclose(
-        np.amin([values, true_values], axis=0),
-        np.amax([values, true_values], axis=0),
+        values,
+        # np.amin([values, true_values], axis=0),
+        true_values,
+        # np.amax([values, true_values], axis=0),
         atol=atol,
     ):
         return 1.0
     else:
-        assert len(np.amin([values, true_values], axis=0)) == len(values)
-        a = np.amin([values, true_values], axis=0)
-        b = np.amax([values, true_values], axis=0)
-        print(a, b)
-        print(np.abs(a - b))
+        #     assert len(np.amin([values, true_values], axis=0)) == len(values)
+        #     a = np.amin([values, true_values], axis=0)
+        #     b = np.amax([values, true_values], axis=0)
+        #     # print(a, b)
+        #     # print(np.abs(a - b))
         return np.nan
