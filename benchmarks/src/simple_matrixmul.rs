@@ -176,6 +176,9 @@ where
         p,
     };
     let options = tracegen::Options::default();
+    // let options = tracegen::Options {
+    //     no_data_dependency: false,
+    // };
     let trace = tracer
         .trace_kernel(grid_dim, block_dim, &mut kernel, &options)
         .await?;

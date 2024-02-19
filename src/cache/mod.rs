@@ -133,7 +133,6 @@ pub fn select_status(probe: RequestStatus, access: RequestStatus) -> RequestStat
     }
 }
 
-// pub trait Cache<S>: crate::engine::cycle::Component + Send + Sync + Bandwidth + 'static {
 pub trait Cache: Send + Sync + Bandwidth + 'static {
     fn cycle(
         &mut self,
@@ -143,9 +142,6 @@ pub trait Cache: Send + Sync + Bandwidth + 'static {
 
     /// TODO: shoud this be removed?
     fn as_any(&self) -> &dyn std::any::Any;
-
-    /// Get top port
-    // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>>;
 
     /// Cache controller
     fn controller(&self) -> &dyn CacheController;

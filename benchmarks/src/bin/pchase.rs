@@ -211,11 +211,12 @@ where
 
     gpucachesim::init_deadlock_detector();
     let mut sim = gpucachesim::config::GTX1080::new(Arc::new(sim_config));
-    for cluster in sim.clusters.iter() {
+    for cluster in sim.clusters.iter_mut() {
+        cluster.fetch_return_callback = Some(fetch_return_callback.clone());
         for core in cluster.cores.iter() {
             let mut core = core.try_lock();
-            core.fetch_return_callback = Some(fetch_return_callback.clone());
-            // core.write().load_store_unit.lock().l1_access_callback =
+            //     core.fetch_return_callback = Some(fetch_return_callback.clone());
+            //     // core.write().load_store_unit.lock().l1_access_callback =
             core.load_store_unit.l1_access_callback = Some(l1_access_callback.clone());
         }
     }

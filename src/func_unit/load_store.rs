@@ -906,15 +906,17 @@ where
 }
 
 impl<MC> LoadStoreUnit<MC> {
-    pub fn fill(&self, mut fetch: MemFetch, time: u64) {
-        fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
-        // self.response_queue.push_back(fetch);
-        self.response_queue
-            // .lock()
-            // .enqueue(ic::Packet { fetch, time });
-            .try_send(ic::Packet { fetch, time })
-            .expect("failed to send fill packet");
-    }
+    // pub fn fill(&self, packet: ic::Packet<MemFetch>) {
+    //     // fetch.status = mem_fetch::Status::IN_SHADER_LDST_RESPONSE_FIFO;
+    //     self.current_response = Some(packet);
+    //
+    //     // // self.response_queue.push_back(fetch);
+    //     // self.response_queue
+    //     //     // .lock()
+    //     //     // .enqueue(ic::Packet { fetch, time });
+    //     //     .try_send(ic::Packet { fetch, time })
+    //     //     .expect("failed to send fill packet");
+    // }
 
     #[must_use]
     // #[inline]

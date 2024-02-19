@@ -552,9 +552,8 @@ pub struct Core<I, MC> {
 
     pub schedulers: Box<[scheduler::gto::Scheduler]>,
     pub scheduler_issue_priority: usize,
-
-    /// Custom callback handler that is called when a fetch is returned to its issuer.
-    pub fetch_return_callback: Option<Box<dyn Fn(u64, &mem_fetch::MemFetch) + Send + Sync>>,
+    // Custom callback handler that is called when a fetch is returned to its issuer.
+    // pub fetch_return_callback: Option<Box<dyn Fn(u64, &mem_fetch::MemFetch) + Send + Sync>>,
 }
 
 #[allow(clippy::missing_fields_in_debug)]
@@ -856,7 +855,7 @@ where
             schedulers,
             scheduler_issue_priority: 0,
             functional_units,
-            fetch_return_callback: None,
+            // fetch_return_callback: None,
         }
     }
 }
@@ -2649,16 +2648,27 @@ where
         // if need_l1_flush {
         //     self.cache_invalidate();
         // }
+        //
+        // for ic::Packet { fetch, time } in self.instr_fetch_response_queue.lock().drain() {
 
         {
-            // for ic::Packet { fetch, time } in self.instr_fetch_response_queue.lock().drain() {
             while let Some(ic::Packet { fetch, time }) = self.instr_fetch_response_queue.receive() {
-                if let Some(fetch_return_cb) = &self.fetch_return_callback {
-                    fetch_return_cb(time, &fetch);
-                }
+                // if let Some(fetch_return_cb) = &self.fetch_return_callback {
+                //     fetch_return_cb(time, &fetch);
+                // }
                 self.instr_l1_cache.fill(fetch, time);
             }
         }
+
+        // {
+        //     while let Some(packet) = self.instr_fetch_response_queue.receive() {
+        //         let ic::Packet { fetch, time } = packet.
+        //         if let Some(fetch_return_cb) = &self.fetch_return_callback {
+        //             fetch_return_cb(time, &fetch);
+        //         }
+        //         self.load_store_unit.fill(fetch, time);
+        //     }
+        // }
 
         // for ic::Packet { data, time } in self.load_store_response_queue.lock().drain() {
         //     if let Some(fetch_return_cb) = &self.fetch_return_callback {

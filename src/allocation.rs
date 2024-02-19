@@ -12,6 +12,11 @@ pub struct Allocation {
 }
 
 impl Allocation {
+    #[inline]
+    pub fn relative_addr(&self, addr: u64) -> Option<super::address> {
+        addr.checked_sub(self.start_addr)
+    }
+
     pub fn contains(&self, addr: address) -> bool {
         let end_addr = self
             .end_addr

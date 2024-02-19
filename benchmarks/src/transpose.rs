@@ -511,9 +511,10 @@ where
     assert!(grid_dim.y > 0);
     assert!(grid_dim.z > 0);
 
-    let options = tracegen::Options {
-        no_data_dependency: true,
-    };
+    let options = tracegen::Options::default();
+    // let options = tracegen::Options {
+    //     no_data_dependency: true,
+    // };
     let trace = tracer
         .trace_kernel(grid_dim, block_dim, kernel, &options)
         .await?;

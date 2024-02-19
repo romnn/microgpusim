@@ -279,7 +279,7 @@ impl super::GPU {
             dram_return_queue_size: 64, // 116 for GTX 1080?
             dram_buswidth: 4,
             dram_burst_length: 8,
-            dram_data_command_freq_ratio: 4,
+            // dram_data_command_freq_ratio: 4,
             // "nbk=16:CCD=2:RRD=6:RCD=12:RAS=28:RP=12:RC=40:
             // CL=12:WL=4:CDLR=5:WR=12:nbkgrp=1:CCDL=0:RTPL=0"
             dram_timing_options: super::TimingOptions { num_banks: 16 },

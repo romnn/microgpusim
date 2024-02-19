@@ -1034,7 +1034,7 @@ impl WarpInstruction {
             for i in 0..subwarp_size {
                 let thread_id = subwarp * subwarp_size + i;
                 let thread = &self.threads[thread_id];
-                log::warn!(
+                log::debug!(
                     "{:?}: thread {:<2} tid(todo)={:?} active={:<5} addresses={:?}",
                     access_kind,
                     thread_id,
@@ -1134,7 +1134,8 @@ impl WarpInstruction {
             //     subwarp_accesses,
             // );
 
-            if log::log_enabled!(log::Level::Trace) {
+            if true || log::log_enabled!(log::Level::Trace) {
+                let allocations = allocations.read();
                 for (i, (block_addr, subwarp_access)) in subwarp_accesses.iter().enumerate() {
                     let (last_block_addr, _) = subwarp_accesses[i.saturating_sub(1)];
                     let diff = *block_addr as i64 - last_block_addr as i64;
@@ -1161,10 +1162,16 @@ impl WarpInstruction {
                         .map(|c| c.iter().collect::<String>())
                         .collect::<Vec<String>>()
                         .join("|");
-                    log::trace!(
-                        " [{: >2}] {:>18} ({}{:<4}): chunk={:>4} floats={} activemask={}",
+
+                    let rel_block_addr = allocations
+                        .get(&block_addr)
+                        .map(|allocation| block_addr - allocation.start_addr);
+
+                    log::warn!(
+                        " [{: >2}] {:>18} {:>6} ({}{:<4}): chunk={:>4} floats={} activemask={}",
                         i,
                         block_addr,
+                        rel_block_addr.unwrap_or(0),
                         if diff < 0 { "-" } else { "+" },
                         diff.abs(),
                         subwarp_access.chunk_mask[..4].to_bit_string(),

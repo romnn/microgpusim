@@ -255,7 +255,8 @@ where
         shared_mem_b: Mutex::new(shared_mem_b),
         num_rows,
     };
-    let options = tracegen::Options::default();
+    let mut options = tracegen::Options::default();
+    options.no_data_dependency = false;
     let trace = tracer
         .trace_kernel(grid_dim, block_dim, &mut kernel, &options)
         .await?;

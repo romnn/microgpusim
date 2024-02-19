@@ -1,5 +1,5 @@
-use super::{config, fifo::Fifo, interconn as ic, mem_fetch, Core};
-use crate::sync::{atomic, Arc, Mutex, RwLock};
+use super::{config, interconn as ic, mem_fetch, Core};
+use crate::sync::{atomic, Arc, Mutex};
 use console::style;
 use ic::SharedConnection;
 use std::collections::VecDeque;
@@ -50,6 +50,9 @@ pub struct Cluster<I, MC> {
 
     // pub response_fifo: RwLock<VecDeque<mem_fetch::MemFetch>>,
     pub response_fifo: VecDeque<mem_fetch::MemFetch>,
+
+    /// Custom callback handler that is called when a fetch is returned to its issuer.
+    pub fetch_return_callback: Option<Box<dyn Fn(u64, &mem_fetch::MemFetch) + Send + Sync>>,
 }
 
 impl<I, MC> std::fmt::Debug for Cluster<I, MC> {
@@ -115,7 +118,7 @@ where
 
         let response_fifo = VecDeque::new();
         // let response_fifo = RwLock::new(response_fifo);
-        let mut cluster = Self {
+        let cluster = Self {
             cluster_id,
             // warp_instruction_unique_uid: Arc::clone(warp_instruction_unique_uid),
             config: config.clone(),
@@ -128,6 +131,7 @@ where
             block_issue_next_core,
             // block_issue_next_core: Mutex::new(block_issue_next_core),
             response_fifo,
+            fetch_return_callback: None,
         };
         cluster.reinit();
         cluster
@@ -209,6 +213,10 @@ where
                        //     // .lock()
                        //     .is_full(),
             );
+
+            if let Some(fetch_return_cb) = &self.fetch_return_callback {
+                fetch_return_cb(cycle, &fetch);
+            }
 
             match fetch.access_kind() {
                 AccessKind::INST_ACC_R => {

@@ -28,9 +28,17 @@ pub enum TraceError {
     MissingReconvergencePoints,
 }
 
-#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Options {
     pub no_data_dependency: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            no_data_dependency: true,
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -1017,21 +1025,6 @@ mod tests {
         Ok(trace.to_warp_traces())
     }
 
-    // #[macro_export]
-    // macro_rules! function_name {
-    //     () => {{
-    //         // Okay, this is ugly, I get it. However, this is the best we can get on a stable rust.
-    //         fn f() {}
-    //         fn type_name_of<T>(_: T) -> &'static str {
-    //             std::any::type_name::<T>()
-    //         }
-    //         let name = type_name_of(f);
-    //         // 3 is the length of the "::f" suffix
-    //         &name[..name.len() - 3]
-    //     }};
-    // }
-    // let test = PathBuf::from(file!()).parent().unwrap().to_path_buf();
-
     pub fn testing_dir() -> PathBuf {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let testing_dir = manifest_dir.join("testing");
@@ -1048,7 +1041,6 @@ mod tests {
             let graphs_dir = testing_dir().join(name);
             std::fs::create_dir_all(&graphs_dir).ok();
             for (warp_id, warp_cfg, thread_cfgs) in cfg_iter.take(2) {
-                // dbg!(&warp_id, &warp_cfg, &thread_cfgs);
                 let super::WarpId {
                     block_id,
                     warp_id_in_block,

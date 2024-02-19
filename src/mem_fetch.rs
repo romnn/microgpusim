@@ -287,13 +287,14 @@ pub mod access {
     }
 
     impl MemAccess {
-        // #[inline]
         #[must_use]
+        #[inline]
         pub fn relative_addr(&self) -> Option<super::address> {
             self.allocation
                 .as_ref()
-                .map(|alloc| alloc.start_addr)
-                .and_then(|start| self.addr.checked_sub(start))
+                .and_then(|alloc| alloc.relative_addr(self.addr))
+            // .map(|alloc| alloc.start_addr)
+            // .and_then(|start| self.addr.checked_sub(start))
         }
 
         // #[inline]

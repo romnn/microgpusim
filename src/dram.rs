@@ -1,6 +1,4 @@
-use super::mem_fetch;
-use crate::config;
-use crate::sync::{Arc, Mutex};
+use crate::{config, mem_fetch};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Config {
@@ -19,17 +17,14 @@ pub struct Config {
 #[derive()]
 pub struct DRAM {
     pub config: Config,
-    // config: Arc<config::GPU>,
     // mrqq: FifoQueue<Request>,
     // scheduler: FrfcfsScheduler,
-    // stats: Arc<Mutex<stats::PerKernel>>,
     pub stats: stats::PerKernel,
 }
 
 //
 
 impl DRAM {
-    // pub fn new(config: &config::GPU, stats: Arc<Mutex<stats::PerKernel>>) -> Self {
     pub fn new(config: &config::GPU, stats: stats::PerKernel) -> Self {
         // let mrqq = FifoQueue::new("mrqq", Some(0), Some(2));
         // let scheduler = FrfcfsScheduler::new(&*config, stats.clone());
@@ -40,9 +35,7 @@ impl DRAM {
                 bus_width: config.dram_buswidth,
                 num_chips: config.num_dram_chips_per_memory_controller,
                 // burst length x bus width x # chips per partition (controller)
-                atom_size: config.dram_atom_size(), // atom_size: config.dram_burst_length
-                                                    //     * config.dram_buswidth
-                                                    //     * config.num_dram_chips_per_memory_controller,
+                atom_size: config.dram_atom_size(),
             },
             // mrqq,
             // scheduler,
@@ -57,8 +50,6 @@ impl DRAM {
         let dram_id = fetch.physical_addr.chip as usize;
         let bank = fetch.physical_addr.bank as usize;
 
-        // if let Some(kernel_launch_id) = fetch.kernel_launch_id() {
-        // let mut stats = self.stats.lock();
         let kernel_stats = self.stats.get_mut(fetch.kernel_launch_id());
         log::info!(
             "dram access: {} ({:?}) data size={} uid={}",
@@ -67,7 +58,6 @@ impl DRAM {
             fetch.data_size(),
             fetch.uid
         );
-        // let atom_size = self.config.atom_size;
         let idx = (
             fetch.global_core_id.unwrap_or(0),
             dram_id,

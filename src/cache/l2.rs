@@ -4,14 +4,8 @@ use color_eyre::eyre;
 use mem_fetch::access::Kind as AccessKind;
 use std::collections::VecDeque;
 
-// #[allow(clippy::module_name_repetitions)]
-// #[derive(Clone)]
-pub struct L2DataCacheController<MC>
-// where
-//     MC: Clone,
-{
+pub struct L2DataCacheController<MC> {
     accelsim_compat: bool,
-    // memory_controller: Arc<dyn mcu::MemoryController>,
     mem_controller: Arc<MC>,
     linear_set_index_function: cache::set_index::linear::SetIndex,
     ipoly_set_index_function: cache::set_index::ipoly::SetIndex,
@@ -35,10 +29,7 @@ impl<MC> Clone for L2DataCacheController<MC> {
     }
 }
 
-impl<MC> L2DataCacheController<MC>
-// where
-//     MC: Clone,
-{
+impl<MC> L2DataCacheController<MC> {
     pub fn new(config: &config::Cache, mem_controller: Arc<MC>, accelsim_compat: bool) -> Self {
         let cache_config = cache::Config::new(config, accelsim_compat);
         let linear_set_index_function = cache::set_index::linear::SetIndex::new(
