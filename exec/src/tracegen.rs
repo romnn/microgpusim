@@ -119,6 +119,11 @@ pub struct WarpId {
     pub warp_id_in_block: usize,
 }
 
+struct SharedMemAllocation {
+    start_addr: u64,
+    num_bytes: u64,
+}
+
 pub type WarpInstructionTraces = [Vec<model::ThreadInstruction>; WARP_SIZE as usize];
 
 pub struct Tracer {
@@ -130,6 +135,7 @@ pub struct Tracer {
     traced_instructions: std::sync::Mutex<HashMap<WarpId, WarpInstructionTraces>>,
     kernel_launch_id: atomic::AtomicU64,
     commands: std::sync::Mutex<Vec<trace_model::command::Command>>,
+    shared_mem_allocations: std::sync::Mutex<Vec<SharedMemAllocation>>,
 }
 
 impl Tracer {
@@ -140,6 +146,7 @@ impl Tracer {
             traced_instructions: std::sync::Mutex::new(HashMap::new()),
             kernel_launch_id: atomic::AtomicU64::new(0),
             commands: std::sync::Mutex::new(Vec::new()),
+            shared_mem_allocations: std::sync::Mutex::new(Vec::new()),
         })
     }
 }
@@ -316,6 +323,7 @@ impl Tracer {
                                     block_id: block_id.clone(),
                                     block_idx: block_id.to_dim(),
                                     block_dim: block_size.clone(),
+                                    grid_dim: grid.clone(),
                                     thread_idx: warp_thread_idx.to_dim(),
                                 };
 
@@ -521,17 +529,24 @@ impl TraceGenerator for Tracer {
         *offset = addr + num_bytes;
         *offset = utils::next_multiple(*offset, ALIGNMENT_BYTES);
 
-        self.commands
-            .lock()
-            .unwrap()
-            .push(trace_model::command::Command::MemAlloc(
-                trace_model::command::MemAlloc {
-                    allocation_name: options.name,
-                    device_ptr: base_addr + addr,
-                    fill_l2: options.fill_l2,
+        if options.mem_space == model::MemorySpace::Local {
+            // TODO: use a rangemap for this?
+            self.shared_mem_allocations
+                .lock()
+                .unwrap()
+                .push(SharedMemAllocation {
+                    start_addr: base_addr + addr,
                     num_bytes,
-                },
-            ));
+                });
+        } else {
+            let cmd = trace_model::command::Command::MemAlloc(trace_model::command::MemAlloc {
+                allocation_name: options.name,
+                device_ptr: base_addr + addr,
+                fill_l2: options.fill_l2,
+                num_bytes,
+            });
+            self.commands.lock().unwrap().push(cmd);
+        }
 
         DevicePtr {
             inner: value,
@@ -586,7 +601,7 @@ impl TraceGenerator for Tracer {
                 cuda_ctx: 0,
                 device_id: 0,
                 sm_id: 0,
-                kernel_id: 0,
+                kernel_id: kernel_launch_id,
                 block_id: block_id.clone().into(),
                 warp_id_in_sm: warp_id_in_block as u32,
                 warp_id_in_block: warp_id_in_block as u32,
@@ -767,6 +782,16 @@ impl TraceGenerator for Tracer {
             });
         }
 
+        let shared_mem_bytes: u32 = self
+            .shared_mem_allocations
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|alloc| alloc.num_bytes)
+            .sum::<u64>()
+            .try_into()
+            .unwrap();
+
         let trace = trace_model::MemAccessTrace(trace);
         let launch_config = trace_model::command::KernelLaunch {
             mangled_name: kernel_name.clone(),
@@ -775,7 +800,7 @@ impl TraceGenerator for Tracer {
             id: kernel_launch_id,
             grid,
             block: block_size,
-            shared_mem_bytes: 0,
+            shared_mem_bytes,
             num_registers: 0,
             binary_version: 61,
             stream_id: 0,

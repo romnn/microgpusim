@@ -40,6 +40,7 @@ pub struct ThreadIndex {
     pub kernel_launch_id: u64,
     pub block_idx: trace_model::Dim,
     pub block_dim: trace_model::Dim,
+    pub grid_dim: trace_model::Dim,
     pub thread_idx: trace_model::Dim,
 }
 

@@ -941,8 +941,10 @@ where
             WritePolicy::WRITE_BACK => Self::write_hit_write_back,
             WritePolicy::WRITE_THROUGH => unimplemented!("WritePolicy::WRITE_THROUGH"),
             WritePolicy::WRITE_EVICT => unimplemented!("WritePolicy::WRITE_EVICT"),
-            WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH => unimplemented!("WritePolicy::LOCAL_WB_GLOBAL_WT"),
-            // WritePolicy::LOCAL_WB_GLOBAL_WT => Self::write_hit_global_write_evict_local_write_back,
+            // WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH => unimplemented!("WritePolicy::LOCAL_WB_GLOBAL_WT"),
+            // this policy we only observe is used in exec-driven, 
+            // where the L1 has write hits
+            WritePolicy::LOCAL_WRITE_BACK_GLOBAL_WRITE_THROUGH => Self::write_hit_global_write_evict_local_write_back,
         };
         (func)(self, addr, cache_index, fetch, time, events, probe_status)
     }

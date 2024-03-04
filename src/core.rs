@@ -976,8 +976,11 @@ where
 
             let kernel_id = warp.kernel_id;
             let block_hw_id = warp.block_id as usize;
-            debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len(),);
+            debug_assert!(block_hw_id < self.active_threads_per_hardware_block.len());
 
+            // TODO: lets maybe move all these more expensive checks
+            // into the issue stage?
+            // using the scoreboard here just for that does not really make sense...
             let has_pending_writes = !self.scoreboard.pending_writes(warp_id).is_empty();
 
             let warp_completed = warp.hardware_done() && !has_pending_writes && !warp.done_exit();
@@ -2724,6 +2727,12 @@ where
 pub fn warp_inst_complete(instr: &mut WarpInstruction, stats: &mut stats::PerKernel) {
     let kernel_stats = stats.get_mut(Some(instr.kernel_launch_id as usize));
     kernel_stats.sim.instructions += instr.active_thread_count() as u64;
+    // log::error!(
+    //     "kernel {}: warp inst {} completed. instructions={}",
+    //     instr.kernel_launch_id,
+    //     &instr,
+    //     kernel_stats.sim.instructions
+    // );
     // crate::WIP_STATS.lock().warp_instructions += 1;
 }
 

@@ -8,6 +8,7 @@
 )]
 // #![allow(warnings)]
 
+pub mod babelstream;
 pub mod matrixmul;
 pub mod pchase;
 pub mod simple_matrixmul;

@@ -542,6 +542,7 @@ impl WarpInstruction {
             _ => {}
         }
 
+        assert_eq!(trace.kernel_id, launch_config.id);
         Self {
             uid: 0,
             warp_id: trace.warp_id_in_block as usize,
@@ -941,6 +942,9 @@ impl WarpInstruction {
             }
             Some(MemorySpace::Global | MemorySpace::Local) => {
                 let access_kind = self.access_kind().expect("has access kind");
+                if self.memory_space == Some(MemorySpace::Local) {
+                    panic!("have local");
+                }
                 if config.coalescing_arch as usize >= 13 {
                     if self.is_atomic() {
                         // memory_coalescing_arch_atomic(is_write, access_type);
@@ -1013,6 +1017,8 @@ impl WarpInstruction {
             crate::mem_sub_partition::SECTOR_SIZE as u64,
             "require sector segment size for sectored L1"
         );
+
+        // todo: change this back to 32
         let subwarp_size = config.warp_size / warp_parts;
         log::trace!(
             "memory_coalescing_arch {:?}: segment size={} subwarp size={}",
@@ -1024,6 +1030,7 @@ impl WarpInstruction {
         // let mut accesses: Vec<MemAccess> = Vec::new();
         // let mut accesses: SmallVec<[MemAccess; 32]> = SmallVec::new();
 
+        // todo: warp parts should be 1
         for subwarp in 0..warp_parts {
             // let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
             use vec_collections::VecMap;
@@ -1134,7 +1141,7 @@ impl WarpInstruction {
             //     subwarp_accesses,
             // );
 
-            if true || log::log_enabled!(log::Level::Trace) {
+            if log::log_enabled!(log::Level::Warn) {
                 let allocations = allocations.read();
                 for (i, (block_addr, subwarp_access)) in subwarp_accesses.iter().enumerate() {
                     let (last_block_addr, _) = subwarp_accesses[i.saturating_sub(1)];
@@ -1164,14 +1171,21 @@ impl WarpInstruction {
                         .join("|");
 
                     let rel_block_addr = allocations
-                        .get(&block_addr)
+                        .get(block_addr)
                         .map(|allocation| block_addr - allocation.start_addr);
 
+                    let addr =
+                        *block_addr + subwarp_access.byte_mask.first_one().unwrap_or(0) as u64;
+                    let rel_addr = allocations
+                        .get(&addr)
+                        .map(|allocation| addr - allocation.start_addr);
+
                     log::warn!(
-                        " [{: >2}] {:>18} {:>6} ({}{:<4}): chunk={:>4} floats={} activemask={}",
+                        " [{: >2}] rel={:>6} block={:>18} ({}{:<4}): chunk={:>4} floats={} activemask={}",
                         i,
+                        rel_addr.unwrap_or(0),
                         block_addr,
-                        rel_block_addr.unwrap_or(0),
+                        // rel_block_addr.unwrap_or(0),
                         if diff < 0 { "-" } else { "+" },
                         diff.abs(),
                         subwarp_access.chunk_mask[..4].to_bit_string(),
