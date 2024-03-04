@@ -166,14 +166,23 @@ impl std::fmt::Display for InstructionComparator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {}\t active={}",
+            "[ block {} warp{:>3} ] {} active={}",
             self.inner.block_id,
             self.inner.warp_id_in_block,
-            self.inner.instr_idx,
-            self.inner.instr_offset,
             style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
             self.inner.active_mask.to_bit_string_colored(None),
         )
+
+        // write!(
+        //     f,
+        //     "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {}\t active={}",
+        //     self.inner.block_id,
+        //     self.inner.warp_id_in_block,
+        //     self.inner.instr_idx,
+        //     self.inner.instr_offset,
+        //     style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
+        //     self.inner.active_mask.to_bit_string_colored(None),
+        // )
     }
 }
 
@@ -271,18 +280,34 @@ impl std::fmt::Debug for InstructionComparator {
 
         write!(
             f,
-            "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {} [{:<10?}] {:>25} => {:<4}\t active={} adresses = {}",
+            "[ block {} warp{:>3} ] {} [{: <10}] active={} addrs={}",
             self.inner.block_id,
             self.inner.warp_id_in_block,
-            self.inner.instr_idx,
-            self.inner.instr_offset,
+            // self.inner.instr_idx,
+            // self.inner.instr_offset,
             style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
-            self.inner.instr_mem_space,
-            self.inner.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
-            self.inner.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            format!("{:?}", &self.inner.instr_mem_space),
+            // self.inner.instr_mem_space,
+            // self.inner.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+            // self.inner.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
             self.inner.active_mask.to_bit_string_colored(None),
             addresses,
         )
+
+        // write!(
+        //     f,
+        //     "     [ block {} warp{:>3} ] inst_idx={:<4}  offset={:<4} {} [{:<10?}] {:>25} => {:<4}\t active={} addresses = {}",
+        //     self.inner.block_id,
+        //     self.inner.warp_id_in_block,
+        //     self.inner.instr_idx,
+        //     self.inner.instr_offset,
+        //     style(format!("{:>15}", &self.inner.instr_opcode)).cyan(),
+        //     self.inner.instr_mem_space,
+        //     self.inner.source_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+        //     self.inner.dest_registers().iter().map(|r| format!("R{}", r)).collect::<Vec<_>>().join(","),
+        //     self.inner.active_mask.to_bit_string_colored(None),
+        //     addresses,
+        // )
     }
 }
 
