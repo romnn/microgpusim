@@ -299,19 +299,19 @@ def join_targets(
                 # when selecting only large inputs some native input
                 # configs are missing from the filtered simulator inputs
                 pass
-            elif target == "gpucachesim_exec_driven":
-                # we do not have an exec driven version of babelstream
-                missing_exec_driven_benches = sorted(
-                    missing_df["benchmark"].unique().tolist()
-                )
-                if missing_exec_driven_benches != ["babelstream"]:
-                    print("MISSING {}".format(missing_df.shape))
-                    print(missing_df)
-                    raise ValueError(
-                        "missing exec driven {} but should only miss babelstream".format(
-                            missing_exec_driven_benches
-                        )
-                    )
+            # elif target == "gpucachesim_exec_driven":
+            #     # we do not have an exec driven version of babelstream
+            #     missing_exec_driven_benches = sorted(
+            #         missing_df["benchmark"].unique().tolist()
+            #     )
+            #     if missing_exec_driven_benches != ["babelstream"]:
+            #         print("MISSING {}".format(missing_df.shape))
+            #         print(missing_df)
+            #         raise ValueError(
+            #             "missing exec driven {} but should only miss babelstream".format(
+            #                 missing_exec_driven_benches
+            #             )
+            #         )
             else:
                 print("MISSING {}".format(missing_df.shape))
                 print(missing_df)

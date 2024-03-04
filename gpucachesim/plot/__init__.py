@@ -53,17 +53,121 @@ def plt_rgba(r, g, b, a=1.0):
 
 HEX_COLOR = {
     "green1": "#81bc4f",
+    "green2": "#a7c957",
     "purple1": "#c21b7b",
-    "blue1": "#196fac",
+    # "blue1": "#196fac",
+    # "purple1": "#d62828",
+    # "blue1": "#3a86ff",
+    "pink1": "#e08dbd",
+    "purple2": "#6C22A6",
+    "purple3": "#bf7dd5",
+    "purple4": "#ac3296",
+    "yellow1": "#e8c872ff",
+    "yellow2": "#ffbf00",
+    "blue1": "#40a2e3ff",
+    "red1": "#f24a01ff",
+    "red2": "#c60038",
 }
 
 RGB_COLOR = {k: hex_to_rgb(v) for k, v in HEX_COLOR.items()}
 
+# SIM_RGB_COLOR = {
+#     "simulate": RGB_COLOR["green1"],
+#     "execdrivensimulate": RGB_COLOR["yellow2"],
+#     "accelsimsimulate": RGB_COLOR["purple4"],
+#     # "accelsimsimulate": RGB_COLOR["red2"],
+#     "profile": RGB_COLOR["blue1"],
+# }
+
+# palette1
 SIM_RGB_COLOR = {
-    "simulate": RGB_COLOR["green1"],
-    "accelsimsimulate": RGB_COLOR["purple1"],
-    "profile": RGB_COLOR["blue1"],
+    "simulate": hex_to_rgb("#29adb2"),
+    "execdrivensimulate": hex_to_rgb("#c5e898"),
+    "accelsimsimulate": hex_to_rgb("#0766ad"),
+    "profile": hex_to_rgb("#f3f3f3"),
 }
+
+# # palette2
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#A2C579"),
+#     "execdrivensimulate": hex_to_rgb("#D2DE32"),
+#     "accelsimsimulate": hex_to_rgb("#61A3BA"),
+#     "profile": hex_to_rgb("#FFFFDD"),
+# }
+
+# # palette3
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#427D9D"),
+#     "execdrivensimulate": hex_to_rgb("#9BBEC8"),
+#     "accelsimsimulate": hex_to_rgb("#164863"),
+#     "profile": hex_to_rgb("#DDF2FD"),
+# }
+
+# # palette4
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#7091F5"),
+#     "execdrivensimulate": hex_to_rgb("#FFFD8C"),
+#     "accelsimsimulate": hex_to_rgb("#793FDF"),
+#     "profile": hex_to_rgb("#97FFF4"),
+# }
+
+# # palette5
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#C23373"),
+#     "execdrivensimulate": hex_to_rgb("#F6635C"),
+#     "accelsimsimulate": hex_to_rgb("#79155B"),
+#     "profile": hex_to_rgb("#FFBA86"),
+# }
+
+# # palette6
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#974EC3"),
+#     "execdrivensimulate": hex_to_rgb("#504099"),
+#     "accelsimsimulate": hex_to_rgb("#313866"),
+#     "profile": hex_to_rgb("#FE7BE5"),
+# }
+
+# # palette7
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#279EFF"),
+#     "execdrivensimulate": hex_to_rgb("#40F8FF"),
+#     "accelsimsimulate": hex_to_rgb("#0C356A"),
+#     "profile": hex_to_rgb("#D5FFD0"),
+# }
+
+# # palette8
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#4942E4"),
+#     "execdrivensimulate": hex_to_rgb("#8696FE"),
+#     "accelsimsimulate": hex_to_rgb("#11009E"),
+#     "profile": hex_to_rgb("#C4B0FF"),
+# }
+
+# # palette9
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#6C9BCF"),
+#     "execdrivensimulate": hex_to_rgb("#A5C0DD"),
+#     "accelsimsimulate": hex_to_rgb("#654E92"),
+#     "profile": hex_to_rgb("#EBD8B2"),
+# }
+
+# # palette10
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#85CDFD"),
+#     "execdrivensimulate": hex_to_rgb("#3C84AB"),
+#     "accelsimsimulate": hex_to_rgb("#362FD9"),
+#     "profile": hex_to_rgb("#DEFCF9"),
+# }
+
+# # palette11
+# SIM_RGB_COLOR = {
+#     "simulate": hex_to_rgb("#82C3EC"),
+#     "execdrivensimulate": hex_to_rgb("#4B56D2"),
+#     "accelsimsimulate": hex_to_rgb("#472183"),
+#     "profile": hex_to_rgb("#F1F6F5"),
+# }
+
+# palette1 > palette2
 
 SIM_MARKER = {
     "simulate": "x",
@@ -73,9 +177,10 @@ SIM_MARKER = {
 
 # valid hatches: *+-./OX\ox|
 SIM_HATCH = {
-    "simulate": "/",
-    "accelsimsimulate": "+",
-    "profile": "x",
+    # "simulate": "//",
+    # "execdrivensimulate": "xx",
+    # "accelsimsimulate": "++",
+    # "profile": "xx",
 }
 
 

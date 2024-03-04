@@ -1014,7 +1014,26 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
 @click.option(
     "--strict", "strict", type=bool, default=True, help="fail on missing results"
 )
+@click.option(
+    "--tr",
+    "trace_reconstruction",
+    type=bool,
+    default=True,
+    help="show trace reconstruction in table",
+)
+@click.option(
+    "--plot-tr",
+    "plot_trace_reconstruction",
+    type=bool,
+    is_flag=True,
+    help="plot trace reconstruction",
+)
+@click.option(
+    "--play", "playground", type=bool, default=False, help="show playground in table"
+)
 @click.option("--per-kernel", "per_kernel", type=bool, is_flag=True, help="per kernel")
+@click.option("--normalized", "normalized", type=bool, is_flag=True, help="normalized")
+@click.option("--stats", "stat_names_arg", type=str, help="stat names")
 @click.option(
     "--inspect", "inspect", type=bool, default=False, help="inspet aggregations"
 )
@@ -1025,21 +1044,40 @@ def run_view(
     should_plot,
     nsight,
     mem_only,
+    trace_reconstruction,
+    plot_trace_reconstruction,
+    playground,
+    stat_names_arg,
     verbose,
     strict,
     per_kernel,
+    normalized,
     inspect,
     png,
 ):
+    if stat_names_arg is None:
+        stat_names = []
+    elif isinstance(stat_names_arg, str):
+        stat_names = [s.strip().lower() for s in stat_names_arg.split(",")]
+    elif isinstance(stat_names_arg, list):
+        stat_names = [str(s).strip().lower() for s in stat_names_arg]
+    else:
+        raise ValueError("bad stat names")
+
     gpucachesim.stats.view.view(
         path=path,
         bench_name=bench_name,
         should_plot=should_plot,
         nsight=nsight,
         mem_only=mem_only,
+        trace_reconstruction=trace_reconstruction,
+        plot_trace_reconstruction=plot_trace_reconstruction,
+        playground=playground,
+        stat_names=stat_names,
         verbose=verbose,
         strict=strict,
         per_kernel=per_kernel,
+        normalized=normalized,
         inspect=inspect,
         png=png,
     )
