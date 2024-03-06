@@ -1,0 +1,21 @@
+[package]
+name = "ptx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# anyhow = "1"
+color-eyre = "0"
+thiserror = "1"
+pest = "2"
+pest_derive = "2"
+pest-ast = "0"
+from-pest = "0"
+num = "0"
+itertools = "0"
+
+object = "0"
+bytes = "1"
+
+[lib]
+crate-type = ["cdylib", "rlib"]

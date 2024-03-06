@@ -2,6 +2,9 @@
 members = [
   "validate",
   "validate/remote",
+  "sass",
+  "ptx",
+  "cuda/cudart",
   "profile",
   "playground",
   "playground/sys",

@@ -1,0 +1,404 @@
+// https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#syntax
+program = _{ SOI ~ stmt* ~ EOI }
+stmt = _{ 
+  directive_statement
+    | function_defn
+}
+// | function_decl
+
+directive_statement = _{
+  variable_declaration ~ ";"
+  	| function_decl ~ ";"
+    | version_directive
+    | address_size_directive
+    | target_directive
+    | file_directive
+    | loc_directive
+}
+
+variable_declaration = {
+	".constptr" ~ identifier ~ "," ~ identifier ~ "," ~ integer
+    | variable_spec ~ identifier_spec ~ "=" ~ literal_operand
+    | variable_spec ~ identifier_spec ~ "=" ~ initializer_list
+  	| variable_spec ~ identifier_list
+}
+initializer_list = { "{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" }
+literal_list = { literal_operand ~ "," ~ literal_list | literal_operand }
+identifier_list = { identifier_spec ~ "," ~ identifier_list | identifier_spec }
+
+function_defn = {
+  function_decl ~ block_spec_list ~ statement_block
+  | function_decl ~ statement_block
+}
+
+statement_block = { "{" ~ statement_list? ~ "}" }
+statement_list = _{
+    statement_block ~ statement_list
+    | instruction_statement ~ statement_list
+    | directive_statement ~ statement_list
+    | prototype_block ~ statement_list
+    | statement_block
+    | instruction_statement
+    | directive_statement
+}
+
+instruction_statement = {
+	pred_spec ~ instruction ~ ";"
+  	| instruction ~ ";"
+    | identifier ~ ":"
+}
+pred_spec = {
+	"@!" ~ identifier
+  	| "@" ~ identifier ~ (
+  	  // note: equ must precede eq
+      ".lt" | ".equ" | ".eq" | ".le" | ".ne" | ".ge"
+        | ".gtu" | ".neu" | ".cf" | ".sf" | ".nsf"
+    )? 
+}
+instruction = {
+    opcode_spec ~ operand_list
+    | opcode_spec
+}
+operand_list = _{ operand ~ "," ~ operand_list | operand }
+operand = {
+  // starts with % or WARP_SZ
+  builtin_operand
+  	// starts with \d 0x 0b 0\octets (int) 0f (float) 0d \d+.\d+ (double)
+  	| literal_operand
+    // tex_operand precedes due to "[" ...  ~ "," ~ "{" ... "}" "]"
+    // precedes memory_operand, which is just "[" x | x+1 | 1 "]"
+    | tex_operand
+    // memory_operand precedes tex_operand due to "[" x | x+1 | 1 "]"
+    | memory_operand
+    // vector precedes due to "{" ... "}"
+    | "-"? ~ vector_operand
+    // binary expression of identifiers always precede unary
+    | "-"? ~ identifier ~ ("+" | "|" | "\\") ~ integer ~ lohi_option?
+    | ("!" | "-")? ~ identifier
+}
+vector_operand = {
+	"{" ~ identifier ~ ("," ~ identifier)* ~ "}"
+}
+
+tex_operand = { "[" ~ identifier ~ "," ~ vector_operand ~ "]" }
+
+builtin_operand = { special_register ~ dimension_modifier | special_register }
+
+memory_operand = {
+  "[" ~ address_expression ~ "]"
+  	// todo: check if the order is brackets is fine
+  	| identifier ~ "[" ~ (twin_operand | address_expression | literal_operand) ~ "]"
+    | "-" ~ memory_operand
+}
+twin_operand = {
+	// todo: are we missing something here?
+    identifier ~ "+=" ~ identifier ~ lohi_option?
+    | identifier ~ "+=" ~ integer
+    | identifier ~ "+" ~ identifier ~ lohi_option?
+}
+
+address_expression = {
+	// precedence because of the plus sign
+    identifier ~ "+" ~ integer
+  	| identifier ~ lohi_option?
+    | integer
+}
+
+opcode_spec = {
+  opcode ~ option*
+}
+option_list = { option ~ option_list | option }
+
+function_decl = {
+  function_decl_header ~ "(" ~ param_entry ~ ")" ~ function_ident_param
+    | function_decl_header ~ function_ident_param
+    | function_decl_header
+}
+
+function_ident_param = {
+  identifier ~ "(" ~ param_list? ~ ")"
+    | identifier
+}
+
+param_list = _{
+	param_entry ~ "," ~ param_list
+  	| param_entry
+}
+
+special_register = {
+  "%clock"
+    | "%halfclock"
+    | "%clock64"
+    | "%ctaid"
+    | "%envreg" ~ ASCII_DIGIT+
+    | "%gridid"
+    | "%laneid"
+    | "%lanemask_eq"
+    | "%lanemask_le"
+    | "%lanemask_lt"
+    | "%lanemask_ge"
+    | "%lanemask_gt"
+    | "%nctaid"
+    | "%ntid"
+    | "%nsmid"
+    | "%nwarpid"
+    | "%pm" ~ ('0'..'3')
+    | "%smid"
+    | "%tid"
+    | "%warpid"
+    | "WARP_SZ"
+}
+
+dimension_modifier = { ".0" | ".1" | ".2" | ".x" | ".y" | ".z" }
+
+function_decl_header = {
+  function_decl_header_entry
+    | function_decl_header_visible_entry
+    | function_decl_header_weak_entry
+    | function_decl_header_func
+    | function_decl_header_visible_func
+    | function_decl_header_weak_func
+    | function_decl_header_extern_func
+}
+function_decl_header_entry          = { ".entry" }
+function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
+function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
+function_decl_header_func           = { ".func" }
+function_decl_header_visible_func   = { ".visible" ~ ".func" }
+function_decl_header_weak_func      = { ".weak" ~ ".func" }
+function_decl_header_extern_func    = { ".extern" ~ ".func" }
+
+param_entry = {
+  ".param" ~ variable_spec ~ ptr_spec? ~ identifier_spec
+    | ".reg" ~ variable_spec ~ identifier_spec
+}
+identifier_spec = {
+    identifier ~ "<" ~ integer ~ ">"
+    | identifier ~ "[" ~ "]"
+    | identifier ~ "[" ~ integer ~ "]"
+    | identifier
+}
+
+address_size_directive = { ".address_size" ~ integer }
+version_directive = { ".version" ~ double ~ "+"? }
+target_directive = { ".target" ~ identifier ~ ("," ~ identifier){0,2} }
+file_directive = { ".file" ~ integer ~ quoted ~ (("," ~ integer){2})? }
+loc_directive = { ".loc" ~ integer ~ integer ~ integer }
+
+block_spec = {
+  ".maxntid" ~ integer ~ "," ~ integer ~ "," ~ integer
+    | ".minnctapersm" ~ integer
+    | ".maxnctapersm" ~ integer
+}
+block_spec_list = { block_spec ~ block_spec_list | block_spec }
+
+ptr_spec = {
+  ".ptr" ~ ptr_space_spec ~ ptr_align_spec
+    | ".ptr" ~ ptr_align_spec
+}
+ptr_space_spec = { ".global" | ".local" | ".shared" | ".const" }
+ptr_align_spec = { ".align" ~ integer }
+align_spec = { ".align" ~ integer }
+
+var_spec = {
+  space_spec | type_spec | align_spec
+    | ".visible" | ".extern" | ".weak"
+}
+variable_spec = { var_spec ~ variable_spec | var_spec }
+
+option = {
+    type_spec
+    | compare_spec
+    | addressable_spec
+    | rounding_mode
+    | wmma_spec
+    | prmt_spec
+    | atomic_operation_spec
+    | ".sync"
+    | ".arrive"
+    | ".red"
+    | ".uni"
+    | ".wide"
+    | ".any"
+    | ".all"
+    | ".ballot"
+    | ".global"
+    | ".cta"
+    | ".sys"
+    | ".1d"
+    | ".2d"
+    | ".3d"
+    | ".sat"
+    | ".ftz"
+    | ".neg"
+    | ".approx"
+    | ".full"
+    | ".exit"
+    | ".abs"
+    | ".to"
+    | ".half"
+    | ".extp"
+    | ".ca"
+    | ".cg"
+    | ".cs"
+    | ".lu"
+    | ".cv"
+    | ".wb"
+    | ".wt"
+    | ".nc"
+    | ".up"
+    | ".down"
+    | ".bfly"
+    | ".idx"
+}
+
+atomic_operation_spec = {
+  ".and"
+    | ".popc"
+    | ".or"
+    | ".xor"
+    | ".cas"
+    | ".exch"
+    | ".add"
+    | ".inc"
+    | ".dec"
+    | ".min"
+    | ".max"
+}
+rounding_mode = { floating_point_rounding_mode | integer_rounding_mode }
+floating_point_rounding_mode = { ".rn" | ".rz" | ".rm" | ".rp" }
+integer_rounding_mode = { ".rni" | ".rzi" | ".rmi" | ".rpi" }
+
+compare_spec = {
+  ".eq" | ".ne" | ".lt" | ".le" | ".gt" | ".ge" | ".lo" | ".ls"
+    | ".hi" | ".hs" | ".equ" | ".neu" | ".ltu" | ".leu" | ".gtu"
+    | ".geu" | ".num" | ".nan"
+}
+prmt_spec = { ".f4e" | ".b4e" | ".rc8" | ".rc16" | ".ecl" | ".ecr" }
+wmma_spec = {
+  wmma_directive ~ layout ~ configuration
+    | wmma_directive ~ layout ~ layout ~ configuration
+}
+wmma_directive = { ".a.sync" | ".b.sync" | ".c.sync" | ".d.sync" | ".mma.sync" }
+layout = { ".row" | ".col" }
+configuration = { ".m16n16k16" | ".m32n8k16" | ".m8n32k16" }
+
+prototype_block = { prototype_decl ~ prototype_call }
+prototype_decl = {
+  identifier ~ ":"
+    ~ ".callprototype" ~ "(" ~ prototype_param? ~ ")"
+    ~ identifier ~ "(" ~ prototype_param? ~ ")" ~ ";"
+}
+prototype_call = {
+  opcode ~ "(" ~ identifier ~ ")" ~ ","
+    ~ operand ~ "," ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
+    |
+    opcode ~ identifier ~ ","
+    ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
+}
+prototype_param = { ".param" ~ (".b32" | ".b64") ~ identifier }
+opcode = {
+	// note: "addp" == "addc" > "add"
+    // note: "andn" > "and"
+  "abs" |  "addp" | "addc" | "add" | "andn" | "and" | "atom" | "activemask"
+    // note: "bar.warp" > "bar"
+    // note: "bfind" > "bfi"
+    // note: "breakaddr" > "break"
+    | "bar.warp" | "bar" | "bfe" | "bfind" | "bfi" | "bra" | "brx" | "brev" | "brkpt" | "breakaddr" | "break"
+    // note: "callp" > "call"
+    // note: "cvta" > "cvt"
+    | "callp" | "call" | "clz" | "cnot" | "cos" | "cvta" | "cvt"
+    | "div" | "dp4a"
+    | "ex2" | "exit"
+    | "fma"
+    | "isspacep"
+    // note: "ld.volatile" > "ldu" > "ld"
+    | "ld.volatile" | "ldu" | "ld" | "lg2"
+    // note: "mad24" > "madc" == "madp" > "mad"
+    // note: "mul24" > "mul"
+    | "mad24" | "madc" | "madp" | "mad" | "max" | "membar" | "min" | "mov" | "mul24" | "mul"
+  	| "neg" | "nandn" | "norn" | "not" | "nop"
+    // note: "orn" > "or"
+    | "orn" | "or"
+    // note: "prefetchu" > "prefetch"
+    | "pmevent" | "popc" | "prefetchu" | "prefetch" | "prmt"
+    // note: "retp" > "ret"
+    | "rcp" | "red" | "rem" | "retp" | "ret" | "rsqrt"
+    // note: "setp" > "set"
+    // note: "st.volatile" > "st"
+    // note: "subc" > "sub"
+    | "sad" | "selp" | "setp" | "set" | "shfl" | "shl" | "shr" | "sin" | "slct" | "sqrt" | "sst" | "ssy" | "st.volatile" | "st" | "subc" | "sub" | "suld" | "sured" | "surst" | "suq"
+  	| "tex" | "txq" | "trap"
+    // note: "setp" > "set"
+    | "vabsdiff" | "vadd" | "vmad" | "vmax" | "vmin" | "vset" | "vshl" | "vshr" | "vsub" | "vote"
+    // note: "wmma.load" == "wmma.store" > "wmma"
+    | "wmma.load" | "wmma.store" | "wmma"
+    | "xor"
+}
+
+space_spec = { ".reg" | ".sreg" | addressable_spec }
+addressable_spec = {
+  ".const" | ".global" | ".local"
+    | ".local" | ".param" | ".shared"
+    | ".sstarr" | ".surf" | ".tex"
+}
+type_spec = { vector_spec ~ scalar_type | scalar_type }
+vector_spec = { ".v2" | ".v3" | ".v4" }
+scalar_type = {
+  ".s8" | ".s16" | ".s32" | ".s64"
+    | ".u8" | ".u16" | ".u32" | ".u64"
+    | ".f16" | ".f32" | ".f64" | ".ff64"
+    | ".b8" | ".b16" | ".b32" | ".b64" | ".bb64" | ".bb128"
+    | ".pred" | ".texref" | ".sampleref" | ".surfref"
+}
+
+lohi_option = { ".lo" | ".hi" }
+literal_operand = {
+	// float always precedes because it starts with 0[fF]
+    float
+    // double always precedes integers because it either
+    // - contains a decimal point (.)
+    // - starts with 0[dD]
+    | double
+	| integer
+}
+
+quoted = _{ "\"" ~ string ~ "\"" }
+string = ${ (!"\"" ~ ANY)* }
+
+// followsym:	[a-zA-Z0-9_$]
+// identifier:	[a-zA-Z]{followsym}* | {[_$%]{followsym}+
+followsym = @{ "$" | "_" | ASCII_ALPHANUMERIC }
+identifier = @{ ("_" | "$" | "%") ~ followsym+ | ASCII_ALPHA ~ followsym* }
+
+// 0[xX][0-9a-fA-F]+U?
+// 0[0-7]+U?
+// 0[bB][01]+U?
+// [-]?[0-9]+U?
+integer = @{ 
+  hex
+    | octal
+    | binary
+    | ("-"? ~ ASCII_DIGIT+ ~ "U"?)
+}
+hex = @{ "0" ~ ("x" | "X" ) ~ ASCII_HEX_DIGIT+ ~ "U"? }
+binary = @{ "0" ~ ("b" | "B") ~ ASCII_BIN_DIGIT+ ~ "U"? }
+octal = @{ "0" ~ ASCII_OCT_DIGIT+ ~ "U"? }
+
+// [0-9]+\.[0-9]+
+// 0[dD][0-9a-fA-F]{16}
+double = @{ 
+  ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+
+    | "0" ~ ("d" | "D") ~ ASCII_HEX_DIGIT{16}
+}
+
+// 0[fF][0-9a-fA-F]{8}
+float = @{
+  "0" ~ ("f" | "F") ~ ASCII_HEX_DIGIT{8}
+}
+
+COMMENT = _{
+  "/*" ~ (!"*/" ~ ANY)* ~ "*/" // multiline
+    | "//" ~ (!"\n" ~ ANY)* // single line
+}
+WHITESPACE = _{ " " | "\t" | NEWLINE } // skip whitespace
