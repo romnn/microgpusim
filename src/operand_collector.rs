@@ -713,7 +713,7 @@ impl Arbiter {
     /// Adds read requests from a collector unit to the arbitration queue.
     pub fn add_read_requests(&mut self, cu: &CollectorUnit) {
         let Some(ref pending) = cu.pending else {
-            return
+            return;
         };
         for op in pending.src_operands.iter().flatten() {
             let bank = op.bank;

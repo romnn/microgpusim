@@ -194,9 +194,6 @@ pub struct MemoryConfig {
         default_value = "0"
     )]
     pub elimnate_rw_turnaround: Boolean,
-    #[clap(long = "icnt_flit_size", help = "icnt_flit_size", default_value = "32")]
-    pub icnt_flit_size: u32,
-
     #[clap(flatten)]
     pub address_mapping: AddressMapping,
 }
@@ -229,7 +226,6 @@ impl Default for MemoryConfig {
             seperate_write_queue_enabled: false.into(),
             write_queue_size_opt: "32:28:16".to_string(),
             elimnate_rw_turnaround: false.into(),
-            icnt_flit_size: 32,
             address_mapping: AddressMapping::default(),
         }
     }

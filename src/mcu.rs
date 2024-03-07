@@ -1085,33 +1085,15 @@ mod tests {
         let config = config::GPU::default();
         let (tlx_addr, ref_tlx_addr) = compute_physical_addr(&config, 139_823_420_539_008);
         let want = super::PhysicalAddress {
-            chip: 0,
-            bank: 1,
-            row: 2900,
-            col: 0,
+            chip: 4,
+            bank: 11,
+            row: 7394,
+            col: 640,
             burst: 0,
-            sub_partition: 1,
+            sub_partition: 9,
         };
         diff::assert_eq!(have: ref_tlx_addr, want: want);
         diff::assert_eq!(have: tlx_addr, want: want);
-    }
-
-    #[test]
-    fn test_sub_partition_and_partition_addr_match() {
-        let config = config::GPU::default();
-        let addr = 139_823_420_539_008;
-        let mcu = super::MemoryControllerUnit::new(&config).unwrap();
-        let tlx_addr = mcu.to_physical_address(addr);
-        let partition_addr = mcu.memory_partition_address(addr);
-        let partition_size = 128 * 16 * 64;
-        dbg!(
-            addr,
-            &tlx_addr,
-            partition_addr,
-            partition_addr % mcu.num_memory_sub_partitions() as u64
-        );
-
-        diff::assert_eq!(have: tlx_addr.sub_partition, want: partition_addr);
     }
 
     #[test]

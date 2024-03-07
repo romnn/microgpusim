@@ -612,6 +612,7 @@ pub fn assert_stats_match(
     }
 }
 
+#[cfg(feature = "local-data")]
 macro_rules! parallel_checks {
     ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
@@ -630,6 +631,7 @@ macro_rules! parallel_checks {
     }
 }
 
+#[cfg(feature = "local-data")]
 parallel_checks! {
     // vectoradd
     vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),

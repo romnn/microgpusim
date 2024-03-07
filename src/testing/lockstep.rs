@@ -1110,6 +1110,7 @@ pub fn run(bench_config: &BenchmarkConfig, trace_provider: TraceProvider) -> eyr
     Ok(())
 }
 
+#[cfg(feature = "local-data")]
 #[test]
 fn lockstep_accelsim_pchase() -> eyre::Result<()> {
     crate::testing::init_test();
@@ -1130,6 +1131,7 @@ fn lockstep_accelsim_pchase() -> eyre::Result<()> {
     run(&bench_config, TraceProvider::Accelsim)
 }
 
+#[cfg(feature = "local-data")]
 macro_rules! lockstep_checks {
     ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
@@ -1169,6 +1171,7 @@ macro_rules! lockstep_checks {
     }
 }
 
+#[cfg(feature = "local-data")]
 lockstep_checks! {
     // vectoradd
     vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),

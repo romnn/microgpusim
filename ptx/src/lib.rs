@@ -248,6 +248,7 @@ mod tests {
         ast_integer_binary_1: (ptx::Rule::integer, "0b01110011001U", ASTNode::UnsignedInt(921)),
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     fn build_ast() -> eyre::Result<()> {
         let ptx_file = PathBuf::from("../kernels/mm/small.ptx");
@@ -520,6 +521,7 @@ mod tests {
         ELF = 2,
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     /// see https://pdfs.semanticscholar.org/5096/25785304410039297b741ad2007e7ce0636b.pdf
     /// see https://dl.acm.org/doi/abs/10.5555/3314872.3314900

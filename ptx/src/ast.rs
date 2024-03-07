@@ -32,21 +32,24 @@ pub enum FunctionDeclHeader {
 #[derive(PartialEq, Debug)]
 pub enum ASTNode<'a> {
     // Directive(Directive),
-    FunctionDefn{
+    FunctionDefn {
         // name: &'a str,
         // body: Vec<ASTNode<'a>>,
     },
-    FunctionDecl{
+    FunctionDecl {
         name: &'a str,
         // params: &'a str,
     },
     FunctionDeclHeader(FunctionDeclHeader),
     VariableDeclDirective,
     FunctionDirective,
-    VersionDirective { version: f64, newer: bool },
+    VersionDirective {
+        version: f64,
+        newer: bool,
+    },
     AddressSizeDirective(u32),
     TargetDirective(Vec<&'a str>),
-    FileDirective{
+    FileDirective {
         id: usize,
         path: PathBuf,
         size: Option<usize>,

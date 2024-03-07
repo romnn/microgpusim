@@ -123,6 +123,7 @@ async fn validate_playground_accelsim_compat(
     Ok(())
 }
 
+#[cfg(feature = "local-data")]
 macro_rules! accelsim_compat_tests {
     ($($name:ident: ($bench_name:expr, $($input:tt)+),)*) => {
         $(
@@ -147,6 +148,7 @@ macro_rules! accelsim_compat_tests {
     }
 }
 
+#[cfg(feature = "local-data")]
 accelsim_compat_tests! {
     // vectoradd
     accelsim_compat_vectoradd_32_100_test: ("vectorAdd", { "dtype": 32, "length": 100 }),

@@ -13,6 +13,7 @@ denylist = ["default"]
 
 [package.metadata.cargo-feature-combinations.matrix]
 need_cuda = true
+need_accelsim_build_dependencies = true
 
 [dependencies]
 color-eyre = "0"

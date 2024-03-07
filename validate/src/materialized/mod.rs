@@ -575,11 +575,22 @@ impl Benchmarks {
         target: Target,
         benchmark_name: impl Into<String>,
         query: &'a super::matrix::Input,
-        _strict: bool,
+        strict: bool,
     ) -> impl Iterator<Item = Result<&'a BenchmarkConfig, QueryError>> + 'a {
         self.get_input_configs(target, benchmark_name.into())
-            .filter(move |bench_config| bench_config.input_matches(query))
-            .map(Result::Ok)
+            .filter_map(move |bench_config| {
+                let is_match = if strict {
+                    bench_config.input_matches_strict(query)
+                } else {
+                    Ok(bench_config.input_matches(query))
+                };
+                match is_match {
+                    Ok(true) => Some(Ok(bench_config)),
+                    Err(err) => Some(Err(err)),
+                    _ => None,
+                }
+            })
+            .take_while_inclusive(Result::is_ok)
     }
 }
 
@@ -629,8 +640,8 @@ mod tests {
     use color_eyre::eyre;
     use indexmap::IndexMap;
     use itertools::Itertools;
-    use pretty_assertions_sorted as diff;
     use std::path::PathBuf;
+    use utils::diff;
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -652,23 +663,22 @@ mod tests {
             enabled: Some(true),
             results_dir: PathBuf::from("results/"),
         };
-        diff::assert_eq!(
-            crate::GenericBenchmarkConfig {
-                concurrency: Some(2),
-                repetitions: None,
-                timeout: None,
-                enabled: None,
-                results_dir: None,
-            }
-            .materialize(&base, None, Some(&parent_config))?,
-            crate::materialized::config::GenericBenchmark {
-                concurrency: Some(2),
-                repetitions: 5,
-                timeout: None,
-                enabled: Some(true),
-                results_dir: PathBuf::from("/base/results"),
-            }
-        );
+        let have = crate::GenericBenchmarkConfig {
+            concurrency: Some(2),
+            repetitions: None,
+            timeout: None,
+            enabled: None,
+            results_dir: None,
+        }
+        .materialize(&base, None, Some(&parent_config))?;
+        let want = crate::materialized::config::GenericBenchmark {
+            concurrency: Some(2),
+            repetitions: 5,
+            timeout: None,
+            enabled: Some(true),
+            results_dir: PathBuf::from("/base/results"),
+        };
+        diff::assert_eq!(have: have, want: want);
         Ok(())
     }
 
@@ -866,26 +876,34 @@ other: "hello"
 
         dbg!(&materialized);
 
-        diff::assert_eq!(
-            materialized[0].values,
-            serde_yaml::from_str::<IndexMap<String, serde_yaml::Value>>(
-                r#"
+        let have = &materialized[0].values;
+        let want: IndexMap<String, serde_yaml::Value> = serde_yaml::from_str(
+            r#"
 "data_type": 32
 "length": 100
-"single_value": "this is added to all inputs""#
-            )?,
-            "expanded both singular and multiple input values in the correct order",
+"single_value": "this is added to all inputs""#,
+        )?;
+        diff::assert_eq!(
+            have: have,
+            want: &want,
+            "expanded both singular and multiple input values in the correct order"
         );
         diff::assert_eq!(
-            materialized[0].args,
-            vec!["100", "32"],
+            have: materialized[0].args,
+            want: vec!["100", "32"],
             "templated and split shell args correctly"
         );
         diff::assert_eq!(
-            materialized[0].executable_path,
-            PathBuf::from("/base/vectoradd/vectoradd"),
+            have: materialized[0].executable_path,
+            want: PathBuf::from("/base/vectoradd/vectoradd"),
             "resolved path to executable"
         );
+        diff::assert_eq!(
+            have: 1,
+            want: 1,
+            "this is just a {}", "test"
+        );
+
         // todo!();
         // diff::assert_eq!(
         //     materialized[0].accelsim_simulate.configs.trace_config,
@@ -938,15 +956,14 @@ benchmarks:
             }};
         }
 
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "invalid bench name",
-                &crate::input!({})?,
-                false
-            )),
-            vec![] as Vec::<Result<String, super::QueryError>>
-        );
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "invalid bench name",
+            &crate::input!({})?,
+            false
+        ));
+        let want: Vec<Result<String, super::QueryError>> = vec![];
+        diff::assert_eq!(have: have, want: want);
 
         let all_vectoradd_configs: Vec<Result<String, super::QueryError>> = vec![
             Ok("vectorAdd-dtype-32-length-100".to_string()),
@@ -954,74 +971,64 @@ benchmarks:
             Ok("vectorAdd-dtype-32-length-10000".to_string()),
         ];
 
-        diff::assert_eq!(
-            query!(materialized.query(Target::Simulate, "vectorAdd", &crate::input!({})?, false)),
-            all_vectoradd_configs,
-        );
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "dtype": 32 })?,
-                false
-            )),
-            all_vectoradd_configs
-        );
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "invalid key": 32 })?,
-                false
-            )),
-            all_vectoradd_configs
-        );
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "invalid key": 32 })?,
-                true
-            )),
-            vec![
-                Err(super::QueryError::UnknownKeys {
-                    unknown: vec!["invalid key".to_string()],
-                    valid: vec!["dtype".to_string(), "length".to_string()],
-                });
-                3
-            ] as Vec::<Result<String, super::QueryError>>
-        );
+        let have =
+            query!(materialized.query(Target::Simulate, "vectorAdd", &crate::input!({})?, false));
+        diff::assert_eq!(have: have, want: all_vectoradd_configs);
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "dtype": 32 })?,
+            false
+        ));
+        diff::assert_eq!(have: have, want: all_vectoradd_configs);
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "invalid key": 32 })?,
+            false
+        ));
+        diff::assert_eq!(have: have, want: all_vectoradd_configs);
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "invalid key": 32 })?,
+            true
+        ));
+        let want: Vec<Result<String, super::QueryError>> =
+            vec![Err(super::QueryError::UnknownKeys {
+                unknown: vec!["invalid key".to_string()],
+                valid: vec!["dtype".to_string(), "length".to_string()],
+            })];
+        diff::assert_eq!(have: have, want: want);
 
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "length": 100 })?,
-                false
-            )),
-            vec![Ok("vectorAdd-dtype-32-length-100".to_string())]
-                as Vec::<Result<String, super::QueryError>>
-        );
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "dtype": 32, "length": 1000 })?,
-                true
-            )),
-            vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
-                as Vec::<Result<String, super::QueryError>>
-        );
-        diff::assert_eq!(
-            query!(materialized.query(
-                Target::Simulate,
-                "vectorAdd",
-                &crate::input!({ "unknown": 32, "length": 1000 })?,
-                false
-            )),
-            vec![Ok("vectorAdd-dtype-32-length-1000".to_string())]
-                as Vec::<Result<String, super::QueryError>>
-        );
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "length": 100 })?,
+            false
+        ));
+        let want = vec![Ok("vectorAdd-dtype-32-length-100".to_string())]
+            as Vec<Result<String, super::QueryError>>;
+        diff::assert_eq!(have: have, want: want);
+
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "dtype": 32, "length": 1000 })?,
+            true
+        ));
+        let want = vec![Ok("vectorAdd-dtype-32-length-1000".to_string())];
+
+        diff::assert_eq!(have: have, want: want);
+
+        let have = query!(materialized.query(
+            Target::Simulate,
+            "vectorAdd",
+            &crate::input!({ "unknown": 32, "length": 1000 })?,
+            false
+        ));
+        let want = vec![Ok("vectorAdd-dtype-32-length-1000".to_string())];
+        diff::assert_eq!(have: have, want: want);
         Ok(())
     }
 }

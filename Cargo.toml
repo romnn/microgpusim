@@ -66,9 +66,10 @@ detailed-stats = ["stats/detailed-stats"]
 parallel = ["dep:rayon"]
 parking_lot = []
 python = ["dep:pyo3"]
+local-data = []
 
 [package.metadata.cargo-feature-combinations]
-denylist = ["default"]
+denylist = ["default", "local-data"]
 
 [[bench]]
 name = "vectoradd"

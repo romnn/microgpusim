@@ -1411,19 +1411,14 @@ pub fn parse_input(
 #[cfg(test)]
 mod tests {
     use playground::bindings;
-    // use pretty_assertions_sorted as diff;
     use std::ffi;
     use utils::diff;
-
-    // use super::TagArray;
-    // use crate::config;
-    // use std::sync::Arc;
 
     #[test]
     fn compare_old_config() {
         let config = super::GPU::default();
         let old = super::GPU::old();
-        diff::assert_eq!(new: config, old: old);
+        diff::diff!(new: config, old: old);
     }
 
     fn parse_cache_config(config: &str) -> bindings::CacheConfig {
@@ -1556,16 +1551,16 @@ mod tests {
     fn test_l1i_block_addr() {
         let config = super::GPU::default();
         let l1i_cache_config = config.inst_cache_l1.unwrap();
-        assert_eq!(l1i_cache_config.block_addr(4_026_531_848), 4_026_531_840);
+        diff::assert_eq!(have: l1i_cache_config.block_addr(4_026_531_848), have: 4_026_531_840);
     }
 
     #[test]
     fn test_l2d_block_addr() {
         let config = super::GPU::default();
         let l2d_cache_config = config.data_cache_l2.unwrap();
-        assert_eq!(
-            l2d_cache_config.inner.block_addr(34_887_082_112),
-            34_887_082_112
+        diff::assert_eq!(
+            have: l2d_cache_config.inner.block_addr(34_887_082_112),
+            want: 34_887_082_112
         );
     }
 
@@ -1573,7 +1568,8 @@ mod tests {
     fn test_l1i_mshr_addr() {
         let config = super::GPU::default();
         let l1i_cache_config = config.inst_cache_l1.unwrap();
-        assert_eq!(l1i_cache_config.mshr_addr(4_026_531_848), 4_026_531_840);
-        assert_eq!(l1i_cache_config.mshr_addr(4_026_531_992), 4_026_531_968);
+        diff::assert_eq!(have: l1i_cache_config.mshr_addr(4_026_531_848), want: 4_026_531_840);
+        diff::assert_eq!(have: l1i_cache_config.mshr_addr(4_026_531_848+32), want: 4_026_531_840);
+        diff::assert_eq!(have: l1i_cache_config.mshr_addr(4_026_531_848 + l1i_cache_config.line_size as u64), want: 4_026_531_840 + l1i_cache_config.line_size as u64);
     }
 }

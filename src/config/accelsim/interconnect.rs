@@ -36,6 +36,8 @@ pub struct InterconnectConfig {
     pub verbose: u32,
     #[clap(long = "icnt_grant_cycles", help = "grant_cycles", default_value = "1")]
     pub grant_cycles: u32,
+    #[clap(long = "icnt_flit_size", help = "icnt_flit_size", default_value = "32")]
+    pub icnt_flit_size: u32,
 }
 
 impl Default for InterconnectConfig {
@@ -49,6 +51,7 @@ impl Default for InterconnectConfig {
             arbiter_algo: 1,
             verbose: 0,
             grant_cycles: 1,
+            icnt_flit_size: 32,
         }
     }
 }

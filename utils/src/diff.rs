@@ -96,11 +96,11 @@ pub mod print {
 
         assert_eq!(
             print_object!(&DoNotCallMe, Default).as_deref(),
-            Some("similar_asserts::print::test_object::DoNotCallMe")
+            Some("utils::diff::print::test_object::DoNotCallMe")
         );
         assert_eq!(
             print_object!(&NoDebugNoString, Default).as_deref(),
-            Some("similar_asserts::print::test_object::NoDebugNoString")
+            Some("utils::diff::print::test_object::NoDebugNoString")
         );
         assert_eq!(
             print_object!(vec![1, 2, 3], Default).as_deref(),
@@ -448,7 +448,7 @@ macro_rules! assert_eq {
         $left:expr,
         $right_label:ident:
         $right:expr,
-        $($arg:tt)*,
+        $($arg:tt)*
     ) => {{
         let left_label = stringify!($left_label);
         let right_label = stringify!($right_label);

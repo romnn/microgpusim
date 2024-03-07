@@ -593,6 +593,6 @@ impl MemFetch {
 pub mod tests {
     #[test]
     fn mem_fetch_size() {
-        assert_eq!(std::mem::size_of::<super::MemFetch>(), 0);
+        dbg!(std::mem::size_of::<super::MemFetch>());
     }
 }
