@@ -1,6 +1,6 @@
 name: validate
 on: [push, pull_request]
-jobs: []
+jobs: {}
 # cannot validate at the moment because we cannot include
 # or generate traces in the repo
 # validate:
@@ -11,7 +11,7 @@ jobs: []
 #     matrix:
 #       command: ["simulate", "accelsim-simulate"]
 #   steps:
-#     - uses: actions/checkout@v3
+#     - uses: actions/checkout@v4
 #     - uses: dtolnay/rust-toolchain@stable
 #     - name: Install accelsim dependencies
 #       run: >-
