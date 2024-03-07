@@ -1120,10 +1120,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("single_for_loop")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("single_for_loop") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
@@ -1209,10 +1210,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("single_if")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("single_if") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
@@ -1257,65 +1259,6 @@ mod tests {
         diff::assert_eq!(have: have, want: want);
         Ok(())
     }
-
-    // #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    // async fn test_full_imbalance() -> eyre::Result<()> {
-    //     crate::tests::init_test();
-    //
-    //     struct FullImbalanceKernel {}
-    //     #[async_trait::async_trait]
-    //     impl super::Kernel for FullImbalanceKernel {
-    //         type Error = std::convert::Infallible;
-    //         #[crate::inject_reconvergence_points]
-    //         async fn run(&self, block: &ThreadBlock, tid: &ThreadIndex) -> Result<(), Self::Error> {
-    //             if tid.thread_idx.x < 16 {
-    //                 if tid.thread_idx.x < 8 {
-    //                     let inst = mem_inst!(Load[Global]@1, 4);
-    //                     block.memory.push_thread_instruction(tid, inst.into());
-    //                 }
-    //                 let inst = mem_inst!(Load[Global]@2, 4);
-    //                 block.memory.push_thread_instruction(tid, inst.into());
-    //             } else {
-    //                 if tid.thread_idx.x < 24 {
-    //                     let inst = mem_inst!(Load[Global]@10, 4);
-    //                     block.memory.push_thread_instruction(tid, inst.into());
-    //                 }
-    //                 let inst = mem_inst!(Load[Global]@11, 4);
-    //                 block.memory.push_thread_instruction(tid, inst.into());
-    //             }
-    //             let inst = mem_inst!(Load[Global]@100, 4);
-    //             block.memory.push_thread_instruction(tid, inst.into());
-    //             Ok(())
-    //         }
-    //     }
-    //
-    //     let tracer = super::Tracer::new();
-    //     let (_launch_config, trace) = tracer.trace_kernel(1, 32, FullImbalanceKernel {}).await?;
-    //     let warp_traces = trace.clone().to_warp_traces();
-    //     let first_warp = &warp_traces[&(Dim::ZERO, 0)];
-    //     for inst in testing::simplify_warp_trace(first_warp) {
-    //         println!("{}", inst);
-    //     }
-    //
-    //     let ref_warp_traces = get_reference_warp_traces("full_imbalance")?;
-    //     let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-    //     for inst in testing::simplify_warp_trace(ref_first_warp) {
-    //         println!("{}", inst);
-    //     }
-    //
-    //     diff::assert_eq!(
-    //         have: testing::simplify_warp_trace(first_warp).collect::<Vec<_>>(),
-    //         want: [
-    //             ("LDG.E", 1, "11111111000000000000000000000000", 0),
-    //             ("LDG.E", 2, "11111111111111110000000000000000", 0),
-    //             ("LDG.E", 10, "00000000000000001111111100000000", 0),
-    //             ("LDG.E", 11, "00000000000000001111111111111111", 0),
-    //             ("LDG.E", 100, "11111111111111111111111111111111", 0),
-    //             ("EXIT", 0, "11111111111111111111111111111111", 0),
-    //         ].into_iter().enumerate().map(SimplifiedTraceInstruction::from).collect::<Vec<_>>()
-    //     );
-    //     Ok(())
-    // }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn test_two_level_nested_for_loops_kernel() -> eyre::Result<()> {
@@ -1364,10 +1307,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("two_level_nested_if_balanced") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
@@ -1479,10 +1423,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("two_level_nested_if_balanced") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
@@ -1588,10 +1533,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_balanced")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("two_level_nested_if_balanced") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
@@ -1691,10 +1637,11 @@ mod tests {
             println!("{}", inst);
         }
 
-        let ref_warp_traces = get_reference_warp_traces("two_level_nested_if_imbalanced")?;
-        let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
-        for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
-            println!("{}", inst);
+        if let Ok(ref_warp_traces) = get_reference_warp_traces("two_level_nested_if_imbalanced") {
+            let ref_first_warp = &ref_warp_traces[&(Dim::ZERO, 0)];
+            for inst in fmt::simplify_warp_trace(ref_first_warp, true) {
+                println!("{}", inst);
+            }
         }
 
         let have: Vec<_> = fmt::simplify_warp_trace(first_warp, true).collect();
