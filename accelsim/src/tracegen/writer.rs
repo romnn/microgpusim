@@ -269,10 +269,12 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     fn test_generate_commands() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
+        let trace_dir =
+            manifest_dir.join("../results/vectorAdd/vectorAdd-dtype-32-length-100/trace");
         let commands_path = trace_dir.join("commands.json");
         let mut commands_writer = std::io::Cursor::new(Vec::new());
         super::generate_commands(&commands_path, &mut commands_writer)?;
@@ -294,10 +296,12 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     fn test_generate_trace() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/trace");
+        let trace_dir =
+            manifest_dir.join("../results/vectorAdd/vectorAdd-dtype-32-length-100/trace");
         let commands_path = trace_dir.join("commands.json");
 
         let reader = utils::fs::open_readable(commands_path)?;

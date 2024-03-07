@@ -671,6 +671,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     fn test_read_commands() -> eyre::Result<()> {
         // let commands = indoc::indoc! {r#"
@@ -681,7 +682,8 @@ mod tests {
         // };
 
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/accelsim-trace");
+        let trace_dir =
+            manifest_dir.join("../results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-trace");
         let kernelslist = trace_dir.join("kernelslist.g");
 
         let reader = open_file(&kernelslist)?;
@@ -690,10 +692,12 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "local-data")]
     #[test]
     fn test_read_trace_instructions() -> eyre::Result<()> {
         let manifest_dir = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-        let trace_dir = manifest_dir.join("../results/vectorAdd/vectorAdd-100-32/accelsim-trace");
+        let trace_dir =
+            manifest_dir.join("../results/vectorAdd/vectorAdd-dtype-32-length-100/accelsim-trace");
         let kernelslist = trace_dir.join("kernelslist.g");
 
         let reader = open_file(&kernelslist)?;

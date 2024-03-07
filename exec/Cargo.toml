@@ -5,7 +5,11 @@ edition = "2021"
 
 [features]
 default = ["render"]
+local-data = []
 render = ["dep:layout-rs", "dep:colorsys", "dep:rand", "dep:rand_chacha"]
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
 
 [dependencies]
 color-eyre = "0"

@@ -11,10 +11,11 @@ crate-type = ["rlib"]
 name = "accelsim-parse"
 
 [features]
-default  = []
+default  = ["local-data"]
+local-data = []
 
 [package.metadata.cargo-feature-combinations]
-denylist = ["default"]
+denylist = ["default", "local-data"]
 
 [dependencies]
 color-eyre = "0"
