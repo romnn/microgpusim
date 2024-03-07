@@ -4,21 +4,17 @@ use std::collections::HashMap;
 
 pub trait SelectKernel: std::fmt::Debug {
     fn select_kernel(&self) -> Option<Arc<dyn Kernel>>;
-    // fn select_kernel(&mut self) -> Option<Arc<dyn Kernel>>;
 }
 
 #[derive(Debug)]
 pub struct KernelManager {
-    // pub executed_kernels: HashMap<u64, Arc<dyn Kernel>>,
     pub executed_kernels: RwLock<HashMap<u64, Arc<dyn Kernel>>>,
 
     running_kernels: Box<[Option<(usize, Arc<dyn Kernel>)>]>,
-    // last_issued_kernel: usize,
     last_issued_kernel: Mutex<usize>,
     current_kernel: Option<Arc<dyn Kernel>>,
-
-    pub config: Arc<config::GPU>,
     // pub max_concurrent_kernels: Option<usize>,
+    pub config: Arc<config::GPU>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -35,23 +31,27 @@ pub enum LaunchError {
 }
 
 impl KernelManager {
-    // pub fn new(max_concurrent_kernels: Option<usize>) -> Self {
     pub fn new(config: Arc<config::GPU>) -> Self {
         let running_kernels = utils::box_slice![None; config.max_concurrent_kernels];
         Self {
             current_kernel: None,
-            // last_issued_kernel: 0,
             running_kernels,
             last_issued_kernel: Mutex::new(0),
             executed_kernels: RwLock::new(HashMap::new()),
-            // executed_kernels: HashMap::new(),
             config,
-            // max_concurrent_kernels,
         }
     }
 
     pub fn current_kernel(&self) -> Option<&Arc<dyn Kernel>> {
         self.current_kernel.as_ref()
+    }
+
+    pub fn num_running_kernels(&self) -> usize {
+        self.running_kernels
+            .iter()
+            .map(Option::as_ref)
+            .filter(Option::is_some)
+            .count()
     }
 
     pub fn all_kernels_completed(&self) -> bool {
@@ -89,8 +89,6 @@ impl KernelManager {
 
     pub fn get_finished_kernel(&mut self) -> Option<Arc<dyn Kernel>> {
         // check running kernels
-        // let mut running_kernels = self.running_kernels.try_write().clone();
-        // let running_kernels = &mut self.running_kernels;
         let finished_kernel: Option<&mut Option<(_, Arc<dyn Kernel>)>> =
             self.running_kernels.iter_mut().find(|kernel| match kernel {
                 // TODO: could also check here if !self.active()
@@ -106,19 +104,7 @@ impl KernelManager {
                 }
                 _ => false,
             });
-        // running_kernels.iter_mut().find_map(|kernel| match kernel {
-        //     // TODO: could also check here if !self.active()
-        //     Some((_, k)) if k.no_more_blocks_to_run() && !k.running() && k.launched() => {
-        //         Some(kernel)
-        //     }
-        //     _ => None,
-        // });
         finished_kernel.and_then(Option::take).map(|(_, k)| k)
-        // if let Some(kernel) = finished_kernel {
-        //     kernel.take().1
-        // } else {
-        //     None
-        // }
     }
 
     pub fn try_launch_kernel(
@@ -137,11 +123,7 @@ impl KernelManager {
             });
         }
 
-        // let mut running_kernels = self.running_kernels.try_write();
-        // let running_kernels = &mut self.running_kernels;
-
-        // todo: refactor this into two phases: remove and find
-
+        // TODO: refactor this into two phases: remove and find
         let max_concurrent_kernels = self.running_kernels.len();
         let free_slot = self
             .running_kernels
@@ -153,7 +135,6 @@ impl KernelManager {
 
         kernel.set_started(cycle);
 
-        // *self.current_kernel.lock() = Some(Arc::clone(&kernel));
         self.current_kernel = Some(Arc::clone(&kernel));
 
         *free_slot = Some((launch_latency, kernel));
@@ -233,77 +214,3 @@ impl SelectKernel for KernelManager {
         None
     }
 }
-
-// #[derive(Debug)]
-// pub struct KernelSelector<'a> {
-//     pub running_kernels: &'a [Option<(usize, Arc<dyn Kernel>)>],
-//     pub executed_kernels: &'a mut HashMap<u64, Arc<dyn Kernel>>,
-//     pub last_issued_kernel: &'a mut usize,
-//     pub max_concurrent_kernels: usize,
-// }
-//
-// impl<'a> SelectKernel for KernelSelector<'a> {
-//     fn select_kernel(&mut self) -> Option<Arc<dyn Kernel>> {
-//         log::trace!(
-//             "select kernel: {} running kernels, last issued kernel={}",
-//             self.running_kernels
-//                 .iter()
-//                 .filter_map(Option::as_ref)
-//                 .count(),
-//             *self.last_issued_kernel
-//         );
-//
-//         if let Some((launch_latency, ref last_kernel)) =
-//             self.running_kernels[*self.last_issued_kernel]
-//         {
-//             log::trace!(
-//             "select kernel: => running_kernels[{}] no more blocks to run={} {} kernel block latency={} launch uid={}",
-//             self.last_issued_kernel,
-//             last_kernel.no_more_blocks_to_run(),
-//             last_kernel.next_block().map(|block| format!("{}/{}", block, last_kernel.config().grid)).as_deref().unwrap_or(""),
-//             launch_latency, last_kernel.id());
-//         }
-//
-//         // issue same kernel again
-//         match self.running_kernels[*self.last_issued_kernel] {
-//             Some((launch_latency, ref last_kernel))
-//                 if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-//             {
-//                 let launch_id = last_kernel.id();
-//                 self.executed_kernels
-//                     .entry(launch_id)
-//                     .or_insert(Arc::clone(last_kernel));
-//                 return Some(last_kernel.clone());
-//             }
-//             _ => {}
-//         };
-//
-//         // issue new kernel
-//         let num_kernels = self.running_kernels.len();
-//         for n in 0..num_kernels {
-//             let idx = (n + *self.last_issued_kernel + 1) % self.max_concurrent_kernels;
-//             if let Some((launch_latency, ref kernel)) = self.running_kernels[idx] {
-//                 log::trace!(
-//                   "select kernel: running_kernels[{}] more blocks left={}, kernel block latency={}",
-//                   idx,
-//                   !kernel.no_more_blocks_to_run(),
-//                   launch_latency,
-//                 );
-//             }
-//
-//             match self.running_kernels[idx] {
-//                 Some((launch_latency, ref kernel))
-//                     if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-//                 {
-//                     *self.last_issued_kernel = idx;
-//                     let launch_id = kernel.id();
-//                     assert!(!self.executed_kernels.contains_key(&launch_id));
-//                     self.executed_kernels.insert(launch_id, Arc::clone(kernel));
-//                     return Some(Arc::clone(kernel));
-//                 }
-//                 _ => {}
-//             }
-//         }
-//         None
-//     }
-// }

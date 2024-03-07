@@ -4,22 +4,10 @@ use color_eyre::eyre::{self, WrapErr};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-// /// Base 2 logarithm of n.
-// ///
-// /// Effectively the minium number of bits required to store n.
-// /// TODO: this could be removed or refactored into a num_bits() trait for all integers.
-// #[must_use]
-// // #[inline]
-// pub fn logb2<T>(n: T) -> T {
-//     n.ilog2()
-//     // n.max(1).ilog2()
-// }
-
 /// Compute power of two greater than or equal to n
 ///
 /// see [here](https://www.techiedelight.com/round-next-highest-power-2/).
 #[must_use]
-// #[inline]
 pub fn next_power2(mut n: u32) -> u32 {
     // avoid subtract with overflow
     if n == 0 {
@@ -44,7 +32,6 @@ pub fn is_power_of_two(n: usize) -> bool {
 }
 
 #[must_use]
-// #[inline]
 pub fn mask_limit(mask: address) -> (u8, u8) {
     let mut high = 64;
     let mut low = 0;
@@ -63,7 +50,6 @@ pub fn mask_limit(mask: address) -> (u8, u8) {
 }
 
 #[must_use]
-// #[inline]
 fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> super::address {
     let mut pos = 0;
     let mut res: super::address = 0;
@@ -72,9 +58,7 @@ fn packbits(mask: super::address, val: super::address, low: u8, high: u8) -> sup
     debug_assert!(low <= 64);
     debug_assert!(high <= 64);
     for i in low..high {
-        // log::debug!("mask at {}: {}", i, mask & (1u64 << i));
         if mask & (1u64 << i) != 0 {
-            // log::debug!("value at {}: {}", i, ((val & (1u64 << i)) >> i));
             res |= ((val & (1u64 << i)) >> i) << pos;
             pos += 1;
         }
@@ -257,25 +241,6 @@ impl std::fmt::Display for MemoryControllerUnit {
     }
 }
 
-// impl std::fmt::Debug for MemoryControllerUnit {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         let mut out = f.debug_struct("MemoryControllerUnit");
-//         out.field("num_channels", &self.num_channels);
-//         out.field(
-//             "num_sub_partitions_per_channel",
-//             &self.num_sub_partitions_per_channel,
-//         );
-//         out.field(
-//             "num_sub_partitions_per_channel_log2",
-//             &self.num_sub_partitions_per_channel_log2,
-//         );
-//
-//         out.field("has_gap", &self.has_gap);
-//         out.field("sub_partition_id_mask", &self.sub_partition_id_mask);
-//         out.finish()
-//     }
-// }
-
 impl MemoryControllerUnit {
     pub fn new(config: &config::GPU) -> eyre::Result<Self> {
         let num_channels = config.num_memory_controllers;
@@ -411,98 +376,8 @@ impl MemoryController for std::sync::Arc<dyn MemoryController + '_> {
     }
 }
 
-// impl MemoryControllerUnit {
-//     pub fn to_physical_address_accelsim(&self, addr: address) -> PhysicalAddress {
-//         let mut tlx = PhysicalAddress::default();
-//         let num_channels = self.num_channels as u64;
-//
-//         let dec = &self.decode_config;
-//         let addr_chip_start = dec.addr_chip_start.unwrap();
-//
-//         let mut rest_of_addr_high_bits = 0;
-//
-//         if self.has_gap {
-//             // Split the given address at ADDR_CHIP_S into (MSBs,LSBs)
-//             // - extract chip address using modulus of MSBs
-//             // - recreate rest of the address by stitching the quotient of MSBs and the LSBs
-//             let addr_for_chip = (addr >> addr_chip_start) % num_channels;
-//             let mut rest_of_addr = (addr >> addr_chip_start) / num_channels;
-//             rest_of_addr <<= addr_chip_start;
-//             rest_of_addr |= addr & ((1 << addr_chip_start) - 1);
-//
-//             tlx.chip = addr_for_chip;
-//             tlx.bk = packbits(dec.bank.mask, rest_of_addr, dec.bank.low, dec.bank.high);
-//             tlx.row = packbits(dec.row.mask, rest_of_addr, dec.row.low, dec.row.high);
-//             tlx.col = packbits(dec.col.mask, rest_of_addr, dec.col.low, dec.col.high);
-//             tlx.burst = packbits(dec.burst.mask, rest_of_addr, dec.burst.low, dec.burst.high);
-//
-//             rest_of_addr_high_bits = (addr >> addr_chip_start) / num_channels;
-//         } else {
-//             tlx.chip = packbits(dec.chip.mask, addr, dec.chip.low, dec.chip.high);
-//             tlx.bk = packbits(dec.bank.mask, addr, dec.bank.low, dec.bank.high);
-//             tlx.row = packbits(dec.row.mask, addr, dec.row.low, dec.row.high);
-//             tlx.col = packbits(dec.col.mask, addr, dec.col.low, dec.col.high);
-//             tlx.burst = packbits(dec.burst.mask, addr, dec.burst.low, dec.burst.high);
-//
-//             rest_of_addr_high_bits = addr
-//                 >> (addr_chip_start
-//                     + (self.num_channels_log2 + self.num_sub_partitions_per_channel_log2) as usize);
-//         }
-//
-//         match self.memory_partition_indexing {
-//             config::MemoryPartitionIndexingScheme::Consecutive => {
-//                 // do nothing
-//             }
-//             config::MemoryPartitionIndexingScheme::BitwiseXor => {
-//                 // assert!(!self.has_gap);
-//                 tlx.chip = crate::cache::set_index::bitwise_xor::bitwise_hash_function(
-//                     rest_of_addr_high_bits,
-//                     tlx.chip as usize,
-//                     num_channels as usize,
-//                 );
-//                 tlx.chip = tlx.chip % num_channels;
-//                 assert!(tlx.chip < num_channels);
-//             }
-//             config::MemoryPartitionIndexingScheme::IPoly => {
-//                 let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
-//                 let sub_partition = tlx.chip * self.num_sub_partitions_per_channel as u64
-//                     + (tlx.bk & sub_partition_addr_mask as u64);
-//                 tlx.sub_partition = crate::cache::set_index::ipoly::hash(
-//                     rest_of_addr_high_bits,
-//                     sub_partition as usize,
-//                     self.num_channels_next_power2 as usize * self.num_sub_partitions_per_channel,
-//                 );
-//
-//                 if self.has_gap {
-//                     // if it is not 2^n partitions, then take modular
-//                     tlx.sub_partition = tlx.sub_partition
-//                         % (num_channels * self.num_sub_partitions_per_channel as u64);
-//                 }
-//                 //
-//                 tlx.chip = tlx.sub_partition / self.num_sub_partitions_per_channel as u64;
-//                 assert!(tlx.chip < num_channels);
-//                 assert!(
-//                     tlx.sub_partition
-//                         < self.num_channels as u64 * self.num_sub_partitions_per_channel as u64
-//                 );
-//                 return tlx;
-//             }
-//             other => unimplemented!("{:?} partition index not implemented", other),
-//         }
-//
-//         // combine the chip address and the lower bits of DRAM bank address to form
-//         // the subpartition ID
-//         let sub_partition_addr_mask = self.num_sub_partitions_per_channel - 1;
-//         tlx.sub_partition = tlx.chip * (self.num_sub_partitions_per_channel as u64);
-//         tlx.sub_partition += tlx.bk & (sub_partition_addr_mask as u64);
-//         tlx
-//     }
-// }
-
 impl MemoryController for MemoryControllerUnit {
-    // impl MemoryControllerUnit {
     fn memory_partition_address(&self, addr: address) -> address {
-        // dbg!(addr);
         if self.has_gap {
             // see addrdec_tlx for explanation
             let addr_chip_start = self.decode_config.addr_chip_start.unwrap();
@@ -529,11 +404,6 @@ impl MemoryController for MemoryControllerUnit {
         }
     }
 
-    // }
-    // impl MemoryController for MemoryControllerUnit {
-    // #[inline]
-
-    // #[inline]
     fn to_physical_address(&self, addr: address) -> PhysicalAddress {
         // panic!("disabled for now");
         let mut tlx = PhysicalAddress::default();
@@ -637,12 +507,10 @@ impl MemoryController for MemoryControllerUnit {
         tlx
     }
 
-    // #[inline]
     fn num_memory_sub_partitions(&self) -> usize {
         self.num_channels * self.num_sub_partitions_per_channel
     }
 
-    // #[inline]
     fn num_memory_partitions(&self) -> usize {
         self.num_channels
     }
@@ -656,14 +524,7 @@ pub struct PascalMemoryControllerUnit {
     pub num_controllers: usize,
     pub num_sub_partitions_per_channel: usize,
     pub decode_config: Config,
-    // mem_address_mask: config::MemoryAddressingMask,
-    // memory_partition_indexing: config::MemoryPartitionIndexingScheme,
     sub_partition_id_mask: address,
-    // decode_config: Config,
-    // has_gap: bool,
-    // num_channels_log2: u32,
-    // num_channels_next_power2: u32,
-    // num_sub_partitions_per_channel_log2: u32,
 }
 
 impl PascalMemoryControllerUnit {
@@ -950,12 +811,10 @@ impl MemoryController for PascalMemoryControllerUnit {
         tlx
     }
 
-    // #[inline]
     fn num_memory_sub_partitions(&self) -> usize {
         self.num_controllers * self.num_sub_partitions_per_channel
     }
 
-    // #[inline]
     fn num_memory_partitions(&self) -> usize {
         self.num_controllers
     }
@@ -1011,11 +870,6 @@ mod tests {
         dbg!(&mcu.num_channels_log2);
         let addr = 128;
         let tlx = mcu.to_physical_address(addr);
-        // line size x sets x assoc
-        // let per_sub_partition_bytes = 128 * 64 * 16;
-        // dbg!(&per_sub_partition_bytes);
-        // dbg!(&mcu.memory_partition_address(0 * per_sub_partition_bytes));
-        // dbg!(&mcu.memory_partition_address(1 * per_sub_partition_bytes));
         Ok(())
     }
 
@@ -1254,7 +1108,7 @@ mod tests {
             addr,
             &tlx_addr,
             partition_addr,
-            partition_addr % mcu.num_memory_sub_partitions() as u64 // (partition_addr / (partition_size * 2)) % mcu.num_memory_sub_partitions() as u64
+            partition_addr % mcu.num_memory_sub_partitions() as u64
         );
 
         diff::assert_eq!(have: tlx_addr.sub_partition, want: partition_addr);
@@ -1277,9 +1131,6 @@ mod tests {
         diff::assert_eq!(
             have: mapping.memory_partition_address(addr),
             want: ref_mapping.partition_address(addr));
-
-        // dbg!(mapping.memory_partition_address(addr));
-        // assert!(false);
     }
 
     #[test]

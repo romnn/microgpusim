@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex, RwLock};
+use crate::sync::Arc;
 use crate::{config, instruction::WarpInstruction, Kernel};
 use color_eyre::{eyre, Help};
 use std::path::{Path, PathBuf};
@@ -10,34 +10,19 @@ pub fn parse_commands(path: &Path) -> eyre::Result<Vec<Command>> {
     Ok(commands)
 }
 
-// pub struct TraceIter<'a> {
-//     commands: &'a [Command],
-//     command_idx: &'a mut usize,
-// }
-
 pub struct Trace {
     pub traces_dir: Option<PathBuf>,
 
     pub commands: Vec<Command>,
     command_idx: usize,
-    // kernels: VecDeque<Arc<dyn Kernel>>,
-    // kernel_window_size: usize,
-    // busy_streams: VecDeque<u64>,
 }
 
 impl Trace {
-    pub fn new(config: Arc<config::GPU>) -> Self {
-        // todo: make this a hashset?
-        // let busy_streams: VecDeque<u64> = VecDeque::new();
-        // kernels.reserve_exact(window_size);
-
+    pub fn new(_config: Arc<config::GPU>) -> Self {
         Self {
             traces_dir: None,
             commands: Vec::new(),
             command_idx: 0,
-            // kernels,
-            // kernel_window_size: window_size,
-            // busy_streams,
         }
     }
 
@@ -61,13 +46,6 @@ impl Trace {
         self.command_idx += 1;
         command
     }
-
-    // pub fn iter(&mut self) -> TraceIter<'_> {
-    //     TraceIter {
-    //         commands: &self.commands,
-    //         command_idx: &mut self.command_idx,
-    //     }
-    // }
 }
 
 pub struct KernelTraceReader<T>
@@ -77,18 +55,9 @@ where
     pub opcodes: &'static crate::opcodes::OpcodeMap,
     pub config: trace_model::command::KernelLaunch,
     pub memory_only: bool,
-    // pub start_cycle: Mutex<Option<u64>>,
-    // pub completed_cycle: Mutex<Option<u64>>,
-    // pub start_time: Mutex<Option<std::time::Instant>>,
-    // pub completed_time: Mutex<Option<std::time::Instant>>,
+
     trace: std::iter::Peekable<T>,
     current_block: Option<trace_model::Dim>,
-    // trace: Mutex<std::iter::Peekable<T>>,
-    // current_block: RwLock<Option<trace_model::Dim>>,
-
-    // next_block: RwLock<Option<trace_model::Dim>>,
-    // current_block: RwLock<Option<trace_model::Dim>>,
-    // running_blocks: usize,
 }
 
 impl<T> std::fmt::Debug for KernelTraceReader<T>
@@ -145,23 +114,13 @@ impl KernelTraceReader<TraceIter> {
         let opcodes = crate::opcodes::get_opcode_map(&config).unwrap();
 
         let trace = trace_rx.into_iter().peekable();
-        // let trace = Mutex::new(trace);
         let current_block = None;
-        // let next_block = None;
-        // let current_block = RwLock::new(current_block);
         Self {
             opcodes,
             config,
             memory_only,
-            // start_cycle: Mutex::new(None),
-            // start_time: Mutex::new(None),
-            // completed_cycle: Mutex::new(None),
-            // completed_time: Mutex::new(None),
             trace,
             current_block,
-            // next_block,
-            // next_block: Some(0.into()),
-            // running_blocks: 0,
         }
     }
 }
@@ -177,34 +136,18 @@ pub trait ReadWarpsForBlock: std::fmt::Debug + Send + Sync + 'static {
     ) -> (Option<trace_model::Dim>, Option<trace_model::Dim>);
 }
 
-// impl<T> ReadWarpsForBlock erator<Item = trace_model::MemAccessTraceEntry> {}
-
 impl<T> ReadWarpsForBlock for KernelTraceReader<T>
 where
     T: Send + Sync + 'static,
     T: Iterator<Item = trace_model::MemAccessTraceEntry>,
 {
-    // fn current_block(&self) -> Option<trace_model::Point> {
-    //     self.next_block.clone()
-    // }
-
     fn current_block(&mut self) -> Option<trace_model::Point> {
         let current_block = self.trace.peek().map(|entry| entry.block_id.clone())?;
-        // let current_block = self.current_block.clone()?;
-        // let next_block = self.next_block.clone()?;
         Some(trace_model::Point::new(
             current_block,
             self.config.grid.clone(),
         ))
     }
-
-    // pub fn next_block(&self) -> Option<trace_model::Point> {
-    //     let next_block = self.next_block.clone()?;
-    //     Some(trace_model::Point::new(
-    //         next_block,
-    //         self.config.grid.clone(),
-    //     ))
-    // }
 
     fn read_warps_for_block(
         &mut self,
@@ -212,15 +155,10 @@ where
         kernel: &dyn Kernel,
         config: &config::GPU,
     ) -> (Option<trace_model::Dim>, Option<trace_model::Dim>) {
-        // let mut current_block_lock = self.current_block.write();
-        // let mut trace_lock = self.trace.lock();
-
         let current_block_lock = &mut self.current_block;
         let trace_lock = &mut self.trace;
 
         *current_block_lock = trace_lock.peek().map(|entry| entry.block_id.clone());
-
-        // self.self.current_block = self.trace.peek().map(|entry| entry.block_id.clone());
 
         let Some(ref current_block) = *current_block_lock else {
             // no more threadblocks
@@ -242,7 +180,6 @@ where
                 break;
             };
             if entry.block_id != *current_block {
-                // println!("stopping with peek={:#?}", entry);
                 break;
             }
 

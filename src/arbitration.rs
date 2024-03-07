@@ -83,12 +83,10 @@ pub trait Arbitrate: std::fmt::Debug + Send + Sync + 'static {
 }
 
 impl Arbitrate for ArbitrationUnit {
-    // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
-    // #[inline]
     fn has_credits(&self, inner_sub_partition_id: usize) -> bool {
         if self.private_credit[inner_sub_partition_id] < self.private_credit_limit {
             return true;
@@ -96,11 +94,7 @@ impl Arbitrate for ArbitrationUnit {
         self.shared_credit_limit == 0 || self.shared_credit < self.shared_credit_limit
     }
 
-    // #[inline]
     fn borrow_credit(&mut self, inner_sub_partition_id: usize) {
-        // let private_before = self.private_credit[inner_sub_partition_id];
-        // let shared_before = self.shared_credit;
-
         let private_credit = &mut self.private_credit[inner_sub_partition_id];
         if *private_credit < self.private_credit_limit {
             *private_credit += 1;
@@ -109,16 +103,10 @@ impl Arbitrate for ArbitrationUnit {
         } else {
             panic!("arbitration: borrowing from depleted credit!");
         }
-        // log::trace!("arbitration: borrow from spid {}: private credit={}/{} (was {}), shared_credit={}/{} (was {}), last borrower is now {}", inner_sub_partition_id,
-        // self.private_credit[inner_sub_partition_id], self.private_credit_limit, private_before,
-        //     self.shared_credit, self.shared_credit_limit, shared_before, inner_sub_partition_id);
         self.last_borrower = inner_sub_partition_id;
     }
 
-    // #[inline]
     fn return_credit(&mut self, inner_sub_partition_id: usize) {
-        // let private_before = self.private_credit[inner_sub_partition_id];
-        // let shared_before = self.shared_credit;
         let private_credit = &mut self.private_credit[inner_sub_partition_id];
         if *private_credit > 0 {
             *private_credit = private_credit
@@ -130,12 +118,8 @@ impl Arbitrate for ArbitrationUnit {
                 .checked_sub(1)
                 .expect("arbitration: returning more than available credits!");
         }
-        // log::trace!("arbitration: borrow from spid {}: private credit={}/{} (was {}), shared_credit={}/{} (was {}), last borrower is now {}", inner_sub_partition_id,
-        // self.private_credit[inner_sub_partition_id], self.private_credit_limit, private_before,
-        // self.shared_credit, self.shared_credit_limit, shared_before, inner_sub_partition_id);
     }
 
-    // #[inline]
     fn last_borrower(&self) -> usize {
         self.last_borrower
     }

@@ -19,19 +19,9 @@ pub struct EvictedBlockInfo {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct AccessStatus {
     pub cache_index: Option<usize>,
-    // pub writeback: bool,
     pub evicted: Option<EvictedBlockInfo>,
     pub status: cache::RequestStatus,
 }
-
-/// Tag array configuration.
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-// pub struct Config {
-//     allocate_policy: config::CacheAllocatePolicy,
-//     replacement_policy: config::CacheReplacementPolicy,
-//     max_num_lines: usize,
-//     addr_translation: Box<dyn CacheAddressTranslation>,
-// }
 
 /// Tag array.
 #[derive(Debug)]
@@ -122,13 +112,11 @@ where
     B: cache::block::Block,
     T: cache::CacheController,
 {
-    // #[inline]
     fn access(&mut self, addr: address, fetch: &mem_fetch::MemFetch, time: u64) -> AccessStatus {
         log::debug!("tag_array::access({}, time={})", fetch, time);
         self.num_access += 1;
         self.is_used = true;
 
-        // let mut writeback = false;
         let mut evicted = None;
 
         let Some((cache_index, status)) = self.probe(addr, fetch, fetch.is_write(), false) else {
@@ -214,20 +202,16 @@ where
         }
         AccessStatus {
             cache_index: Some(cache_index),
-            // writeback,
             evicted,
             status,
         }
     }
 
-    // #[inline]
     fn flush(&mut self) -> usize {
         let mut flushed = 0;
         for line in &mut self.lines {
             if line.is_modified() {
                 for sector in 0..NUM_SECTORS {
-                    // let mut sector_mask = mem_fetch::SectorMask::ZERO;
-                    // sector_mask.set(i as usize, true);
                     line.set_status(cache::block::Status::INVALID, sector);
                 }
                 flushed += 1;
@@ -237,7 +221,6 @@ where
         flushed
     }
 
-    // #[inline]
     fn invalidate(&mut self) {
         for line in &mut self.lines {
             for sector in 0..NUM_SECTORS {
@@ -263,22 +246,18 @@ where
         }
     }
 
-    // #[inline]
     fn size(&self) -> usize {
         self.lines.len()
     }
 
-    // #[inline]
     fn get_block_mut(&mut self, idx: usize) -> &mut B {
         &mut self.lines[idx]
     }
 
-    // #[inline]
     fn get_block(&self, idx: usize) -> &B {
         &self.lines[idx]
     }
 
-    // #[inline]
     fn add_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
         let addr = self.cache_controller.block_addr(fetch.addr());
         let instr = fetch.instr.as_ref().unwrap();
@@ -287,7 +266,6 @@ where
         }
     }
 
-    // #[inline]
     fn remove_pending_line(&mut self, fetch: &mem_fetch::MemFetch) {
         let addr = self.cache_controller.block_addr(fetch.addr());
         self.pending_lines.remove(&addr);
@@ -302,7 +280,8 @@ where
     /// Probes the tag array
     ///
     /// # Returns
-    /// A tuple with the cache index `Option<usize>` and cache request status.
+    /// A tuple with the cache index `Option<usize>` and
+    /// cache request status.
     #[must_use]
     pub fn probe(
         &self,
@@ -350,12 +329,6 @@ where
             self.cache_config.associativity,
             dirty_line_percent,
         );
-
-        // if let Some(fetch) = fetch {
-        //     dbg!(&fetch.to_string());
-        //     dbg!(&fetch.access.sector_mask);
-        // }
-        // dbg!(&sector_mask);
 
         // check for hit or pending hit
         for way in 0..self.cache_config.associativity {
@@ -418,9 +391,6 @@ where
                     }
                 }
             }
-            // else {
-            //     log::warn!("NO line with tag={}", tag);
-            // }
             if !line.is_reserved() {
                 // If the cache line is from a load op (not modified),
                 // or the number of total dirty cache lines is above a specific value,
@@ -471,16 +441,6 @@ where
             return None;
             // return cache::RequestStatus::RESERVATION_FAIL;
         }
-
-        // match (valid_line, invalid_line) {
-        //     (_, Some(invalid)) => Some((invalid, cache::RequestStatus::HIT)),
-        //     (Some(valid), None) => Some((valid, cache::RequestStatus::MISS)),
-        //     (None, None) => {
-        //         // if an unreserved block exists,
-        //         // it is either invalid or replaceable
-        //         panic!("found neither a valid nor invalid cache line");
-        //     }
-        // }
 
         let cache_idx = match (valid_line, invalid_line) {
             (_, Some(invalid)) => invalid,
@@ -625,10 +585,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    // use super::TagArray;
-    // use crate::config;
-    // use std::sync::Arc;
-
     #[ignore = "todo"]
     #[test]
     fn test_tag_array() {

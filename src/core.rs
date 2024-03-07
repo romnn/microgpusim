@@ -122,7 +122,6 @@ impl<'a, S> WarpIssuer for CoreIssuer<'a, S>
 where
     S: scoreboard::Access,
 {
-    #[inline]
     fn has_free_register(&self, stage: PipelineStage, scheduler_id: usize) -> bool {
         let pipeline_stage = &self.pipeline_reg[stage as usize];
 
@@ -137,13 +136,11 @@ where
         }
     }
 
-    #[inline]
     fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         self.scoreboard.has_collision(warp_id, instr)
     }
 
     #[tracing::instrument(name = "core_issue_warp")]
-    #[inline]
     fn issue_warp(
         &mut self,
         stage: PipelineStage,
@@ -431,7 +428,6 @@ impl<C> ic::Connection<ic::Packet<mem_fetch::MemFetch>> for CoreMemoryConnection
 where
     C: ic::BufferedConnection<ic::Packet<(usize, mem_fetch::MemFetch, u32)>>,
 {
-    // #[inline]
     fn can_send(&self, packets: &[u32]) -> bool {
         // let request_size: u32 = packets
         //     .iter()
@@ -448,7 +444,6 @@ where
         // self.interconn.has_buffer(self.cluster_id, request_size)
     }
 
-    // #[inline]
     fn send(&mut self, packet: ic::Packet<mem_fetch::MemFetch>) {
         let ic::Packet { mut fetch, time } = packet;
 
@@ -1222,7 +1217,6 @@ where
     }
 
     #[tracing::instrument]
-    // #[inline]
     fn execute(&mut self, cycle: u64) {
         let core_id = self.id();
         log::debug!(
@@ -1583,7 +1577,6 @@ impl<I, MC> Core<I, MC>
 where
     MC: crate::mcu::MemoryController,
 {
-    // #[inline]
     pub fn cache_flush(&mut self) {
         self.load_store_unit.flush();
     }
@@ -1592,72 +1585,33 @@ where
     //     self.load_store_unit.is_flushed();
     // }
 
-    // #[inline]
     pub fn cache_invalidate(&mut self) {
         self.load_store_unit.invalidate();
     }
 }
 
-impl<I, MC> Core<I, MC>
-// where
-//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
-{
-    // // this is very bad: expose the underlying queue with a mutex
-    // #[must_use]
-    // // #[inline]
-    // pub fn ldst_unit_response_buffer_full(&self) -> bool {
-    //     self.load_store_unit.response_buffer_full()
-    // }
-    //
-    // // #[inline]
-    // pub fn accept_ldst_unit_response(&self, fetch: mem_fetch::MemFetch, time: u64) {
-    //     self.please_fill
-    //         .lock()
-    //         .push((FetchResponseTarget::LoadStoreUnit, fetch, time));
-    // }
-
-    // #[must_use]
-    // // #[inline]
-    // pub fn fetch_unit_response_buffer_full(&self) -> bool {
-    //     false
-    // }
-    //
-    // // #[inline]
-    // pub fn accept_fetch_response(&self, mut fetch: mem_fetch::MemFetch, time: u64) {
-    //     fetch.status = mem_fetch::Status::IN_SHADER_FETCHED;
-    //     self.please_fill
-    //         .lock()
-    //         .push((FetchResponseTarget::ICache, fetch, time));
-    // }
-
+impl<I, MC> Core<I, MC> {
     #[must_use]
-    // #[inline]
     pub fn num_active_threads(&self) -> usize {
         self.num_active_threads
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_active(&self) -> bool {
         self.num_active_blocks > 0
     }
 
     #[must_use]
-    // #[inline]
     pub fn num_active_blocks(&self) -> usize {
         self.num_active_blocks
     }
 
-    // #[inline]
     pub fn can_issue_block(&self, kernel: &dyn Kernel) -> bool {
-        // pub fn can_issue_block(&self, launch_config: &KernelLaunch) -> bool {
-        // let max_blocks = self.config.max_blocks(launch_config).unwrap();
         let max_blocks = kernel.max_blocks_per_core();
         if self.config.concurrent_kernel_sm {
             if max_blocks == 0 {
                 return false;
             }
-            // self.occupy_resource_for_block(kernel, false);
             unimplemented!("concurrent kernel sm model");
         } else {
             self.num_active_blocks < max_blocks
@@ -1665,13 +1619,11 @@ impl<I, MC> Core<I, MC>
     }
 
     #[must_use]
-    // #[inline]
     pub fn id(&self) -> (usize, usize) {
         (self.cluster_id, self.global_core_id)
     }
 
     #[tracing::instrument(name = "core_reinit")]
-    // #[inline]
     pub fn reinit(&mut self, start_thread: usize, end_thread: usize, reset_not_completed: bool) {
         if reset_not_completed {
             self.num_active_warps = 0;
@@ -2005,7 +1957,6 @@ impl<I, MC> Core<I, MC>
 }
 
 impl<I, MC> Core<I, MC> {
-    // #[inline]
     fn init_operand_collector(register_file: &mut RegisterFileUnit, config: &config::GPU) {
         register_file.add_cu_set(
             operand_collector::Kind::GEN_CUS,
@@ -2135,7 +2086,6 @@ impl<I, MC> Core<I, MC> {
         register_file.init(config.num_reg_banks);
     }
 
-    #[inline(always)]
     fn register_threads_in_block_exited(
         &mut self,
         block_hw_id: usize,
@@ -2255,7 +2205,6 @@ impl<I, MC> Core<I, MC> {
 
     /// Shader core decode
     #[tracing::instrument]
-    // #[inline]
     fn decode(&mut self, cycle: u64) {
         log::debug!(
             "{}",
@@ -2312,7 +2261,6 @@ impl<I, MC> Core<I, MC> {
         self.instr_fetch_buffer_state.set_invalid();
     }
 
-    // #[inline]
     fn decode_instruction(&mut self, warp_id: usize, instr: WarpInstruction, slot: usize) {
         let warp = self.warps.get_mut(warp_id).unwrap();
 
@@ -2328,7 +2276,6 @@ impl<I, MC> Core<I, MC> {
     }
 
     #[tracing::instrument]
-    // #[inline]
     fn issue(&mut self, cycle: u64) {
         // fair round robin issue between schedulers
         let num_schedulers = self.schedulers.len();
@@ -2393,7 +2340,6 @@ impl<I, MC> Core<I, MC> {
     }
 
     #[tracing::instrument]
-    // #[inline]
     fn writeback(&mut self, cycle: u64) {
         // from the functional units
         let id = self.id();
@@ -2453,7 +2399,6 @@ impl<I, MC> Core<I, MC> {
     }
 
     #[must_use]
-    // #[inline]
     fn find_available_hw_thread_id(
         &mut self,
         thread_block_size: usize,
@@ -2491,19 +2436,12 @@ impl<I, MC> Core<I, MC> {
     }
 
     #[tracing::instrument(name = "core_init_warps_from_traces")]
-    // #[inline]
-    // fn init_warps_from_traces<R>(
     fn init_warps_from_traces(
         &mut self,
-        // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
-        // reader: &mut R,
         start_warp: usize,
         end_warp: usize,
-    )
-    // where
-    //         R: crate::trace::ReadWarpsForBlock,
-    {
+    ) {
         let kernel = self.current_kernel.as_deref().unwrap();
 
         debug_assert!(!self.warps.is_empty());
@@ -2511,7 +2449,6 @@ impl<I, MC> Core<I, MC> {
         for warp in &mut *selected_warps {
             warp.trace_instructions.clear();
             warp.kernel_id = Some(kernel.id());
-            // warp.kernel = Some(Arc::clone(kernel));
             warp.trace_pc = 0;
         }
 
@@ -2532,21 +2469,14 @@ impl<I, MC> Core<I, MC> {
     }
 
     #[tracing::instrument(name = "core_init_warps")]
-    // #[inline]
     fn init_warps(
         &mut self,
-        // kernel: &dyn Kernel,
         reader: &mut dyn crate::trace::ReadWarpsForBlock,
-        // reader: &mut R,
         block_hw_id: usize,
         block_id: u64,
         start_thread: usize,
         end_thread: usize,
-    )
-    // where
-    // R: crate::trace::ReadWarpsForBlock,
-    {
-        // let threads_per_block = kernel.threads_per_block();
+    ) {
         let kernel = self.current_kernel.as_deref().unwrap();
 
         let start_warp = start_thread / self.config.warp_size;
@@ -2565,8 +2495,6 @@ impl<I, MC> Core<I, MC> {
                 let hwtid = warp_id * self.config.warp_size + warp_thread_id;
                 if hwtid < end_thread {
                     num_active_threads_in_warp += 1;
-                    // debug_assert!(!self.active_thread_mask[hwtid]);
-                    // self.active_thread_mask.set(hwtid, true);
                     local_active_thread_mask.set(warp_thread_id, true);
                 }
             }
@@ -2576,19 +2504,13 @@ impl<I, MC> Core<I, MC> {
                 local_active_thread_mask.count_ones()
             );
 
-            // crate::WIP_STATS.lock().num_warps += 1;
-            // crate::WIP_STATS.lock().warps_per_core[self.core_id] += 1;
-
-            // self.warps[warp_id].try_lock().init(
             let warp = self.warps.get_mut(warp_id).unwrap();
             warp.init(
                 block_hw_id as u64,
                 warp_id,
                 self.dynamic_warp_id,
                 local_active_thread_mask,
-                // self.current_kernel.map(|k| k.id()),
                 kernel.id(),
-                // Arc::clone(kernel),
             );
 
             self.dynamic_warp_id += 1;
@@ -2605,12 +2527,10 @@ impl<I, MC> Core<I, MC> {
             block_id,
             block_hw_id,
         );
-        // self.init_warps_from_traces(kernel, reader, start_warp, end_warp);
         self.init_warps_from_traces(reader, start_warp, end_warp);
     }
 }
 
-// impl<I, MC> crate::engine::cycle::Component for Core<I, MC>
 impl<I, MC> Core<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
@@ -2635,24 +2555,8 @@ where
                 self.is_active(),
                 self.num_active_threads(),
                 -1,
-                // self.load_store_unit.response_queue.len(),
-                // self.load_store_unit.response_queue.lock().len()
             );
         }
-
-        // // workaround when l1 flush is enabled and we need to flush the L1 after a mem barrier
-        // // FIXME: this is likely implemented wrong - causing a invalidations every cycle
-        // let need_l1_flush = {
-        //     let mut need_l1_flush_lock = self.need_l1_flush.lock();
-        //     let need_l1_flush = *need_l1_flush_lock;
-        //     *need_l1_flush_lock = false;
-        //     need_l1_flush
-        // };
-        // if need_l1_flush {
-        //     self.cache_invalidate();
-        // }
-        //
-        // for ic::Packet { fetch, time } in self.instr_fetch_response_queue.lock().drain() {
 
         {
             while let Some(ic::Packet { fetch, time }) = self.instr_fetch_response_queue.receive() {
@@ -2663,51 +2567,7 @@ where
             }
         }
 
-        // {
-        //     while let Some(packet) = self.instr_fetch_response_queue.receive() {
-        //         let ic::Packet { fetch, time } = packet.
-        //         if let Some(fetch_return_cb) = &self.fetch_return_callback {
-        //             fetch_return_cb(time, &fetch);
-        //         }
-        //         self.load_store_unit.fill(fetch, time);
-        //     }
-        // }
-
-        // for ic::Packet { data, time } in self.load_store_response_queue.lock().drain() {
-        //     if let Some(fetch_return_cb) = &self.fetch_return_callback {
-        //         fetch_return_cb(time, &data);
-        //     }
-        //     self.load_store_unit.fill(data, time);
-        // }
-
-        // for (target, fetch, time) in self.please_fill.lock().drain(..) {
-        //     if let Some(fetch_return_cb) = &self.fetch_return_callback {
-        //         fetch_return_cb(cycle, &fetch);
-        //     }
-        //     match target {
-        //         FetchResponseTarget::LoadStoreUnit => self.load_store_unit.fill(fetch, time),
-        //         FetchResponseTarget::ICache => self.instr_l1_cache.fill(fetch, time),
-        //     }
-        // }
-
-        // if !self.is_active() && self.not_completed() == 0 {
-        //     log::debug!(
-        //         "{}",
-        //         style(format!(
-        //             "cycle {:03} core {:?}: core done",
-        //             cycle,
-        //             self.id()
-        //         ))
-        //         .blue(),
-        //     );
-        //     return;
-        // }
-
-        // m_stats->shader_cycles[m_sid]++;
-        // "writeback"
-        // self.writeback(cycle);
         crate::timeit!("core::writeback", self.writeback(cycle));
-        // this made it already double the time per core cycle
         crate::timeit!("core::execute", self.execute(cycle));
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(

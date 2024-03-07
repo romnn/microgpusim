@@ -108,10 +108,6 @@ impl std::ops::BitAnd<ClockDomain> for u64 {
 /// Moreover, requests to zero addresses are treated as no request.
 pub const GLOBAL_HEAP_START: u64 = 0xC0000000;
 
-// /// Max number of SMs
-// /// Volta Titan V has 80 SMs
-// pub const MAX_STREAMING_MULTIPROCESSORS: usize = 80;
-
 // The maximum number of concurrent threads per SM.
 pub const MAX_THREADS_PER_SM: usize = 2048;
 
@@ -145,26 +141,6 @@ pub const TOTAL_LOCAL_MEM: u64 =
 pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
 pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 pub const STATIC_ALLOC_LIMIT: u64 = GLOBAL_HEAP_START - (TOTAL_LOCAL_MEM + TOTAL_SHARED_MEM);
-
-// pub const GLOBAL_HEAP_START: u64 = 0xC000_0000;
-// // Volta max shmem size is 96kB
-// pub const SHARED_MEM_SIZE_MAX: u64 = 96 * (1 << 10);
-
-// The size of the local memory space.
-//
-// Volta max local mem is 16kB
-// pub const LOCAL_MEM_SIZE_MAX: u64 = 1 << 14;
-//
-// // Volta Titan V has 80 SMs
-// pub const MAX_STREAMING_MULTIPROCESSORS: u64 = 80;
-//
-// pub const TOTAL_SHARED_MEM: u64 = MAX_STREAMING_MULTIPROCESSORS * SHARED_MEM_SIZE_MAX;
-//
-// pub const TOTAL_LOCAL_MEM: u64 =
-//     MAX_STREAMING_MULTIPROCESSORS * super::MAX_THREADS_PER_SM as u64 * LOCAL_MEM_SIZE_MAX;
-//
-// pub const SHARED_GENERIC_START: u64 = GLOBAL_HEAP_START - TOTAL_SHARED_MEM;
-// pub const LOCAL_GENERIC_START: u64 = SHARED_GENERIC_START - TOTAL_LOCAL_MEM;
 
 /// Start of the program memory space
 ///
@@ -310,23 +286,10 @@ pub struct Simulator<I, MC> {
     config: Arc<config::GPU>,
     mem_controller: Arc<MC>,
 
-    // mem_partition_units: Vec<Arc<RwLock<dyn MemoryPartitionUnit>>>,
-    // mem_partition_units: Vec<Arc<RwLock<mem_partition_unit::MemoryPartitionUnit<MC>>>>,
     mem_partition_units: Box<[mem_partition_unit::MemoryPartitionUnit<MC>]>,
 
-    // mem_sub_partitions: Vec<Arc<Mutex<mem_sub_partition::MemorySubPartition<MC>>>>,
     pub kernel_manager: kernel_manager::KernelManager,
-    // pub kernel_manager: Arc<RwLock<kernel_manager::KernelManager>>,
     pub stream_manager: streams::StreamManager,
-
-    // last_issued_kernel: Mutex<usize>,
-    // pub running_kernels: Arc<RwLock<Vec<Option<(usize, Arc<dyn Kernel>)>>>>,
-    // pub running_kernels: Vec<Option<(usize, Arc<dyn Kernel>)>>,
-    // executed_kernels: Arc<Mutex<HashMap<u64, String>>>,
-    // executed_kernels: Arc<Mutex<HashMap<u64, Arc<dyn Kernel>>>>,
-    // pub current_kernel: Mutex<Option<Arc<dyn Kernel>>>,
-
-    // pub clusters: Vec<Arc<Cluster<I, MC>>>,
     pub clusters: Box<[Cluster<I, MC>]>,
 
     /// Queue with capacity of the kernel window size
@@ -340,7 +303,7 @@ pub struct Simulator<I, MC> {
 
     interconn: Arc<I>,
 
-    // todo refactor
+    // todo refactor into a block issuer trait
     last_cluster_issue: Arc<Mutex<usize>>,
 
     allocations: Arc<allocation::Allocations>,
@@ -388,63 +351,6 @@ impl<'a, MC> Iterator for MemSubPartitionIter<'a, MC> {
     }
 }
 
-// pub struct MemSubPartitionIterMut<'a, MC> {
-//     partition_units: &'a mut [MemoryPartitionUnit<MC>],
-//     sub_partitions_per_partition: usize,
-//     global_sub_id: usize,
-// }
-//
-// impl<'a, MC> Iterator for MemSubPartitionIterMut<'a, MC> {
-//     type Item = &'a mut MemorySubPartition<MC>;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let partition_id = self.global_sub_id / self.sub_partitions_per_partition;
-//         let sub_id = self.global_sub_id % self.sub_partitions_per_partition;
-//         if partition_id >= self.partition_units.len() {
-//             return None;
-//         }
-//         let partition: &'a mut _ = &mut self.partition_units[partition_id];
-//         if sub_id >= partition.sub_partitions.len() {
-//             return None;
-//         }
-//         self.global_sub_id += 1;
-//         Some(&mut partition.sub_partitions[sub_id])
-//     }
-// }
-
-impl<I, MC> Simulator<I, MC> {
-    // pub fn num_mem_sub_partiton
-    // pub fn mem_sub_partitions<'a>(&'a self) -> MemSubPartitionIter<'a, MC> {
-    //     MemSubPartitionIter {
-    //         partition_units: &self.mem_partition_units,
-    //         sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-    //         global_sub_id: 0,
-    //     }
-    // }
-    //
-    // pub fn mem_sub_partitions_mut<'a>(&'a mut self) -> MemSubPartitionIterMut<'a, MC> {
-    //     MemSubPartitionIterMut {
-    //         partition_units: &mut self.mem_partition_units,
-    //         sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-    //         global_sub_id: 0,
-    //     }
-    // }
-
-    // pub fn mem_sub_partitions(&self) -> impl Iterator<Item = &MemorySubPartition<MC>> + '_ {
-    //     self.mem_partition_units
-    //         .iter()
-    //         .flat_map(|partition| partition.sub_partitions.iter())
-    // }
-    //
-    // pub fn mem_sub_partitions_mut(
-    //     &mut self,
-    // ) -> impl Iterator<Item = &mut MemorySubPartition<MC>> + '_ {
-    //     self.mem_partition_units
-    //         .iter_mut()
-    //         .flat_map(|partition| partition.sub_partitions.iter_mut())
-    // }
-}
-
 impl<I, MC> Simulator<I, MC>
 where
     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
@@ -454,18 +360,13 @@ where
     where
         MC: mcu::MemoryController,
     {
-        // stats::Config::from_config(&config),
         let stats = stats::PerKernel::new(config.as_ref().into());
-        // let stats = Arc::new(Mutex::new(stats));
 
         // let mem_controller: Arc<dyn mcu::MemoryController> = if config.accelsim_compat {
         //     Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap())
         // } else {
         //     Arc::new(mcu::PascalMemoryControllerUnit::new(&config).unwrap())
         // };
-        // TODO: REMOVE
-        // let mem_controller: Arc<dyn mcu::MemoryController> =
-        //     Arc::new(mcu::MemoryControllerUnit::new(&config).unwrap());
 
         let num_mem_units = config.num_memory_controllers;
 
@@ -477,25 +378,11 @@ where
                     mem_controller.clone(),
                 );
                 unit
-                // Arc::new(RwLock::new(unit))
             })
             .collect();
 
-        // let mut mem_sub_partitions = Vec::new();
-        // for partition in mem_partition_units.iter() {
-        //     mem_sub_partitions.extend(partition.try_read().sub_partitions.iter().cloned());
-        // }
-
-        // let max_concurrent_kernels = config.max_concurrent_kernels;
         let kernel_manager = kernel_manager::KernelManager::new(config.clone());
-        // let kernel_manager = Arc::new(RwLock::new(kernel_manager));
-        //
-        // kernel_manager::KernelManager::new(Some(config.max_concurrent_kernels));
-        // let running_kernels = Arc::new(RwLock::new(vec![None; max_concurrent_kernels]));
-        // let running_kernels = vec![None; max_concurrent_kernels];
-
         let allocations = Arc::new(Allocations::default());
-        // let allocations = Arc::new(RwLock::new(allocations));
 
         let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
         let clusters = (0..config.num_simt_clusters)
@@ -509,14 +396,10 @@ where
                     &mem_controller,
                 );
                 cluster
-                // Arc::new(cluster)
             })
             .collect();
 
-        // let executed_kernels = Arc::new(Mutex::new(HashMap::new()));
-
         assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
-        // let _max_warps_per_shader = config.max_threads_per_core / config.warp_size;
         let trace = trace::Trace::new(config.clone());
 
         let cycle_limit: Option<u64> = std::env::var("CYCLES")
@@ -536,24 +419,17 @@ where
             mem_controller,
             stats,
             mem_partition_units,
-            // mem_sub_partitions,
             kernel_manager,
             stream_manager: streams::StreamManager::default(),
             interconn,
-            // parallel_simulation: false,
-            // running_kernels,
-            // executed_kernels,
-            // current_kernel: Mutex::new(None),
             kernel_launch_window_queue,
             clusters,
             warp_instruction_unique_uid,
             last_cluster_issue,
-            // last_issued_kernel: Mutex::new(0),
             allocations,
             trace,
             cycle_limit,
             log_after_cycle: None,
-            // partition_replies_in_parallel: 0,
             core_time: 0.0,
             dram_time: 0.0,
             icnt_time: 0.0,
@@ -561,47 +437,13 @@ where
         }
     }
 
-    // pub fn add_commands(
-    //     &mut self,
-    //     commands_path: impl AsRef<Path>,
-    //     traces_dir: impl Into<PathBuf>,
-    // ) -> eyre::Result<()> {
-    //     self.commands
-    //         .extend(parse_commands(commands_path.as_ref())?);
-    //     self.traces_dir = Some(traces_dir.into());
-    //     Ok(())
-    // }
-
-    // pub fn more_blocks_to_run(&self) -> bool {
-    //     // let running_kernels = self.running_kernels.try_read();
-    //     self.running_kernels.iter().any(|kernel| match kernel {
-    //         Some((_, kernel)) => !kernel.no_more_blocks_to_run(),
-    //         None => false,
-    //     })
-    // }
-
     pub fn active(&self) -> bool {
-        // dbg!(self
-        //     .clusters
-        //     .iter()
-        //     .any(|cluster| cluster.try_read().not_completed() > 0));
-        // for partition in self.mem_partition_units.iter() {
-        //     dbg!(partition
-        //         .try_read()
-        //         .sub_partitions
-        //         .iter()
-        //         .any(|unit| unit.try_lock().busy()));
-        // }
-        // dbg!(self.interconn.busy());
-        // dbg!(self.more_blocks_to_run());
-
         for cluster in self.clusters.iter() {
             if cluster.num_active_threads() > 0 {
                 return true;
             }
         }
         for unit in self.mem_partition_units.iter() {
-            // if unit.try_read().busy() {
             if unit.busy() {
                 return true;
             }
@@ -616,7 +458,6 @@ where
     }
 
     pub fn launch(&mut self, kernel: Arc<dyn Kernel>, cycle: u64) -> eyre::Result<()> {
-        // eprintln!("launch kernel {} in cycle {}", kernel.id(), cycle);
         let launch_latency = self.config.kernel_launch_latency
             + kernel.num_blocks() * self.config.block_launch_latency;
         self.kernel_manager
@@ -625,7 +466,6 @@ where
     }
 
     #[tracing::instrument]
-    // #[inline]
     fn issue_block_to_core_deterministic(&mut self, cycle: u64) {
         log::debug!("===> issue block to core");
         let mut last_cluster_issue = self.last_cluster_issue.try_lock();
@@ -636,13 +476,6 @@ where
             let cluster = &mut self.clusters[cluster_id];
             debug_assert_eq!(cluster_id, cluster.cluster_id);
 
-            // todo: replace
-            // let mut selector = kernel_manager::KernelSelector {
-            //     running_kernels: &self.running_kernels,
-            //     executed_kernels: &mut self.executed_kernels.try_lock(),
-            //     last_issued_kernel: &mut self.last_issued_kernel.try_lock(),
-            //     max_concurrent_kernels: self.config.max_concurrent_kernels,
-            // };
             let num_blocks_issued =
                 cluster.issue_block_to_core_deterministic(&mut self.kernel_manager, cycle);
             log::trace!(
@@ -653,7 +486,6 @@ where
 
             if num_blocks_issued > 0 {
                 *last_cluster_issue = cluster_id;
-                // self.total_blocks_launched += num_blocks_issued;
             }
         }
 
@@ -692,9 +524,6 @@ where
         #[cfg(feature = "timings")]
         let start_total = std::time::Instant::now();
         let clock_mask = self.next_clock_domain();
-        // use bitvec::field::BitField;
-        // let mut clock_mask_bits: bitvec::BitArr!(for 8, in u8) = bitvec::array::BitArray::ZERO;
-        // clock_mask_bits.store(clock_mask);
         log::trace!("clock mask: {}", clock_mask.to_bit_string());
 
         // shader core loading (pop from ICNT into core)
@@ -716,25 +545,13 @@ where
         if !self.config.simulate_clock_domains || clock_mask[ClockDomain::ICNT as usize] {
             log::debug!(
                 "POP from {} memory sub partitions",
-                // self.mem_sub_partitions.len()
                 self.config.total_sub_partitions()
             );
 
-            // let sub_partitions = MemSubPartitionIterMut {
-            //     partition_units: &mut self.mem_partition_units,
-            //     sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-            //     global_sub_id: 0,
-            // };
-
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
-            // for (i, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
-            // for (sub_id, mem_sub) in self.mem_sub_partitions_mut().enumerate() {
-            // for partition in self.mem_partition_units.iter_mut() {
-            //     for mem_sub in partition.sub_partitions.iter_mut() {
             for partition in self.mem_partition_units.iter_mut() {
                 for mem_sub in partition.sub_partitions.iter_mut() {
-                    // let mut mem_sub = mem_sub.try_lock();
                     if log::log_enabled!(log::Level::Debug) {
                         log::debug!("checking sub partition[{}]:", mem_sub.global_id);
                         log::debug!(
@@ -747,7 +564,6 @@ where
                             mem_sub.l2_to_interconn_queue.len(),
                             mem_sub.l2_to_interconn_queue
                         );
-                        // let l2_to_dram_queue = mem_sub.l2_to_dram_queue.try_lock();
                         let l2_to_dram_queue = &mem_sub.l2_to_dram_queue;
                         log::debug!(
                             "\t l2 to dram queue ({:<3}) = {}",
@@ -759,9 +575,7 @@ where
                             mem_sub.dram_to_l2_queue.len(),
                             mem_sub.dram_to_l2_queue
                         );
-                        // let partition = &self.mem_partition_units[mem_sub.partition_id];
                         let dram_latency_queue: Vec<_> = partition
-                            // .try_read()
                             .dram_latency_queue
                             .iter()
                             .map(|(_, fetch)| fetch.to_string())
@@ -784,23 +598,17 @@ where
                             let mut fetch = mem_sub.pop().unwrap();
                             if let Some(cluster_id) = fetch.cluster_id {
                                 fetch.set_status(mem_fetch::Status::IN_ICNT_TO_SHADER, 0);
-                                // fetch.set_return_timestamp(gpu_sim_cycle + gpu_tot_sim_cycle);
-                                // , gpu_sim_cycle + gpu_tot_sim_cycle);
-                                // log::trace!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
-                                // eprintln!("interconn push from memory sub partition {i}: {fetch} (cluster={:?}, core={:?})", fetch.cluster_id, fetch.core_id);
                                 self.interconn.push(
                                     device,
                                     cluster_id,
                                     ic::Packet { fetch, time: cycle },
                                     response_packet_size,
                                 );
-                                // for stats: self.partition_replies_in_parallel += 1;
                             }
                         } else {
                             // for stats: self.gpu_stall_icnt2sh += 1;
                         }
                     }
-                    // }
                 }
             }
             #[cfg(feature = "timings")]
@@ -818,7 +626,6 @@ where
             log::debug!("cycle for {} drams", self.mem_partition_units.len());
             for (_i, unit) in self.mem_partition_units.iter_mut().enumerate() {
                 unit.simple_dram_cycle(cycle);
-                // unit.try_write().simple_dram_cycle(cycle);
             }
             #[cfg(feature = "timings")]
             TIMINGS
@@ -832,23 +639,13 @@ where
         if !self.config.simulate_clock_domains || clock_mask[ClockDomain::L2 as usize] {
             log::debug!(
                 "moving mem requests from interconn to {} mem partitions",
-                // self.mem_sub_partitions.len()
                 self.config.total_sub_partitions()
             );
 
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
-            // let mut parallel_mem_partition_reqs_per_cycle = 0;
-            // let mut stall_dram_full = 0;
-            // let sub_partitions = MemSubPartitionIterMut {
-            //     partition_units: &mut self.mem_partition_units,
-            //     sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-            //     global_sub_id: 0,
-            // };
             for partition in self.mem_partition_units.iter_mut() {
                 for mem_sub in partition.sub_partitions.iter_mut() {
-                    // for mem_sub in sub_partitions {
-                    // let mut mem_sub = mem_sub.try_lock();
                     // move memory request from interconnect into memory partition
                     // (if not backed up)
                     //
@@ -872,7 +669,6 @@ where
                             );
 
                             mem_sub.push(fetch, cycle);
-                            // self.parallel_mem_partition_reqs += 1;
                         }
                     } else {
                         log::debug!(
@@ -880,20 +676,14 @@ where
                             mem_sub.global_id,
                             device
                         );
-                        // if let Some(kernel) = &*self.current_kernel.lock() {
                         let kernel_id = self
                             .kernel_manager
                             .current_kernel()
-                            // .lock()
                             .as_ref()
                             .map(|kernel| kernel.id() as usize);
-                        // let mut stats = self.stats.lock();
                         let kernel_stats = self.stats.get_mut(kernel_id);
                         kernel_stats.stall_dram_full += 1;
-                        // }
                     }
-                    // we borrow all of sub here, which is a problem for the cyclic reference in l2
-                    // interface
                     mem_sub.cycle(cycle);
                 }
             }
@@ -905,38 +695,18 @@ where
                 .add(start.elapsed());
         }
 
-        //   partiton_reqs_in_parallel += partiton_reqs_in_parallel_per_cycle;
-        // if (partiton_reqs_in_parallel_per_cycle > 0) {
-        //   partiton_reqs_in_parallel_util += partiton_reqs_in_parallel_per_cycle;
-        //   gpu_sim_cycle_parition_util++;
-        // }
-
         // self.interconn_transfer();
 
         if !self.config.simulate_clock_domains || clock_mask[ClockDomain::CORE as usize] {
             #[cfg(feature = "timings")]
             let start = std::time::Instant::now();
-            // let kernels_completed = self
-            //     .running_kernels
-            //     .read()
-            //     .iter()
-            //     .filter_map(std::option::Option::as_ref)
-            //     .all(|k| k.no_more_blocks_to_run());
 
-            // let mut active_sms = 0;
             let mut active_clusters = utils::box_slice![false; self.clusters.len()];
             for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
                 assert_eq!(cluster_id, cluster.cluster_id);
                 log::debug!("cluster {} cycle {}", cluster_id, cycle);
                 let cores_completed = cluster.num_active_threads() == 0;
                 let kernels_completed = self.kernel_manager.all_kernels_completed();
-                // let kernels_completed = self
-                //     .kernel_manager
-                //     .running_kernels
-                //     // .read()
-                //     .iter()
-                //     .filter_map(Option::as_ref)
-                //     .all(|(_, k)| k.no_more_blocks_to_run());
 
                 let cluster_active = !(cores_completed && kernels_completed);
                 active_clusters[cluster_id] = cluster_active;
@@ -946,9 +716,7 @@ where
 
                 let core_sim_order = cluster.core_sim_order.try_lock();
                 for local_core_id in &*core_sim_order {
-                    // let mut core = cluster.cores[*core_id].write();
                     let core = &cluster.cores[*local_core_id];
-                    // let mut core = core.try_write();
                     let mut core = core.try_lock();
                     crate::timeit!("core::cycle", core.cycle(cycle));
                 }
@@ -965,26 +733,19 @@ where
                     let core_sim_order = cluster.core_sim_order.try_lock();
                     for local_core_id in &*core_sim_order {
                         let core = &cluster.cores[*local_core_id];
-                        // let core = core.try_read();
                         let core = core.try_lock();
-                        // let core = &mut cluster.cores[*local_core_id];
-                        // let mem_port = core.mem_port.lock();
                         let mem_port = &core.mem_port;
                         assert_eq!(mem_port.buffer.len(), 0);
                     }
                 }
             }
 
-            // for (cluster_id, cluster) in self.clusters.iter_mut().enumerate() {
             for cluster in self.clusters.iter_mut() {
                 let cluster_id = cluster.cluster_id;
                 let mut core_sim_order = cluster.core_sim_order.try_lock();
                 for local_core_id in &*core_sim_order {
                     let core = &cluster.cores[*local_core_id];
-                    // let mut core = core.try_write();
                     let mut core = core.try_lock();
-                    // let core = &mut cluster.cores[*local_core_id];
-                    // let mut mem_port = core.mem_port.lock();
                     let core_id = core.id();
                     let mem_port = &mut core.mem_port;
                     log::trace!(
@@ -1007,13 +768,6 @@ where
                         time,
                     } in mem_port.buffer.drain(..)
                     {
-                        // log::trace!(
-                        // eprintln!(
-                        //     "interconn push from core {:?}: {fetch} (cluster={:?}, core={:?})",
-                        //     core.id(),
-                        //     fetch.cluster_id,
-                        //     fetch.core_id,
-                        // );
                         assert_eq!(
                             dest,
                             self.config.mem_id_to_device_id(fetch.sub_partition_id())
@@ -1027,10 +781,6 @@ where
                     continue;
                 }
                 if let config::SchedulingOrder::RoundRobin = self.config.simt_core_sim_order {
-                    // eprintln!(
-                    //     "SERIAL: cluster {} is active in cycle {}",
-                    //     cluster.cluster_id, cycle
-                    // );
                     core_sim_order.rotate_left(1);
                 }
             }
@@ -1049,30 +799,8 @@ where
                 self.issue_block_to_core_deterministic(cycle)
             );
 
-            // if false {
-            //     let state = crate::DebugState {
-            //         core_orders_per_cluster: self
-            //             .clusters
-            //             .iter()
-            //             .map(|cluster| cluster.core_sim_order.lock().clone())
-            //             .collect(),
-            //         last_cluster_issue: *self.last_cluster_issue.lock(),
-            //         last_issued_kernel: *self.last_issued_kernel.lock(),
-            //         block_issue_next_core_per_cluster: self
-            //             .clusters
-            //             .iter()
-            //             .map(|cluster| *cluster.block_issue_next_core.lock())
-            //             .collect(),
-            //     };
-            //     self.states.push((cycle, state));
-            // }
-
-            // self.decrement_kernel_latency();
-            // }
-
             // Depending on configuration, invalidate the caches
-            // once all of threads are completed.
-
+            // once all threads are completed.
             self.flush_caches(cycle);
 
             #[cfg(feature = "timings")]
@@ -1082,8 +810,6 @@ where
                 .or_default()
                 .add(start_total.elapsed());
         }
-
-        // cycle += 1;
 
         // self.debug_non_exit();
         cycle
@@ -1150,27 +876,10 @@ where
 
                 let mut num_flushed = 0;
                 if should_flush {
-                    // let sub_partitions = MemSubPartitionIterMut {
-                    //     partition_units: &mut self.mem_partition_units,
-                    //     sub_partitions_per_partition: self
-                    //         .config
-                    //         .num_sub_partitions_per_memory_controller,
-                    //     global_sub_id: 0,
-                    // };
-
-                    // for mem_sub in self.mem_sub_partitions.iter_mut() {
-                    // for mem_sub in sub_partitions {
                     for partition in self.mem_partition_units.iter_mut() {
                         for mem_sub in partition.sub_partitions.iter_mut() {
-                            // let mut mem_sub = mem_sub.try_lock();
                             mem_sub.flush_l2();
                             num_flushed += 1;
-                            // let num_dirty_lines_flushed = mem_sub.flush_l2();
-                            // log::debug!(
-                            //     "dirty lines flushed from L2 {} is {:?}",
-                            //     i,
-                            //     num_dirty_lines_flushed
-                            // );
                         }
                     }
                 }
@@ -1185,8 +894,6 @@ where
                 log::trace!(
                     "l2 flush: flushed {}/{} sub partitions ({} active threads)",
                     num_flushed,
-                    // self.mem_sub_partitions.len(),
-                    // self.mem_sub_partitions().count(),
                     self.config.total_sub_partitions(),
                     num_active_threads
                 );
@@ -1197,7 +904,6 @@ where
 
     #[allow(dead_code)]
     fn debug_non_exit(&self) {
-        // log::trace!(
         eprintln!("\n\n DEBUG NON EXIT");
         let all_clusters_completed = !self
             .clusters
@@ -1217,20 +923,15 @@ where
         for core in self
             .clusters
             .iter()
-            // .flat_map(|cluster| cluster.cores.clone())
             .flat_map(|cluster| cluster.cores.iter())
         {
-            // let core = core.try_read();
             let core = core.try_lock();
-            // let block_status: Vec<_> = core.block_status.iter().enumerate().collect();
             let block_status: Vec<_> = core
                 .active_threads_per_hardware_block
                 .iter()
                 .enumerate()
                 .filter(|(_id, num_threads)| **num_threads > 0)
-                // .cloned()
                 .collect();
-            // log::trace!("core {:?}: blocks: {:?}", core.id(), block_status);
             eprintln!("core {:?}: blocks: {:?}", core.id(), block_status);
             eprintln!(
                 "core {:?}: kernel: {:?}",
@@ -1240,28 +941,23 @@ where
                     .map(|kernel| kernel.to_string())
             );
 
-            let instr_fetch_response_queue =
-                &self.clusters[core.cluster_id].core_instr_fetch_response_queue[core.local_core_id];
-            let load_store_response_queue =
-                &self.clusters[core.cluster_id].core_load_store_response_queue[core.local_core_id];
+            // let instr_fetch_response_queue =
+            //     &self.clusters[core.cluster_id].core_instr_fetch_response_queue[core.local_core_id];
+            // let load_store_response_queue =
+            //     &self.clusters[core.cluster_id].core_load_store_response_queue[core.local_core_id];
 
-            eprintln!(
-                "core {:?}: instr fetch response queue size: {}",
-                core.id(),
-                -1,
-                // instr_fetch_response_queue.len(),
-                // instr_fetch_response_queue.lock().len()
-            );
-            eprintln!(
-                "core {:?}: load store response queue size: {}",
-                core.id(),
-                -1,
-                // load_store_response_queue.lock().len(),
-                // load_store_response_queue.len(),
-            );
+            // eprintln!(
+            //     "core {:?}: instr fetch response queue size: {}",
+            //     core.id(),
+            //     instr_fetch_response_queue.len(),
+            // );
+            // eprintln!(
+            //     "core {:?}: load store response queue size: {}",
+            //     core.id(),
+            //     load_store_response_queue.len(),
+            // );
         }
 
-        // log::trace!(
         if let Some(current_kernel) = self.kernel_manager.current_kernel() {
             eprintln!(
                 "kernel manager: kernel {} done={} running={} more blocks to run={}",
@@ -1273,38 +969,21 @@ where
         } else {
             eprintln!("kernel manager: NO CURRENT KERNEL");
         }
-        // dbg!(self
-        //     .clusters
-        //     .iter()
-        //     .flat_map(|cluster| cluster.cores.clone())
-        //     .map(|core| core.try_read().block_status)
-        //     // .sorted_by_key(|(block_hw_id, _)| block_hw_id)
-        //     .collect::<Vec<_>>());
         for (partition_id, partition) in self.mem_partition_units.iter().enumerate() {
-            let busy = partition
-                // .try_read()
-                .sub_partitions
-                .iter()
-                // .any(|sub| sub.try_lock().busy())
-                .any(|sub| sub.busy());
-            // log::trace!(
+            let busy = partition.sub_partitions.iter().any(|sub| sub.busy());
+
             eprintln!(
                 "{:>20} {:>2} \tbusy={}",
                 "partition unit", partition_id, busy,
             );
 
-            for sub in partition
-                // .try_read()
-                .sub_partitions
-                .iter()
-            {
+            for sub in partition.sub_partitions.iter() {
                 let busy = sub.busy();
                 let interconn_to_l2_queue = &sub.interconn_to_l2_queue;
                 let l2_to_dram_queue = &sub.l2_to_dram_queue;
                 let dram_to_l2_queue = &sub.dram_to_l2_queue;
                 let l2_to_interconn_queue = &sub.l2_to_interconn_queue;
                 let rop_queue = &sub.rop_queue;
-                // log::trace!(
                 eprintln!(
                     "{:>20} {:>2} \tbusy={} \tpending={} \t{:>3} icnt->l2 \t{:>3} l2->dram \t{:>3} dram->l2 \t{:>3} l2->icnt \t{:>3} rop",
                     "sub partition",
@@ -1319,56 +998,46 @@ where
             }
         }
 
-        // // pub : Arc<Mutex<Fifo<Packet<mem_fetch::MemFetch>>>>,
-        // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
-        //
-        // // pub l2_to_dram_queue: Fifo<Packet<mem_fetch::MemFetch>>,
-        // pub dram_to_l2_queue: Fifo<Packet<mem_fetch::MemFetch>>,
-        // /// L2 cache hit response queue
-        // pub l2_to_interconn_queue: Fifo<Packet<mem_fetch::MemFetch>>,
-        // pub rop_queue: VecDeque<(u64, mem_fetch::MemFetch)>,
-
         eprintln!("interconn busy: {}", self.interconn.busy());
-        // log::trace!("interconn busy: {}", self.interconn.busy());
-        if self.interconn.busy() {
-            // for cluster_id in 0..self.config.num_simt_clusters {
-            //     let queue = self
-            //         .interconn
-            //         .dest_queue(cluster_id)
-            //         .try_lock()
-            //         .iter()
-            //         .sorted_by_key(|packet| packet.fetch.addr())
-            //         .map(ToString::to_string)
-            //         .collect::<Vec<_>>();
-            //     if !queue.is_empty() {
-            //         // log::trace!(
-            //         eprintln!(
-            //             "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
-            //             queue.len(),
-            //             queue.iter().next(),
-            //         );
-            //     }
-            // }
-            // for sub_id in 0..self.config.total_sub_partitions() {
-            //     let mem_device = self.config.mem_id_to_device_id(sub_id);
-            //     let queue = self
-            //         .interconn
-            //         .dest_queue(mem_device)
-            //         .try_lock()
-            //         .iter()
-            //         .sorted_by_key(|packet| packet.fetch.addr())
-            //         .map(ToString::to_string)
-            //         .collect::<Vec<_>>();
-            //     if !queue.is_empty() {
-            //         // log::trace!(
-            //         eprintln!(
-            //             "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
-            //             queue.len(),
-            //             queue.iter().next()
-            //         );
-            //     }
-            // }
-        }
+        // if self.interconn.busy() {
+        //     for cluster_id in 0..self.config.num_simt_clusters {
+        //         let queue = self
+        //             .interconn
+        //             .dest_queue(cluster_id)
+        //             .try_lock()
+        //             .iter()
+        //             .sorted_by_key(|packet| packet.fetch.addr())
+        //             .map(ToString::to_string)
+        //             .collect::<Vec<_>>();
+        //         if !queue.is_empty() {
+        //             // log::trace!(
+        //             eprintln!(
+        //                 "cluster {cluster_id:<3} icnt: [{:<3}] {:?}...",
+        //                 queue.len(),
+        //                 queue.iter().next(),
+        //             );
+        //         }
+        //     }
+        //     for sub_id in 0..self.config.total_sub_partitions() {
+        //         let mem_device = self.config.mem_id_to_device_id(sub_id);
+        //         let queue = self
+        //             .interconn
+        //             .dest_queue(mem_device)
+        //             .try_lock()
+        //             .iter()
+        //             .sorted_by_key(|packet| packet.fetch.addr())
+        //             .map(ToString::to_string)
+        //             .collect::<Vec<_>>();
+        //         if !queue.is_empty() {
+        //             // log::trace!(
+        //             eprintln!(
+        //                 "sub     {sub_id:<3} icnt: [{:<3}] {:?}...",
+        //                 queue.len(),
+        //                 queue.iter().next()
+        //             );
+        //         }
+        //     }
+        // }
         eprintln!("\n\n");
     }
 
@@ -1379,11 +1048,8 @@ where
             global_sub_id: 0,
         };
 
-        // self.mem_sub_partitions()
         sub_partitions
-            // .iter()
             .map(|sub| {
-                // let sub = sub.lock();
                 if let Some(ref l2_cache) = sub.l2_cache {
                     l2_cache.num_used_bytes()
                 } else {
@@ -1400,11 +1066,8 @@ where
             global_sub_id: 0,
         };
 
-        // self.mem_sub_partitions()
         sub_partitions
-            // .iter()
             .map(|sub| {
-                // let sub = sub.lock();
                 if let Some(ref l2_cache) = sub.l2_cache {
                     l2_cache.num_used_lines() as usize
                 } else {
@@ -1416,18 +1079,8 @@ where
 
     pub fn invalidate_l2(&mut self, start_addr: address, num_bytes: u64) {
         eprintln!("invalidate l2 cache [start={start_addr}, num bytes={num_bytes}]");
-        // for sub in &self.mem_sub_partitions {
-        // let sub_partitions = MemSubPartitionIterMut {
-        //     partition_units: &mut self.mem_partition_units,
-        //     sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-        //     global_sub_id: 0,
-        // };
-
-        // for sub in self.mem_sub_partitions() {
-        // for sub in sub_partitions {
         for partition in self.mem_partition_units.iter_mut() {
             for mem_sub in partition.sub_partitions.iter_mut() {
-                // let mut sub = sub.lock();
                 if let Some(ref mut l2_cache) = mem_sub.l2_cache {
                     let chunk_size = SECTOR_SIZE;
                     let num_chunks = (num_bytes as f64 / chunk_size as f64).ceil() as usize;
@@ -1447,9 +1100,7 @@ where
         let total_cores = self.config.total_cores();
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                // let core = core.try_read();
                 let core = core.try_lock();
-                // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
                     let num_lines_used = l1_cache.num_used_lines();
@@ -1480,10 +1131,7 @@ where
     pub fn print_l2_cache(&self) {
         let mut num_total_lines = 0;
         let mut num_total_lines_used = 0;
-        // let num_sub_partitions = self.mem_sub_partitions.len();
-        // let num_sub_partitions = self.mem_sub_partitions().count();
         let num_sub_partitions = self.config.total_sub_partitions();
-        // for sub in self.mem_sub_partitions.iter() {
 
         let sub_partitions = MemSubPartitionIter {
             partition_units: &self.mem_partition_units,
@@ -1491,9 +1139,7 @@ where
             global_sub_id: 0,
         };
 
-        // for sub in self.mem_sub_partitions() {
         for sub in sub_partitions {
-            // let sub = sub.lock();
             if let Some(ref l2_cache) = sub.l2_cache {
                 let num_lines_used = l2_cache.num_used_lines();
                 let num_lines = l2_cache.num_total_lines();
@@ -1529,6 +1175,7 @@ where
         // eprintln!("DRAM[no kernel]: {:#?}", &stats.no_kernel.dram.reduce());
     }
 
+    // TODO: move to trait
     pub fn write_l1_cache_state(&self, path: &Path) -> eyre::Result<()> {
         // open csv writer
         let writer = utils::fs::open_writable(path)?;
@@ -1538,9 +1185,7 @@ where
 
         for cluster in self.clusters.iter() {
             for core in cluster.cores.iter() {
-                // let core = core.try_read();
                 let core = core.try_lock();
-                // let ldst_unit = core.load_store_unit.lock();
                 let ldst_unit = &core.load_store_unit;
                 if let Some(ref l1_cache) = ldst_unit.data_l1 {
                     l1_cache.write_state(&mut csv_writer)?;
@@ -1550,6 +1195,7 @@ where
         Ok(())
     }
 
+    // TODO: move to trait
     pub fn write_l2_cache_state(&self, path: &Path) -> eyre::Result<()> {
         // open csv writer
         let writer = utils::fs::open_writable(path)?;
@@ -1563,10 +1209,7 @@ where
             global_sub_id: 0,
         };
 
-        // for sub in self.mem_sub_partitions.iter() {
-        // for sub in self.mem_sub_partitions() {
         for sub in sub_partitions {
-            // let sub = sub.lock();
             if let Some(ref l2_cache) = sub.l2_cache {
                 l2_cache.write_state(&mut csv_writer)?;
             }
@@ -1596,47 +1239,38 @@ where
             addr
         );
         let alloc_range = addr..(addr + num_bytes);
-        // self.allocations.write().insert(alloc_range, name);
         self.allocations.insert(alloc_range, name);
     }
 
     /// Collect simulation statistics.
     pub fn stats(&self) -> stats::PerKernel {
         let mut stats = self.stats.clone();
-        // let mut stats: stats::PerKernel = self.stats.lock().clone();
 
         let cores: Vec<_> = self
             .clusters
             .iter()
-            // .flat_map(|cluster| cluster.cores.clone())
             .flat_map(|cluster| cluster.cores.iter())
             .collect();
 
         // collect statistics from cores
         for core in cores.iter() {
-            // let core = core.try_read();
             let core = core.try_lock();
             stats += core.stats();
         }
 
         // collect statistics from mem sub partitions
-        // for sub in &self.mem_sub_partitions {
-
         let sub_partitions = MemSubPartitionIter {
             partition_units: &self.mem_partition_units,
             sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
             global_sub_id: 0,
         };
 
-        // for sub in self.mem_sub_partitions() {
         for sub in sub_partitions {
-            // let sub = sub.try_lock();
             stats += sub.stats();
         }
 
         // collect statistics from mem partitions
         for partition in self.mem_partition_units.iter() {
-            // let partition = partition.try_read();
             stats += partition.stats();
         }
 
@@ -1650,7 +1284,6 @@ where
                 .kernel_manager
                 .executed_kernels
                 .try_read()
-                // .lock()
                 .get(&(kernel_launch_id as u64))
             {
                 let kernel_info = stats::KernelInfo {
@@ -1678,224 +1311,8 @@ where
                 }
             }
         }
-
-        // // TODO: move this to different places?
-        // // e.g. instr, l1 to core stats()
-        // // e.g. l2 to sub partitions?
-        // macro_rules! per_kernel_cache_stats {
-        //     ($cache:expr) => {{
-        //         $cache
-        //             .per_kernel_stats()
-        //             // .try_lock()
-        //             .clone()
-        //             .into_iter()
-        //             // .as_ref()
-        //             // .iter()
-        //             .enumerate()
-        //     }};
-        // }
-        //
-        // for core in cores.iter() {
-        //     let core = core.try_read();
-        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(core.instr_l1_cache) {
-        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-        //         kernel_stats.l1i_stats[core.core_id] = cache_stats.clone();
-        //     }
-        //
-        //     // let ldst_unit = &core.load_store_unit.try_lock();
-        //     let ldst_unit = &core.load_store_unit;
-        //     let data_l1 = ldst_unit.data_l1.as_ref().unwrap();
-        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(data_l1) {
-        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-        //         kernel_stats.l1d_stats[core.core_id] = cache_stats.clone();
-        //     }
-        // }
-
-        // for sub in &self.mem_sub_partitions {
-        //     let sub = sub.try_lock();
-        //     let l2_cache = sub.l2_cache.as_ref().unwrap();
-        //     for (kernel_launch_id, cache_stats) in per_kernel_cache_stats!(l2_cache) {
-        //         let kernel_stats = stats.get_mut(Some(kernel_launch_id));
-        //         kernel_stats.l2d_stats[sub.id] = cache_stats.clone();
-        //     }
-        //     stats.no_kernel.l2d_stats[sub.id] = l2_cache.per_kernel_stats().no_kernel.clone();
-        //     // l2_cache.per_kernel_stats().try_lock().no_kernel.clone();
-        // }
         stats
     }
-
-    // /// Process commands
-    // ///
-    // /// Take as many commands as possible until we have collected as many kernels to fill
-    // /// the `window_size` or processed every command.
-    // #[must_use]
-    // pub fn process_commands(&mut self, mut cycle: u64) -> u64 {
-    //     let mut allocations_and_memcopies = Vec::new();
-    //     while self.kernels.len() < self.kernel_window_size && self.command_idx < self.commands.len()
-    //     {
-    //         let cmd = self.commands[self.command_idx].clone();
-    //         match cmd {
-    //             // Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-    //             //     allocation_name,
-    //             //     dest_device_addr,
-    //             //     num_bytes,
-    //             // }) => {
-    //             //     cycle = crate::timeit!(
-    //             //         "cycle::memcopy",
-    //             //         self.memcopy_to_gpu(
-    //             //             *dest_device_addr,
-    //             //             *num_bytes,
-    //             //             allocation_name.clone(),
-    //             //             cycle,
-    //             //             false,
-    //             //         )
-    //             //     );
-    //             // }
-    //             // Command::MemAlloc(trace_model::command::MemAlloc {
-    //             //     allocation_name,
-    //             //     device_ptr,
-    //             //     fill_l2,
-    //             //     num_bytes,
-    //             // }) => {
-    //             //     let fill_l2 = *fill_l2;
-    //             //     let device_ptr = *device_ptr;
-    //             //     let num_bytes = *num_bytes;
-    //             //     let allocation_name = allocation_name.clone();
-    //             //     self.gpu_mem_alloc(device_ptr, num_bytes, allocation_name.clone(), cycle);
-    //             //     let has_memcopy = self.commands.iter().any(|cmd| match cmd {
-    //             //         Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-    //             //             dest_device_addr,
-    //             //             ..
-    //             //         }) => {
-    //             //             device_ptr <= *dest_device_addr
-    //             //                 && *dest_device_addr < device_ptr + num_bytes
-    //             //         }
-    //             //         _ => false,
-    //             //     });
-    //             //
-    //             //     if (true || fill_l2) && !has_memcopy {
-    //             //         cycle = crate::timeit!(
-    //             //             "cycle::memcopy",
-    //             //             self.memcopy_to_gpu(
-    //             //                 device_ptr,
-    //             //                 num_bytes,
-    //             //                 allocation_name.clone(),
-    //             //                 cycle,
-    //             //                 true,
-    //             //             )
-    //             //         );
-    //             //     }
-    //             // }
-    //             Command::KernelLaunch(launch) => {
-    //                 self.handle_allocations_and_memcopies(&allocations_and_memcopies, cycle);
-    //
-    //                 // TODO: clean up this mess
-    //                 let output_cache_state = std::env::var("PCHASE_OUTPUT_CACHE_STATE")
-    //                     .as_deref()
-    //                     .unwrap_or("")
-    //                     .to_lowercase()
-    //                     == "yes";
-    //
-    //                 if output_cache_state {
-    //                     // we assume running pchase, so there is only a
-    //                     // single allocation plus memcopy
-    //                     // assert!(allocations_and_memcopies.len() == 2);
-    //                     let alloc_sizes: Vec<_> = allocations_and_memcopies
-    //                         .iter()
-    //                         .map(|cmd| match cmd {
-    //                             Command::MemAlloc(trace_model::command::MemAlloc {
-    //                                 num_bytes,
-    //                                 ..
-    //                             }) => *num_bytes,
-    //                             Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-    //                                 num_bytes,
-    //                                 ..
-    //                             }) => *num_bytes,
-    //                             _ => unreachable!(),
-    //                         })
-    //                         .collect();
-    //                     assert!(alloc_sizes.iter().all_equal());
-    //                     let size_bytes = *alloc_sizes.first().unwrap();
-    //
-    //                     let cache_state_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-    //                         .join("benchmarks/debug/pchase_cache_state");
-    //                     std::fs::create_dir_all(&cache_state_dir).ok();
-    //                     let l2_cache_state_file = cache_state_dir.join(format!(
-    //                         "pchase_{:0>12}_{}_l2_cache_state_before.csv",
-    //                         size_bytes.to_string(),
-    //                         utils::fs::Bytes(size_bytes as usize)
-    //                             .to_string()
-    //                             .replace(" ", "_")
-    //                             .replace(".", "_")
-    //                     ));
-    //                     self.write_l2_cache_state(&l2_cache_state_file).unwrap();
-    //                     eprintln!("wrote L2 cache state to {}", l2_cache_state_file.display());
-    //                 }
-    //
-    //                 allocations_and_memcopies.clear();
-    //
-    //                 let mut kernel = kernel::trace::KernelTrace::new(
-    //                     launch.clone(),
-    //                     self.traces_dir.as_ref().unwrap(),
-    //                 );
-    //                 kernel.memory_only = self.config.memory_only;
-    //                 // let num_running_kernels = self
-    //                 //     .running_kernels
-    //                 //     .try_read()
-    //                 //     .iter()
-    //                 //     .map(Option::as_ref)
-    //                 //     .filter(Option::is_some)
-    //                 //     .count();
-    //                 eprintln!("kernel launch {}: {:#?}", launch.id, &launch);
-    //                 // todo!("temp");
-    //                 let num_launched_kernels = self.kernel_manager.executed_kernels.len();
-    //                 // .lock().len();
-    //
-    //                 match std::env::var("KERNEL_LIMIT")
-    //                     .ok()
-    //                     .map(|limit| limit.parse::<usize>())
-    //                     .transpose()
-    //                     .unwrap()
-    //                 {
-    //                     Some(kernel_limit) if num_launched_kernels < kernel_limit => {
-    //                         log::info!(
-    //                             "adding kernel {} ({}/{})",
-    //                             kernel,
-    //                             num_launched_kernels + 1,
-    //                             kernel_limit
-    //                         );
-    //                         self.kernels.push_back(Arc::new(kernel));
-    //                     }
-    //                     Some(kernel_limit) => {
-    //                         log::info!(
-    //                             "skip kernel {} ({}/{})",
-    //                             kernel,
-    //                             num_launched_kernels + 1,
-    //                             kernel_limit
-    //                         );
-    //                     }
-    //                     None => {
-    //                         log::info!("adding kernel {} (no limit)", kernel);
-    //                         self.kernels.push_back(Arc::new(kernel));
-    //                     }
-    //                 }
-    //             }
-    //             cmd => allocations_and_memcopies.push(cmd),
-    //         }
-    //         // cycle += 1;
-    //         self.command_idx += 1;
-    //     }
-    //
-    //     let allocations = self.allocations.read();
-    //     log::info!(
-    //         "allocations: {:#?}",
-    //         allocations
-    //             .iter()
-    //             .map(|(_, alloc)| alloc.to_string())
-    //             .collect::<Vec<_>>()
-    //     );
-    //     cycle
-    // }
 
     /// Process commands greedily
     #[must_use]
@@ -1904,19 +1321,14 @@ where
 
         let kernel_window_size = self.config.kernel_window_size();
         while self.kernel_launch_window_queue.len() < kernel_window_size {
-            // let Some(
-            // && self.command_idx < self.commands.len() {
             let Some(cmd) = self.trace.next_command().cloned() else {
                 break;
             };
-            // let Some(cmd) = self.trace.commands.get(self.trace.command_idx).clone() else {
-            //     break;
-            // };
             match cmd {
                 Command::KernelLaunch(launch) => {
                     self.handle_allocations_and_memcopies(&allocations_and_memcopies, cycle);
 
-                    // TODO: clean up this mess
+                    // TODO: clean up this mess which has nothing to do here
                     let output_cache_state = std::env::var("PCHASE_OUTPUT_CACHE_STATE")
                         .as_deref()
                         .unwrap_or("")
@@ -1968,13 +1380,6 @@ where
                         self.config.memory_only,
                     );
 
-                    // let num_running_kernels = self
-                    //     .running_kernels
-                    //     .try_read()
-                    //     .iter()
-                    //     .map(Option::as_ref)
-                    //     .filter(Option::is_some)
-                    //     .count();
                     eprintln!("kernel launch {}: {:#?}", launch.id, &launch);
                     let num_launched_kernels =
                         self.kernel_manager.executed_kernels.try_read().len();
@@ -2010,12 +1415,8 @@ where
                 }
                 cmd => allocations_and_memcopies.push(cmd),
             }
-            // cycle += 1;
-            // self.command_idx += 1;
         }
 
-        // let allocations = self.allocations.read();
-        // let allocations = &self.allocations;
         log::info!(
             "allocations: {:#?}",
             self.allocations
@@ -2038,15 +1439,9 @@ where
             let stream_id = kernel.config().stream_id as usize;
             let stream_busy = self.stream_manager.is_busy(stream_id);
             let can_start_kernel = self.kernel_manager.can_start_kernel();
-            // let stream_busy = self
-            //     .busy_streams
-            //     .iter()
-            //     .any(|stream_id| *stream_id == kernel.config().stream_id);
             if !stream_busy && can_start_kernel && !kernel.launched() {
                 self.stream_manager.reserve_stream(stream_id);
-                // self.busy_streams.push_back(kernel.config().stream_id);
                 launch_queue.push(kernel.clone());
-                // self.launch(kernel, cycle).unwrap();
             }
         }
 
@@ -2067,10 +1462,6 @@ where
     pub fn reached_limit(&self, cycle: u64) -> bool {
         matches!(self.cycle_limit, Some(limit) if cycle >= limit)
     }
-
-    // pub fn commands_left(&self) -> bool {
-    //     self.command_idx < self.commands.len()
-    // }
 
     pub fn kernels_left(&self) -> bool {
         !self.kernel_launch_window_queue.is_empty()
@@ -2151,13 +1542,7 @@ where
 
                 log::info!("cycle {} active={}", cycle, &self.active());
 
-                // dbg!(&self.active());
-                // dbg!(&self.reached_limit(cycle));
-                // dbg!(&self.commands_left());
-                // dbg!(&self.kernels_left());
-
                 if self.reached_limit(cycle) {
-                    // || !self.active() {
                     break;
                 }
 
@@ -2177,8 +1562,6 @@ where
                         eprintln!("initializing logging after cycle {cycle}");
                         init_logging();
                         self.log_after_cycle.take();
-                        // let allocations = self.allocations.read();
-                        // let allocations = &self.allocations.read();
                         for (_, alloc) in self.allocations.try_read().iter() {
                             log::info!("allocation: {}", alloc);
                         }
@@ -2247,7 +1630,6 @@ where
             );
         }
         self.stats.no_kernel.sim.cycles = cycle;
-        // self.stats.lock().no_kernel.sim.cycles = cycle;
 
         if let Some(log_after_cycle) = self.log_after_cycle {
             if log_after_cycle >= cycle {
@@ -2259,32 +1641,20 @@ where
     }
 
     fn cleanup_finished_kernel(&mut self, kernel: &dyn Kernel, cycle: u64) {
-        // panic!("cleanup finished kernel {}", kernel.name());
-
         self.kernel_launch_window_queue
             .retain(|k| k.id() != kernel.id());
         self.stream_manager
             .release_stream(kernel.config().stream_id as usize);
-        // self.busy_streams
-        //     .retain(|stream| *stream != kernel.config().stream_id);
 
         kernel.set_completed(cycle);
-        // let completion_time = std::time::Instant::now();
-        // *kernel.completed_time.lock() = Some(completion_time);
-        // *kernel.completed_cycle.lock() = Some(cycle);
-
-        // let mut stats = self.stats.lock();
         let kernel_stats = self.stats.get_mut(Some(kernel.id() as usize));
 
-        kernel_stats.sim.is_release_build = !is_debug();
-        // let elapsed_cycles = cycle - kernel.start_cycle.lock().unwrap_or(0);
         let elapsed_cycles = kernel.elapsed_cycles().unwrap_or(0);
+
+        kernel_stats.sim.is_release_build = !is_debug();
         kernel_stats.sim.cycles = elapsed_cycles;
+
         let elapsed = kernel.elapsed_time();
-        // let elapsed = kernel
-        //     .start_time
-        //     .lock()
-        //     .map(|start_time| completion_time.duration_since(start_time));
 
         let elapsed_millis = elapsed
             .as_ref()
@@ -2298,81 +1668,6 @@ where
         );
     }
 }
-
-// impl<I, MC> SelectKernel for Simulator<I, MC>
-// where
-// // I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
-// // MC: mcu::MemoryController,
-// {
-//     /// Select the next kernel to run.
-//     ///
-//     /// Todo: used hack to allow selecting the kernel from the shader core,
-//     /// but we could maybe refactor
-//     fn select_kernel(&mut self) -> Option<Arc<dyn Kernel>> {
-//         let mut last_issued_kernel = self.last_issued_kernel.lock();
-//         let mut executed_kernels = self.executed_kernels.try_lock();
-//         // let running_kernels = self.running_kernels.try_read();
-//         let running_kernels = &self.running_kernels;
-//
-//         log::trace!(
-//             "select kernel: {} running kernels, last issued kernel={}",
-//             running_kernels.iter().filter_map(Option::as_ref).count(),
-//             last_issued_kernel
-//         );
-//
-//         if let Some((launch_latency, ref last_kernel)) = running_kernels[*last_issued_kernel] {
-//             log::trace!(
-//             "select kernel: => running_kernels[{}] no more blocks to run={} {} kernel block latency={} launch uid={}",
-//             last_issued_kernel,
-//             last_kernel.no_more_blocks_to_run(),
-//             last_kernel.next_block().map(|block| format!("{}/{}", block, last_kernel.config().grid)).as_deref().unwrap_or(""),
-//             launch_latency, last_kernel.id());
-//         }
-//
-//         // issue same kernel again
-//         match running_kernels[*last_issued_kernel] {
-//             Some((launch_latency, ref last_kernel))
-//                 if !last_kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-//             {
-//                 let launch_id = last_kernel.id();
-//                 executed_kernels
-//                     .entry(launch_id)
-//                     .or_insert(Arc::clone(last_kernel));
-//                 return Some(last_kernel.clone());
-//             }
-//             _ => {}
-//         };
-//
-//         // issue new kernel
-//         let num_kernels = running_kernels.len();
-//         let max_concurrent = self.config.max_concurrent_kernels;
-//         for n in 0..num_kernels {
-//             let idx = (n + *last_issued_kernel + 1) % max_concurrent;
-//             if let Some((launch_latency, ref kernel)) = running_kernels[idx] {
-//                 log::trace!(
-//                   "select kernel: running_kernels[{}] more blocks left={}, kernel block latency={}",
-//                   idx,
-//                   !kernel.no_more_blocks_to_run(),
-//                   launch_latency,
-//                 );
-//             }
-//
-//             match running_kernels[idx] {
-//                 Some((launch_latency, ref kernel))
-//                     if !kernel.no_more_blocks_to_run() && launch_latency == 0 =>
-//                 {
-//                     *last_issued_kernel = idx;
-//                     let launch_id = kernel.id();
-//                     assert!(!executed_kernels.contains_key(&launch_id));
-//                     executed_kernels.insert(launch_id, Arc::clone(kernel));
-//                     return Some(Arc::clone(kernel));
-//                 }
-//                 _ => {}
-//             }
-//         }
-//         None
-//     }
-// }
 
 impl<I, MC> Simulator<I, MC>
 where
@@ -2389,8 +1684,8 @@ where
         let partition = &mut self.mem_partition_units[partition_id as usize];
 
         let mut sector_mask: mem_fetch::SectorMask = BitArray::ZERO;
-        // Sector chunk size is 4, so we get the highest 4 bits of the address
-        // to set the sector mask
+        // Sector chunk size is 4, so we get the highest 4 bits
+        // of the address to set the sector mask
         sector_mask.set(((write_addr % 128) as u8 / 32) as usize, true);
 
         log::trace!(
@@ -2402,7 +1697,6 @@ where
             sector_mask.to_bit_string()
         );
 
-        // partition.try_read().memcpy_to_gpu_accelsim_compat(
         partition.memcpy_to_gpu_accelsim_compat(
             write_addr,
             tlx_addr.sub_partition as usize,
@@ -2412,33 +1706,17 @@ where
     }
 
     /// Simulate memory copy to simulated device.
-    // #[allow(clippy::needless_pass_by_value)]
-    pub fn handle_allocations_and_memcopies(
-        &mut self,
-        commands: &Vec<Command>,
-        // addr: address,
-        // num_bytes: u64,
-        // name: Option<String>,
-        mut cycle: u64,
-        // force: bool,
-    ) {
+    pub fn handle_allocations_and_memcopies(&mut self, commands: &Vec<Command>, mut cycle: u64) {
         // handle allocations (no copy)
-        let (mut allocations, copies): (Vec<_>, Vec<_>) = commands
-            .into_iter()
-            .cloned()
-            .partition_map(|cmd| match cmd {
-                Command::MemAlloc(alloc) => itertools::Either::Left(alloc),
-                Command::MemcpyHtoD(copy) => itertools::Either::Right(copy),
-                Command::KernelLaunch(_launch) => unreachable!(),
-            });
-
-        // allocations.sort_by_key(|alloc| let allocation_id = self
-        //         .allocations
-        //         .read()
-        //         .iter()
-        //         .find(|(_, alloc)| alloc.start_addr == *device_ptr)
-        //         .map(|(_, alloc)| alloc.id)
-        //         .unwrap();)
+        let (allocations, copies): (Vec<_>, Vec<_>) =
+            commands
+                .into_iter()
+                .cloned()
+                .partition_map(|cmd| match cmd {
+                    Command::MemAlloc(alloc) => itertools::Either::Left(alloc),
+                    Command::MemcpyHtoD(copy) => itertools::Either::Right(copy),
+                    Command::KernelLaunch(_launch) => unreachable!(),
+                });
 
         for trace_model::command::MemAlloc {
             allocation_name,
@@ -2449,26 +1727,14 @@ where
         {
             self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
         }
-        // for cmd in allocations {
-        //     if let Command::MemAlloc(trace_model::command::MemAlloc {
-        //         allocation_name,
-        //         device_ptr,
-        //         num_bytes,
-        //         ..
-        //     }) = cmd
-        //     {
-        //         self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
-        //     }
-        // }
 
         let l2_cache_size_bytes = self
             .config
             .data_cache_l2
             .as_ref()
-            // .map(|l2| self.mem_sub_partitions.len() * l2.inner.total_bytes())
-            // .map(|l2| self.mem_sub_partitions().count() * l2.inner.total_bytes())
             .map(|l2| self.config.total_sub_partitions() * l2.inner.total_bytes())
             .unwrap_or(0);
+
         let l2_prefetch_percent = self.config.l2_prefetch_percent.unwrap_or(100.0);
         let cache_bytes_used_before = self.l2_used_bytes();
         let mut cache_bytes_used = cache_bytes_used_before;
@@ -2508,40 +1774,6 @@ where
                 .iter()
                 .find(|copy| alloc_range.contains(&copy.dest_device_addr));
 
-            // dedup
-            // if valid_prefill_memcopies
-            //     .iter()
-            //     .any(|(have_start, have_num_bytes, _)| {
-            //         *have_start <= start_addr && start_addr < *have_start + *have_num_bytes
-            //     })
-            // {
-            //     // skip
-            //     continue;
-            // }
-
-            // if allocation_id == 3 {
-            //     // invalidate everything before
-            //     self.invalidate_l2()
-            //     // continue;
-            // }
-
-            // check if there is enough space for this allocation
-            // let should_prefill = true;
-            // let should_prefill = if valid_prefill_allocations.len() > 0 {
-            //     // already have an allocation
-            //     let percent =
-            //         ((num_bytes + cache_bytes_used) as f32 / l2_cache_size_bytes as f32) * 100.0;
-            //     percent <= 75.0
-            // } else {
-            //     // first allocation
-            //     let percent =
-            //         ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
-            //     percent <= l2_prefetch_percent
-            //     // if percent > l2_prefetch_percent {
-            //     //     should_prefill = false
-            //     // }
-            // };
-            //
             let percent =
                 ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
             let should_prefill = if allocations.len() == 1 {
@@ -2558,14 +1790,6 @@ where
             let alignment = crate::exec::tracegen::ALIGNMENT_BYTES;
 
             let end_addr = device_ptr + num_bytes;
-            // let end_addr = utils::next_multiple(device_ptr + num_bytes, alignment);
-            // assert!(
-            //     end_addr % alignment == 0,
-            //     "end address {} for allocation {} is not {} aligned",
-            //     allocation_id,
-            //     end_addr,
-            //     human_bytes::human_bytes(alignment as f32),
-            // );
 
             // take the last 2.5 MB only
             // let valid_num_bytes = num_bytes.min((2.5 * crate::config::MB as f32) as u64);
@@ -2586,7 +1810,8 @@ where
                 device_ptr
             };
 
-            // what does it take to make LRU miss all sets when going over capacity
+            // what does it take to make LRU miss all sets when
+            // going over capacity
             // 12 partitions *128 sets * 128B line/1024 = 129KB
 
             // if *fill_l2 || (copy.is_some() && should_prefill) {
@@ -2599,157 +1824,6 @@ where
             }
         }
 
-        // if false {
-        //     for cmd in commands.iter().rev() {
-        //         #[derive(Debug, PartialEq, Eq)]
-        //         enum AllocationKind {
-        //             MemCopy,
-        //             Alloc,
-        //         }
-        //         let (force, start_addr, num_bytes, kind) = match cmd {
-        //             Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-        //                 allocation_name,
-        //                 dest_device_addr,
-        //                 num_bytes,
-        //             }) => {
-        //                 // if *num_bytes > 64 {
-        //                 //     eprintln!(
-        //                 //         "CUDA mem copy: {:<20} {:>15} ({:>5} f32) to address {dest_device_addr:>20}",
-        //                 //         allocation_name.as_deref().unwrap_or("<unnamed>"),
-        //                 //         human_bytes::human_bytes(*num_bytes as f64),
-        //                 //         *num_bytes / 4,
-        //                 //     );
-        //                 // }
-        //                 (
-        //                     trace_model::command::L2Prefill::Auto,
-        //                     *dest_device_addr,
-        //                     *num_bytes,
-        //                     AllocationKind::MemCopy,
-        //                 )
-        //             }
-        //             Command::MemAlloc(trace_model::command::MemAlloc {
-        //                 allocation_name,
-        //                 device_ptr,
-        //                 fill_l2,
-        //                 num_bytes,
-        //                 ..
-        //             }) => {
-        //                 // if *num_bytes > 64 {
-        //                 //     eprintln!(
-        //                 //         "CUDA mem allocation: {:<20} {:>15} ({:>5} f32) to address {device_ptr:>20}",
-        //                 //         allocation_name.as_deref().unwrap_or("<unnamed>"),
-        //                 //         human_bytes::human_bytes(*num_bytes as f64),
-        //                 //         *num_bytes / 4,
-        //                 //     );
-        //                 // }
-        //                 // continue;
-        //                 (*fill_l2, *device_ptr, *num_bytes, AllocationKind::Alloc)
-        //             }
-        //             _ => continue,
-        //             // other => panic!("bad command {}", other),
-        //         };
-        //
-        //         let allocation_id = self
-        //             .allocations
-        //             .read()
-        //             .iter()
-        //             .find(|(_, alloc)| alloc.start_addr == start_addr)
-        //             .map(|(_, alloc)| alloc.id)
-        //             .unwrap();
-        //
-        //         if num_bytes > 64 {
-        //             eprintln!(
-        //                 "CUDA mem {}: {:>15} ({:>5} f32) [allocation={}] to address {:>20}",
-        //                 if kind == AllocationKind::MemCopy {
-        //                     "copy"
-        //                 } else {
-        //                     "allocation"
-        //                 },
-        //                 // allocation_name.as_deref().unwrap_or("<unnamed>"),
-        //                 human_bytes::human_bytes(num_bytes as f64),
-        //                 num_bytes / 4,
-        //                 allocation_id,
-        //                 start_addr,
-        //             );
-        //         }
-        //
-        //         // dedup
-        //         if valid_prefill_memcopies
-        //             .iter()
-        //             .any(|(have_start, have_num_bytes, _)| {
-        //                 *have_start <= start_addr && start_addr < *have_start + *have_num_bytes
-        //             })
-        //         {
-        //             // skip
-        //             continue;
-        //         }
-        //
-        //         // if allocation_id == 3 {
-        //         //     // invalidate everything before
-        //         //     self.invalidate_l2()
-        //         //     // continue;
-        //         // }
-        //
-        //         // check if there is enough space for this allocation
-        //         // let should_prefill = true;
-        //         // let should_prefill = if valid_prefill_allocations.len() > 0 {
-        //         //     // already have an allocation
-        //         //     let percent =
-        //         //         ((num_bytes + cache_bytes_used) as f32 / l2_cache_size_bytes as f32) * 100.0;
-        //         //     percent <= 75.0
-        //         // } else {
-        //         //     // first allocation
-        //         //     let percent =
-        //         //         ((cache_bytes_used + num_bytes) as f32 / l2_cache_size_bytes as f32) * 100.0;
-        //         //     percent <= l2_prefetch_percent
-        //         //     // if percent > l2_prefetch_percent {
-        //         //     //     should_prefill = false
-        //         //     // }
-        //         // };
-        //         //
-        //         let should_prefill = {
-        //             let percent = ((cache_bytes_used + num_bytes) as f32
-        //                 / l2_cache_size_bytes as f32)
-        //                 * 100.0;
-        //             // percent <= l2_prefetch_percent
-        //             // should be less than 75 percent
-        //             percent <= 60.0
-        //         };
-        //
-        //         if force || should_prefill {
-        //             valid_prefill_memcopies.push((start_addr, num_bytes, allocation_id));
-        //             cache_bytes_used += num_bytes;
-        //         }
-        //     }
-        // }
-
-        // let valid_prefill_allocations: Vec<_> = commands
-        //     .iter()
-        //     .rev()
-        //     .take_while(|cmd| {
-        //     let (start_address, num_bytes) = match cmd {
-        //         Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-        //             dest_device_addr,
-        //             num_bytes,
-        //             ..
-        //         }) => (dest_device_addr, num_bytes),
-        //         Command::MemAlloc(trace_model::command::MemAlloc {
-        //             device_ptr,
-        //             fill_l2,
-        //             num_bytes,
-        //             ..
-        //         }) => {
-        //             if *fill_l2 {
-        //                 return true;
-        //             }
-        //             (device_ptr, num_bytes)
-        //         }
-        //         other => panic!("bad command {}", other),
-        //     };
-        //     false
-        // })
-        // .collect();
-
         eprintln!(
             "have {}/{} valid memcopies (requested={}, occupied={}, cache size={})",
             valid_prefill_memcopies
@@ -2760,80 +1834,17 @@ where
             human_bytes::human_bytes(copies.iter().map(|copy| copy.num_bytes).sum::<u64>() as f64),
             human_bytes::human_bytes(cache_bytes_used_before as f64),
             human_bytes::human_bytes(l2_cache_size_bytes as f64),
-            // .filter_map(|(_, num_bytes)| if *num_bytes > 64 {
-            //     Some(*num_bytes)
-            // } else {
-            //     None
-            // })
-            // .sum::<u64>(),
-            // valid_prefill_allocations
         );
 
-        // let mut completed_prefills: Vec<(u64, u64, usize)> = Vec::new();
         for (start_addr, num_bytes, allocation_id) in valid_prefill_memcopies
             .into_iter()
             .sorted_by_key(|(_, _, allocation_id)| *allocation_id)
         {
-            // if allocation_id == 3 {
-            //     for (prev_start, prev_num_bytes, _) in completed_prefills.drain(..) {
-            //         self.invalidate_l2(prev_start, prev_num_bytes);
-            //     }
-            //     // let (prev_start, prev_num_bytes, _) = &valid_prefill_allocations[0];
-            //     // self.invalidate_l2(*prev_start, *prev_num_bytes);
-            //     // let (prev_start, prev_num_bytes, _) = &valid_prefill_allocations[1];
-            //     // self.invalidate_l2(*prev_start, *prev_num_bytes);
-            //     eprintln!(
-            //         "post invalidation: bytes used={}",
-            //         human_bytes::human_bytes(self.l2_used_bytes() as f64)
-            //     );
-            // }
-
             cycle = crate::timeit!(
                 "cycle::memcopy",
-                self.memcopy_to_gpu(
-                    start_addr, num_bytes,
-                    cycle,
-                    // *dest_device_addr,
-                    // *num_bytes,
-                    // allocation_name.clone(),
-                    // false,
-                )
+                self.memcopy_to_gpu(start_addr, num_bytes, cycle,)
             );
-
-            // completed_prefills.push((start_addr, num_bytes, allocation_id));
         }
-
-        //     match cmd {
-        //         // Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-        //         //     allocation_name,
-        //         //     dest_device_addr,
-        //         //     num_bytes,
-        //         // }) => {}
-        //         Command::MemAlloc(trace_model::command::MemAlloc {
-        //             allocation_name,
-        //             device_ptr,
-        //             fill_l2,
-        //             num_bytes,
-        //         }) => {
-        //             // let fill_l2 = *fill_l2;
-        //             // let device_ptr = *device_ptr;
-        //             // let num_bytes = *num_bytes;
-        //             // let allocation_name = allocation_name.clone();
-        //             self.gpu_mem_alloc(*device_ptr, *num_bytes, allocation_name.clone(), cycle);
-        //             // let has_memcopy = self.commands.iter().any(|cmd| match cmd {
-        //             //     Command::MemcpyHtoD(trace_model::command::MemcpyHtoD {
-        //             //         dest_device_addr,
-        //             //         ..
-        //             //     }) => {
-        //             //         device_ptr <= *dest_device_addr
-        //             //             && *dest_device_addr < device_ptr + num_bytes
-        //             //     }
-        //             //     _ => false,
-        //             // });
-        //         }
-        //         other => panic!("bad command {}", other),
-        //     }
-        // }
     }
 
     /// Simulate memory copy to simulated device.
@@ -2857,29 +1868,17 @@ where
                 }
             } else {
                 if let Some(ref l2_cache) = self.config.data_cache_l2 {
-                    // let start = std::time::Instant::now();
                     let l2_cache_size_bytes =
                         self.config.total_sub_partitions() * l2_cache.inner.total_bytes();
-                    // self.mem_sub_partitions.len() * l2_cache.inner.total_bytes();
 
                     let bytes_used = self.l2_used_bytes();
-                    // let bytes_used_percent =
-                    //     (bytes_used as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     // find allocation
                     let old_allocation_id = self
                         .allocations
                         .try_read()
                         .iter()
-                        .find(|(_, alloc)| {
-                            // eprintln!(
-                            //     "alloc {:>2}: {:>10} to {:>10}",
-                            //     alloc.id,
-                            //     alloc.start_addr,
-                            //     alloc.end_addr.unwrap_or(alloc.start_addr)
-                            // );
-                            alloc.contains(addr)
-                        })
+                        .find(|(_, alloc)| alloc.contains(addr))
                         .map(|(_, alloc)| alloc.id)
                         .unwrap();
 
@@ -2892,24 +1891,7 @@ where
 
                     assert_eq!(old_allocation_id, allocation_id);
 
-                    // let size_below_threshold = self
-                    //     .config
-                    //     .l2_prefetch_percent
-                    //     .map(|l2_prefetch_percent| percent <= l2_prefetch_percent)
-                    //     .unwrap_or(true);
-
-                    // let should_prefetch = force || (size_below_threshold && allocation_id == 1);
-                    // let should_prefetch = force || (size_below_threshold && allocation_id == 3);
-                    // * self.config.data_cache_l2.map(|l2| l2.line_size());
-                    // let should_prefetch =
-                    //     force || (bytes_used_percent <= 25.0 && size_below_threshold);
-                    // let should_prefetch = force || allocation_id == 3;
-                    // let should_prefetch = force || size_below_threshold;
-                    // let should_prefetch = false;
-                    // let should_prefetch = allocation_id != 3;
-
                     let max_bytes = num_bytes;
-                    // let max_bytes = num_bytes.min(l2_cache_size_bytes as u64);
                     let percent = (max_bytes as f32 / l2_cache_size_bytes as f32) * 100.0;
 
                     if num_bytes > 64 {
@@ -2932,17 +1914,6 @@ where
                             == "yes";
                     let debug_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("debug");
 
-                    // if output_memcopy_l2_cache_state
-                    //     && num_bytes > 64
-                    //     && !self.config.accelsim_compat
-                    // {
-                    //     self.write_l2_cache_state(
-                    //         &debug_dir.join(format!("l2_cache_state_{}_before.csv", allocation_id)),
-                    //     )
-                    //     .unwrap();
-                    //     self.print_l2_cache();
-                    // }
-
                     cycle = self.fill_l2(addr, max_bytes, cycle);
 
                     if output_memcopy_l2_cache_state
@@ -2955,10 +1926,6 @@ where
                         .unwrap();
                         self.print_l2_cache();
                     }
-
-                    // if should_prefetch && num_bytes > 64 {
-                    // eprintln!("memcopy completed in {:?}", start.elapsed());
-                    // }
                 }
             }
         }
@@ -2967,11 +1934,6 @@ where
 
     #[must_use]
     pub fn fill_l2(&mut self, addr: address, num_bytes: u64, mut cycle: u64) -> u64 {
-        // assert!(
-        //     addr % 256 == 0,
-        //     "memcopy start address ({}) is not 256B aligned)",
-        //     addr
-        // );
         let alignment = crate::exec::tracegen::ALIGNMENT_BYTES;
         assert!(
             addr % alignment == 0,
@@ -2987,7 +1949,6 @@ where
         for chunk in 0..num_chunks {
             let chunk_addr = addr + (chunk as u64 * chunk_size);
 
-            // let kind = mem_fetch::access::Kind::GLOBAL_ACC_W;
             let kind = mem_fetch::access::Kind::GLOBAL_ACC_R;
             let allocation = self.allocations.try_read().get(&chunk_addr).cloned();
             let access = mem_fetch::access::Builder {
@@ -3041,19 +2002,8 @@ where
 
         let copy_start_cycle = cycle;
         while self.active() {
-            // for (sub_id, mem_sub) in self.mem_sub_partitions.iter().enumerate() {
-
-            // let sub_partitions = MemSubPartitionIterMut {
-            //     partition_units: &mut self.mem_partition_units,
-            //     sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-            //     global_sub_id: 0,
-            // };
-
-            // for (sub_id, mem_sub) in self.mem_sub_partitions().enumerate() {
-            // for mem_sub in sub_partitions {
             for partition in self.mem_partition_units.iter_mut() {
                 for mem_sub in partition.sub_partitions.iter_mut() {
-                    // let mut mem_sub = mem_sub.try_lock();
                     if let Some(fetch) = mem_sub.top() {
                         let response_packet_size = if fetch.is_write() {
                             fetch.control_size()
@@ -3068,18 +2018,8 @@ where
                 }
             }
 
-            // let sub_partitions = MemSubPartitionIterMut {
-            //     partition_units: &mut self.mem_partition_units,
-            //     sub_partitions_per_partition: self.config.num_sub_partitions_per_memory_controller,
-            //     global_sub_id: 0,
-            // };
-
-            // for (sub_id, mem_sub) in self.mem_sub_partitions.iter_mut().enumerate() {
-            // for (sub_id, mem_sub) in self.mem_sub_partitions().enumerate() {
             for partition in self.mem_partition_units.iter_mut() {
                 for mem_sub in partition.sub_partitions.iter_mut() {
-                    // for mem_sub in sub_partitions {
-                    // let mut mem_sub = mem_sub.try_lock();
                     let mem_sub_device = self.config.mem_id_to_device_id(mem_sub.global_id);
 
                     if mem_sub
@@ -3102,7 +2042,6 @@ where
 
             for unit in self.mem_partition_units.iter_mut() {
                 unit.simple_dram_cycle(cycle);
-                // unit.try_write().simple_dram_cycle(cycle);
             }
 
             cycle += 1;
@@ -3110,60 +2049,9 @@ where
             if copy_duration > 0 && copy_duration % 10000 == 0 {
                 log::warn!("fill l2 on memcopy: running for {copy_duration} cycles");
             }
-
-            if log::log_enabled!(log::Level::Trace) {
-                // dbg!(self
-                //     .clusters
-                //     .iter()
-                //     .any(|cluster| cluster.try_read().not_completed() > 0));
-                // for partition in self.mem_partition_units.iter() {
-                //     dbg!(partition
-                //         .try_read()
-                //         .sub_partitions
-                //         .iter()
-                //         .any(|unit| unit.try_lock().busy()));
-                // }
-                // dbg!(self.interconn.busy());
-
-                if self.interconn.busy() {
-                    // for cluster_id in 0..self.config.num_simt_clusters {
-                    //     let queue = self
-                    //         .interconn
-                    //         .dest_queue(cluster_id)
-                    //         .try_lock()
-                    //         .iter()
-                    //         .sorted_by_key(|packet| packet.fetch.addr())
-                    //         .map(ToString::to_string)
-                    //         .collect::<Vec<_>>();
-                    //     if !queue.is_empty() {
-                    //         log::trace!(
-                    //             "cluster {cluster_id:<3} icnt: [{:<3}] {queue:?}",
-                    //             queue.len()
-                    //         );
-                    //     }
-                    // }
-                    // for sub_id in 0..self.config.total_sub_partitions() {
-                    //     let mem_device = self.config.mem_id_to_device_id(sub_id);
-                    //     let queue = self
-                    //         .interconn
-                    //         .dest_queue(mem_device)
-                    //         .try_lock()
-                    //         .iter()
-                    //         .sorted_by_key(|packet| packet.fetch.addr())
-                    //         .map(ToString::to_string)
-                    //         .collect::<Vec<_>>();
-                    //     if !queue.is_empty() {
-                    //         log::trace!("sub     {sub_id:<3} icnt: [{:<3}] {queue:?}", queue.len());
-                    //     }
-                    // }
-                }
-                // dbg!(self.more_blocks_to_run());
-                // dbg!(self.active());
-            }
         }
 
         // OPTIONAL: check prefilled chunks are HIT (debugging)
-        // if log::log_enabled!(log::Level::Trace) {
         if false {
             for chunk in 0..num_chunks {
                 let chunk_addr = addr + (chunk as u64 * chunk_size);
@@ -3209,8 +2097,6 @@ where
                 let partition = &mut self.mem_partition_units[partition_id];
                 let sub = &mut partition.sub_partitions[local_sub_id];
 
-                // let sub = &self.mem_sub_partitions[dest_sub_partition_id];
-                // let sub = sub.lock();
                 if let Some(ref _l2_cache) = sub.l2_cache {
                     use crate::mem_sub_partition::{
                         breakdown_request_to_sector_requests, NUM_SECTORS,
@@ -3323,58 +2209,13 @@ pub fn accelmain(
         )
     };
 
-    // debugging config
-    // let config = Arc::new(config::GPUConfig {
-    //     num_simt_clusters: 20,                   // 20
-    //     num_cores_per_simt_cluster: 4,           // 1
-    //     num_schedulers_per_core: 2,              // 1
-    //     num_memory_controllers: 8,               // 8
-    //     num_sub_partition_per_memory_channel: 2, // 2
-    //     fill_l2_on_memcopy: true,                // true
-    //     ..config::GPUConfig::default()
-    // });
-
-    // let interconn = Arc::new(ic::SimpleInterconnect::new(
-    //     config.num_simt_clusters,
-    //     config.total_sub_partitions(),
-    //     // config.num_memory_controllers * config.num_sub_partitions_per_memory_controller,
-    // ));
-    // let mut sim = Simulator::new(interconn, Arc::clone(&config));
-
-    // match config.parallelization {
-    //     config::Parallelization::Serial => {
-    //         sim.run_to_completion()?;
-    //     }
-    //     #[cfg(feature = "parallel")]
-    //     config::Parallelization::Deterministic => sim.run_to_completion_parallel_deterministic()?,
-    //     #[cfg(feature = "parallel")]
-    //     config::Parallelization::Nondeterministic(n) => {
-    //         sim.run_to_completion_parallel_nondeterministic(n)?;
-    //     }
-    // }
     let mut sim = config::GTX1080::new(config);
-
     sim.trace.add_commands(commands_path, traces_dir)?;
     sim.run()?;
     Ok(sim)
 }
 
 pub fn init_logging() {
-    // let mut log_builder = env_logger::Builder::new();
-    // log_builder.format(|buf, record| {
-    //     writeln!(
-    //         buf,
-    //         // "{} [{}] - {}",
-    //         "{}",
-    //         // Local::now().format("%Y-%m-%dT%H:%M:%S"),
-    //         // record.level(),
-    //         record.args()
-    //     )
-    // });
-    //
-    // log_builder.parse_default_env();
-    // log_builder.init();
-
     let mut log_builder = env_logger::Builder::new();
     log_builder.format(|buf, record| {
         use std::io::Write;
@@ -3382,7 +2223,6 @@ pub fn init_logging() {
         writeln!(
             buf,
             "[ {}{}{} {} ] {}",
-            // Local::now().format("%Y-%m-%dT%H:%M:%S"),
             level_style.render(),
             record.level(),
             level_style.render_reset(),

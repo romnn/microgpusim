@@ -98,23 +98,19 @@ pub trait Access<I> {
     #[must_use]
     fn free_mut(&mut self) -> Box<dyn Iterator<Item = (usize, &mut Option<I>)> + '_>;
 
-    // #[inline]
     fn get_free_mut(&mut self) -> Option<(usize, &mut Option<I>)> {
         self.free_mut().next()
     }
 
-    // #[inline]
     fn get_free_sub_core_mut(&mut self, scheduler_id: usize) -> Option<(usize, &mut Option<I>)>;
 
     fn scheduler_id(&self, reg_id: usize) -> Option<usize>;
 
-    // #[inline]
     fn move_in_from(&mut self, src: Option<I>) {
         let (_, free) = self.get_free_mut().unwrap();
         move_warp(src, free);
     }
 
-    // #[inline]
     fn move_out_to(&mut self, dest: &mut Option<I>) {
         let (_, ready) = self.get_ready_mut().unwrap();
         move_warp(ready.take(), dest);
@@ -122,37 +118,30 @@ pub trait Access<I> {
 }
 
 impl Access<WarpInstruction> for RegisterSet {
-    // #[inline]
     fn get(&self, reg_id: usize) -> Option<&Option<WarpInstruction>> {
         self.regs.get(reg_id)
     }
 
-    // #[inline]
     fn get_mut(&mut self, reg_id: usize) -> Option<&mut Option<WarpInstruction>> {
         self.regs.get_mut(reg_id)
     }
 
-    // #[inline]
     fn has_free(&self) -> bool {
         self.regs.iter().any(Option::is_none)
     }
 
-    // #[inline]
     fn has_ready(&self) -> bool {
         self.regs.iter().any(Option::is_some)
     }
 
-    // #[inline]
     fn size(&self) -> usize {
         self.regs.len()
     }
 
-    // #[inline]
     fn occupied(&self) -> Box<dyn Iterator<Item = (usize, &Option<WarpInstruction>)> + '_> {
         Box::new(self.regs.iter().enumerate().filter(|(_, r)| r.is_some()))
     }
 
-    // #[inline]
     fn occupied_mut(
         &mut self,
     ) -> Box<dyn Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_> {
@@ -171,12 +160,10 @@ impl Access<WarpInstruction> for RegisterSet {
         }
     }
 
-    // #[inline]
     fn free(&self) -> Box<dyn Iterator<Item = &Option<WarpInstruction>> + '_> {
         Box::new(self.regs.iter().filter(|r| r.is_none()))
     }
 
-    // #[inline]
     fn free_mut(&mut self) -> Box<dyn Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_> {
         Box::new(
             self.regs
@@ -186,18 +173,15 @@ impl Access<WarpInstruction> for RegisterSet {
         )
     }
 
-    // #[inline]
     fn get_ready(&self) -> Option<(usize, &Option<WarpInstruction>)> {
         self.occupied().reduce(oldest_instruction_reducer)
     }
 
-    // #[inline]
     fn get_ready_mut(&mut self) -> Option<(usize, &mut Option<WarpInstruction>)> {
         self.iter_occupied_mut()
             .reduce(oldest_instruction_reducer_mut)
     }
 
-    // #[inline]
     fn get_ready_sub_core_mut(
         &mut self,
         reg_id: usize,
@@ -224,7 +208,6 @@ impl RegisterSet {
         Self { stage, regs, id }
     }
 
-    // #[inline]
     pub fn iter_occupied_mut(
         &mut self,
     ) -> impl Iterator<Item = (usize, &mut Option<WarpInstruction>)> + '_ {
@@ -245,7 +228,6 @@ impl std::fmt::Display for RegisterSet {
     }
 }
 
-// #[inline]
 pub fn move_warp<T>(from: Option<T>, to: &mut Option<T>) {
     *to = from;
 }

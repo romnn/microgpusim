@@ -109,7 +109,6 @@ impl From<AccessStat> for stats::cache::AccessStat {
 ///
 /// `HIT_RESERVED` is considered as a MISS in the cores, however, it should be
 /// counted as a `HIT_RESERVED` in the caches.
-// #[inline]
 pub fn select_status_accelsim_compat(probe: RequestStatus, access: RequestStatus) -> RequestStatus {
     // return access;
     // probe is at sector granularity while access is at line granularity?
@@ -230,5 +229,4 @@ pub trait ComputeStats {
 
     /// Per-kenrel cache statistics.
     fn per_kernel_stats_mut(&mut self) -> &mut stats::cache::PerKernel;
-    // fn per_kernel_stats(&self) -> &Arc<Mutex<S>>;
 }

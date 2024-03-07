@@ -4,7 +4,6 @@ use std::collections::VecDeque;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Fifo<T> {
     inner: VecDeque<T>,
-    // min_size: Option<usize>,
     max_size: Option<usize>,
 }
 
@@ -47,11 +46,9 @@ impl<T> Fifo<T> {
 
 impl<T> Fifo<T> {
     #[must_use]
-    // pub fn new(min_size: Option<usize>, max_size: Option<usize>) -> Self {
     pub fn new(max_size: Option<usize>) -> Self {
         Self {
             inner: VecDeque::new(),
-            // min_size,
             max_size,
         }
     }
@@ -68,7 +65,6 @@ impl<T> Fifo<T> {
 
     #[must_use]
     pub fn first(&self) -> Option<&T> {
-        // debug_assert_eq!(self.inner.get(0), self.inner.front());
         self.inner.front()
     }
 

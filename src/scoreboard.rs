@@ -66,7 +66,6 @@ impl Scoreboard {
 }
 
 impl Access for Scoreboard {
-    // #[inline]
     fn has_collision(&self, warp_id: usize, instr: &WarpInstruction) -> bool {
         use itertools::Itertools;
 
@@ -95,12 +94,6 @@ impl Access for Scoreboard {
             reserved.iter().sorted().collect::<Vec<_>>(),
         );
 
-        // let mut instr_registers: HashSet<u32> = HashSet::new();
-        // instr_registers.extend(instr.outputs());
-        // instr_registers.extend(instr.inputs());
-        // let mut intersection = instr_registers.intersection(reserved);
-        // intersection.next().is_some()
-
         // creating a new hash set to do an intersection is likely slower
         // than this loop, as the number of registers should be small
         instr
@@ -109,12 +102,10 @@ impl Access for Scoreboard {
             .any(|reg| reserved.contains(reg))
     }
 
-    // #[inline]
     fn pending_writes(&self, warp_id: usize) -> &HashSet<u32> {
         &self.warp_registers[warp_id]
     }
 
-    // #[inline]
     fn release(&mut self, warp_id: usize, reg_num: u32) {
         let removed = self.warp_registers[warp_id].remove(&reg_num);
         if removed {
@@ -126,14 +117,12 @@ impl Access for Scoreboard {
         }
     }
 
-    // #[inline]
     fn release_all(&mut self, instr: &WarpInstruction) {
         for &out_reg in instr.outputs() {
             self.release(instr.warp_id, out_reg);
         }
     }
 
-    // #[inline]
     fn reserve(&mut self, warp_id: usize, reg_num: u32) {
         let warp_registers = &mut self.warp_registers[warp_id];
         assert!(
@@ -151,7 +140,6 @@ impl Access for Scoreboard {
         self.warp_registers[warp_id].insert(reg_num);
     }
 
-    // #[inline]
     fn reserve_all(&mut self, instr: &WarpInstruction) {
         for &out_reg in instr.outputs() {
             self.reserve(instr.warp_id, out_reg);

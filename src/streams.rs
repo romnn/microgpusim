@@ -16,8 +16,5 @@ impl StreamManager {
 
     pub fn is_busy(&self, id: usize) -> bool {
         self.busy_streams.contains(&id)
-        // self.busy_streams
-        //     .iter()
-        //     .any(|stream_id| *stream_id == kernel.config().stream_id)
     }
 }

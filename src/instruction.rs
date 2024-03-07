@@ -1,17 +1,13 @@
 use crate::{
-    address, barrier, config,
-    kernel::Kernel,
-    mem_fetch,
+    address, barrier, config, mem_fetch,
     mem_sub_partition::MAX_MEMORY_ACCESS_SIZE,
     opcodes::{pascal, ArchOp, Op, Opcode},
-    operand_collector as opcoll,
-    sync::RwLock,
-    warp, WARP_SIZE,
+    operand_collector as opcoll, warp, WARP_SIZE,
 };
 use bitvec::{array::BitArray, BitArr};
 use mem_fetch::access::{Builder as MemAccessBuilder, Kind as AccessKind, MemAccess};
 use smallvec::{smallvec, SmallVec};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use trace_model::ToBitString;
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -194,7 +190,8 @@ fn memory_coalescing_arch_reduce(
         kind: access_kind,
         addr,
         kernel_launch_id,
-        allocation: None, // we cannot know the allocation start address in this context
+        // we cannot know the allocation start address in this context
+        allocation: None,
         req_size_bytes,
         is_write,
         warp_active_mask: tx.active_mask,
@@ -332,7 +329,6 @@ impl WarpInstruction {
         debug_assert!(!opcode_tokens.is_empty());
         let opcode1 = opcode_tokens[0];
 
-        // let Some(&opcode) = kernel.opcode(opcode1) else {
         let Some(&opcode) = opcodes.get(opcode1) else {
             panic!("undefined opcode {opcode1}");
         };
@@ -495,30 +491,9 @@ impl WarpInstruction {
                     if let Some(tid) = trace.active_mask.first_one() {
                         let addr = trace.addrs[tid];
 
-                        // bytes
-                        // cudaDeviceGetLimit(size_t* size, cudaLimitMallocHeapSize)
-                        // cudaDevAttrL2CacheSize
-                        // cudaDevAttrUnifiedAddressing:
-                        // cudaDevAttrMaxSharedMemoryPerMultiprocessor
-                        // cudaDevAttrMaxBlocksPerMultiprocessor
-                        // cudaDevAttrMaxPersistingL2CacheSize
-                        // cudaDevAttrMaxRegistersPerMultiprocessor
-                        // cudaDevAttrWarpSize
-                        // cudaDevAttrMaxThreadsPerBlock
-                        // cudaDevAttrMaxSharedMemoryPerBlock
-                        // cudaDevAttrTotalConstantMemory
-                        // cudaDevAttrComputeCapabilityMajor: Major compute capability version number
-                        // cudaDevAttrComputeCapabilityMinor
-
-                        // kernel launch should contain some info about the hw
-                        // like the size of shared
-                        //
-                        // the local memory needed per thread cannot exceed the available GPU memory divided by the total number of threads that can be active (number of SMs times the maximum number of threads per SM
-
                         let shared_mem_space = shared_mem_base_addr..local_mem_base_addr;
                         let local_mem_space =
                             local_mem_base_addr..(local_mem_base_addr + local_mem_addr_limit);
-                        // local_mem_base_addr..(local_mem_base_addr + crate::LOCAL_MEM_SIZE_MAX);
 
                         if shared_mem_space.contains(&addr) {
                             memory_space = Some(MemorySpace::Shared);
@@ -590,38 +565,32 @@ impl WarpInstruction {
         }
     }
 
-    // #[inline]
     pub fn inputs(&self) -> impl Iterator<Item = &u32> {
         self.inputs.iter().filter_map(Option::as_ref)
     }
 
-    // #[inline]
     pub fn outputs(&self) -> impl Iterator<Item = &u32> {
         self.outputs.iter().filter_map(Option::as_ref)
     }
 
     #[must_use]
-    // #[inline]
     pub fn active_thread_count(&self) -> usize {
         self.active_mask.count_ones()
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_load(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::LOAD_OP | ArchOp::TENSOR_CORE_LOAD_OP)
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_store(&self) -> bool {
         let op = self.opcode.category;
         matches!(op, ArchOp::STORE_OP | ArchOp::TENSOR_CORE_STORE_OP)
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_atomic(&self) -> bool {
         let op = self.opcode.op;
         matches!(
@@ -631,18 +600,15 @@ impl WarpInstruction {
     }
 
     #[must_use]
-    // #[inline]
     pub fn addr(&self) -> Option<address> {
         self.mem_access_queue.front().map(|access| access.addr)
     }
 
-    // #[inline]
     pub fn set_addr(&mut self, thread_id: usize, addr: address) {
         let thread = &mut self.threads[thread_id];
         thread.mem_req_addr[0] = addr;
     }
 
-    // #[inline]
     pub fn set_addresses(&mut self, thread_id: usize, addresses: Vec<address>) {
         let thread = &mut self.threads[thread_id];
         for (i, addr) in addresses.into_iter().enumerate() {
@@ -651,7 +617,6 @@ impl WarpInstruction {
     }
 
     #[must_use]
-    // #[inline]
     pub fn access_kind(&self) -> Option<AccessKind> {
         let is_write = self.is_store();
         match self.memory_space {
@@ -661,20 +626,15 @@ impl WarpInstruction {
             Some(MemorySpace::Global) if !is_write => Some(AccessKind::GLOBAL_ACC_R),
             Some(MemorySpace::Local) if is_write => Some(AccessKind::LOCAL_ACC_W),
             Some(MemorySpace::Local) if !is_write => Some(AccessKind::LOCAL_ACC_R),
-            // space => panic!("no access kind for memory space {:?}", space),
             _ => None,
         }
     }
 
     pub fn generate_mem_accesses(
         &mut self,
-        // accesses: &mut VecDeque<MemAccess>,
         config: &config::GPU,
         allocations: &crate::allocation::Allocations,
     ) {
-        // allocations: &RwLock<crate::allocation::Allocations>,
-        // ) -> SmallVec<[MemAccess; 32]> {
-        // ) -> Option<Vec<MemAccess>> {
         let op = self.opcode.category;
         if !matches!(
             op,
@@ -684,16 +644,10 @@ impl WarpInstruction {
                 | ArchOp::TENSOR_CORE_STORE_OP,
         ) {
             return;
-            // return smallvec![];
-            // &std::iter::empty();
-            // return None;
         }
         if self.active_thread_count() < 1 {
             // predicated off
             return;
-            // return smallvec![];
-            // return &std::iter::empty();
-            // return None;
         }
         assert!(self.is_store() || self.is_load());
 
@@ -709,9 +663,6 @@ impl WarpInstruction {
                 let subwarp_size = config.warp_size / warp_parts;
                 let num_banks = config.shared_memory_num_banks;
 
-                // let mut banks = Vec::new();
-                // let mut words = Vec::new();
-
                 // can store at most 32 items on the stack before spilling
                 // to the heap
                 let mut bank_accesses: SmallVec<[_; 32]> =
@@ -725,8 +676,6 @@ impl WarpInstruction {
                 for subwarp in 0..warp_parts {
                     // <=32 bank (u8) -> <=32 different u64 addresses
                     // bank -> word address -> access count
-                    // let mut bank_accesses_slow: HashMap<usize, HashMap<address, usize>> =
-                    //     HashMap::new();
 
                     // step 1: compute accesses to words in banks
                     for i in 0..subwarp_size {
@@ -737,16 +686,9 @@ impl WarpInstruction {
 
                         // NOTE: shared memory addresses can be zero
                         let addr = self.threads[thread].mem_req_addr[0];
-                        // let Some(addr) = self.threads[thread].mem_req_addr.first() else {
-                        //     continue;
-                        // };
 
-                        // note
-
-                        // FIXME: deferred allocation of shared memory should not accumulate
-                        // across kernel launches
+                        // FIXME: deferred allocation of shared memory should not accumulate across kernel launches
                         let bank = config.shared_mem_bank(addr) as usize;
-                        // line_size_based_tag_func
                         let word = line_size_based_tag_func(addr, config::WORD_SIZE);
 
                         bank_accesses[bank][thread] = Some(word);
@@ -758,14 +700,7 @@ impl WarpInstruction {
                             addr,
                             bank
                         );
-
-                        // let accesses = bank_accesses_slow.entry(bank).or_default();
-                        // *accesses.entry(word).or_default() += 1;
-
-                        // banks.push(bank);
-                        // words.push(word);
                     }
-                    // dbg!(&bank_accesses);
 
                     if config.shared_memory_limited_broadcast {
                         // step 2: look for and select a broadcast bank/word if one occurs
@@ -813,7 +748,6 @@ impl WarpInstruction {
                         unimplemented!("shmem limited broadcast is used");
                     } else {
                         // step 2: look for the bank with the most unique words accessed
-
                         let sidx = subwarp * subwarp_size;
 
                         // sort
@@ -848,71 +782,12 @@ impl WarpInstruction {
                             .max()
                             .unwrap_or(0);
 
-                        // let mut max_bank_accesses = 0;
-                        // for bank in 0..num_banks {
-                        //     let subwarp_words_per_bank =
-                        //         &mut bank_accesses[bank][sidx..sidx + subwarp_size];
-                        //
-                        //     log::trace!(
-                        //         "subwarp {:>2} bank {:>3}: words={:?}",
-                        //         subwarp,
-                        //         bank,
-                        //         subwarp_words_per_bank
-                        //             .iter()
-                        //             .filter_map(Option::as_ref)
-                        //             .collect::<Vec<_>>()
-                        //     );
-                        //
-                        //     // sort the word addresses
-                        //     subwarp_words_per_bank.sort_unstable();
-                        //
-                        //     // count the number of unique words.
-                        //     // zero.
-                        //     let mut num_unique_words = subwarp_words_per_bank
-                        //         .windows(2)
-                        //         .filter(|w| w[0] != w[1])
-                        //         .count();
-                        //
-                        //     // if all values are the same, we counted zero unique words.
-                        //     // if there really is no word, i.e. all addresses are
-                        //     // None, then thats fine.
-                        //     let has_valid_word =
-                        //         subwarp_words_per_bank[subwarp_words_per_bank.len() - 1].is_some();
-                        //     if num_unique_words == 0 && has_valid_word {
-                        //         // if all words are the same and not None,
-                        //         // we have a single unique word
-                        //         num_unique_words = 1;
-                        //     }
-                        //
-                        //     log::trace!(
-                        //         "subwarp {:>2} bank {:>3}: words={:?} -> {:>2} unique words",
-                        //         subwarp,
-                        //         bank,
-                        //         subwarp_words_per_bank
-                        //             .iter()
-                        //             .filter_map(Option::as_ref)
-                        //             .collect::<Vec<_>>(),
-                        //         num_unique_words,
-                        //     );
-                        //
-                        //     max_bank_accesses = max_bank_accesses.max(num_unique_words);
-                        // }
-
-                        // let max_bank_accesses_slow = bank_accesses_slow
-                        //     .values()
-                        //     .map(std::collections::HashMap::len)
-                        //     .max()
-                        //     .unwrap_or(0);
-                        // assert_eq!(max_bank_accesses_slow, max_bank_accesses);
-
                         // step 3: accumulate
                         total_accesses += max_bank_accesses;
                     }
                 }
                 log::debug!("generate mem accesses[SHARED] for {}", self);
                 log::debug!("\ttotal_accesses={:?}", &total_accesses);
-                // log::debug!("\tbanks={:?}", &banks);
-                // log::debug!("\tword addresses={:?}", &words);
 
                 debug_assert!(total_accesses > 0);
                 debug_assert!(total_accesses <= config.warp_size);
@@ -922,9 +797,6 @@ impl WarpInstruction {
 
                 // shared mem does not generate mem accesses
                 return;
-                // return smallvec![];
-                // return &std::iter::empty();
-                // None
             }
             Some(MemorySpace::Texture) => {
                 // if let Some(l1_tex) = &config.tex_cache_l1 {
@@ -951,16 +823,7 @@ impl WarpInstruction {
                         unimplemented!("atomics not supported for now");
                     } else {
                         // here, we return the memory accesses
-                        // let accesses =
-                        //     self.memory_coalescing_arch(is_write, access_kind, config, allocations);
-                        // Some(accesses)
-                        self.memory_coalescing_arch(
-                            // accesses,
-                            is_write,
-                            access_kind,
-                            config,
-                            allocations,
-                        );
+                        self.memory_coalescing_arch(is_write, access_kind, config, allocations);
                     }
                 } else {
                     panic!(
@@ -976,18 +839,13 @@ impl WarpInstruction {
     // Perfom memory access coalescing.
     //
     // Note: see the CUDA manual about coalescing rules.
-    #[inline]
     fn memory_coalescing_arch(
         &mut self,
-        // accesses: &mut VecDeque<MemAccess>,
         is_write: bool,
         access_kind: AccessKind,
         config: &config::GPU,
         allocations: &crate::allocation::Allocations,
     ) {
-        // ) -> SmallVec<[MemAccess; 32]> {
-        // ) -> Vec<MemAccess> {
-        // ) -> &dyn Iterator<Item = MemAccess> {
         let warp_parts = if config.accelsim_compat {
             config.shared_memory_warp_parts
         } else {
@@ -1027,12 +885,7 @@ impl WarpInstruction {
             subwarp_size,
         );
 
-        // let mut accesses: Vec<MemAccess> = Vec::new();
-        // let mut accesses: SmallVec<[MemAccess; 32]> = SmallVec::new();
-
-        // todo: warp parts should be 1
         for subwarp in 0..warp_parts {
-            // let mut subwarp_transactions: HashMap<address, TransactionInfo> = HashMap::new();
             use vec_collections::VecMap;
             let mut subwarp_transactions: VecMap<[(address, TransactionInfo); WARP_SIZE]> =
                 VecMap::empty();
@@ -1080,7 +933,6 @@ impl WarpInstruction {
                     // this is equal to the 7-5=2 bits from the
                     // cache line that identify the sector
                     let chunk = (addr & 127) / 32;
-                    // let tx = subwarp_transactions.entry(block_addr).or_default();
                     let tx = match subwarp_transactions.get_mut(&block_addr) {
                         Some(tx) => tx,
                         None => {
@@ -1106,17 +958,6 @@ impl WarpInstruction {
                     let coalesced_end_addr = addr + u64::from(data_size_coalesced) - 1;
                     if block_addr != line_size_based_tag_func(coalesced_end_addr, segment_size) {
                         todo!("check this again");
-                        // let block_addr = line_size_based_tag_func(coalesced_end_addr, segment_size);
-                        // let chunk = (coalesced_end_addr & 127) / 32;
-                        // let tx = subwarp_transactions.entry(block_addr).or_default();
-                        // tx.chunk_mask.set(chunk as usize, true);
-                        // tx.active_mask.set(thread_id, true);
-                        // for i in 0..data_size_coalesced {
-                        //     let next_idx = idx as usize + i as usize;
-                        //     if next_idx < (MAX_MEMORY_ACCESS_SIZE as usize) {
-                        //         tx.byte_mask.set(next_idx, true);
-                        //     }
-                        // }
                     }
 
                     access += 1;
@@ -1156,8 +997,6 @@ impl WarpInstruction {
                     {
                         four_byte_mask.set(word, active);
                     }
-                    // let byte_mask_string =
-                    //     format!("{:<128}", subwarp_access.byte_mask[..128].to_bit_string());
                     let byte_mask_string = format!("{:<32}", four_byte_mask[..32].to_bit_string());
 
                     // this is horribly inefficient
@@ -1170,10 +1009,6 @@ impl WarpInstruction {
                         .collect::<Vec<String>>()
                         .join("|");
 
-                    let rel_block_addr = allocations
-                        .get(block_addr)
-                        .map(|allocation| block_addr - allocation.start_addr);
-
                     let addr =
                         *block_addr + subwarp_access.byte_mask.first_one().unwrap_or(0) as u64;
                     let rel_addr = allocations
@@ -1185,7 +1020,6 @@ impl WarpInstruction {
                         i,
                         rel_addr.unwrap_or(0),
                         block_addr,
-                        // rel_block_addr.unwrap_or(0),
                         if diff < 0 { "-" } else { "+" },
                         diff.abs(),
                         subwarp_access.chunk_mask[..4].to_bit_string(),
@@ -1198,7 +1032,6 @@ impl WarpInstruction {
             // step 2: reduce each transaction size, if possible
             self.mem_access_queue
                 .extend(subwarp_accesses.into_iter().map(|(block_addr, tx)| {
-                    // dbg!(&tx);
                     memory_coalescing_arch_reduce(
                         is_write,
                         access_kind,
@@ -1210,7 +1043,6 @@ impl WarpInstruction {
                 }));
 
             assert!(
-                // self.active_mask.not_any() || !accesses.is_empty(),
                 self.active_mask.not_any() || !self.mem_access_queue.is_empty(),
                 "active memory instruction must coalesce to at least one access"
             );
@@ -1219,9 +1051,9 @@ impl WarpInstruction {
         {
             let allocations = allocations.read();
             for access in self.mem_access_queue.iter_mut() {
-                // set mem accesses allocation start addr, because only core knows
+                // set mem accesses allocation start addr,
+                // because only core knows
                 access.allocation = allocations.get(&access.addr).cloned();
-                // access.allocation = allocations.try_read().get(&access.addr).cloned();
             }
         }
 
@@ -1233,23 +1065,5 @@ impl WarpInstruction {
             mean_transaction_size,
             self.mem_access_queue.iter().map(ToString::to_string).collect::<Vec<_>>()
         );
-        // if accesses.len() == warp_parts {
-        //     for access in accesses.iter() {
-        //         log::warn!(
-        //             "tx: {} data size={} bytes={} num uncoalesced accesses={}",
-        //             access,
-        //             access.data_size(),
-        //             access.byte_mask[..128].to_bit_string(),
-        //             access.num_uncoalesced_accesses()
-        //         );
-        //     }
-        // }
-        // println!(
-        //     "coalesced warp instruction {self} into {} transactions (transaction size={:2.2})",
-        //     accesses.len(),
-        //     mean_transaction_size,
-        //     self.active_mask.count_ones() as f32 / accesses.len() as f32,
-        // );
-        // &accesses.into_iter()
     }
 }

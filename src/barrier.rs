@@ -64,12 +64,10 @@ pub trait Barrier: std::fmt::Debug + Sync + Send + 'static {
 }
 
 impl Barrier for BarrierSet {
-    // #[inline]
     fn is_waiting_at_barrier(&self, warp_id: usize) -> bool {
         self.warps_at_barrier[warp_id]
     }
 
-    // #[inline]
     fn allocate(&mut self, block_id: u64, warps: core::WarpMask) {
         assert!(block_id < self.max_blocks_per_core as u64);
         assert!(
@@ -90,7 +88,6 @@ impl Barrier for BarrierSet {
         }
     }
 
-    // #[inline]
     fn deallocate(&mut self, block_id: u64) {
         let Some(warps_in_block) = self.warps_per_block.remove(&block_id) else {
             return;
@@ -112,10 +109,10 @@ impl Barrier for BarrierSet {
         }
     }
 
-    // #[inline]
     fn warp_exited(&mut self, warp_id: usize) {
-        // caller needs to verify all threads in warp are done, e.g., by checking PDOM
-        // stack to see it has only one entry during exit_impl()
+        // caller needs to verify all threads in warp are done,
+        // e.g., by checking PDOM stack to see it has only one
+        // entry during exit_impl()
         self.active_warps.set(warp_id, false);
 
         // test for barrier release
@@ -127,7 +124,8 @@ impl Barrier for BarrierSet {
         for bar_id in 0..self.max_barriers_per_block {
             let at_a_specific_barrier = *warps_in_block & self.bar_id_to_warps[bar_id];
             if at_a_specific_barrier == active {
-                // all warps have reached barrier, so release waiting warps...
+                // all warps have reached barrier,
+                // so release waiting warps...
                 self.bar_id_to_warps[bar_id] &= !at_a_specific_barrier;
                 self.warps_at_barrier &= !at_a_specific_barrier;
             }
@@ -160,24 +158,24 @@ impl Barrier for BarrierSet {
         let active = warps_in_block & self.active_warps;
         match bar.count {
             Some(count) => {
-                // TODO: check on the hardware if the count should include warp that exited
+                // TODO: check on the hardware if the count
+                // should include warp that exited
                 if at_barrier.count_ones() * self.warp_size == count {
                     // warps have reached barrier, so release waiting warps
                     self.bar_id_to_warps[bar.id] &= !at_barrier;
                     self.warps_at_barrier &= !at_barrier;
                     if bar.kind == Kind::Reduction {
-                        // m_shader->broadcast_barrier_reduction(cta_id, bar_id, at_barrier);
                         todo!("bar reduciton");
                     }
                 }
             }
             None => {
                 if at_barrier == active {
-                    // all warps have reached barrier, so release waiting warps...
+                    // all warps have reached barrier,
+                    // so release waiting warps...
                     self.bar_id_to_warps[bar.id] &= !at_barrier;
                     self.warps_at_barrier &= !at_barrier;
                     if bar.kind == Kind::Reduction {
-                        // m_shader->broadcast_barrier_reduction(cta_id, bar_id, at_barrier);
                         todo!("bar reduciton");
                     }
                 }

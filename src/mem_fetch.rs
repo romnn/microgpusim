@@ -60,7 +60,6 @@ pub enum Status {
 }
 
 pub mod access {
-    use crate::mem_sub_partition::NUM_SECTORS;
     use serde::{Deserialize, Serialize};
     use trace_model::ToBitString;
 
@@ -142,37 +141,31 @@ pub mod access {
 
     impl Kind {
         #[must_use]
-        // #[inline]
         pub fn is_inst(&self) -> bool {
             *self == Kind::INST_ACC_R
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_global(&self) -> bool {
             matches!(self, Kind::GLOBAL_ACC_R | Kind::GLOBAL_ACC_W)
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_local(&self) -> bool {
             matches!(self, Kind::LOCAL_ACC_R | Kind::LOCAL_ACC_W)
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_texture(&self) -> bool {
             *self == Kind::TEXTURE_ACC_R
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_const(&self) -> bool {
             *self == Kind::CONST_ACC_R
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_write(&self) -> bool {
             match self {
                 Kind::GLOBAL_ACC_R
@@ -232,7 +225,6 @@ pub mod access {
 
     impl std::fmt::Display for MemAccess {
         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            // write!(f, "Access({:?}@", self.kind)?;
             write!(f, "{:?}@", self.kind)?;
             if let Some(ref alloc) = self.allocation {
                 write!(f, "{}+{}", &alloc.id, self.addr - alloc.start_addr)
@@ -288,40 +280,23 @@ pub mod access {
 
     impl MemAccess {
         #[must_use]
-        #[inline]
         pub fn relative_addr(&self) -> Option<super::address> {
             self.allocation
                 .as_ref()
                 .and_then(|alloc| alloc.relative_addr(self.addr))
-            // .map(|alloc| alloc.start_addr)
-            // .and_then(|start| self.addr.checked_sub(start))
         }
 
-        // #[inline]
         #[must_use]
         pub fn allocation_id(&self) -> Option<usize> {
             self.allocation.as_ref().map(|alloc| alloc.id)
         }
 
-        // // #[inline]
-        // #[deprecated = "this is not the place to compute transaction size"]
-        // #[must_use]
-        // pub fn num_transactions(&self) -> usize {
-        //     1
-        //     // let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
-        //     // (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
-        // }
-
         #[must_use]
         pub fn num_uncoalesced_accesses(&self) -> usize {
             self.num_uncoalesced_accesses
-            // 1
-            // let transaction_size = crate::WARP_SIZE / NUM_SECTORS;
-            // (self.warp_active_mask.count_ones() as f32 / transaction_size as f32).ceil() as usize
         }
 
         #[must_use]
-        // #[inline]
         pub fn control_size(&self) -> u32 {
             if self.is_write {
                 u32::from(super::WRITE_PACKET_SIZE)
@@ -330,31 +305,26 @@ pub mod access {
             }
         }
 
-        // #[inline]
         pub fn kernel_launch_id(&self) -> Option<usize> {
             self.kernel_launch_id
         }
 
         #[must_use]
-        // #[inline]
         pub fn is_write(&self) -> bool {
             self.kind.is_write()
         }
 
         #[must_use]
-        // #[inline]
         pub fn num_bytes(&self) -> usize {
             self.byte_mask.count_ones()
         }
 
         #[must_use]
-        // #[inline]
         pub fn data_size(&self) -> u32 {
             self.req_size_bytes
         }
 
         #[must_use]
-        // #[inline]
         pub fn size(&self) -> u32 {
             self.data_size() + self.control_size()
         }
@@ -383,7 +353,6 @@ pub struct MemFetch {
     // sector requests at L2 cache (if the req size > L2 sector
     // size), so the pointer refers to the original request
     pub original_fetch: Option<Box<MemFetch>>,
-    // pub original_fetch: Option<Box<MemFetch>>,
 
     // this fetch refers to the original write req,
     // when fetch-on-write policy is used
@@ -409,28 +378,12 @@ impl Eq for MemFetch {}
 impl PartialEq for MemFetch {
     fn eq(&self, other: &Self) -> bool {
         self.uid == other.uid
-        // self.access == other.access
-        //     && self.tlx_addr == other.tlx_addr
-        //     && self.partition_addr == other.partition_addr
-        //     && self.control_size == other.control_size
-        //     && self.data_size == other.data_size
-        //     && self.warp_id == other.warp_id
-        //     && self.core_id == other.core_id
-        //     && self.cluster_id == other.cluster_id
     }
 }
 
 impl std::hash::Hash for MemFetch {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.uid.hash(state);
-        // self.access.hash(state);
-        // self.tlx_addr.hash(state);
-        // self.partition_addr.hash(state);
-        // self.control_size.hash(state);
-        // self.data_size.hash(state);
-        // self.warp_id.hash(state);
-        // self.core_id.hash(state);
-        // self.cluster_id.hash(state);
     }
 }
 
@@ -440,40 +393,15 @@ impl From<&MemFetch> for stats::mem::Access {
             addr: fetch.access.addr,
             relative_addr: fetch.access.relative_addr(),
             allocation_id: fetch.access.allocation_id(),
-            // /// Requested address.
-            // pub addr: super::address,
-            // /// The allocation that this access corresponds to.
-            // pub allocation: Option<crate::allocation::Allocation>,
             kernel_launch_id: fetch.access.kernel_launch_id(),
-            // // TODO: is_write could be computed using kind.is_write()
-            // pub is_write: bool,
-            // /// Requested number of bytes.
             requested_bytes: fetch.access.req_size_bytes,
-            // /// Access kind.
             kind: fetch.access.kind.into(),
-            // /// Warp active mask of the warp that issued this access.
-            // pub warp_active_mask: crate::warp::ActiveMask,
-            // /// Byte mask.
-            // byte_mask: fetch.access.byte_mask,
-            // sector_mask: fetch.access.sector_mask,
-
-            // uid: u64,
-            // access: access::MemAccess,
-            // access: access::MemAccess,
-            // instr: Option<WarpInstruction>,
             physical_addr: fetch.physical_addr.clone().into(),
-            // partition_addr: fetch.partition_addr,
-            // kind: fetch.kind.into(),
             warp_id: fetch.warp_id,
             global_core_id: fetch.global_core_id,
             cluster_id: fetch.cluster_id,
             inject_cycle: fetch.inject_cycle,
             return_cycle: fetch.return_cycle,
-            // status: Status,
-            // last_status_change: Option<u64>,
-            // original_fetch: Option<Box<MemFetch>>,
-            // original_write_fetch: Option<Box<MemFetch>>,
-            // latency: u64,
         }
     }
 }
@@ -488,7 +416,6 @@ pub struct Builder {
     pub global_core_id: Option<usize>,
     pub cluster_id: Option<usize>,
     pub physical_addr: mcu::PhysicalAddress,
-    // pub partition_addr: address,
 }
 
 /// Generate a unique ID that can be used to identify fetch requests
@@ -512,7 +439,6 @@ impl Builder {
             global_core_id: self.global_core_id,
             cluster_id: self.cluster_id,
             physical_addr: self.physical_addr,
-            // partition_addr: self.partition_addr,
             kind,
             status: Status::INITIALIZED,
             inject_cycle: None,
@@ -532,13 +458,11 @@ impl From<Builder> for MemFetch {
 }
 
 impl MemFetch {
-    // #[inline]
     #[must_use]
     pub fn allocation_id(&self) -> Option<usize> {
         self.access.allocation_id()
     }
 
-    // #[inline]
     pub fn is_atomic(&self) -> bool {
         self.instr
             .as_ref()
@@ -546,7 +470,6 @@ impl MemFetch {
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_texture(&self) -> bool {
         self.instr.as_ref().map_or(false, |inst| {
             inst.memory_space == Some(MemorySpace::Texture)
@@ -554,7 +477,6 @@ impl MemFetch {
     }
 
     #[must_use]
-    // #[inline]
     pub fn base_addr(&self) -> Option<address> {
         self.instr
             .as_ref()
@@ -563,7 +485,6 @@ impl MemFetch {
     }
 
     #[must_use]
-    // #[inline]
     pub fn packet_size(&self) -> u32 {
         if self.is_write() || self.is_atomic() {
             self.size()
@@ -572,13 +493,11 @@ impl MemFetch {
         }
     }
 
-    // #[inline]
     pub fn kernel_launch_id(&self) -> Option<usize> {
         self.access.kernel_launch_id()
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_write(&self) -> bool {
         self.access.is_write
     }
@@ -588,7 +507,6 @@ impl MemFetch {
     /// This address is at the granularity that is used by the memory.
     /// E.g. requesting 4B will result in a request for a 32B sector (sector-aligned).
     #[must_use]
-    // #[inline]
     pub fn addr(&self) -> address {
         self.access.addr
     }
@@ -611,54 +529,45 @@ impl MemFetch {
     }
 
     #[must_use]
-    // #[inline]
     pub fn relative_addr(&self) -> Option<address> {
         self.access.relative_addr()
     }
 
     #[must_use]
-    // #[inline]
     pub fn data_size(&self) -> u32 {
         self.access.req_size_bytes
     }
 
     #[must_use]
-    // #[inline]
     pub fn control_size(&self) -> u32 {
         self.access.control_size()
     }
 
     #[must_use]
-    // #[inline]
     pub fn size(&self) -> u32 {
         self.data_size() + self.control_size()
     }
 
     #[must_use]
-    // #[inline]
     pub fn sub_partition_id(&self) -> usize {
         self.physical_addr.sub_partition as usize
     }
 
     #[must_use]
-    // #[inline]
     pub fn access_kind(&self) -> access::Kind {
         self.access.kind
     }
 
-    // #[inline]
     pub fn set_status(&mut self, status: Status, time: u64) {
         self.status = status;
         self.last_status_change = Some(time);
     }
 
     #[must_use]
-    // #[inline]
     pub fn is_reply(&self) -> bool {
         matches!(self.kind, Kind::READ_REPLY | Kind::WRITE_ACK)
     }
 
-    // #[inline]
     pub fn set_reply(&mut self) {
         assert!(!matches!(
             self.access.kind,

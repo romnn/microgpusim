@@ -64,8 +64,6 @@ pub struct Table<F> {
 }
 
 pub trait MSHR<F> {
-    // AllEntries() []*MSHREntry
-
     /// Checks if there is no more space for tracking a new memory access.
     #[must_use]
     fn full(&self, block_addr: address) -> bool;
@@ -82,14 +80,13 @@ pub trait MSHR<F> {
     fn add(&mut self, block_addr: address, fetch: F);
 
     /// Remove access.
-    // fn remove(&mut self, block_addr: address);
+    fn remove(&mut self, block_addr: address);
 
     /// Clear the miss status handling register.
     fn clear(&mut self);
 }
 
 impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
-    // #[inline]
     fn full(&self, block_addr: address) -> bool {
         match self.entries.get(&block_addr) {
             Some(entry) => entry.requests.len() >= self.max_merged,
@@ -97,22 +94,18 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
         }
     }
 
-    // #[inline]
     fn clear(&mut self) {
         self.entries.clear();
     }
 
-    // #[inline]
     fn get(&self, block_addr: address) -> Option<&Entry<mem_fetch::MemFetch>> {
         self.entries.get(&block_addr)
     }
 
-    // #[inline]
     fn get_mut(&mut self, block_addr: address) -> Option<&mut Entry<mem_fetch::MemFetch>> {
         self.entries.get_mut(&block_addr)
     }
 
-    // #[inline]
     fn add(&mut self, block_addr: address, fetch: mem_fetch::MemFetch) {
         let entry = self.entries.entry(block_addr).or_default();
 
@@ -124,10 +117,9 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
         assert!(self.entries.len() <= self.num_entries);
     }
 
-    // #[inline]
-    // fn remove(&mut self, block_addr: address) {
-    //     self.entries.remove(&block_addr);
-    // }
+    fn remove(&mut self, block_addr: address) {
+        self.entries.remove(&block_addr);
+    }
 }
 
 impl Table<mem_fetch::MemFetch> {

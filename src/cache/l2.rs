@@ -59,7 +59,6 @@ impl<MC> cache::CacheController for L2DataCacheController<MC>
 where
     MC: crate::mcu::MemoryController,
 {
-    // #[inline]
     fn tag(&self, addr: address) -> address {
         // For generality, the tag includes both index and tag.
         // This allows for more complex set index calculations that
@@ -77,13 +76,11 @@ where
         // self.cache_controller.tag(addr)
     }
 
-    // #[inline]
     fn block_addr(&self, addr: address) -> address {
         self.tag(addr)
         // self.cache_controller.block_addr(addr)
     }
 
-    // #[inline]
     fn set_index(&self, addr: address) -> u64 {
         use cache::set_index::SetIndexer;
         if self.accelsim_compat {
@@ -127,13 +124,11 @@ where
         // self.cache_controller.set_index(partition_addr)
     }
 
-    // #[inline]
     fn set_bank(&self, _addr: address) -> u64 {
         // not banked
         0
     }
 
-    // #[inline]
     fn mshr_addr(&self, addr: address) -> address {
         // TODO: ROMAN changed to block size as well, such that we maybe overfetch
         // addr & !address::from(self.cache_config.line_size - 1)
@@ -184,19 +179,6 @@ where
     }
 }
 
-impl<MC> DataL2<MC> {
-    // #[inline]
-    // pub fn set_top_port(&mut self, port: ic::Port<mem_fetch::MemFetch>) {
-    //     self.inner.set_top_port(port);
-    // }
-}
-
-// impl<MC> crate::engine::cycle::Component for DataL2<MC> {
-//     fn cycle(&mut self, cycle: u64) {
-//         self.inner.cycle(cycle);
-//     }
-// }
-
 impl<MC> super::Cache for DataL2<MC>
 where
     MC: crate::mcu::MemoryController,
@@ -209,11 +191,6 @@ where
         self.inner.cycle(top_port, cycle);
     }
 
-    // fn top_port(&mut self) -> Option<&mut dyn ic::Connection<ic::Packet<mem_fetch::MemFetch>>> {
-    //     self.inner.top_port()
-    // }
-
-    // #[inline]
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -233,22 +210,18 @@ where
         self.inner.inner.tag_array.write_state(csv_writer)
     }
 
-    // #[inline]
     fn write_allocate_policy(&self) -> cache::config::WriteAllocatePolicy {
         self.inner.write_allocate_policy()
     }
 
-    // #[inline]
     fn has_ready_accesses(&self) -> bool {
         self.inner.has_ready_accesses()
     }
 
-    // #[inline]
     fn ready_accesses(&self) -> Option<&VecDeque<mem_fetch::MemFetch>> {
         self.inner.ready_accesses()
     }
 
-    // #[inline]
     fn pop_next_ready_access(&mut self) -> Option<mem_fetch::MemFetch> {
         self.inner.pop_next_ready_access()
     }
@@ -257,7 +230,6 @@ where
     ///
     /// returns `RequestStatus::RESERVATION_FAIL` if
     /// request could not be accepted (for any reason)
-    // #[inline]
     fn access(
         &mut self,
         addr: address,
@@ -268,22 +240,18 @@ where
         self.inner.access(addr, fetch, events, time)
     }
 
-    // #[inline]
     fn waiting_for_fill(&self, fetch: &mem_fetch::MemFetch) -> bool {
         self.inner.waiting_for_fill(fetch)
     }
 
-    // #[inline]
     fn fill(&mut self, fetch: mem_fetch::MemFetch, time: u64) {
         self.inner.fill(fetch, time);
     }
 
-    // #[inline]
     fn flush(&mut self) -> usize {
         self.inner.flush()
     }
 
-    // #[inline]
     fn invalidate(&mut self) {
         self.inner.invalidate();
     }

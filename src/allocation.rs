@@ -12,7 +12,6 @@ pub struct Allocation {
 }
 
 impl Allocation {
-    #[inline]
     pub fn relative_addr(&self, addr: u64) -> Option<super::address> {
         addr.checked_sub(self.start_addr)
     }
@@ -67,7 +66,6 @@ pub struct Allocations(RwLock<rangemap::RangeMap<address, Allocation>>);
 
 impl std::ops::Deref for Allocations {
     type Target = RwLock<rangemap::RangeMap<address, Allocation>>;
-    // type Target = rangemap::RangeMap<address, Allocation>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -81,16 +79,6 @@ impl Default for Allocations {
 }
 
 impl Allocations {
-    // pub fn iter(&self) -> rangemap::map::Iter<'_, u64, Allocation> {
-    //     let lock = self.0.read();
-    //     lock.iter()
-    // }
-    //
-    // pub fn get(&self, addr: &address) -> Option<&Allocation> {
-    //     let lock = self.0.read();
-    //     lock.get(addr)
-    // }
-
     pub fn insert(&self, range: std::ops::Range<address>, name: Option<String>) {
         let mut lock = self.0.write();
 
@@ -98,11 +86,6 @@ impl Allocations {
         if lock.overlaps(&range) {
             log::warn!("overlapping memory allocation {:?}", &range);
         }
-        // assert!(
-        //     !self.0.overlaps(&range),
-        //     "overlapping memory allocation {:?}",
-        //     &range
-        // );
         let id = lock.len() + 1; // zero is reserved for instructions
         let start_addr = range.start;
         let end_addr = Some(range.end);
