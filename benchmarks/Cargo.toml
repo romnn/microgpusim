@@ -2,14 +2,10 @@
 name = "gpucachesim-benchmarks"
 version = "0.1.0"
 edition = "2021"
-# default-run = "benchmarks"
+publish = false
 
 [[bin]]
 name = "pchase"
-
-# [[bin]]
-# name = "benchmarks"
-# path = "src/main.rs"
 
 [dependencies]
 num-traits = "0"

@@ -107,7 +107,6 @@ pub fn run_box(
     config.simulation_threads = threads;
     config.fill_l2_on_memcopy = false;
     config.perfect_inst_const_cache = true;
-    assert!(!gpucachesim::is_debug());
     let start = Instant::now();
     let sim = gpucachesim::accelmain(traces_dir, config)?;
     let dur = start.elapsed();
@@ -119,7 +118,6 @@ pub fn run_box(
 pub async fn run_accelsim(
     bench_config: Arc<BenchmarkConfig>,
 ) -> eyre::Result<(String, accelsim::Stats, Duration)> {
-    assert!(!validate::accelsim::is_debug());
     let (log, dur) = validate::accelsim::simulate_bench_config(&bench_config).await?;
     let parse_options = accelsim::parser::Options::default();
     let log_reader = std::io::Cursor::new(&log.stdout);
@@ -136,7 +134,6 @@ pub fn run_playground(
 ) -> eyre::Result<(String, playground::stats::Stats, Duration)> {
     let accelsim_compat_mode = false;
     let extra_args: &[String] = &[];
-    assert!(!validate::playground::is_debug());
     let result = validate::playground::simulate_bench_config(
         bench_config,
         TraceProvider::Box,
@@ -260,6 +257,9 @@ fn main() -> eyre::Result<()> {
     use std::io::Write;
 
     color_eyre::install()?;
+
+    #[cfg(not(feature = "local-data"))]
+    return Ok(());
 
     // clap parsing does not work when running "cargo bench ..."
     // let options = Options::parse();
