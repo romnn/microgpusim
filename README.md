@@ -1,119 +1,71 @@
-## box
+## GPUcachesim
 
-#### Prerequisites
+GPUcachesim is a cycle-level, trace-driven, parallel GPU simulator
+written in Rust.
 
-Install the latest CUDA 11 toolkit.
+As of now, the simulator is validated for the NVIDIA Pascal architecture
+but extensible to model various hardware configurations.
 
-```bash
-wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-# this will not attempt to also install the CUDA driver
-sudo sh cuda_11.8.0_520.61.05_linux.run --toolkit --silent --override
-```
+###### Project goals
 
-#### Building
+- provide a modular and extensible simulation framework
+- support for fast, multi-threaded simulation powered by Rust
+- provide pre-configured base configurations for hardware
+- usability-first: we aim to improve UX and DX over existing simulators
 
-```bash
-cargo build --release --workspace --all-targets
-cargo build -p trace --release # single package
-```
+**Note**
+GPUcachesim is evolving rapidly at the moment, hence API's and code may undergo large changes in the near future.
+For that reason, we restrain from publishing versioned packages to https://crates.io.
+However, it is absolutely possible to clone or fork this repository to try things out.
 
-**Note**: To speed up build across workspaces, we strongly recommend to use `sccache`.
-Instructions for installing and setting up `sccache` can be found
-[here](https://github.com/mozilla/sccache#installation).
+#### Try it out
 
-#### Trace an application
+- **Step 0:** Build GPUcachesim from source
 
-```bash
-# using our box memory tracer
-LD_PRELOAD=./target/release/libtrace.so <executable> [args]
-LD_PRELOAD=./target/release/libtrace.so ./test-apps/vectoradd/vectoradd 100 32
+  ```bash
+  $ git clone https://github.com/romnn/gpucachesim
+  $ cd gpucachesim
+  $ cargo build --release # build the simulator
+  $ cargo build -p trace --release # build the tracer
+  ```
 
-# using the accelsim tracer
-./target/release/accelsim-trace ./test-apps/vectoradd/vectoradd 100 32
-```
+- **Step 1:** Trace an application
 
-See the [accelsim instructions](accelsim/README.md).
+  GPUcachesim is a trace-driven simulator, hence we must first trace
+  an input application.
+  Any compiled CUDA application should work!
 
-#### Profile an application
+  ```bash
+  $ TRACES_DIR=./traces/ LD_PRELOAD=./target/release/libtrace.so <executable> [args]
+  ```
 
-```bash
-cargo build --release --workspace --all-targets
-sudo ./target/release/profile <executable> [args]
-sudo ./target/release/validate ./test-apps/simple_matrixmul/matrixmul 32 32
+  We do provide a few test applications.
+  Assuming a working CUDA compilation toolchain, you can build the
+  simple `vectoradd` example.
 
-./accelsim/gtx1080/accelsim_mem_debug_trace.txt
-```
+  ```bash
+  $ make -Bj -C ./test-apps/vectoradd/
+  $ TRACES_DIR=./traces/ LD_PRELOAD=./target/release/libtrace.so ./test-apps/vectoradd/vectoradd_l1_enabled 100 32
+  $ ls ./traces/ # allocations.json, commands.json, kernel-0.msgpack
+  ```
 
-#### Run simulation
+  After tracing, the `./traces` directory will contain a list of
+  traced memory allocations (`allocations.json`), traced CUDA commands
+  (e.g. CUDA memory transfers and kernel launches), as well as
+  binary encoded instruction traces for each kernel launched.
+  The `vectoradd_l1_enabled` application launches a single kernel, hence we
+  only find `kernel-0.msgpack`.
 
-```bash
-cargo run -- --path test-apps/vectoradd/traces/vectoradd-100-32-trace/
-```
+- **Step 2:** Simulate the trace
 
-#### Python package
+  To simulate the traced application, just pass `commands.json`
+  to GPUcachesim:
 
-```bash
-python setup.py develop --force
-```
+  ```bash
+  $ ./target/release/gpucachesim ./traces/commands.json
+  ```
 
-#### Testing
+  To use deterministic parallel simulation, use the `--parallel` flag.
+  For maximum performance, try `--nondeterministic 10`.
 
-```bash
-cargo test --workspace -- --test-threads=1
-```
-
-Performance profiling
-
-First, configure [permissions for running perf on linux](https://github.com/flamegraph-rs/flamegraph#enabling-perf-for-use-by-unprivileged-users).
-
-Check [this](https://github.com/flamegraph-rs/flamegraph) on how to setup flamegraphs.
-Here is a TLDR for x86 linux:
-
-```bash
-sudo apt install linux-tools-common linux-tools-generic linux-tools-$(uname -r)
-echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
-echo 0 | sudo tee /proc/sys/kernel/kptr_restrict
-cargo install flamegraph
-cargo flamegraph --bin=gpucachesim -- --path ./results/vectorAdd/vectorAdd-10000-32/trace
-```
-
-```bash
-cargo install cargo-criterion
-cargo criterion -- vectoradd
-```
-
-```bash
-valgrind --tool=drd --exclusive-threshold=10 ./target/release/gpucachesim --parallel --non-deterministic 2 ./results/vectorAdd/vectorAdd-dtype-32-length-100/trace/commands.json
-```
-
-Coverage
-
-```bash
-# install coverage tooling
-rustup component add llvm-tools-preview
-cargo install grcov
-
-# collect code coverage in tests (todo)
-cargo xtask coverage
-
-cargo xtask accelsim convert-config -c ./accelsim/gtx1080/gpgpusim.config -c ./accelsim/gtx1080/gpgpusim.trace.config -o output.config
-```
-
-Publishing traces (used by CI)
-
-```bash
-rclone sync ./results drive:gpucachesim
-```
-
-#### Missing features and current limitations
-
-- only traces and executes memory instructions and exit instructions
-  - note: divergent control flow is still captured during the trace by the active thread mask
-- currently lacks write hit handlers
-- currently lacks a cycle accurate interconnect
-- currently lacks texture and constant caches (will panic on the latter instructions)
-
-#### Goals
-
-- step 1: we want to count memory accesses to L1, L2, DRAM
-- step 2: we want to count cache hits and misses
+  For more available options, see `gpucachesim  --help`.
