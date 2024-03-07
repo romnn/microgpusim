@@ -11,7 +11,7 @@ crate-type = ["rlib"]
 name = "accelsim-parse"
 
 [features]
-default  = ["local-data"]
+default  = []
 local-data = []
 
 [package.metadata.cargo-feature-combinations]

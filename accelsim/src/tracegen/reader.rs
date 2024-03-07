@@ -44,12 +44,10 @@ pub fn parse_dim(value: &str) -> Option<Dim> {
     Some(Dim { x, y, z })
 }
 
-// #[inline]
 fn missing(k: &str) -> eyre::Report {
     eyre::eyre!("missing {k}")
 }
 
-// #[inline]
 pub fn parse_decimal<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: std::str::FromStr,
@@ -62,7 +60,6 @@ where
     Ok(value)
 }
 
-// #[inline]
 pub fn parse_hex<T>(value: Option<&str>, name: &str) -> eyre::Result<T>
 where
     T: num_traits::Num,
@@ -122,10 +119,12 @@ pub fn parse_kernel_launch(
             // the trace format, ignore this and assume fixed format for now
             // the begin of the instruction stream
             break;
-        } else if line.starts_with('-') {
+        }
+        if line.starts_with('-') {
             let (key, value) = line
                 .split_once('=')
                 .ok_or(eyre::eyre!("bad key value pair {:?}", line))?;
+            dbg!(&key, &value);
             let key = key.trim().trim_start_matches('-').trim();
             let key: Vec<_> = key.split(' ').map(str::trim).collect();
             let value = value.trim();
@@ -216,7 +215,6 @@ pub fn read_commands(
     Ok(commands)
 }
 
-// #[inline]
 fn base_stride_decompress(
     addrs: &mut [u64],
     base_address: u64,
@@ -241,7 +239,6 @@ fn base_stride_decompress(
     }
 }
 
-// #[inline]
 fn base_delta_decompress(
     addrs: &mut [u64],
     base_address: u64,
@@ -280,7 +277,6 @@ pub struct TraceInstruction {
     pub src_regs: Vec<u32>,
 }
 
-// #[inline]
 pub fn parse_single_trace_instruction(
     line: &[&str],
     trace_version: usize,
@@ -397,7 +393,6 @@ pub fn parse_single_trace_instruction(
     })
 }
 
-// #[inline]
 pub fn convert_instruction(
     trace_instruction: &TraceInstruction,
     block_id: Dim,
@@ -505,7 +500,9 @@ pub fn read_trace_instructions(
         if line.is_empty() {
             continue;
         }
-        // dbg!(&line);
+        if line.starts_with('-') {
+            continue;
+        }
         let parts: Vec<&str> = line.split(' ').map(str::trim).collect();
         match parts.as_slice() {
             ["#BEGIN_TB"] => {
@@ -517,6 +514,10 @@ pub fn read_trace_instructions(
                 assert!(start_of_tb_stream_found);
                 start_of_tb_stream_found = false;
                 instruction_idx = 0;
+            }
+            instruction if instruction[0].starts_with("#") => {
+                // comment
+                continue;
             }
             ["thread", "block", ..] => {
                 assert!(start_of_tb_stream_found);
@@ -711,7 +712,9 @@ mod tests {
             })
             .unwrap();
 
+        dbg!(&kernel);
         let kernel_trace_path = trace_dir.join(&kernel.trace_file);
+        dbg!(&kernel_trace_path);
         let reader = open_file(&kernel_trace_path)?;
         let mem_only = false;
         let trace = super::read_trace_instructions(
