@@ -9,6 +9,7 @@ pub mod accelsim;
 pub mod benchmark;
 #[cfg(feature = "cuda")]
 pub mod cuda;
+#[cfg(feature = "remote")]
 pub mod das;
 pub mod materialized;
 pub mod options;

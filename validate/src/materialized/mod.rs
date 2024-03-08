@@ -648,7 +648,7 @@ mod tests {
     pub fn init_test() {
         INIT.call_once(|| {
             env_logger::builder().is_test(true).init();
-            color_eyre::install().unwrap();
+            color_eyre::install().ok();
         });
     }
 

@@ -2,70 +2,75 @@
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599759360,
+            "device_ptr": 140191179210752,
+            "fill_l2": "Auto",
             "num_bytes": 2000
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599759360,
+            "dest_device_addr": 140191179210752,
             "num_bytes": 2000
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599761408,
+            "device_ptr": 140191179212800,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599761408,
+            "dest_device_addr": 140191179212800,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599761920,
+            "device_ptr": 140191179213312,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599761920,
+            "dest_device_addr": 140191179213312,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599762432,
+            "device_ptr": 140191179213824,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599762432,
+            "dest_device_addr": 140191179213824,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599762944,
+            "device_ptr": 140191179214336,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599762944,
+            "dest_device_addr": 140191179214336,
             "num_bytes": 32
         }
     },
@@ -89,10 +94,10 @@
             "num_registers": 2,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 139704313839616,
-            "shared_mem_addr_limit": 139704330616832,
-            "local_mem_base_addr": 139704280285184,
-            "local_mem_addr_limit": 139704297062400,
+            "shared_mem_base_addr": 140191876513792,
+            "shared_mem_addr_limit": 140191893291008,
+            "local_mem_base_addr": 140191842959360,
+            "local_mem_addr_limit": 140191859736576,
             "nvbit_version": "1.5.5",
             "device_properties": {
                 "unified_addressing": null,
@@ -109,70 +114,75 @@
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599763456,
+            "device_ptr": 140191179214848,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599763456,
+            "dest_device_addr": 140191179214848,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599763968,
+            "device_ptr": 140191179215360,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599763968,
+            "dest_device_addr": 140191179215360,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599764480,
+            "device_ptr": 140191179215872,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599764480,
+            "dest_device_addr": 140191179215872,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599764992,
+            "device_ptr": 140191179216384,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599764992,
+            "dest_device_addr": 140191179216384,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599765504,
+            "device_ptr": 140191179216896,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599765504,
+            "dest_device_addr": 140191179216896,
             "num_bytes": 32
         }
     },
@@ -196,10 +206,10 @@
             "num_registers": 2,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 139704313839616,
-            "shared_mem_addr_limit": 139704330616832,
-            "local_mem_base_addr": 139704280285184,
-            "local_mem_addr_limit": 139704297062400,
+            "shared_mem_base_addr": 140191876513792,
+            "shared_mem_addr_limit": 140191893291008,
+            "local_mem_base_addr": 140191842959360,
+            "local_mem_addr_limit": 140191859736576,
             "nvbit_version": "1.5.5",
             "device_properties": {
                 "unified_addressing": null,
@@ -216,28 +226,30 @@
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599766016,
+            "device_ptr": 140191179217408,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599766016,
+            "dest_device_addr": 140191179217408,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599766528,
+            "device_ptr": 140191179217920,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599766528,
+            "dest_device_addr": 140191179217920,
             "num_bytes": 32
         }
     },
@@ -261,10 +273,10 @@
             "num_registers": 2,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 139704313839616,
-            "shared_mem_addr_limit": 139704330616832,
-            "local_mem_base_addr": 139704280285184,
-            "local_mem_addr_limit": 139704297062400,
+            "shared_mem_base_addr": 140191876513792,
+            "shared_mem_addr_limit": 140191893291008,
+            "local_mem_base_addr": 140191842959360,
+            "local_mem_addr_limit": 140191859736576,
             "nvbit_version": "1.5.5",
             "device_properties": {
                 "unified_addressing": null,
@@ -281,28 +293,30 @@
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599767040,
+            "device_ptr": 140191179218432,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599767040,
+            "dest_device_addr": 140191179218432,
             "num_bytes": 32
         }
     },
     {
         "MemAlloc": {
             "allocation_name": null,
-            "device_ptr": 139703599767552,
+            "device_ptr": 140191179218944,
+            "fill_l2": "Auto",
             "num_bytes": 32
         }
     },
     {
         "MemcpyHtoD": {
             "allocation_name": null,
-            "dest_device_addr": 139703599767552,
+            "dest_device_addr": 140191179218944,
             "num_bytes": 32
         }
     },
@@ -326,10 +340,10 @@
             "num_registers": 2,
             "binary_version": 61,
             "stream_id": 0,
-            "shared_mem_base_addr": 139704313839616,
-            "shared_mem_addr_limit": 139704330616832,
-            "local_mem_base_addr": 139704280285184,
-            "local_mem_addr_limit": 139704297062400,
+            "shared_mem_base_addr": 140191876513792,
+            "shared_mem_addr_limit": 140191893291008,
+            "local_mem_base_addr": 140191842959360,
+            "local_mem_addr_limit": 140191859736576,
             "nvbit_version": "1.5.5",
             "device_properties": {
                 "unified_addressing": null,

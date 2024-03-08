@@ -181,6 +181,10 @@ __global__ void transposeCoalesced(float *odata, float *idata, int width,
     // load a tile to shared memory
     // each thread computes one column in the tile matrix
     // therefore there must exist TILE_DIM threads
+    // printf("block (%d, %d, %d) warp %d thread %d (%d, %d, %d) => load %d\n",
+    //        blockIdx.x, blockIdx.y, blockIdx.z, -1, -1, threadIdx.x,
+    //        threadIdx.y, threadIdx.z, index_in + i * width);
+
     tile[threadIdx.y + i][threadIdx.x] = idata[index_in + i * width];
   }
 
@@ -539,10 +543,10 @@ int main(int argc, char **argv) {
 
   // compute the scaling factor (for GPUs with fewer MPs)
   float scale_factor, total_tiles;
-  scale_factor =
-      max((192.0f / (_ConvertSMVer2Cores(deviceProp.major, deviceProp.minor) *
-                     (float)deviceProp.multiProcessorCount)),
-          1.0f);
+  scale_factor = std::max(
+      (192.0f / (_ConvertSMVer2Cores(deviceProp.major, deviceProp.minor) *
+                 (float)deviceProp.multiProcessorCount)),
+      1.0f);
 
   printf("> Device %d: \"%s\"\n", devID, deviceProp.name);
   printf("> SM Capability %d.%d detected:\n", deviceProp.major,

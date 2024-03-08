@@ -17,7 +17,7 @@ vectoradd_l1_enabled:
 	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -flcm=ca" vectoradd.cu -o vectoradd_l1_enabled
 
 vectoradd_l1_disabled:
-	nvcc -ccbin=$(CXX) -lineinfo -Xptxas="-O3 -flcm=cg -fscm=cg" vectoradd.cu -o vectoradd_l1_disabled
+	nvcc -ccbin=$(CXX) -lineinfo -gencode arch=compute_61,code=sm_61 -gencode arch=compute_61,code=compute_61 -Xptxas="-O3 -flcm=cg -fscm=cg" vectoradd.cu -o vectoradd_l1_disabled
 
 clean:
 	rm -f vectoradd_l1_enabled

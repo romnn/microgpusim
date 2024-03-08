@@ -39,4 +39,4 @@ jobs:
           sub-packages: '["nvcc", "runtime", "profiler-api"]'
       - name: Build all
         run: >-
-          cargo build  --package "${{ matrix.package.name }}" --features "${{ matrix.package.features }}"
+          cargo build  --package "${{ matrix.package.name }}" --no-default-features --features "${{ matrix.package.features }}"

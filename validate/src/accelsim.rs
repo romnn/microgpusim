@@ -1,5 +1,4 @@
 use super::materialized::{self, BenchmarkConfig, TargetBenchmarkConfig};
-use crate::das::DAS;
 use crate::{
     open_writable,
     options::{self, Options},
@@ -7,7 +6,6 @@ use crate::{
 };
 use accelsim::tracegen;
 use color_eyre::{eyre, Help};
-use remote::{scp::Client as ScpClient, slurm::Client as SlurmClient, Remote};
 use std::fmt::Write;
 use std::path::Path;
 use std::time::Duration;
@@ -17,22 +15,27 @@ pub fn is_debug() -> bool {
     accelsim_sim::is_debug()
 }
 
-fn job_name(gpu: &str, executable: impl AsRef<Path> + Send, args: &[String]) -> String {
-    [
-        "accelsim-trace".to_string(),
-        gpu.replace(" ", "-"),
-        executable
-            .as_ref()
-            .file_stem()
-            .and_then(std::ffi::OsStr::to_str)
-            .unwrap_or("")
-            .to_string(),
-    ]
-    .iter()
-    .chain(args)
-    .map(String::as_str)
-    .collect::<Vec<&str>>()
-    .join("-")
+#[cfg(feature = "remote")]
+pub mod slurm {
+    use std::path::Path;
+
+    pub fn job_name(gpu: &str, executable: impl AsRef<Path> + Send, args: &[String]) -> String {
+        [
+            "accelsim-trace".to_string(),
+            gpu.replace(" ", "-"),
+            executable
+                .as_ref()
+                .file_stem()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or("")
+                .to_string(),
+        ]
+        .iter()
+        .chain(args)
+        .map(String::as_str)
+        .collect::<Vec<&str>>()
+        .join("-")
+    }
 }
 
 fn convert_traces_to_json(
@@ -79,10 +82,12 @@ pub async fn trace(
 
     utils::fs::create_dirs(traces_dir).map_err(eyre::Report::from)?;
 
-    let remote = if let (Some(das), Some(gpu)) = (&trace_options.das, &trace_options.gpu) {
-        Some((gpu, das.connect().await?))
-    } else {
-        None
+    let use_remote = options::use_remote(&trace_options.das, &trace_options.gpu);
+
+    #[cfg(feature = "remote")]
+    let trace_remote = match (&trace_options.das, &trace_options.gpu) {
+        (Some(das), Some(gpu)) => Some((gpu, das.connect().await?)),
+        _ => None,
     };
 
     let kernelslist = traces_dir.join("kernelslist.g");
@@ -95,185 +100,193 @@ pub async fn trace(
         nvbit_tracer_tool: None, // auto detect
         ..accelsim_trace::Options::default()
     };
-    let dur = if let Some((gpu, ref remote)) = remote {
-        let remote_repo = remote.remote_scratch_dir().join("gpucachesim");
-        dbg!(&remote_repo);
+    let dur = match use_remote {
+        #[cfg(feature = "remote")]
+        true => {
+            use crate::das::DAS;
+            use remote::{scp::Client as ScpClient, slurm::Client as SlurmClient, Remote};
 
-        let job_name = job_name(gpu, &bench.executable_path, &*bench.args);
-        dbg!(&job_name);
+            let (gpu, remote) = trace_remote.as_ref().unwrap();
+            let remote_repo = remote.remote_scratch_dir().join("gpucachesim");
+            dbg!(&remote_repo);
 
-        let remote_job_dir = remote.remote_scratch_dir().join("trace").join(&job_name);
-        dbg!(&remote_job_dir);
+            let job_name = slurm::job_name(gpu, &bench.executable_path, &*bench.args);
+            dbg!(&job_name);
 
-        remote.remove_dir(&remote_job_dir).await.ok();
-        remote.create_dir_all(&remote_job_dir).await?;
+            let remote_job_dir = remote.remote_scratch_dir().join("trace").join(&job_name);
+            dbg!(&remote_job_dir);
 
-        let remote_traces_dir = remote_job_dir.join("traces");
-        remote.create_dir_all(&remote_traces_dir).await?;
+            remote.remove_dir(&remote_job_dir).await.ok();
+            remote.create_dir_all(&remote_job_dir).await?;
 
-        let mut trace_cmd: Vec<String> = vec![
-            "--traces-dir".to_string(),
-            remote_traces_dir.to_string_lossy().to_string(),
-        ];
-        // if let Some(tracer_tool) = options.tracer_tool {
-        //     cmd.extend([
-        //         "--tracer-tool".to_string(),
-        //         tracer_tool.to_string_lossy().to_string(),
-        //     ])
-        // }
-        if let Some(number) = options.kernel_number {
-            trace_cmd.extend(["--kernel-number".to_string(), number.to_string()]);
-        }
+            let remote_traces_dir = remote_job_dir.join("traces");
+            remote.create_dir_all(&remote_traces_dir).await?;
 
-        if let Some(limit) = options.terminate_upon_limit {
-            trace_cmd.extend(["--terminate-upon-limit".to_string(), limit.to_string()]);
-        }
+            let mut trace_cmd: Vec<String> = vec![
+                "--traces-dir".to_string(),
+                remote_traces_dir.to_string_lossy().to_string(),
+            ];
+            // if let Some(tracer_tool) = options.tracer_tool {
+            //     cmd.extend([
+            //         "--tracer-tool".to_string(),
+            //         tracer_tool.to_string_lossy().to_string(),
+            //     ])
+            // }
+            if let Some(number) = options.kernel_number {
+                trace_cmd.extend(["--kernel-number".to_string(), number.to_string()]);
+            }
 
-        let remote_executable_path = remote_repo
-            .join("test-apps")
-            .join(&bench.rel_path)
-            .join(&bench.executable);
+            if let Some(limit) = options.terminate_upon_limit {
+                trace_cmd.extend(["--terminate-upon-limit".to_string(), limit.to_string()]);
+            }
 
-        trace_cmd.extend([
-            "--".to_string(),
-            remote_executable_path.to_string_lossy().to_string(),
-        ]);
-        trace_cmd.extend(bench.args.clone());
-        dbg!(&trace_cmd);
+            let remote_executable_path = remote_repo
+                .join("test-apps")
+                .join(&bench.rel_path)
+                .join(&bench.executable);
 
-        let remote_job_path = remote_job_dir.join("job.slurm");
-        let remote_stdout_path = remote_job_dir.join("stdout.log");
-        let remote_stderr_path = remote_job_dir.join("stderr.log");
-        dbg!(&remote_job_path);
+            trace_cmd.extend([
+                "--".to_string(),
+                remote_executable_path.to_string_lossy().to_string(),
+            ]);
+            trace_cmd.extend(bench.args.clone());
+            dbg!(&trace_cmd);
 
-        let remote_container_image = remote.remote_scratch_dir().join("accelsim.sif");
-        if let Some(ref local_container_image) = trace_options.container_image {
-            super::trace::upload_container_image(
-                remote,
-                &local_container_image,
-                &remote_container_image,
-                None,
-            )
-            .await?;
-        }
+            let remote_job_path = remote_job_dir.join("job.slurm");
+            let remote_stdout_path = remote_job_dir.join("stdout.log");
+            let remote_stderr_path = remote_job_dir.join("stderr.log");
+            dbg!(&remote_job_path);
 
-        // build slurm script
-        let mut slurm_script = String::new();
-        writeln!(&mut slurm_script, "#!/bin/sh").unwrap();
-        writeln!(slurm_script, "#SBATCH --job-name={}", job_name).unwrap();
-        writeln!(
-            slurm_script,
-            "#SBATCH --output={}",
-            remote_stdout_path.display()
-        )
-        .unwrap();
-        writeln!(
-            slurm_script,
-            "#SBATCH --error={}",
-            remote_stderr_path.display()
-        )
-        .unwrap();
+            let remote_container_image = remote.remote_scratch_dir().join("accelsim.sif");
+            if let Some(ref local_container_image) = trace_options.container_image {
+                super::trace::slurm::upload_container_image(
+                    remote,
+                    &local_container_image,
+                    &remote_container_image,
+                    None,
+                )
+                .await?;
+            }
 
-        let timeout = Some(Duration::from_secs(20 * 60));
-        if let Some(timeout) = timeout {
+            // build slurm script
+            let mut slurm_script = String::new();
+            writeln!(&mut slurm_script, "#!/bin/sh").unwrap();
+            writeln!(slurm_script, "#SBATCH --job-name={}", job_name).unwrap();
             writeln!(
                 slurm_script,
-                "#SBATCH --time={}",
-                remote::slurm::duration_to_slurm(&timeout)
+                "#SBATCH --output={}",
+                remote_stdout_path.display()
             )
             .unwrap();
+            writeln!(
+                slurm_script,
+                "#SBATCH --error={}",
+                remote_stderr_path.display()
+            )
+            .unwrap();
+
+            let timeout = Some(Duration::from_secs(20 * 60));
+            if let Some(timeout) = timeout {
+                writeln!(
+                    slurm_script,
+                    "#SBATCH --time={}",
+                    remote::slurm::duration_to_slurm(&timeout)
+                )
+                .unwrap();
+            }
+            writeln!(slurm_script, "#SBATCH -N 1").unwrap();
+            writeln!(slurm_script, "#SBATCH -C {}", gpu).unwrap();
+            writeln!(slurm_script, "#SBATCH --gres=gpu:1").unwrap();
+            writeln!(slurm_script, "module load cuda11.1/toolkit").unwrap();
+            writeln!(slurm_script, "echo $LD_LIBRARY_PATH").unwrap();
+            writeln!(slurm_script, "nvidia-smi").unwrap();
+
+            // try normal execution
+            writeln!(
+                slurm_script,
+                "{} {}",
+                remote_executable_path.to_string_lossy().to_string(),
+                bench.args.join(" ")
+            )
+            .unwrap();
+
+            // try tracing with container
+            write!(
+                slurm_script,
+                "singularity exec --env RUST_LOG=debug --cleanenv"
+            )
+            .unwrap();
+            writeln!(
+                slurm_script,
+                " --bind {}:{} --bind /cm:/cm --nv {} accelsim-trace {}",
+                remote.remote_scratch_dir().display(),
+                remote.remote_scratch_dir().display(),
+                remote_container_image.display(),
+                trace_cmd.join(" "),
+            )
+            .unwrap();
+
+            log::info!("slurm script:\n{}", &slurm_script);
+
+            // upload slurm script
+            remote
+                .upload_data(&remote_job_path, slurm_script.as_bytes(), None)
+                .await?;
+
+            let job_id = remote.submit_job(&remote_job_path).await?;
+            log::info!("slurm: submitted job <{}> [ID={}]", &job_name, job_id);
+
+            remote
+                .wait_for_job(job_id, Duration::from_secs(2), Some(2))
+                .await?;
+
+            let stdout = remote
+                .read_remote_file(&remote_stdout_path, true)
+                .await
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            log::info!("{}", stdout);
+
+            let stderr = remote
+                .read_remote_file(&remote_stderr_path, true)
+                .await
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !stderr.is_empty() {
+                log::error!("{}", stderr);
+            }
+
+            let generated_trace_files = remote.read_dir(&remote_traces_dir).await?;
+            log::info!(
+                "generated {} trace files: {:?}",
+                generated_trace_files.len(),
+                generated_trace_files
+            );
+
+            // download remote traces dir to local traces dir
+            log::info!(
+                "downloading {} to {}",
+                &remote_traces_dir.display(),
+                &options.traces_dir.display()
+            );
+            remote
+                .download_directory_recursive(&remote_traces_dir, &options.traces_dir)
+                .await?;
+
+            Duration::ZERO
         }
-        writeln!(slurm_script, "#SBATCH -N 1").unwrap();
-        writeln!(slurm_script, "#SBATCH -C {}", gpu).unwrap();
-        writeln!(slurm_script, "#SBATCH --gres=gpu:1").unwrap();
-        writeln!(slurm_script, "module load cuda11.1/toolkit").unwrap();
-        writeln!(slurm_script, "echo $LD_LIBRARY_PATH").unwrap();
-        writeln!(slurm_script, "nvidia-smi").unwrap();
+        _ => {
+            let dur = accelsim_trace::trace(&bench.executable_path, &bench.args, &options).await?;
 
-        // try normal execution
-        writeln!(
-            slurm_script,
-            "{} {}",
-            remote_executable_path.to_string_lossy().to_string(),
-            bench.args.join(" ")
-        )
-        .unwrap();
-
-        // try tracing with container
-        write!(
-            slurm_script,
-            "singularity exec --env RUST_LOG=debug --cleanenv"
-        )
-        .unwrap();
-        writeln!(
-            slurm_script,
-            " --bind {}:{} --bind /cm:/cm --nv {} accelsim-trace {}",
-            remote.remote_scratch_dir().display(),
-            remote.remote_scratch_dir().display(),
-            remote_container_image.display(),
-            trace_cmd.join(" "),
-        )
-        .unwrap();
-
-        log::info!("slurm script:\n{}", &slurm_script);
-
-        // upload slurm script
-        remote
-            .upload_data(&remote_job_path, slurm_script.as_bytes(), None)
-            .await?;
-
-        let job_id = remote.submit_job(&remote_job_path).await?;
-        log::info!("slurm: submitted job <{}> [ID={}]", &job_name, job_id);
-
-        remote
-            .wait_for_job(job_id, Duration::from_secs(2), Some(2))
-            .await?;
-
-        let stdout = remote
-            .read_remote_file(&remote_stdout_path, true)
-            .await
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        log::info!("{}", stdout);
-
-        let stderr = remote
-            .read_remote_file(&remote_stderr_path, true)
-            .await
-            .as_deref()
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if !stderr.is_empty() {
-            log::error!("{}", stderr);
+            let trace_dur_file = traces_dir.join("trace_time.json");
+            serde_json::to_writer_pretty(open_writable(trace_dur_file)?, &dur.as_millis())
+                .map_err(eyre::Report::from)?;
+            dur
         }
-
-        let generated_trace_files = remote.read_dir(&remote_traces_dir).await?;
-        log::info!(
-            "generated {} trace files: {:?}",
-            generated_trace_files.len(),
-            generated_trace_files
-        );
-
-        // download remote traces dir to local traces dir
-        log::info!(
-            "downloading {} to {}",
-            &remote_traces_dir.display(),
-            &options.traces_dir.display()
-        );
-        remote
-            .download_directory_recursive(&remote_traces_dir, &options.traces_dir)
-            .await?;
-
-        Duration::ZERO
-    } else {
-        let dur = accelsim_trace::trace(&bench.executable_path, &bench.args, &options).await?;
-
-        let trace_dur_file = traces_dir.join("trace_time.json");
-        serde_json::to_writer_pretty(open_writable(trace_dur_file)?, &dur.as_millis())
-            .map_err(eyre::Report::from)?;
-        dur
     };
 
     // convert accelsim traces to JSON for us to easily inspect

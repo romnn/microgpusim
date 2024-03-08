@@ -12,7 +12,7 @@ parallel = ["gpucachesim/parallel"]
 remote = ["dep:remote"]
 
 [package.metadata.cargo-feature-combinations]
-denylist = ["default"]
+denylist = ["default", "cuda"]
 
 [package.metadata.cargo-feature-combinations.matrix]
 need_cuda = true

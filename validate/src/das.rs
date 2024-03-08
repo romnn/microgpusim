@@ -1,44 +1,11 @@
+use crate::options;
 use color_eyre::eyre;
 use std::path::{Path, PathBuf};
 
 pub const DAS6_FORWARD_PORT: u16 = 2201;
 pub const DAS5_FORWARD_PORT: u16 = 2202;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Das {
-    Das5,
-    Das6,
-}
-
-#[derive(thiserror::Error, Debug)]
-#[error("failed to parse das cluster {value:?} must be either 5 or 6")]
-pub struct InvalidDas {
-    value: String,
-}
-
-impl TryFrom<&str> for Das {
-    type Error = InvalidDas;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.parse::<u32>() {
-            Ok(5) => Ok(Das::Das5),
-            Ok(6) => Ok(Das::Das6),
-            Err(_) | Ok(_) => Err(InvalidDas {
-                value: value.to_string(),
-            }),
-        }
-    }
-}
-
-impl std::str::FromStr for Das {
-    type Err = InvalidDas;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::try_from(value)
-    }
-}
-
-impl Das {
+impl options::Das {
     pub fn port(&self) -> u16 {
         match self {
             Self::Das5 => DAS5_FORWARD_PORT,
