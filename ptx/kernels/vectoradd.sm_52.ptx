@@ -1,0 +1,210 @@
+
+
+
+
+
+
+
+
+.version 7.8
+.target sm_52
+.address_size 64
+
+
+
+.visible .entry _Z21gpucachesim_skip_copyPfS_S_jj(
+.param .u64 _Z21gpucachesim_skip_copyPfS_S_jj_param_0,
+.param .u64 _Z21gpucachesim_skip_copyPfS_S_jj_param_1,
+.param .u64 _Z21gpucachesim_skip_copyPfS_S_jj_param_2,
+.param .u32 _Z21gpucachesim_skip_copyPfS_S_jj_param_3,
+.param .u32 _Z21gpucachesim_skip_copyPfS_S_jj_param_4
+)
+{
+.reg .pred %p<5>;
+.reg .f32 %f<4>;
+.reg .b32 %r<16>;
+.reg .b64 %rd<9>;
+.loc	1 22 0
+
+
+ld.param.u64 %rd2, [_Z21gpucachesim_skip_copyPfS_S_jj_param_0];
+ld.param.u64 %rd3, [_Z21gpucachesim_skip_copyPfS_S_jj_param_1];
+ld.param.u64 %rd4, [_Z21gpucachesim_skip_copyPfS_S_jj_param_2];
+ld.param.u32 %r7, [_Z21gpucachesim_skip_copyPfS_S_jj_param_3];
+ld.param.u32 %r8, [_Z21gpucachesim_skip_copyPfS_S_jj_param_4];
+.loc	1 27 3
+setp.eq.s32 %p1, %r8, 0;
+@%p1 bra $L__BB0_6;
+
+.loc	1 30 16
+mov.u32 %r10, %ctaid.x;
+mov.u32 %r11, %ntid.x;
+mov.u32 %r12, %tid.x;
+mad.lo.s32 %r1, %r10, %r11, %r12;
+.loc	1 31 10
+mov.u32 %r13, %nctaid.x;
+mul.lo.s32 %r2, %r13, %r11;
+.loc	1 27 3
+cvta.to.global.u64 %rd1, %rd4;
+mov.u32 %r14, 0;
+
+$L__BB0_2:
+.loc	1 0 3
+setp.ge.u32 %p2, %r1, %r7;
+.loc	1 30 5
+@%p2 bra $L__BB0_5;
+
+.loc	1 0 5
+mov.u32 %r15, %r1;
+
+$L__BB0_4:
+.loc	1 35 7
+mul.wide.s32 %rd7, %r15, 4;
+add.s64 %rd5, %rd2, %rd7;
+.loc	1 35 17
+.loc	2 134 86, function_name $L__info_string0, inlined_at 1 35 17
+
+	ld.global.nc.f32 %f1, [%rd5];
+
+	.loc	1 35 17
+add.s64 %rd6, %rd3, %rd7;
+.loc	1 35 32
+.loc	2 134 86, function_name $L__info_string0, inlined_at 1 35 32
+
+	ld.global.nc.f32 %f2, [%rd6];
+
+	.loc	1 35 32
+add.f32 %f3, %f1, %f2;
+add.s64 %rd8, %rd1, %rd7;
+st.global.f32 [%rd8], %f3;
+.loc	1 31 10
+add.s32 %r15, %r15, %r2;
+.loc	1 30 5
+setp.lt.u32 %p3, %r15, %r7;
+@%p3 bra $L__BB0_4;
+
+$L__BB0_5:
+.loc	1 27 30
+add.s32 %r14, %r14, 1;
+.loc	1 27 3
+setp.lt.u32 %p4, %r14, %r8;
+@%p4 bra $L__BB0_2;
+
+$L__BB0_6:
+.loc	1 48 1
+ret;
+
+}
+
+.visible .entry _Z6vecAddIdEvPT_S1_S1_i(
+.param .u64 _Z6vecAddIdEvPT_S1_S1_i_param_0,
+.param .u64 _Z6vecAddIdEvPT_S1_S1_i_param_1,
+.param .u64 _Z6vecAddIdEvPT_S1_S1_i_param_2,
+.param .u32 _Z6vecAddIdEvPT_S1_S1_i_param_3
+)
+{
+.reg .pred %p<2>;
+.reg .b32 %r<5>;
+.reg .f64 %fd<4>;
+.reg .b64 %rd<13>;
+.loc	1 115 0
+
+
+ld.param.u64 %rd2, [_Z6vecAddIdEvPT_S1_S1_i_param_0];
+ld.param.u64 %rd3, [_Z6vecAddIdEvPT_S1_S1_i_param_1];
+ld.param.u64 %rd4, [_Z6vecAddIdEvPT_S1_S1_i_param_2];
+ld.param.s32 %rd5, [_Z6vecAddIdEvPT_S1_S1_i_param_3];
+.loc	1 120 13
+mov.u32 %r1, %ctaid.x;
+mov.u32 %r2, %ntid.x;
+mov.u32 %r3, %tid.x;
+mad.lo.s32 %r4, %r1, %r2, %r3;
+cvt.u64.u32 %rd1, %r4;
+.loc	1 125 3
+setp.ge.u64 %p1, %rd1, %rd5;
+@%p1 bra $L__BB1_2;
+
+.loc	1 120 13
+cvta.to.global.u64 %rd6, %rd2;
+.loc	1 128 5
+shl.b64 %rd7, %rd1, 3;
+add.s64 %rd8, %rd6, %rd7;
+.loc	1 120 13
+cvta.to.global.u64 %rd9, %rd3;
+.loc	1 128 5
+add.s64 %rd10, %rd9, %rd7;
+ld.global.f64 %fd1, [%rd10];
+ld.global.f64 %fd2, [%rd8];
+add.f64 %fd3, %fd2, %fd1;
+.loc	1 120 13
+cvta.to.global.u64 %rd11, %rd4;
+.loc	1 128 5
+add.s64 %rd12, %rd11, %rd7;
+st.global.f64 [%rd12], %fd3;
+
+$L__BB1_2:
+.loc	1 133 1
+ret;
+
+}
+
+.visible .entry _Z6vecAddIfEvPT_S1_S1_i(
+.param .u64 _Z6vecAddIfEvPT_S1_S1_i_param_0,
+.param .u64 _Z6vecAddIfEvPT_S1_S1_i_param_1,
+.param .u64 _Z6vecAddIfEvPT_S1_S1_i_param_2,
+.param .u32 _Z6vecAddIfEvPT_S1_S1_i_param_3
+)
+{
+.reg .pred %p<2>;
+.reg .f32 %f<4>;
+.reg .b32 %r<5>;
+.reg .b64 %rd<13>;
+.loc	1 115 0
+
+
+ld.param.u64 %rd2, [_Z6vecAddIfEvPT_S1_S1_i_param_0];
+ld.param.u64 %rd3, [_Z6vecAddIfEvPT_S1_S1_i_param_1];
+ld.param.u64 %rd4, [_Z6vecAddIfEvPT_S1_S1_i_param_2];
+ld.param.s32 %rd5, [_Z6vecAddIfEvPT_S1_S1_i_param_3];
+.loc	1 120 13
+mov.u32 %r1, %ctaid.x;
+mov.u32 %r2, %ntid.x;
+mov.u32 %r3, %tid.x;
+mad.lo.s32 %r4, %r1, %r2, %r3;
+cvt.u64.u32 %rd1, %r4;
+.loc	1 125 3
+setp.ge.u64 %p1, %rd1, %rd5;
+@%p1 bra $L__BB2_2;
+
+.loc	1 120 13
+cvta.to.global.u64 %rd6, %rd2;
+.loc	1 128 5
+shl.b64 %rd7, %rd1, 2;
+add.s64 %rd8, %rd6, %rd7;
+.loc	1 120 13
+cvta.to.global.u64 %rd9, %rd3;
+.loc	1 128 5
+add.s64 %rd10, %rd9, %rd7;
+ld.global.f32 %f1, [%rd10];
+ld.global.f32 %f2, [%rd8];
+add.f32 %f3, %f2, %f1;
+.loc	1 120 13
+cvta.to.global.u64 %rd11, %rd4;
+.loc	1 128 5
+add.s64 %rd12, %rd11, %rd7;
+st.global.f32 [%rd12], %f3;
+
+$L__BB2_2:
+.loc	1 133 1
+ret;
+
+}
+.file	1 "/home/roman/dev/box/test-apps/vectoradd/vectoradd.cu"
+.file	2 "/usr/local/cuda-11.8/bin/../targets/x86_64-linux/include/sm_32_intrinsics.hpp"
+.section	.debug_str
+{
+$L__info_string0:
+.b8 95,90,78,52,51,95,73,78,84,69,82,78,65,76,95,97,102,50,97,97,50,50,54,95,49,50,95,118,101,99,116,111,114,97,100,100,95,99,117,95
+.b8 57,57,102,57,97,56,99,98,53,95,95,108,100,103,69,80,75,102,0
+
+}

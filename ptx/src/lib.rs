@@ -248,11 +248,21 @@ mod tests {
         ast_integer_binary_1: (ptx::Rule::integer, "0b01110011001U", ASTNode::UnsignedInt(921)),
     }
 
-    #[cfg(feature = "local-data")]
+    // #[cfg(feature = "local-data")]
     #[test]
     fn build_ast() -> eyre::Result<()> {
-        let ptx_file = PathBuf::from("../kernels/mm/small.ptx");
-        gpgpu_ptx_sim_load_ptx_from_filename(&ptx_file)?;
+        // use std::process::Command;
+        // let cuobjdump = Command::new("cuobjdump");
+        // first -lptx then -xptx
+
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let ptx_file = manifest_dir.join("kernels/vectoradd.sm_52.ptx");
+        let ptx_code = std::fs::read_to_string(ptx_file)?;
+        println!("{}", &ptx_code);
+
+        let parse_tree = ptx::Parser::parse(ptx::Rule::program, &ptx_code)?;
+        dbg!(&parse_tree);
+        // gpgpu_ptx_sim_load_ptx_from_filename(&ptx_file)?;
         Ok(())
     }
 
@@ -526,6 +536,7 @@ mod tests {
     /// see https://pdfs.semanticscholar.org/5096/25785304410039297b741ad2007e7ce0636b.pdf
     /// see https://dl.acm.org/doi/abs/10.5555/3314872.3314900
     /// see https://github.com/daadaada/turingas/blob/master/turingas/cubin.py
+    /// https://github.com/Geof23/Gklee/blob/master/Gklee/include/cuda/fatbinary.h#L62
     fn read_ptx_section() -> eyre::Result<()> {
         // use object::{FileHeader, Object, ObjectSection};
         use object::read::elf::FileHeader;
