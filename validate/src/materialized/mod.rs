@@ -641,7 +641,6 @@ mod tests {
     use indexmap::IndexMap;
     use itertools::Itertools;
     use std::path::PathBuf;
-    use utils::diff;
 
     static INIT: std::sync::Once = std::sync::Once::new();
 

@@ -2,7 +2,6 @@ use clap::Parser;
 use color_eyre::eyre;
 use itertools::Itertools;
 use std::{ffi::OsStr, path::PathBuf};
-use utils::diff;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Format<'a> {

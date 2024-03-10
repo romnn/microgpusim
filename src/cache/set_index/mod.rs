@@ -669,7 +669,6 @@ pub mod pascal {
 mod tests {
     use crate::cache::set_index::SetIndexer;
     use itertools::Itertools;
-    use utils::diff;
 
     #[test]
     fn test_pascal_l1_pseudo_random_way_offset() {

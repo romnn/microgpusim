@@ -526,7 +526,6 @@ mod tests {
     use color_eyre::eyre;
     use gpucachesim::exec::tracegen::fmt;
     use ndarray::Array2;
-    use utils::diff;
 
     const EPSILON: f32 = 0.0001;
 

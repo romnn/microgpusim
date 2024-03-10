@@ -180,7 +180,6 @@ impl PTXConfig {
 #[cfg(test)]
 mod tests {
     use color_eyre::eyre;
-    use utils::diff;
 
     #[test]
     fn test_opcode_latencies_int() -> eyre::Result<()> {

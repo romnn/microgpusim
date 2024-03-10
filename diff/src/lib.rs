@@ -75,10 +75,10 @@ pub mod print {
     fn test_object() {
         macro_rules! print_object {
             ($expr:expr, $mode:ident) => {{
-                use $crate::diff::print::PrintObject;
+                use $crate::print::PrintObject;
                 #[allow(unused_mut)]
                 let mut _tmp = ($expr,);
-                _tmp.print_object($crate::diff::print::PrintMode::$mode)
+                _tmp.print_object($crate::print::PrintMode::$mode)
                     .map(|x| x.to_string())
             }};
         }
@@ -96,11 +96,11 @@ pub mod print {
 
         assert_eq!(
             print_object!(&DoNotCallMe, Default).as_deref(),
-            Some("utils::diff::print::test_object::DoNotCallMe")
+            Some("diff::print::test_object::DoNotCallMe")
         );
         assert_eq!(
             print_object!(&NoDebugNoString, Default).as_deref(),
-            Some("utils::diff::print::test_object::NoDebugNoString")
+            Some("diff::print::test_object::NoDebugNoString")
         );
         assert_eq!(
             print_object!(vec![1, 2, 3], Default).as_deref(),
@@ -396,7 +396,7 @@ macro_rules! __assert_eq {
         match (&($left), &($right)) {
             (left_val, right_val) => {
                 if !(*left_val == *right_val) {
-                    use $crate::diff::{
+                    use $crate::{
                         print::{PrintMode, PrintObject},
                         SimpleDiff,
                     };
@@ -477,7 +477,7 @@ macro_rules! assert_eq {
     }};
 }
 
-pub use assert_eq;
+// pub use assert_eq;
 
 #[macro_export]
 macro_rules! __diff {
@@ -490,7 +490,7 @@ macro_rules! __diff {
     ) => {{
         match (&($left), &($right)) {
             (left_val, right_val) => {
-                use $crate::diff::{
+                use $crate::{
                     print::{PrintMode, PrintObject},
                     SimpleDiff,
                 };
@@ -584,7 +584,7 @@ macro_rules! diff {
     // }};
 }
 
-pub use diff;
+// pub use diff;
 
 #[cfg(test)]
 pub mod tests {

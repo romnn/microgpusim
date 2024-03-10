@@ -4,15 +4,12 @@ use console::style;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use std::path::Path;
-use utils::diff;
 
 fn compare_trace(
     left: Option<&super::WarpTraces>,
     left_path: &Path,
-    // left_allocations: &Allocations,
     right: Option<&super::WarpTraces>,
     right_path: &Path,
-    // right_allocations: &Allocations,
     mem_only: bool,
     block_id: Option<&trace_model::Dim>,
 ) {
@@ -47,7 +44,7 @@ fn compare_trace(
                 .collect();
 
             if left_warps != right_warps {
-                diff!(left: left_warps, right: right_warps);
+                diff::diff!(left: left_warps, right: right_warps);
             }
             let mut all_warps: Vec<_> = left_warps
                 .iter()
@@ -116,8 +113,8 @@ fn compare_trace(
                         left_filtered.len(),
                         right_filtered.len(),
                     );
-                    diff!(left_label, left_valid, right_label, right_valid);
-                    diff!(left_label, left_valid_full, right_label, right_valid_full);
+                    diff::diff!(left_label, left_valid, right_label, right_valid);
+                    diff::diff!(left_label, left_valid_full, right_label, right_valid_full);
                     different_warps.push((block_id, warp_id_in_block));
                 }
 

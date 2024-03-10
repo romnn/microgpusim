@@ -825,7 +825,6 @@ mod tests {
     use super::{MemoryController, MemoryControllerUnit};
     use crate::config;
     use color_eyre::eyre;
-    use utils::diff;
 
     fn bit_str(n: u64) -> String {
         format!("{n:064b}")

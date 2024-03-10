@@ -8,7 +8,6 @@ use itertools::Itertools;
 use stats::cache::{AccessStat, AccessStatus, RequestStatus};
 use std::path::PathBuf;
 use std::time::Instant;
-use utils::diff;
 use validate::materialized::{BenchmarkConfig, TargetBenchmarkConfig};
 
 #[deprecated]

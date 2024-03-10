@@ -1,6 +1,5 @@
 use color_eyre::eyre;
 use std::io::Write;
-use utils::diff;
 use validate::materialized::{self, TargetBenchmarkConfig};
 
 async fn validate_playground_accelsim_compat(

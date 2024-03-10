@@ -49,3 +49,4 @@ futures = "0.3"
 approx = "0.5"
 rand = "0"
 ndarray = { version = "0", features = ["approx-0_5"] }
+diff = { path = "../diff" }

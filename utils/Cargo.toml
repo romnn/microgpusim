@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[features]
+default = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
 [dependencies]
 color-eyre = "0"
 thiserror = "1"
@@ -17,5 +23,6 @@ human_bytes = "0"
 
 unicode-segmentation = "1"
 strip-ansi-escapes = "0"
-console = "0"
-similar = { version = "2.2.0", features = ["inline"] }
+diff = { path = "../diff" }
+# console = "0"
+# similar = { version = "2.2.0", features = ["inline"] }

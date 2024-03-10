@@ -8,9 +8,9 @@ extern crate pest_ast;
 extern crate pest;
 
 mod ast;
-mod ptx;
+mod parser;
 
-use crate::ptx::Rule;
+use crate::parser::Rule;
 use ast::{ASTNode, FunctionDeclHeader, ParseError};
 use color_eyre::eyre;
 use pest::iterators::Pair;
@@ -168,7 +168,7 @@ fn walk(pair: Pair<Rule>) -> eyre::Result<ASTNode> {
 pub fn gpgpu_ptx_sim_load_ptx_from_filename(path: &Path) -> eyre::Result<u32> {
     let source = fs::read_to_string(path)?;
     // let source = String::from_utf8(fs::read(path)?)?;
-    let parse_tree = ptx::Parser::parse(ptx::Rule::program, &source)?;
+    let parse_tree = parser::Parser::parse(parser::Rule::program, &source)?;
 
     // let ast: Program = parse_tree.try_into()?;
     // Program::from(&parse_tree);
@@ -229,7 +229,7 @@ mod tests {
         #[test]
         fn $name() -> eyre::Result<()> {
             let (rule, source, expected) = $value;
-            let nodes = ptx::Parser::parse(rule, &source)?
+            let nodes = parser::Parser::parse(rule, &source)?
                 .map(|p| walk(p))
                 .collect::<eyre::Result<Vec<ASTNode>>>()?;
             assert_eq!(Some(expected), nodes.into_iter().next());
@@ -240,12 +240,12 @@ mod tests {
 }
 
     ast_tests! {
-        ast_integer_decimal_0: (ptx::Rule::integer, "0", ASTNode::SignedInt(0)),
-        ast_integer_decimal_1: (ptx::Rule::integer, "-12", ASTNode::SignedInt(-12)),
-        ast_integer_decimal_2: (ptx::Rule::integer, "12U", ASTNode::UnsignedInt(12)),
-        ast_integer_decimal_3: (ptx::Rule::integer, "01110011001", ASTNode::SignedInt(1110011001)),
-        ast_integer_binary_0: (ptx::Rule::integer, "0b01110011001", ASTNode::SignedInt(921)),
-        ast_integer_binary_1: (ptx::Rule::integer, "0b01110011001U", ASTNode::UnsignedInt(921)),
+        ast_integer_decimal_0: (parser::Rule::integer, "0", ASTNode::SignedInt(0)),
+        ast_integer_decimal_1: (parser::Rule::integer, "-12", ASTNode::SignedInt(-12)),
+        ast_integer_decimal_2: (parser::Rule::integer, "12U", ASTNode::UnsignedInt(12)),
+        ast_integer_decimal_3: (parser::Rule::integer, "01110011001", ASTNode::SignedInt(1110011001)),
+        ast_integer_binary_0: (parser::Rule::integer, "0b01110011001", ASTNode::SignedInt(921)),
+        ast_integer_binary_1: (parser::Rule::integer, "0b01110011001U", ASTNode::UnsignedInt(921)),
     }
 
     // #[cfg(feature = "local-data")]
@@ -260,7 +260,7 @@ mod tests {
         let ptx_code = std::fs::read_to_string(ptx_file)?;
         println!("{}", &ptx_code);
 
-        let parse_tree = ptx::Parser::parse(ptx::Rule::program, &ptx_code)?;
+        let parse_tree = parser::Parser::parse(parser::Rule::program, &ptx_code)?;
         dbg!(&parse_tree);
         // gpgpu_ptx_sim_load_ptx_from_filename(&ptx_file)?;
         Ok(())

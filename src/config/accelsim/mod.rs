@@ -133,7 +133,6 @@ mod tests {
     use clap::Parser;
     use color_eyre::eyre;
     use std::path::PathBuf;
-    use utils::diff;
 
     #[test]
     fn test_read_trace_config_file_gtx1080() -> eyre::Result<()> {

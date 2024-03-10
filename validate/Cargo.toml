@@ -101,4 +101,6 @@ tikv-jemallocator = "0"
 # opt-level = 3
 
 [dev-dependencies]
+# TODO: implement sorting for diff and get rid of pretty_assertions_sorted
 pretty_assertions_sorted = "1"
+diff = { path = "../diff" }

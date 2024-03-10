@@ -1,6 +1,5 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub mod build;
-pub mod diff;
 pub mod fs;
 
 use color_eyre::{eyre, Section, SectionExt};

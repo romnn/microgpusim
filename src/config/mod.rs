@@ -1412,7 +1412,6 @@ pub fn parse_input(
 mod tests {
     use playground::bindings;
     use std::ffi;
-    use utils::diff;
 
     #[test]
     fn compare_old_config() {

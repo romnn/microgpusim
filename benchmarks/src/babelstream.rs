@@ -434,7 +434,6 @@ mod tests {
     use color_eyre::eyre;
     use gpucachesim::exec::tracegen::fmt::{self, Addresses, SimplifiedTraceInstruction};
     use ndarray::Array1;
-    use utils::diff;
 
     const EPSILON: f32 = 0.0001;
 

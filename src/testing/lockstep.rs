@@ -6,7 +6,6 @@ use crate::{
 use color_eyre::eyre;
 use pretty_assertions_sorted as full_diff;
 use trace_model::ToBitString;
-use utils::diff;
 use validate::{
     materialized::{BenchmarkConfig, TargetBenchmarkConfig},
     TraceProvider,

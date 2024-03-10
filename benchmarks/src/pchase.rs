@@ -127,7 +127,6 @@ mod tests {
     use color_eyre::eyre;
     use gpucachesim::exec::tracegen::fmt::{self, SimplifiedTraceInstruction};
     use ndarray::Array1;
-    use utils::diff;
 
     const KB: usize = 1024;
     const MB: usize = 1024 * 1024;

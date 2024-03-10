@@ -5,7 +5,6 @@ use stats::{
     mem::AccessKind,
 };
 use strum::IntoEnumIterator;
-use utils::diff;
 
 #[macro_export]
 macro_rules! status {

@@ -240,8 +240,6 @@ impl PipelinedSimdUnit {
 
 #[cfg(test)]
 mod tests {
-    use utils::diff;
-
     #[allow(clippy::similar_names)]
     #[test]
     fn test_bitset_shift_right() {

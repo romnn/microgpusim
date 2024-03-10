@@ -255,7 +255,6 @@ impl PathExt for Path {
 #[cfg(test)]
 mod tests {
     use super::PathExt;
-    use crate::diff;
     use color_eyre::eyre;
     use std::path::PathBuf;
 

@@ -191,7 +191,6 @@ mod tests {
     use gpucachesim::exec::tracegen::fmt;
     use ndarray::Array2;
     use rand::Rng;
-    use utils::diff;
 
     const EPSILON: f32 = 0.01;
 

@@ -27,6 +27,7 @@ strum = { version = "0", features = ["derive"] }
 
 gpucachesim = { path = "../" }
 trace-model = { path = "../trace/model" }
+diff = { path = "../diff" }
 utils = { path = "../utils" }
 
 # running the benchmarks

@@ -1,0 +1,15 @@
+[package]
+name = "diff"
+version = "0.1.0"
+edition = "2021"
+publish = true
+
+[features]
+default = []
+
+[package.metadata.cargo-feature-combinations]
+denylist = ["default"]
+
+[dependencies]
+console = "0"
+similar = { version = "2.2.0", features = ["inline"] }

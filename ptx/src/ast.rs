@@ -1,4 +1,4 @@
-use super::ptx::Rule;
+use super::parser::Rule;
 use pest::Span;
 use std::path::PathBuf;
 use thiserror::Error;

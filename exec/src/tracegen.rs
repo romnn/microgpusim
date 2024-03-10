@@ -1002,7 +1002,6 @@ mod tests {
     use std::path::PathBuf;
     use tokio::sync::Mutex;
     use trace_model::Dim;
-    use utils::diff;
 
     const EPSILON: f32 = 0.0001;
     use ndarray::Array2;
