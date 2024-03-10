@@ -1,0 +1,26 @@
+// test_case = { SOI ~ test_name ~ code_block ~ expression ~ EOI }
+// test_name = @{ ( !NEWLINE ~ ANY )+ }
+// div = @{ ( !WHITESPACE ~ ANY ){3,} }
+// code_block = ${ PUSH(div) ~ code ~ POP }
+// code = @{ ( !PEEK ~ ANY )* }
+
+root = { SOI ~ expression ~ EOI }
+/* code = @{ ( !PEEK ~ ANY )* } */
+/* root = { SOI ~ ( expression  )* ~ EOI } */
+expression = { skip? ~ lparen ~ identifier ~ ( sub_expressions | ( colon ~ string ) )? ~ rparen }
+skip = { lmeta ~ skip_kw ~ lparen ~ depth_kw ~ assign ~ int ~ rparen ~ rmeta }
+skip_kw = _{ "skip" }
+lmeta = _{ "#[" }
+rmeta = _{ "]" }
+depth_kw = _{ "depth" }
+assign = _{ "=" }
+sub_expressions = { expression+ }
+lparen = _{ "(" }
+rparen = _{ ")" }
+identifier = @{ ASCII_ALPHA ~ ( ASCII_ALPHANUMERIC | "_" )* }
+colon = _{ ":" }
+string = ${ dquote ~ string_value ~ dquote }
+dquote = _{ "\"" }
+string_value = @{ ( "\\\"" | ( !"\"" ~ ANY ) )* }
+int = @{ ASCII_DIGIT+ }
+WHITESPACE = _{ ( " " | "\t" | NEWLINE )+ }

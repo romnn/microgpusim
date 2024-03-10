@@ -2854,6 +2854,7 @@ dependencies = [
  "pest-ast",
  "pest-test",
  "pest_derive",
+ "snailquote",
  "thiserror",
 ]
 
