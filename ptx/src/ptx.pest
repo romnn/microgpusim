@@ -1,12 +1,12 @@
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#syntax
-program = _{ SOI ~ stmt* ~ EOI }
-stmt = _{ 
-  directive_statement
+program = _{ SOI ~ statement* ~ EOI }
+statement = _{ 
+  directive
     | function_defn
 }
 // | function_decl
 
-directive_statement = _{
+directive = _{
   variable_declaration ~ ";"
   	| function_decl ~ ";"
     | version_directive
@@ -35,19 +35,22 @@ statement_block = { "{" ~ statement_list? ~ "}" }
 statement_list = _{
     statement_block ~ statement_list
     | instruction_statement ~ statement_list
-    | directive_statement ~ statement_list
+    | directive ~ statement_list
     | prototype_block ~ statement_list
     | statement_block
     | instruction_statement
-    | directive_statement
+    | directive
 }
 
+// Instruction statement
+// https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#instruction-statements
+// | instruction ~ ";"
+// | identifier ~ ":"
+label = { identifier ~ ":" }
 instruction_statement = {
-	pred_spec ~ instruction ~ ";"
-  	| instruction ~ ";"
-    | identifier ~ ":"
+	label? ~ predicate? ~ instruction ~ ";"
 }
-pred_spec = {
+predicate = {
 	"@!" ~ identifier
   	| "@" ~ identifier ~ (
   	  // note: equ must precede eq
@@ -142,7 +145,7 @@ special_register = {
     | "%ntid"
     | "%nsmid"
     | "%nwarpid"
-    | "%pm" ~ ('0'..'3')
+    | "%pm" ~ ('0'..'7')
     | "%smid"
     | "%tid"
     | "%warpid"
@@ -355,48 +358,50 @@ scalar_type = {
 lohi_option = { ".lo" | ".hi" }
 literal_operand = {
 	// float always precedes because it starts with 0[fF]
-    float
+    float_exact
     // double always precedes integers because it either
     // - contains a decimal point (.)
     // - starts with 0[dD]
-    | double
+    | double_exact
 	| integer
 }
 
 quoted = _{ "\"" ~ string ~ "\"" }
 string = ${ (!"\"" ~ ANY)* }
 
+// Identifiers
+// https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#identifiers
 // followsym:	[a-zA-Z0-9_$]
 // identifier:	[a-zA-Z]{followsym}* | {[_$%]{followsym}+
 followsym = @{ "$" | "_" | ASCII_ALPHANUMERIC }
 identifier = @{ ("_" | "$" | "%") ~ followsym+ | ASCII_ALPHA ~ followsym* }
 
-// 0[xX][0-9a-fA-F]+U?
-// 0[0-7]+U?
-// 0[bB][01]+U?
-// [-]?[0-9]+U?
-integer = @{ 
+// hex:			0[xX][0-9a-fA-F]+U?
+// octal:		0[0-7]+U?
+// binary:		0[bB][01]+U?
+// decimal:		[-]?[0-9][0-9]*U?
+integer = { 
   hex
     | octal
     | binary
-    | decimal_integer
+    | decimal
 }
-decimal_integer = @{ "-"? ~ ASCII_DIGIT+ ~ "U"? }
+// ascii_digit_nonzero = @{ "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"  }
+ascii_digit_nonzero = @{ '1'..'9' }
+decimal = @{ "-"? ~ ascii_digit_nonzero ~ ASCII_DIGIT* ~ "U"? }
 hex = @{ "0" ~ ("x" | "X" ) ~ ASCII_HEX_DIGIT+ ~ "U"? }
 binary = @{ "0" ~ ("b" | "B") ~ ASCII_BIN_DIGIT+ ~ "U"? }
 octal = @{ "0" ~ ASCII_OCT_DIGIT+ ~ "U"? }
 
-// [0-9]+\.[0-9]+
-// 0[dD][0-9a-fA-F]{16}
-double = @{ 
-  ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+
-    | "0" ~ ("d" | "D") ~ ASCII_HEX_DIGIT{16}
-}
-
+// https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#floating-point-constants
 // 0[fF][0-9a-fA-F]{8}
-float = @{
+float_exact = @{
   "0" ~ ("f" | "F") ~ ASCII_HEX_DIGIT{8}
 }
+// [0-9]+\.[0-9]+
+// 0[dD][0-9a-fA-F]{16}
+double = { ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+double_exact = { "0" ~ ("d" | "D") ~ ASCII_HEX_DIGIT{16} }
 
 COMMENT = _{
   "/*" ~ (!"*/" ~ ANY)* ~ "*/" // multiline
