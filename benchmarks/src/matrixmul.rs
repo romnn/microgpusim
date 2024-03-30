@@ -11,10 +11,6 @@ use rand::{
 };
 use tokio::sync::Mutex;
 
-// Number of threads in each thread block
-pub const BLOCK_SIZE: usize = 4;
-// pub const BLOCK_SIZE: u32 = 32;
-
 #[derive(Debug)]
 struct Matrixmul<'a, T> {
     dev_a: Mutex<alloc::DevicePtr<&'a Vec<T>>>,
@@ -25,6 +21,8 @@ struct Matrixmul<'a, T> {
     shared_mem_a: Mutex<alloc::DevicePtr<Vec<T>>>,
     /// Shared memory array used to store the sub-matrix of B
     shared_mem_b: Mutex<alloc::DevicePtr<Vec<T>>>,
+    /// Block size
+    block_size: usize,
 }
 
 #[async_trait::async_trait]
@@ -43,19 +41,19 @@ where
         let ty = tid.thread_idx.y as usize;
 
         // index of the first sub-matrix of A processed by the block
-        let a_begin = self.num_rows * BLOCK_SIZE * by;
+        let a_begin = self.num_rows * self.block_size * by;
 
         // index of the last sub-matrix of A processed by the block
         let a_end = a_begin + self.num_rows - 1;
 
         // step size used to iterate through the sub-matrices of A
-        let a_step = BLOCK_SIZE;
+        let a_step = self.block_size;
 
         // index of the first sub-matrix of B processed by the block
-        let b_begin = BLOCK_SIZE * bx;
+        let b_begin = self.block_size * bx;
 
         // step size used to iterate through the sub-matrices of B
-        let b_step = BLOCK_SIZE * self.num_rows;
+        let b_step = self.block_size * self.num_rows;
 
         // c_sub is used to store the element of the block sub-matrix
         // that is computed by the thread
@@ -74,12 +72,12 @@ where
                 // As[ty][tx] = A[a + wA * ty + tx];
                 let a = self.dev_a.lock().await;
                 let mut shared_a = self.shared_mem_a.lock().await;
-                shared_a[(tid, ty * BLOCK_SIZE + tx)] = a[(tid, ai + self.num_rows * ty + tx)];
+                shared_a[(tid, ty * self.block_size + tx)] = a[(tid, ai + self.num_rows * ty + tx)];
 
                 // Bs[ty][tx] = B[b + wB * ty + tx];
                 let b = self.dev_b.lock().await;
                 let mut shared_b = self.shared_mem_b.lock().await;
-                shared_b[(tid, ty * BLOCK_SIZE + tx)] = b[(tid, bi + self.num_rows * ty + tx)];
+                shared_b[(tid, ty * self.block_size + tx)] = b[(tid, bi + self.num_rows * ty + tx)];
             }
 
             block.synchronize_threads().await;
@@ -95,11 +93,12 @@ where
             //     assert!(shared_b.inner.iter().all(|x| *x != T::zero()));
             // }
 
-            for k in 0..BLOCK_SIZE {
+            // lets not do anything here
+            for k in 0..self.block_size {
                 let shared_a = self.shared_mem_a.lock().await;
                 let shared_b = self.shared_mem_b.lock().await;
-                c_sub +=
-                    shared_a[(tid, ty * BLOCK_SIZE + k)] * shared_b[(tid, k * BLOCK_SIZE + tx)];
+                c_sub += shared_a[(tid, ty * self.block_size + k)]
+                    * shared_b[(tid, k * self.block_size + tx)];
             }
 
             block.synchronize_threads().await;
@@ -110,7 +109,7 @@ where
 
         // Write the block sub-matrix to device memory;
         // each thread writes one element
-        let c = self.num_rows * BLOCK_SIZE * by + BLOCK_SIZE * bx;
+        let c = self.num_rows * self.block_size * by + self.block_size * bx;
         let mut result = self.dev_result.lock().await;
         result[(tid, c + self.num_rows * ty + tx)] = c_sub;
 
@@ -149,6 +148,7 @@ where
 {
     let mut rng = rand::thread_rng();
 
+    let block_size = 32; // 32 x 32
     let matrix_size = num_rows * num_rows;
     // create host vectors
     let mut a: Vec<T> = vec![T::zero(); matrix_size];
@@ -161,7 +161,7 @@ where
         b[i] = T::one() + rng.sample(distributions::Open01);
     }
 
-    matrixmul(&a, &b, &mut result, num_rows).await
+    matrixmul(&a, &b, &mut result, num_rows, block_size).await
 }
 
 pub async fn matrixmul<T>(
@@ -169,6 +169,7 @@ pub async fn matrixmul<T>(
     b: &Vec<T>,
     result: &mut Vec<T>,
     num_rows: usize,
+    block_size: usize,
 ) -> super::Result
 where
     T: Float + Zero + std::ops::AddAssign + Send + Sync + std::fmt::Debug,
@@ -212,7 +213,7 @@ where
         .await;
 
     // shared memory
-    let shared_mem_a = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
+    let shared_mem_a = vec![T::zero(); block_size * block_size];
     let shared_mem_a = tracer
         .allocate(
             shared_mem_a,
@@ -224,7 +225,7 @@ where
         )
         .await;
 
-    let shared_mem_b = vec![T::zero(); BLOCK_SIZE * BLOCK_SIZE];
+    let shared_mem_b = vec![T::zero(); block_size * block_size];
     let shared_mem_b = tracer
         .allocate(
             shared_mem_b,
@@ -237,8 +238,8 @@ where
         .await;
 
     // number of thread blocks in grid
-    let block_dim: Dim = (BLOCK_SIZE as u32, BLOCK_SIZE as u32).into();
-    let grid_size = (num_rows + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+    let block_dim: Dim = (block_size as u32, block_size as u32).into();
+    let grid_size = (num_rows + (block_size - 1)) / block_size;
     let grid_dim: Dim = (grid_size as u32, grid_size as u32).into();
     println!("grid dim:  {grid_dim}");
     println!("block dim: {block_dim}");
@@ -254,6 +255,7 @@ where
         shared_mem_a: Mutex::new(shared_mem_a),
         shared_mem_b: Mutex::new(shared_mem_b),
         num_rows,
+        block_size,
     };
     let mut options = tracegen::Options::default();
     options.no_data_dependency = false;
@@ -277,6 +279,7 @@ mod tests {
         crate::tests::init_test();
         let mut rng = rand::thread_rng();
 
+        let block_size = 4;
         let size = 4;
         let matrix_size = size * size;
         let matrix_shape = (size, size);
@@ -298,9 +301,21 @@ mod tests {
             let ref_b = Array2::from_shape_vec(matrix_shape, b.clone())?;
             ref_a.dot(&ref_b)
         };
-        let (_commands, kernel_traces) = super::matrixmul(&a, &b, &mut result, size).await?;
+        let (_commands, kernel_traces) =
+            super::matrixmul(&a, &b, &mut result, size, block_size).await?;
         assert_eq!(kernel_traces.len(), 1);
         let (_launch_config, trace) = kernel_traces.into_iter().next().unwrap();
+
+        // print the trace
+        let warp_traces = trace.clone().to_warp_traces();
+        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
+
+        let simplified_trace: Vec<_> = fmt::simplify_warp_trace(&first_warp, true).collect();
+        for inst in &simplified_trace {
+            println!("{}", inst);
+        }
+
+        // check for correctness
         super::reference(&a, &b, &mut ref_result, size);
 
         let ref_result = Array2::from_shape_vec(matrix_shape, ref_result)?;
@@ -316,13 +331,6 @@ mod tests {
             diff::assert_eq!(have: result, want: ndarray_result);
         }
 
-        let warp_traces = trace.clone().to_warp_traces();
-        let first_warp = &warp_traces[&(trace_model::Dim::ZERO, 0)];
-
-        let simplified_trace: Vec<_> = fmt::simplify_warp_trace(&first_warp, true).collect();
-        for inst in &simplified_trace {
-            println!("{}", inst);
-        }
         Ok(())
     }
 }
