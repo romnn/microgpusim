@@ -125,7 +125,7 @@ impl MSHR<mem_fetch::MemFetch> for Table<mem_fetch::MemFetch> {
 impl Table<mem_fetch::MemFetch> {
     #[must_use]
     pub fn new(num_entries: usize, max_merged: usize) -> Self {
-        let entries = HashMap::with_capacity(2 * num_entries);
+        let entries = HashMap::with_capacity(num_entries);
         Self {
             num_entries,
             max_merged,

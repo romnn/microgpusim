@@ -12,8 +12,8 @@ accelsim-sim = "run --release --package accelsim-sim --"
 playground-sim = "run --release --package playground-sim --"
 pchase = "run --release --package gpucachesim-benchmarks --bin pchase --"
 
-t = "test -- --test-threads=1"
-tt = "test --release -- --test-threads=1"
+t = "test --features local-data -- --test-threads=1"
+tt = "test --release --features local-data -- --test-threads=1"
 
-tv = "test -- --nocapture --test-threads=1"
-ttv = "test --release -- --nocapture --test-threads=1"
+tv = "test --features local-data -- --nocapture --test-threads=1"
+ttv = "test --release --features local-data -- --nocapture --test-threads=1"

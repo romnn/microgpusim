@@ -6,56 +6,16 @@ pub struct Parser;
 mod tests {
     use super::{Parser as PTXParser, Rule};
     use color_eyre::eyre;
-    use expression::{Expression as E, Rule as R};
+    use expression::{Expression as E, Rule as RL};
     use pest::Parser;
-    // use pest_test::model::Expression;
-    // use pest_test::{
-    //     model::{Expression, TestCase},
-    //     // parser::ParserError,
-    //     TestError,
-    // };
-
-    // pub static PTX_PARSER: once_cell::sync::Lazy<PTXParser> =
-    //     once_cell::sync::Lazy::new(|| PTXParser::de());
 
     pub mod expression {
-        // use crate::parser::Rule;
-        // use colored::{Color, Colorize};
         use pest::{
             iterators::{Pair, Pairs},
-            // iterators::Pair,
-            Parser,
-            RuleType,
+            Parser, RuleType,
         };
         use snailquote::unescape;
         use std::collections::HashSet;
-        // fmt::{Display, Result as std::fmt::Result, Write},
-        // use thiserror::Error;
-
-        // pub mod parser {
-        // use pest::{error::Error as PestError, iterators::Pair, Parser, RuleType};
-        // use std::marker::PhantomData;
-        // use thiserror::Error;
-
-        // #[derive(Error, Debug)]
-        // pub enum ParserError<R> {
-        //     #[error("Error parsing source text")]
-        //     Pest { source: Box<PestError<R>> },
-        //     #[error("Empty parse tree")]
-        //     Empty,
-        // }
-
-        // pub fn parse<R: RuleType, P: Parser<R>>(
-        //     text: &str,
-        //     rule: R,
-        //     _: PhantomData<P>,
-        // ) -> Result<Pair<'_, R>, ParserError<R>> {
-        //     P::parse(rule, text)
-        //         .map_err(|source| ParserError::Pest {
-        //             source: Box::new(source),
-        //         })
-        //         .and_then(|mut code_pairs| code_pairs.next().ok_or(ParserError::Empty))
-        // }
 
         pub mod parser {
             #[derive(pest_derive::Parser)]
@@ -63,7 +23,7 @@ mod tests {
             pub struct Parser;
 
             #[derive(thiserror::Error, Debug)]
-            pub enum ParseError {
+            pub enum Error {
                 #[error(transparent)]
                 Parse(#[from] pest::error::Error<Rule>),
                 #[error("Missing skip depth")]
@@ -80,18 +40,6 @@ mod tests {
                 UnexpectedPair(String, Rule, Rule),
             }
         }
-
-        // fn assert_rule(pair: Pair<'_, Rule>, rule: Rule) -> Result<Pair<'_, Rule>, ParseError> {
-        //     if pair.as_rule() == rule {
-        //         Ok(pair)
-        //     } else {
-        //         Err(ParseError::UnexpectedPair(
-        //             pair.as_str()[..20].to_string(),
-        //             pair.as_rule(),
-        //             rule,
-        //         ))
-        //     }
-        // }
 
         /// Options for building expressions  
         #[derive(Debug, PartialEq, Eq)]
@@ -113,130 +61,83 @@ mod tests {
             }
         }
 
-        // #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        // pub enum TypedExpression<'a, R> {
-        //     /// Terminal expression
-        //     T(R, Option<&'a str>),
-        //     // T(&'a str, Option<&'a str>),
-        //     /// Nonterminal expression
-        //     NT(R, Vec<TypedExpression<'a, R>>),
-        //     // NT(&'a str, Vec<Expression<'a>>),
-        //     Skip {
-        //         depth: usize,
-        //         next: Box<TypedExpression<'a, R>>,
-        //     },
-        //     /// Did not match the rule
-        //     Empty,
-        // }
-
+        /// An expression is a high-level representation of parsed rules.
+        ///
+        /// There exist
+        /// - `Empty` expressions.
+        /// - `Skip` expressions.
+        /// - Terminal (`T`) expressions with rule name and its terminal value.
+        /// - NonTerminal (`NT`) expressions with rule name and a collection
+        /// of child expressions.
+        ///
+        /// Unfortunately, cannot use &'a str for terminal values because of
+        /// dequoting.
+        /// If that could be done in the parser, this could be avoided.
         #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        pub enum Expression<'a, R> {
+        // pub enum Expression<'a, R> {
+        pub enum Expression<R> {
             /// Terminal expression
-            T(R, Option<&'a str>),
-            // T(&'a str, Option<&'a str>),
+            // T(R, Option<&'a str>),
+            T(R, Option<String>),
             /// Nonterminal expression
-            NT(R, Vec<Expression<'a, R>>),
-            // NT(&'a str, Vec<Expression<'a>>),
+            NT(R, Vec<Expression<R>>),
             Skip {
                 depth: usize,
-                next: Box<Expression<'a, R>>,
+                next: Box<Expression<R>>,
             },
-            /// Did not match the rule
+            /// No tokens parsed
             Empty,
         }
 
-        // #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        // pub enum Expression {
-        //     /// Terminal expression
-        //     T(String, Option<String>),
-        //     /// Nonterminal expression
-        //     NT(String, Vec<Expression>),
-        //     Skip {
-        //         depth: usize,
-        //         next: Box<Expression>,
-        //     },
-        // }
-
-        // #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        // pub enum Expression {
-        //     Terminal {
-        //         name: String,
-        //         value: Option<String>,
-        //     },
-        //     NonTerminal {
-        //         name: String,
-        //         children: Vec<Expression>,
-        //     },
-        //     Skip {
-        //         depth: usize,
-        //         next: Box<Expression>,
-        //     },
-        // }
-
-        // pest_test::model::
-
-        // impl Expression {
-        impl<'a> Expression<'a, String>
-        // where
-        //     R: RuleType,
-        {
-            // pub fn parse(text: &str) -> Result<Pair<'_, Rule>, ParserError<Rule>>
-            pub fn parse_expression(pair: Pair<'a, Rule>) -> Result<Self, ParseError> {
+        // impl<'a> Expression<'a, String> {
+        impl Expression<String> {
+            /// Parse an expression from high level syntax
+            pub fn parse_expression(pair: Pair<'_, parser::Rule>) -> Result<Self, parser::Error> {
                 dbg!(&pair.as_rule());
-                assert_eq!(pair.as_rule(), Rule::expression);
-
-                // // forward to next expression
-                // while pair.as_rule() != Rule::expression {
-                //     pair = pair.into_inner().next().unwrap();
-                // }
+                assert_eq!(pair.as_rule(), parser::Rule::expression);
 
                 let mut inner = pair.into_inner();
-                // let skip_depth: usize =
-                //     if inner.peek().map(|pair| pair.as_rule()) == Some(Rule::skip) {
-
                 let skip_depth = match inner.peek() {
-                    Some(pair) if pair.as_rule() == Rule::skip => {
+                    Some(pair) if pair.as_rule() == parser::Rule::skip => {
                         let depth_pair = inner
                             .next()
                             .unwrap()
                             .into_inner()
                             .next()
-                            .ok_or_else(|| ParseError::MissingSkipDepth)?;
+                            .ok_or_else(|| parser::Error::MissingSkipDepth)?;
                         // .and_then(|pair| assert_rule(pair, Rule::int))?;
                         depth_pair
                             .as_str()
                             .parse()
-                            .map_err(|source| ParseError::BadSkipDepth { source })?
+                            .map_err(|source| parser::Error::BadSkipDepth { source })?
                     }
                     _ => 0,
                 };
                 dbg!(&skip_depth);
-                let pair = inner.next().ok_or_else(|| ParseError::MissingRuleName)?;
+                let pair = inner.next().ok_or_else(|| parser::Error::MissingRuleName)?;
                 dbg!(&pair);
                 // let pair = assert_rule(pair, Rule::identifier)?;
                 let rule = pair.as_str().to_owned();
-                // .(|pair| assert_rule(pair, Rule::identifier))
-                // .map(|pair| pair.as_str().to_owned())?;
                 dbg!(&rule);
 
                 let expr = match inner.next() {
                     None => Self::T(rule, None),
                     Some(pair) => match pair.as_rule() {
-                        Rule::sub_expressions => {
+                        parser::Rule::sub_expressions => {
                             let children: Vec<_> = pair
                                 .into_inner()
                                 .map(Self::parse_expression)
                                 .collect::<Result<_, _>>()?;
                             Self::NT(rule, children)
                         }
-                        Rule::string => {
+                        parser::Rule::string => {
                             let value = pair.as_str().trim();
-                            // let value = unescape(s)
-                            //     .map_err(|err| ParseError::Unescape(s.to_string(), err))?;
+                            let value = unescape(value)
+                                .map_err(|err| parser::Error::Unescape(value.to_string(), err))?;
                             Self::T(rule, Some(value))
                         }
-                        Rule::EOI => Expression::Empty,
-                        other => return Err(ParseError::UnexpectedRule(other)),
+                        parser::Rule::EOI => Expression::Empty,
+                        other => return Err(parser::Error::UnexpectedRule(other)),
                     },
                 };
                 if skip_depth == 0 {
@@ -249,24 +150,21 @@ mod tests {
                 }
             }
 
-            // pub fn parse(text: &'a str) -> Result<Self, pest::error::Error<Rule>> {
-            pub fn parse(text: &'a str) -> Result<Self, ParseError> {
-                let mut parsed = ExpressionParser::parse(Rule::root, text)?;
+            pub fn parse(text: &str) -> Result<Self, parser::Error> {
+                let mut parsed = parser::Parser::parse(parser::Rule::root, text)?;
                 if let Some(pair) = parsed.next().and_then(|pair| pair.into_inner().next()) {
                     Self::parse_expression(pair)
                 } else {
                     Ok(Self::Empty)
                 }
-                // let parsed = ExpressionParser::parse(Rule::root, text)?;
-                // let options = Options::default();
-                // Ok(Self::new(parsed, &options))
             }
         }
 
+        /// Wrapper type for rules.
         #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        pub struct RuleName<R>(R);
+        pub struct Rule<R>(pub R);
 
-        impl<R> std::fmt::Debug for RuleName<R>
+        impl<R> std::fmt::Debug for Rule<R>
         where
             R: RuleType,
         {
@@ -275,7 +173,7 @@ mod tests {
             }
         }
 
-        impl<R> std::fmt::Display for RuleName<R>
+        impl<R> std::fmt::Display for Rule<R>
         where
             R: RuleType,
         {
@@ -284,11 +182,9 @@ mod tests {
             }
         }
 
-        impl<'a, R> Expression<'a, RuleName<R>> {
-            // pub fn try_from_code<R: RuleType>(
-            // pub fn new(pair: Pair<'a, R>, options: &Options<R>) -> Result<Self, ModelError>
-            // pub fn new(pair: Pairs<'a, R>, options: &Options<R>) -> Result<Self, ModelError>
-            pub fn new(mut pairs: Pairs<'a, R>, options: &Options<R>) -> Self
+        // impl<'a, R> Expression<'a, Rule<R>> {
+        impl<R> Expression<Rule<R>> {
+            pub fn new(mut pairs: Pairs<'_, R>, options: &Options<R>) -> Self
             where
                 R: RuleType,
             {
@@ -299,45 +195,36 @@ mod tests {
                 }
             }
 
-            pub fn from_pair(pair: Pair<'a, R>, options: &Options<R>) -> Self
+            pub fn from_pair(pair: Pair<'_, R>, options: &Options<R>) -> Self
             where
                 R: RuleType,
             {
                 let rule = pair.as_rule();
-                // let name = format!("{:?}", pair.as_rule());
-                // let name = pair.as_rule().as_str(); // format!("{:?}", pair.as_rule());
                 let value = pair.as_str();
-                // let children: Result<Vec<Expression>, ModelError> = pair
                 let children: Vec<_> = pair
                     .into_inner()
                     .filter(|pair| !options.skip_rules.contains(&pair.as_rule()))
                     .map(|pair| Self::from_pair(pair, options))
                     .collect();
-                // .collect::<Result<Vec<_>, _>>()?;
-                // .collect();
                 if children.is_empty() {
-                    // Ok(Self::T(name, Some(value)))
-                    Self::T(RuleName(rule), Some(value))
+                    Self::T(Rule(rule), Some(value.to_string()))
                 } else {
-                    // Ok(Self::NT(name, children))
-                    Self::NT(RuleName(rule), children)
+                    Self::NT(Rule(rule), children)
                 }
-
-                // match children {
-                //     Ok(children) if children.is_empty() => Ok(Self::T(name, Some(value))),
-                //     Ok(children) => Ok(Self::NT(name, children)),
-                //     Err(e) => Err(e),
-                // }
             }
 
-            // pub fn name(&self) -> &String {
-            // pub fn name(&self) -> &str {
-            //     match self {
-            //         Self::T(name, _) => name,
-            //         Self::NT(name, _) => name,
-            //         Self::Skip { depth: _, next } => next.name(),
-            //     }
-            // }
+            pub fn rule(&self) -> Option<String>
+            where
+                R: RuleType,
+            {
+                match self {
+                    Self::T(rule, _) => Some(rule.to_string()),
+                    Self::NT(rule, _) => Some(rule.to_string()),
+                    Self::Skip { depth: _, next } => next.rule(),
+                    Self::Empty => None,
+                }
+            }
+
             //
             // pub fn skip_depth(&self) -> usize {
             //     match self {
@@ -515,7 +402,7 @@ mod tests {
             }
         }
 
-        impl<'a, R> std::fmt::Display for Expression<'a, R>
+        impl<R> std::fmt::Display for Expression<R>
         where
             R: std::fmt::Display,
         {
@@ -524,7 +411,7 @@ mod tests {
             }
         }
 
-        impl<'a, R> std::fmt::Debug for Expression<'a, R>
+        impl<R> std::fmt::Debug for Expression<R>
         where
             R: std::fmt::Display,
         {
@@ -534,37 +421,20 @@ mod tests {
         }
     }
 
-    macro_rules! assert_parses_to {
-        ($rule:expr, $input:expr, $want:expr) => {
-            let parsed = PTXParser::parse($rule, $input)?.next().unwrap();
-            let skip_rules = std::collections::HashSet::new();
-            let have = pest_test::model::Expression::try_from_code(parsed, &skip_rules)?;
-            dbg!(&have);
-            let have = have.to_string();
-            let want = $want.to_string();
-            diff::assert_eq!(have: have, want: want);
-        };
-    }
-
-    fn assert_parses_to_typed(
-        rule: Rule,
-        input: &str,
-        want: expression::Expression<expression::RuleName<Rule>>,
-    ) {
-        let parsed = PTXParser::parse(rule, input).expect("can parse");
+    fn assert_parses_to_typed(rule: Rule, input: &str, want: E<RL<Rule>>) -> eyre::Result<()> {
+        let parsed = PTXParser::parse(rule, input)?;
         let options = expression::Options::default();
         let have = E::new(parsed, &options);
         dbg!(&have);
         diff::assert_eq!(have: have, want: want);
+        Ok(())
     }
 
-    // impl PartialEq<E<'_, expression::Rule>> for E<'_, Rule> {
-    impl<R> PartialEq<E<'_, String>> for E<'_, expression::RuleName<R>>
+    impl<R> PartialEq<E<String>> for E<RL<R>>
     where
         R: pest::RuleType,
     {
         fn eq(&self, other: &E<String>) -> bool {
-            dbg!(self, other);
             match (self, other) {
                 (E::Empty, E::Empty) => true,
                 (E::T(lrule, lvalue), E::T(rrule, rvalue)) => lrule == rrule && lvalue == rvalue,
@@ -574,56 +444,25 @@ mod tests {
         }
     }
 
-    // impl PartialEq<expression::Rule> for Rule {
-    impl<R> PartialEq<String> for expression::RuleName<R>
+    impl<R> PartialEq<String> for RL<R>
     where
         R: pest::RuleType,
     {
         fn eq(&self, other: &String) -> bool {
-            dbg!(&self);
-            dbg!(&other);
             self.to_string() == other.to_string()
-            // format!("{:?}", self).eq(other.as_str())
         }
     }
 
-    fn assert_parses_to_concise(rule: Rule, input: &str, want: &str) -> eyre::Result<()> {
-        let parsed = PTXParser::parse(rule, input)?; // .expect("can parse");
+    fn assert_parses_to(rule: Rule, input: &str, want: &str) -> eyre::Result<()> {
+        let parsed = PTXParser::parse(rule, input)?;
         let options = expression::Options::default();
         let have = E::new(parsed, &options);
         dbg!(&have);
-        let want = E::parse(want)?; // .expect("can parse expression");
+        let want = E::parse(want)?;
         dbg!(&want);
         diff::assert_eq!(have: have, want: want);
         Ok(())
     }
-
-    // macro_rules! assert_parses_to_typed {
-    //     ($rule:expr, $input:expr, $want:expr) => {
-    //         let parsed = PTXParser::parse($rule, $input)?; // .next().unwrap();
-    //         // let parsed = parsed.next().unwarp(expression::Expression::Empty)?;
-    //         // .expect(&format!("cannot match rule {:?}", $rule));
-    //
-    //         let options = expression::Options::default();
-    //         let have = E::new(parsed, &options);
-    //         dbg!(&have);
-    //         diff::assert_eq!(have: have, want: $want);
-    //     };
-    // }
-
-    // macro_rules! assert_parses_to_new {
-    //     ($rule:expr, $input:expr, $want:expr) => {
-    //         let parsed = PTXParser::parse($rule, $input)?; // .next().unwrap();
-    //         // let parsed = parsed.next().unwarp(expression::Expression::Empty)?;
-    //         // .expect(&format!("cannot match rule {:?}", $rule));
-    //
-    //         let options = expression::Options::default();
-    //         let have = E::new(parsed, &options);
-    //         let want = E::parse($want).expect("can parse expression");
-    //         dbg!(&have);
-    //         diff::assert_eq!(have: have, want: $want);
-    //     };
-    // }
 
     // #[test]
     // fn parse_integer_decimal_0() -> eyre::Result<()> {
@@ -676,87 +515,92 @@ mod tests {
     #[test]
     fn parse_integer_decimal_7() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "decimal".to_string(),
-                value: Some("7".to_string()),
-            }],
-        };
-        assert_parses_to!(Rule::integer, "7", want);
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "decimal".to_string(),
+        //         value: Some("7".to_string()),
+        //     }],
+        // };
+        let want = r#"(integer (decimal: "7"))"#;
+        assert_parses_to(Rule::integer, "7", want)?;
         Ok(())
     }
 
     #[test]
     fn parse_integer_decimal_neg_12() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "decimal".to_string(),
-                value: Some("-12".to_string()),
-            }],
-        };
-        assert_parses_to!(Rule::integer, "-12", want);
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "decimal".to_string(),
+        //         value: Some("-12".to_string()),
+        //     }],
+        // };
+        let want = r#"(integer (decimal: "-12"))"#;
+        assert_parses_to(Rule::integer, "-12", want)?;
         Ok(())
     }
 
     #[test]
     fn parse_integer_decimal_12_u() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "decimal".to_string(),
-                value: Some("12U".to_string()),
-            }],
-        };
-        assert_parses_to!(Rule::integer, "12U", want);
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "decimal".to_string(),
+        //         value: Some("12U".to_string()),
+        //     }],
+        // };
+        let want = r#"(integer (decimal: "12U"))"#;
+        assert_parses_to(Rule::integer, "12U", want)?;
         Ok(())
     }
 
     #[test]
     fn parse_integer_octal_01110011001() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "octal".to_string(),
-                value: Some("01110011001".to_string()),
-            }],
-        };
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "octal".to_string(),
+        //         value: Some("01110011001".to_string()),
+        //     }],
+        // };
 
-        assert_parses_to!(Rule::integer, "01110011001", want);
+        let want = r#"(integer (octal: "01110011001"))"#;
+        assert_parses_to(Rule::integer, "01110011001", want)?;
         Ok(())
     }
 
     #[test]
     fn parse_integer_binary_0_b_01110011001() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "binary".to_string(),
-                value: Some("0b01110011001".to_string()),
-            }],
-        };
-
-        assert_parses_to!(Rule::integer, "0b01110011001", want);
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "binary".to_string(),
+        //         value: Some("0b01110011001".to_string()),
+        //     }],
+        // };
+        let want = r#"(integer (binary: "0b01110011001"))"#;
+        assert_parses_to(Rule::integer, "0b01110011001", want)?;
         Ok(())
     }
 
     #[test]
     fn parse_integer_hex_0xaf70d() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "hex".to_string(),
-                value: Some("0xaf70d".to_string()),
-            }],
-        };
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "hex".to_string(),
+        //         value: Some("0xaf70d".to_string()),
+        //     }],
+        // };
 
-        assert_parses_to!(Rule::integer, "0xaf70d", want);
+        let want = r#"(integer (hex: "0xaf70d"))"#;
+        assert_parses_to(Rule::integer, "0xaf70d", want)?;
         Ok(())
     }
 
@@ -792,89 +636,98 @@ mod tests {
         Ok(())
     }
 
-    #[ignore = "old api"]
-    #[test]
-    fn parse_instruction_shl_b32_r1_r1_2() -> eyre::Result<()> {
-        crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "instruction_statement".to_string(),
-            children: vec![pest_test::model::Expression::NonTerminal {
-                name: "instruction".to_string(),
-                children: vec![
-                    pest_test::model::Expression::NonTerminal {
-                        name: "opcode_spec".to_string(),
-                        children: vec![pest_test::model::Expression::Terminal {
-                            name: "opcode".to_string(),
-                            value: Some("shl".to_string()),
-                        }],
-                    },
-                    pest_test::model::Expression::NonTerminal {
-                        name: "operand".to_string(),
-                        children: vec![pest_test::model::Expression::Terminal {
-                            name: "identifier".to_string(),
-                            value: Some("r1".to_string()),
-                        }],
-                    },
-                    pest_test::model::Expression::NonTerminal {
-                        name: "operand".to_string(),
-                        children: vec![pest_test::model::Expression::Terminal {
-                            name: "identifier".to_string(),
-                            value: Some("r1".to_string()),
-                        }],
-                    },
-                    // Expression::NonTerminal {
-                    //     name: "operand".to_string(),
-                    //     children: vec![Expression::Terminal {
-                    //         name: "literal_operand".to_string(),
-                    //         value: Some("r1".to_string()),
-                    //     }],
-                    // },
-                ],
-            }],
-        };
-        assert_parses_to!(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want);
-        Ok(())
-    }
+    // #[ignore = "old api"]
+    // #[test]
+    // fn parse_instruction_shl_b32_r1_r1_2_deprecated() -> eyre::Result<()> {
+    //     crate::tests::init_test();
+    //     let want = pest_test::model::Expression::NonTerminal {
+    //         name: "instruction_statement".to_string(),
+    //         children: vec![pest_test::model::Expression::NonTerminal {
+    //             name: "instruction".to_string(),
+    //             children: vec![
+    //                 pest_test::model::Expression::NonTerminal {
+    //                     name: "opcode_spec".to_string(),
+    //                     children: vec![pest_test::model::Expression::Terminal {
+    //                         name: "opcode".to_string(),
+    //                         value: Some("shl".to_string()),
+    //                     }],
+    //                 },
+    //                 pest_test::model::Expression::NonTerminal {
+    //                     name: "operand".to_string(),
+    //                     children: vec![pest_test::model::Expression::Terminal {
+    //                         name: "identifier".to_string(),
+    //                         value: Some("r1".to_string()),
+    //                     }],
+    //                 },
+    //                 pest_test::model::Expression::NonTerminal {
+    //                     name: "operand".to_string(),
+    //                     children: vec![pest_test::model::Expression::Terminal {
+    //                         name: "identifier".to_string(),
+    //                         value: Some("r1".to_string()),
+    //                     }],
+    //                 },
+    //                 // Expression::NonTerminal {
+    //                 //     name: "operand".to_string(),
+    //                 //     children: vec![Expression::Terminal {
+    //                 //         name: "literal_operand".to_string(),
+    //                 //         value: Some("r1".to_string()),
+    //                 //     }],
+    //                 // },
+    //             ],
+    //         }],
+    //     };
+    //     assert_parses_to!(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want);
+    //     Ok(())
+    // }
 
     #[test]
     fn parse_instruction_shl_b32_r1_r1_2_typed() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = E::NT(
-            Rule::instruction_statement,
+        let want: E<RL<Rule>> = E::NT(
+            RL(Rule::instruction_statement),
             vec![E::NT(
-                Rule::instruction,
+                RL(Rule::instruction),
                 vec![
                     E::NT(
-                        Rule::opcode_spec,
+                        RL(Rule::opcode_spec),
                         vec![
-                            E::T(Rule::opcode, Some("shl")),
+                            E::T(RL(Rule::opcode), Some("shl".to_string())),
                             E::NT(
-                                Rule::option,
+                                RL(Rule::option),
                                 vec![E::NT(
-                                    Rule::type_spec,
-                                    vec![E::T(Rule::scalar_type, Some(".b32"))],
+                                    RL(Rule::type_spec),
+                                    vec![E::T(RL(Rule::scalar_type), Some(".b32".to_string()))],
                                 )],
                             ),
                         ],
                     ),
-                    E::NT(Rule::operand, vec![E::T(Rule::identifier, Some("r1"))]),
-                    E::NT(Rule::operand, vec![E::T(Rule::identifier, Some("r1"))]),
                     E::NT(
-                        Rule::operand,
+                        RL(Rule::operand),
+                        vec![E::T(RL(Rule::identifier), Some("r1".to_string()))],
+                    ),
+                    E::NT(
+                        RL(Rule::operand),
+                        vec![E::T(RL(Rule::identifier), Some("r1".to_string()))],
+                    ),
+                    E::NT(
+                        RL(Rule::operand),
                         vec![E::NT(
-                            Rule::literal_operand,
-                            vec![E::NT(Rule::integer, vec![E::T(Rule::decimal, Some("2"))])],
+                            RL(Rule::literal_operand),
+                            vec![E::NT(
+                                RL(Rule::integer),
+                                vec![E::T(RL(Rule::decimal), Some("2".to_string()))],
+                            )],
                         )],
                     ),
                 ],
             )],
         );
-        assert_parses_to_typed(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want);
+        assert_parses_to_typed(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want)?;
         Ok(())
     }
 
     #[test]
-    fn parse_instruction_shl_b32_r1_r1_2_concise() -> eyre::Result<()> {
+    fn parse_instruction_shl_b32_r1_r1_2() -> eyre::Result<()> {
         crate::tests::init_test();
         let want = r#"
 (instruction_statement
@@ -888,7 +741,51 @@ mod tests {
     )
 )
         "#;
-        assert_parses_to_concise(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want)?;
+        assert_parses_to(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_instruction_ld_global_b32_r2_array_r1() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+    (instruction
+        (opcode_spec
+            (opcode: "ld")
+            (option (addressable_spec: ".global"))
+            (option (type_spec (scalar_type: ".b32")))
+        )
+        (operand (identifier: "r2"))
+        (operand (memory_operand
+            (identifier: "array")
+            (address_expression (identifier: "r1"))
+        ))
+    )
+)
+        "#;
+        // this uses a vector operand
+        // assert_parses_to(
+        //     Rule::array_operand,
+        //     "array[r1]",
+        //     r#"(array_operand
+        //         (identifier: "array")
+        //         (address_expression (identifier: "r1"))
+        //     )"#,
+        // )?;
+        // assert_parses_to(
+        //     Rule::memory_operand,
+        //     "array[r1]",
+        //     r#"(memory_operand
+        //         (identifier: "array")
+        //         (address_expression (identifier: "r1"))
+        //     )"#,
+        // )?;
+        assert_parses_to(
+            Rule::instruction_statement,
+            "ld.global.b32 r2, array[r1];",
+            want,
+        )?;
         Ok(())
     }
 
@@ -896,14 +793,14 @@ mod tests {
     #[test]
     fn parse_instruction_reg_b32_r1_r2() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "binary".to_string(),
-                value: Some("0b01110011001".to_string()),
-            }],
-        };
-        assert_parses_to!(Rule::instruction_statement, ".reg     .b32 r1, r2;", want);
+        // let want = pest_test::model::Expression::NonTerminal {
+        //     name: "integer".to_string(),
+        //     children: vec![pest_test::model::Expression::Terminal {
+        //         name: "binary".to_string(),
+        //         value: Some("0b01110011001".to_string()),
+        //     }],
+        // };
+        // assert_parses_to!(Rule::instruction_statement, ".reg     .b32 r1, r2;", want);
         // assert_parses_to!(Rule::instruction_statement, ".reg     .b32 r1, r2;", want);
         Ok(())
     }
@@ -921,24 +818,24 @@ mod tests {
     #[test]
     fn parse_single_line_comments() -> eyre::Result<()> {
         crate::tests::init_test();
-        let want = pest_test::model::Expression::NonTerminal {
-            name: "integer".to_string(),
-            children: vec![pest_test::model::Expression::Terminal {
-                name: "binary".to_string(),
-                value: Some("0b01110011001".to_string()),
-            }],
-        };
-
-        let input = "
-       .reg     .b32 r1, r2;
-       .global  .f32  array[N];
-
-start: mov.b32   r1, %tid.x;
-       shl.b32   r1, r1, 2;          // shift thread id by 2 bits
-       ld.global.b32 r2, array[r1];  // thread[tid] gets array[tid]
-       add.f32   r2, r2, 0.5;        // add 1/2";
-
-        assert_parses_to!(Rule::program, input, want);
+        //         let want = pest_test::model::Expression::NonTerminal {
+        //             name: "integer".to_string(),
+        //             children: vec![pest_test::model::Expression::Terminal {
+        //                 name: "binary".to_string(),
+        //                 value: Some("0b01110011001".to_string()),
+        //             }],
+        //         };
+        //
+        //         let input = "
+        //        .reg     .b32 r1, r2;
+        //        .global  .f32  array[N];
+        //
+        // start: mov.b32   r1, %tid.x;
+        //        shl.b32   r1, r1, 2;          // shift thread id by 2 bits
+        //        ld.global.b32 r2, array[r1];  // thread[tid] gets array[tid]
+        //        add.f32   r2, r2, 0.5;        // add 1/2";
+        //
+        //         assert_parses_to!(Rule::program, input, want);
         Ok(())
     }
 

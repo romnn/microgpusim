@@ -1,5 +1,11 @@
 .DS_Store
 
+# make sure, this should also be excluded in the simulator directory
+accel-sim-framework-dev/gpu-simulator/build
+accel-sim-framework-dev/gpu-simulator/bin
+accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build
+accel-sim-framework-dev/gpu-simulator/gpgpu-sim/bin
+
 # build logs
 build.log*
 accel-sim-framework-dev-*/

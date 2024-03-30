@@ -1,1 +1,5 @@
 accel-sim-framework-dev/util/
+accel-sim-framework-dev/gpu-simulator/build
+accel-sim-framework-dev/gpu-simulator/bin
+accel-sim-framework-dev/gpu-simulator/gpgpu-sim/build
+accel-sim-framework-dev/gpu-simulator/gpgpu-sim/bin

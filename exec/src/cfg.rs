@@ -571,9 +571,11 @@ pub mod visit {
                             self.graph[*last_branch_node_idx],
                             self.graph[node_idx],
                         );
-                        // continue from this reconvergence point
+
+                        // all paths from last branch node have been traversed
                         self.dominator_stack.pop();
 
+                        // continue from this reconvergence point
                         for (outgoing_edge_idx, next_node_idx) in
                             self.graph.outgoing_neigbors(node_idx)
                         {

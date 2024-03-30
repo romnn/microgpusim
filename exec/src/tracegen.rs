@@ -677,20 +677,24 @@ impl TraceGenerator for Tracer {
                                 let is_load = access.kind == model::MemAccessKind::Load;
                                 let is_store = access.kind == model::MemAccessKind::Store;
                                 let mut instr_opcode = match access.mem_space {
-                                    model::MemorySpace::Local if is_load => "LDL.E".to_string(),
-                                    model::MemorySpace::Global if is_load => "LDG.E".to_string(),
-                                    model::MemorySpace::Shared if is_load => "LDS.E".to_string(),
+                                    model::MemorySpace::Local if is_load => "LDL".to_string(),
+                                    model::MemorySpace::Global if is_load => "LDG".to_string(),
+                                    model::MemorySpace::Shared if is_load => "LDS".to_string(),
                                     // MemorySpace::Texture if is_load => "LDG".to_string(),
-                                    model::MemorySpace::Constant if is_load => "LDC.E".to_string(),
-                                    model::MemorySpace::Local if is_store => "STL.E".to_string(),
-                                    model::MemorySpace::Global if is_store => "STG.E".to_string(),
-                                    model::MemorySpace::Shared if is_store => "STS.E".to_string(),
+                                    model::MemorySpace::Constant if is_load => "LDC".to_string(),
+                                    model::MemorySpace::Local if is_store => "STL".to_string(),
+                                    model::MemorySpace::Global if is_store => "STG".to_string(),
+                                    model::MemorySpace::Shared if is_store => "STS".to_string(),
                                     // MemorySpace::Texture if is_store => "LDG".to_string(),
                                     model::MemorySpace::Constant if is_store => {
                                         todo!("constant store")
                                     }
                                     other => panic!("unknown memory space {other:?}"),
                                 };
+
+                                if access.size >= 64 {
+                                    instr_opcode += ".E";
+                                }
 
                                 if access.bypass_l1 {
                                     instr_opcode += ".CG";

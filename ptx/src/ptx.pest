@@ -58,6 +58,8 @@ predicate = {
         | ".gtu" | ".neu" | ".cf" | ".sf" | ".nsf"
     )? 
 }
+lohi_option = { ".lo" | ".hi" }
+
 instruction = {
     opcode_spec ~ operand_list
     | opcode_spec
@@ -71,28 +73,77 @@ operand = {
     // tex_operand precedes due to "[" ...  ~ "," ~ "{" ... "}" "]"
     // precedes memory_operand, which is just "[" x | x+1 | 1 "]"
     | tex_operand
-    // memory_operand precedes tex_operand due to "[" x | x+1 | 1 "]"
     | memory_operand
+	// | array_operand
     // vector precedes due to "{" ... "}"
-    | "-"? ~ vector_operand
+    | vector_operand
     // binary expression of identifiers always precede unary
-    | "-"? ~ identifier ~ ("+" | "|" | "\\") ~ integer ~ lohi_option?
+    // | "-"? ~ identifier ~ ("+" | "|" | "\\") ~ integer ~ lohi_option?
     | ("!" | "-")? ~ identifier
 }
-vector_operand = {
-	"{" ~ identifier ~ ("," ~ identifier)* ~ "}"
-}
 
-tex_operand = { "[" ~ identifier ~ "," ~ vector_operand ~ "]" }
-
+// Built-in special operand.
 builtin_operand = { special_register ~ dimension_modifier | special_register }
 
-memory_operand = {
-  "[" ~ address_expression ~ "]"
-  	// todo: check if the order is brackets is fine
-  	| identifier ~ "[" ~ (twin_operand | address_expression | literal_operand) ~ "]"
-    | "-" ~ memory_operand
+
+// Literal operand
+//
+// Example:
+literal_operand = {
+	// float always precedes because it starts with 0[fF]
+    // float_exact
+    // double always precedes integers because it either
+    // - contains a decimal point (.)
+    // - starts with 0[dD]
+    // | double_exact
+	| integer
 }
+
+
+// Texture operand
+//
+// Example:
+// todo
+tex_operand = { "[" ~ identifier ~ "," ~ vector_operand ~ "]" }
+
+
+// Vector operand
+//
+// Example:
+// .reg .v4 .f32 V;
+// .reg .f32     a, b, c, d;
+// mov.v4.f32 {a,b,c,d}, V;
+vector_operand = {
+	"-"? ~ "{" ~ identifier ~ ("," ~ identifier)* ~ "}"
+}
+
+
+// Memory operand
+//
+// Example:
+// ld.shared.u16   r0,[0]; // [immOffset]
+// ld.shared.u16   r0,[x]; // [var]
+// ld.shared.u16   r0,[x+1]; // [var+immOffset]
+// ld.shared.u16   r0,[r1]; // [reg]
+// ld.shared.u16   r0,[r1+1]; // [reg+immOffset]
+// ld.global.u32  s, a[0]; // var[immOffset]
+// ld.global.u32  s, a[N-1]; // var[var+immOffset]
+// mov.u32        s, a[1]; // var[immOffset]
+memory_operand = {
+	identifier ~ "[" ~ address_expression ~ "]"
+	| "[" ~ address_expression ~ "]"
+  	// | identifier ~ "[" ~ (twin_operand | address_expression | literal_operand) ~ "]"
+    // | "-" ~ memory_operand
+}
+
+// Array operand
+//
+// Example:
+// ld.global.u32  s, a[0];
+// ld.global.u32  s, a[N-1];
+// mov.u32        s, a[1];
+array_operand = { identifier ~ "[" ~ address_expression ~ "]" }
+
 twin_operand = {
 	// todo: are we missing something here?
     identifier ~ "+=" ~ identifier ~ lohi_option?
@@ -100,10 +151,12 @@ twin_operand = {
     | identifier ~ "+" ~ identifier ~ lohi_option?
 }
 
+sign = { "+" | "-" }
 address_expression = {
 	// precedence because of the plus sign
-    identifier ~ "+" ~ integer
-  	| identifier ~ lohi_option?
+    identifier ~ sign ~ integer
+  	// | identifier ~ lohi_option?
+  	| identifier
     | integer
 }
 
@@ -353,17 +406,6 @@ scalar_type = {
     | ".f16" | ".f32" | ".f64" | ".ff64"
     | ".b8" | ".b16" | ".b32" | ".b64" | ".bb64" | ".bb128"
     | ".pred" | ".texref" | ".sampleref" | ".surfref"
-}
-
-lohi_option = { ".lo" | ".hi" }
-literal_operand = {
-	// float always precedes because it starts with 0[fF]
-    float_exact
-    // double always precedes integers because it either
-    // - contains a decimal point (.)
-    // - starts with 0[dD]
-    | double_exact
-	| integer
 }
 
 quoted = _{ "\"" ~ string ~ "\"" }
