@@ -1,4 +1,7 @@
 asm/
 cache/
 tables/png/
+tables/**/*.tex
 equations/png/
+validation/png/
+**/png/
