@@ -24,6 +24,8 @@ from gpucachesim.benchmarks import (
     BenchConfig,
     ProfileConfig,
     ProfileTargetConfig,
+    SimulateConfig,
+    SimulateTargetConfig,
     TraceConfig,
     TraceTargetConfig,
     REPO_ROOT_DIR,
@@ -106,9 +108,7 @@ def trace_formats():
     default=gpucachesim.stats.DEFAULT_CONFIG_FILE,
     help="Path to GPU config",
 )
-@click.option(
-    "-v", "--verbose", "verbose", type=bool, is_flag=True, help="enable verbose output"
-)
+@click.option("-v", "--verbose", "verbose", type=bool, is_flag=True, help="enable verbose output")
 
 # @click.option("--nvprof", "nvprof", type=bool, is_flag=True, help="use nvprof")
 def trace_overhead(path, bench_name_arg, config_path, verbose):
@@ -118,7 +118,11 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
     with open(config_path, "rb") as f:
         config = GPUConfig(yaml.safe_load(f))
 
-    targets = [(Target.Trace, Target.Profile), (Target.AccelsimTrace, Target.Profile)]
+    targets = [
+        (Target.Trace, Target.Profile),
+        (Target.AccelsimTrace, Target.Profile),
+        (Target.ExecDrivenSimulate, Target.Profile),
+    ]
 
     for trace_target, profile_target in targets:
         if bench_name_arg is None:
@@ -144,15 +148,10 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 input_idx = trace_bench_config["input_idx"]
                 input_values = trace_bench_config["values"]
 
-                print(
-                    " ===> {:>20} {:>15}@{:<4} {}".format(
-                        target, name, input_idx, input_values
-                    )
-                )
+                if verbose:
+                    print(" ===> {:>20} {:>15}@{:<4} {}".format(target, name, input_idx, input_values))
 
-                profile_stats = gpucachesim.stats.native.NvprofStats(
-                    config, profile_bench_config
-                )
+                profile_stats = gpucachesim.stats.native.NvprofStats(config, profile_bench_config)
 
                 grouped = profile_stats.result_df.groupby(["kernel_launch_id"])
                 mean_time_per_kernel_launch = grouped["exec_time_sec"].mean()
@@ -161,17 +160,27 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
 
                 profile_exec_time_sec = mean_time_per_kernel_launch.sum()
 
-                trace_bench_config: BenchConfig[TraceTargetConfig] = trace_bench_config
-                trace_target_config: TraceConfig = trace_bench_config[
-                    "target_config"
-                ].value
-                trace_dir = Path(trace_target_config["traces_dir"])
-                # print(trace_dir)
-                # pprint(list(trace_dir.iterdir()))
+                if trace_target == Target.ExecDrivenSimulate:
+                    trace_bench_config: BenchConfig[SimulateTargetConfig] = trace_bench_config
+                    trace_target_config: SimulateConfig = trace_bench_config["target_config"].value
+                    stats_dir = Path(trace_target_config["stats_dir"])
+                    # print(trace_dir)
+                    # pprint(list(trace_dir.iterdir()))
 
-                with open(trace_dir / "trace_time.json", "r") as f:
-                    # trace time is in millis
-                    trace_exec_time_sec = float(json.load(f)) / 1_000.0
+                    with open(stats_dir / "trace_reconstruction_time.json", "r") as f:
+                        # trace time is in millis
+                        trace_exec_time_sec = float(json.load(f)) / 1_000.0
+
+                else:
+                    trace_bench_config: BenchConfig[TraceTargetConfig] = trace_bench_config
+                    trace_target_config: TraceConfig = trace_bench_config["target_config"].value
+                    trace_dir = Path(trace_target_config["traces_dir"])
+                    # print(trace_dir)
+                    # pprint(list(trace_dir.iterdir()))
+
+                    with open(trace_dir / "trace_time.json", "r") as f:
+                        # trace time is in millis
+                        trace_exec_time_sec = float(json.load(f)) / 1_000.0
 
                 slowdown = trace_exec_time_sec / profile_exec_time_sec
                 if verbose:
@@ -210,12 +219,8 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
                 # pprint(list(profile_dir.iterdir()))
 
         all_stats = pd.concat(all_stats)
-        all_stats["overhead"] = (
-            all_stats["trace_exec_time_sec"] / all_stats["profile_exec_time_sec"]
-        )
-        all_stats["overhead_str"] = all_stats["overhead"].apply(
-            lambda x: plot.human_format_thousands(x)
-        )
+        all_stats["overhead"] = all_stats["trace_exec_time_sec"] / all_stats["profile_exec_time_sec"]
+        all_stats["overhead_str"] = all_stats["overhead"].apply(lambda x: plot.human_format_thousands(x))
         if verbose:
             print(all_stats)
 
@@ -224,20 +229,20 @@ def trace_overhead(path, bench_name_arg, config_path, verbose):
         max_slowdown = np.amax(slowdown)
         min_slowdown = np.amin(slowdown)
         print(
-            "MIN: {:>12}\t\t{:>30.6f}x".format(
+            "MIN: {:>12} = {:>30.6f}x".format(
                 plot.human_format_thousands(min_slowdown),
                 min_slowdown,
             )
         )
         print(
-            "MAX: {:>12}\t\t{:>30.6f}x".format(
+            "MAX: {:>12} = {:>30.6f}x".format(
                 plot.human_format_thousands(max_slowdown),
                 max_slowdown,
             )
         )
         print(
             color(
-                "\n\t => {:>20} MEAN SLOWDOWN FACTOR {:>12}\t\t{:>30.6f}x".format(
+                "\n\t => {:>20} MEAN SLOWDOWN FACTOR {:>12} = {:>30.6f}x".format(
                     trace_target.value,
                     plot.human_format_thousands(mean_slowdown),
                     mean_slowdown,

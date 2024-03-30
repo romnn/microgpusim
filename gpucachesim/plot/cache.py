@@ -28,9 +28,7 @@ def main():
 @main.command()
 @click.option("--input", help="input file path")
 # @click.option("--output", help="output file path")
-@click.option(
-    "--states", "plot_states", type=bool, default=True, help="Plot cache line states"
-)
+@click.option("--states", "plot_states", type=bool, default=True, help="Plot cache line states")
 @click.option(
     "--allocations",
     "plot_states",
@@ -171,18 +169,11 @@ def cache(
         print("assoc:", unique_assoc_ids)
         assert len(unique_assoc_ids) == assoc
 
-        assert (
-            len(df[["partition", "line_id", "sector"]].drop_duplicates())
-            == cache_size / sector_size
-        )
+        assert len(df[["partition", "line_id", "sector"]].drop_duplicates()) == cache_size / sector_size
 
         status_values = ["INVALID", "RESERVED", "VALID", "MODIFIED"]
-        status_hist = df.value_counts(["partition", "status"], dropna=False).sort_index(
-            level=0
-        )
-        allocation_hist = df.value_counts(
-            ["partition", "allocation_id"], dropna=False
-        ).sort_index(level=0)
+        status_hist = df.value_counts(["partition", "status"], dropna=False).sort_index(level=0)
+        allocation_hist = df.value_counts(["partition", "allocation_id"], dropna=False).sort_index(level=0)
         print(status_hist)
         print(allocation_hist)
 
@@ -194,25 +185,17 @@ def cache(
         last_access_times = np.zeros(shape=shape)
         cache_lines_per_set = assoc * sectors
 
-        for (partition_id, set_id, assoc_id), row_df in df.groupby(
-            ["partition", "set_id", "assoc_id"]
-        ):
-            row_df.sort_values(["line_id", "sector"])
+        for (partition_id, set_id, assoc_id), row_df in df.groupby(["partition", "set_id", "assoc_id"]):
+            row_df.sort_values(["line_id", "sector"], kind="stable")
 
             states[int(partition_id), int(set_id), int(assoc_id), :] = (
-                row_df["status"]
-                .apply(lambda status: status_values.index(status))
-                .to_numpy()
+                row_df["status"].apply(lambda status: status_values.index(status)).to_numpy()
             )
-            allocations[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
-                "allocation_id"
+            allocations[int(partition_id), int(set_id), int(assoc_id), :] = row_df["allocation_id"].to_numpy()
+            alloc_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df["sector_alloc_time"].to_numpy()
+            last_access_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
+                "last_sector_access_time"
             ].to_numpy()
-            alloc_times[int(partition_id), int(set_id), int(assoc_id), :] = row_df[
-                "sector_alloc_time"
-            ].to_numpy()
-            last_access_times[int(partition_id), int(set_id), int(assoc_id), :] = (
-                row_df["last_sector_access_time"].to_numpy()
-            )
 
         states = states.reshape((partitions, sets, -1))
         allocations = allocations.reshape((partitions, sets, -1))
@@ -246,9 +229,7 @@ def cache(
             frac_power_of_2_step_size = 3 * int(2**closest_frac_power_of_2)
             print("frac_power_of_2_step_size ", frac_power_of_2_step_size)
 
-            if abs(target_step_size - power_of_2_step_size) <= abs(
-                target_step_size - frac_power_of_2_step_size
-            ):
+            if abs(target_step_size - power_of_2_step_size) <= abs(target_step_size - frac_power_of_2_step_size):
                 return power_of_2_step_size
             else:
                 return frac_power_of_2_step_size
@@ -303,18 +284,12 @@ def cache(
             }
 
             status_labels = np.array(status_values)
-            status_cmap = matplotlib.colors.ListedColormap(
-                [status_colors[status] for status in status_values]
-            )
+            status_cmap = matplotlib.colors.ListedColormap([status_colors[status] for status in status_values])
             # status_labels = np.array(list(status_colors.keys()))
 
             status_norm_bins = np.arange(len(status_labels)).astype(float) + 0.5
-            status_norm_bins = np.insert(
-                status_norm_bins, 0, np.min(status_norm_bins) - 1.0
-            )
-            status_norm = matplotlib.colors.BoundaryNorm(
-                status_norm_bins, len(status_labels), clip=True
-            )
+            status_norm_bins = np.insert(status_norm_bins, 0, np.min(status_norm_bins) - 1.0)
+            status_norm = matplotlib.colors.BoundaryNorm(status_norm_bins, len(status_labels), clip=True)
 
             im = None
             for partition_id in range(partitions):
@@ -332,9 +307,7 @@ def cache(
             bbox_extra_artists = []
             if state_colorbar:
                 # use colorbar
-                status_fmt = matplotlib.ticker.FuncFormatter(
-                    lambda x, _: status_labels[status_norm(x)]
-                )
+                status_fmt = matplotlib.ticker.FuncFormatter(lambda x, _: status_labels[status_norm(x)])
                 diff = status_norm_bins[1:] - status_norm_bins[:-1]
                 status_ticks = status_norm_bins[:-1] + diff / 2
                 cbar = fig.colorbar(
@@ -583,9 +556,7 @@ def cache(
                 ax.set_yticks(yticks, yticklabels)
                 ax.set_xticks(xticks, xticklabels, rotation=xrotation)
 
-            output = input.with_stem(input.stem + "_last_access_times").with_suffix(
-                ".pdf"
-            )
+            output = input.with_stem(input.stem + "_last_access_times").with_suffix(".pdf")
             output.parent.mkdir(parents=True, exist_ok=True)
             fig.savefig(output)
             plt.close(fig)

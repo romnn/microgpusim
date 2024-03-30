@@ -62,9 +62,7 @@ def generate(
             raise ValueError
 
         for valid_bench_name in valid_bench_names:
-            benches[valid_bench_name].extend(
-                b.benchmarks[valid_target.value][valid_bench_name]
-            )
+            benches[valid_bench_name].extend(b.benchmarks[valid_target.value][valid_bench_name])
 
     benches = dict(benches)
 
@@ -122,30 +120,22 @@ def generate(
                     match (valid_bench_target, profiler):
                         case (Target.Profile, "nvprof"):
                             target_name += "[nvprof]"
-                            bench_stats = gpucachesim.stats.native.NvprofStats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.native.NvprofStats(config, bench_config)
                         case (Target.Profile, "nsight"):
                             target_name += "[nsight]"
-                            bench_stats = gpucachesim.stats.native.NsightStats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.native.NsightStats(config, bench_config)
                         case (Target.Simulate, _):
-                            bench_stats = gpucachesim.stats.stats.Stats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.stats.Stats(config, bench_config)
                         case (Target.ExecDrivenSimulate, _):
-                            bench_stats = gpucachesim.stats.stats.ExecDrivenStats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.stats.ExecDrivenStats(config, bench_config)
                         case (Target.AccelsimSimulate, _):
                             bench_stats = gpucachesim.stats.accelsim.Stats(
-                                config, bench_config
+                                config,
+                                bench_config,
+                                strict=strict,
                             )
                         case (Target.PlaygroundSimulate, _):
-                            bench_stats = gpucachesim.stats.playground.Stats(
-                                config, bench_config
-                            )
+                            bench_stats = gpucachesim.stats.playground.Stats(config, bench_config)
                         case other:
                             print(
                                 color(
@@ -192,9 +182,7 @@ def generate(
                 print(all_stats)
 
             print(all_stats.value_counts(["target", "benchmark"]))
-            stats_output_path = (
-                results_dir / f"combined.stats.{profiler}.{valid_bench_name}.csv"
-            )
+            stats_output_path = results_dir / f"combined.stats.{profiler}.{valid_bench_name}.csv"
 
             if output_path is not None:
                 stats_output_path = Path(output_path)

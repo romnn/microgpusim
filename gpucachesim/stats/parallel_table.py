@@ -7,6 +7,7 @@ from wasabi import color
 from pprint import pprint
 
 import gpucachesim.benchmarks as benchmarks
+import gpucachesim.tex as tex
 import gpucachesim.utils as utils
 import gpucachesim.plot as plot
 import gpucachesim.stats.metrics as metrics
@@ -275,7 +276,7 @@ def build_parallel_table_rows(
 
         table_rows.append(
             ParallelTableRow(
-                order=0,
+                order=300,
                 metric=r"L1D\\hit rate",
                 threads=threads,
                 serial_value=serial_value,
@@ -373,7 +374,7 @@ def build_parallel_table_rows(
             )
         table_rows.append(
             ParallelTableRow(
-                order=100,
+                order=400,
                 metric=r"L2D\\hit rate",
                 threads=threads,
                 serial_value=serial_value,
@@ -413,7 +414,7 @@ def build_parallel_table_rows(
                 nondet_values.append(
                     (
                         nondet_dram_reads,
-                        "${} ({}\\%)$".format(
+                        "${}~({}\\%)$".format(
                             plot.human_format_thousands(
                                 nondet_dram_reads,
                                 round_to=thousands_round_to,
@@ -456,7 +457,7 @@ def build_parallel_table_rows(
         else:
             det_value = (
                 det_dram_reads,
-                "${} ({}\\%)$".format(
+                "${}~({}\\%)$".format(
                     plot.human_format_thousands(
                         det_dram_reads,
                         round_to=thousands_round_to,
@@ -472,7 +473,7 @@ def build_parallel_table_rows(
 
         table_rows.append(
             ParallelTableRow(
-                order=200,
+                order=100,
                 metric=r"DRAM\\reads",
                 threads=threads,
                 serial_value=serial_value,
@@ -512,7 +513,7 @@ def build_parallel_table_rows(
                 nondet_values.append(
                     (
                         nondet_dram_writes,
-                        "${} ({}\\%)$".format(
+                        "${}~({}\\%)$".format(
                             plot.human_format_thousands(
                                 nondet_dram_writes,
                                 round_to=thousands_round_to,
@@ -555,7 +556,7 @@ def build_parallel_table_rows(
         else:
             det_value = (
                 det_dram_writes,
-                "${} ({}\\%)$".format(
+                "${}~({}\\%)$".format(
                     plot.human_format_thousands(
                         det_dram_writes,
                         round_to=thousands_round_to,
@@ -570,7 +571,7 @@ def build_parallel_table_rows(
             )
         table_rows.append(
             ParallelTableRow(
-                order=300,
+                order=200,
                 metric=r"DRAM\\writes",
                 threads=threads,
                 serial_value=serial_value,
@@ -609,7 +610,7 @@ def build_parallel_table_rows(
                 nondet_values.append(
                     (
                         nondet_cycles,
-                        "${} ({}\\%)$".format(
+                        "${}~({}\\%)$".format(
                             plot.human_format_thousands(
                                 nondet_cycles,
                                 round_to=thousands_round_to,
@@ -652,7 +653,7 @@ def build_parallel_table_rows(
         else:
             det_value = (
                 det_cycles,
-                "${} ({}\\%)$".format(
+                "${}~({}\\%)$".format(
                     plot.human_format_thousands(
                         det_cycles,
                         round_to=thousands_round_to,
@@ -679,8 +680,9 @@ def build_parallel_table_rows(
         # exec time (speedup)
         serial_exec_time = df.loc[threads_mask, "exec_time_sec_serial"].mean()
         det_exec_time = det["exec_time_sec_parallel"].mean()
+
         det_speedup = det["exec_time_sec_speedup"].mean()
-        # if multiple_bench_configs:
+        det_speedup = det["exec_time_sec_speedup"].mean()
 
         if verbose:
             print("")
@@ -826,21 +828,21 @@ def compute_table_row_label(bench_config, df):
                 int(df["input_length"]),
             )
         case "matrixmul":
-            label = "MatrixMul (f{:<2}, {}x{}x{})".format(
+            label = r"MatrixMul (f{:<2}, {}$\times${}$\times${})".format(
                 int(df["input_dtype"]),
                 int(df["input_rows"]),
                 int(df["input_rows"]),
                 int(df["input_rows"]),
             )
         case "simple_matrixmul":
-            label = "Naive MatrixMul (f{:<2}, {}x{}x{})".format(
+            label = r"Naive MatrixMul (f{:<2}, {}$\times${}$\times${})".format(
                 int(df["input_dtype"]),
                 int(df["input_m"]),
                 int(df["input_n"]),
                 int(df["input_p"]),
             )
         case "transpose":
-            label = "Transpose ({}, {}x{})".format(
+            label = r"Transpose ({}, {}$\times${})".format(
                 df["input_variant"],
                 int(df["input_dim"]),
                 int(df["input_dim"]),
@@ -858,15 +860,15 @@ def compute_table_row_label(bench_config, df):
 
 
 def write_table_row(
-    row: ParallelTableRow, _bold_values: typing.Optional[typing.Sequence[float]] = None
+    row: ParallelTableRow, rowidx: int, has_serial_col: bool, bold_values: typing.Optional[typing.Sequence[float]] = None
 ):
-    if _bold_values is None:
-        bold_values = set()
+    if bold_values is None:
+        valid_bold_values = set()
     else:
-        bold_values = set(_bold_values)
+        valid_bold_values = set(bold_values)
 
     def bold(v, formatted_v):
-        if v in bold_values:
+        if v in valid_bold_values:
             formatted_v = formatted_v.strip()
             is_math = formatted_v[0] == "$" and formatted_v[-1] == "$"
             if is_math:
@@ -878,23 +880,28 @@ def write_table_row(
     is_first_metric_row = row.threads == 4
     is_last_metric_row = row.threads == 8
 
+    metric_rowidx = int(np.floor(rowidx / 2))
+
     table_row = ""
 
+    if metric_rowidx % 2 == 0:
+        table_row += r"\rowcolor{gray!10}" + "\n"
+
     # metric name
-    if is_first_metric_row:
-        table_row += r"\multirow{2}{*}{\shortstack[r]{" + str(row.metric) + r"}}"
+    if is_last_metric_row:
+        table_row += r"\multirow{-2}{*}{\shortstack[r]{" + str(row.metric) + r"}}"
 
     # threads
     table_row += r" & $t=" + str(row.threads) + r"$ "
 
     # serial value
-    if row.serial_value is not None and is_first_metric_row:
+    if row.serial_value is not None and is_last_metric_row:
         table_row += (
-            r" & \multirow{2}{*}{\shortstack[r]{"
+            r" & \multirow{-2}{*}{\shortstack[r]{"
             + bold(row.serial_value[0], row.serial_value[1])
             + r"}} "
         )
-    else:
+    elif has_serial_col:
         table_row += r" &  "
 
     # deterministic value
@@ -907,25 +914,18 @@ def write_table_row(
     for nondet_value, formatted_nondet_value in row.nondet_values:
         table_row += r" & " + bold(nondet_value, formatted_nondet_value)
     table_row += r" \\ "
-    if is_last_metric_row:
-        table_row += r" \hline "
+    # if is_last_metric_row:
+    #     table_row += r" \hline "
     table_row += "\n"
     return table_row
 
 
-def parallel_table(
+def build_joined_df(
     selected_df,
     bench_name,
-    scale_clusters=True,
-    large=False,
     verbose=True,
-    combined_only=False,
-    no_combined=False,
-    batch=False,
-    png=False,
-):
+) -> typing.Tuple[list[str], pd.DataFrame]:
     all_benchmarks = bench_name is None
-
     if verbose:
         print(selected_df[["target", "run"]].drop_duplicates())
 
@@ -1153,24 +1153,51 @@ def parallel_table(
     if len(joined) == 0:
         raise ValueError("joined parallel and serial dataframe is empty")
 
-    if large:
-        joined = joined[joined["mean_blocks_per_sm_all_kernels_parallel"] > 1.0]
+    return bench_input_cols, joined
 
-    preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
-    preview_cols = list(
-        benchmarks.BENCH_TARGET_INDEX_COLS
-        + ["kernel_name", "kernel_launch_id", "run"]
-        + ["input_id_serial", "input_id_parallel"]
-        + bench_input_cols
-        + [c + "_serial" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
-        + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
-        + sorted(
-            [c + "_serial" for c in preview_metric_cols]
-            + [c + "_parallel" for c in preview_metric_cols]
-        )
-    )
-    # print(joined[preview_cols][:4].T)
 
+def get_functional_configs(scale=True, scale_clusters=False):
+    functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
+        dict(
+            input_memory_only=False,
+            input_num_clusters=benchmarks.BASELINE["num_clusters"],
+            input_cores_per_cluster=1,
+        ),
+    ]
+    if scale:
+        if scale_clusters:
+            functional_configs += [
+                dict(
+                    input_memory_only=False,
+                    input_num_clusters=4 * benchmarks.BASELINE["num_clusters"],
+                    input_cores_per_cluster=1,
+                )
+            ]
+        else:
+            functional_configs += [
+                dict(
+                    input_memory_only=False,
+                    input_num_clusters=benchmarks.BASELINE["num_clusters"],
+                    input_cores_per_cluster=4,
+                )
+            ]
+    return functional_configs
+
+
+def compute_speedup(df):
+    # only count speedup for large enough inputs
+    exec_time_sec_serial = df["exec_time_sec_serial"]
+    exec_time_sec_parallel = df["exec_time_sec_parallel"]
+    exec_time_sec_parallel = df[
+        ["exec_time_sec_serial", "exec_time_sec_parallel"]
+    ].min(axis=1)
+    # print(df[["benchmark", "target", "input_id_serial", "input_id_parallel", "run", "mean_blocks_per_sm_parallel", "exec_time_sec_serial", "exec_time_sec_parallel"]])
+    return metrics.speedup(
+        baseline=exec_time_sec_serial, values=exec_time_sec_parallel
+    ).mean()
+
+
+def get_group_cols(bench_input_cols):
     group_cols = sorted(
         benchmarks.BENCH_TARGET_INDEX_COLS
         # + ["input_id_serial"]
@@ -1180,12 +1207,9 @@ def parallel_table(
         + [col + "_parallel" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
         + [col + "_serial" for col in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
     )
-    if verbose:
-        print("GROUP COLS:")
-        pprint(group_cols)
-    # assert "input_id" not in group_cols
-    # assert "input_id_serial" not in group_cols
+    return group_cols
 
+def get_aggregations(joined, group_cols):
     aggregations = {
         **{c: "mean" for c in sorted(joined.columns)},
         **{c: agg for c, agg in benchmarks.NON_NUMERIC_COLS.items()},
@@ -1208,6 +1232,53 @@ def parallel_table(
         )
         raise ValueError
 
+    return aggregations
+
+
+def parallel_table(
+    selected_df,
+    bench_name,
+    scale_clusters=True,
+    large=False,
+    verbose=True,
+    combined_only=False,
+    no_combined=False,
+    batch=False,
+    png=False,
+):
+    all_benchmarks = bench_name is None
+    bench_input_cols, joined = build_joined_df(
+        selected_df, bench_name=bench_name, verbose=verbose)
+
+    if large:
+        joined = joined[joined["mean_blocks_per_sm_all_kernels_parallel"] > 1.0]
+        # serial must also run for more than 30seconds
+        joined = joined[joined["exec_time_sec_serial"] >= 30.0]
+
+    preview_metric_cols = ["cycles", "exec_time_sec", "l2_hit_rate", "l1_hit_rate"]
+    preview_cols = list(
+        benchmarks.BENCH_TARGET_INDEX_COLS
+        + ["kernel_name", "kernel_launch_id", "run"]
+        + ["input_id_serial", "input_id_parallel"]
+        + bench_input_cols
+        + [c + "_serial" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+        + [c + "_parallel" for c in benchmarks.SIMULATE_EXECUTION_CONFIG_COLS]
+        + sorted(
+            [c + "_serial" for c in preview_metric_cols]
+            + [c + "_parallel" for c in preview_metric_cols]
+        )
+    )
+    # print(joined[preview_cols][:4].T)
+
+    group_cols = get_group_cols(bench_input_cols)
+    if verbose:
+        print("GROUP COLS:")
+        pprint(group_cols)
+    # assert "input_id" not in group_cols
+    # assert "input_id_serial" not in group_cols
+
+    aggregations = get_aggregations(joined, group_cols)
+    
     # def add_no_kernel_exec_time(df):
     #     # print(df[preview_cols].T)
     #     assert len(df) >= 2, "have no kernel row and at least one kernel for the config"
@@ -1249,19 +1320,7 @@ def parallel_table(
 
     aggregated = grouped.agg(aggregations, squeeze=False)
 
-    # speedup
-    def compute_speedup(df):
-        # only count speedup for large enough inputs
-        exec_time_sec_serial = df["exec_time_sec_serial"]
-        exec_time_sec_parallel = df["exec_time_sec_parallel"]
-        exec_time_sec_parallel = df[
-            ["exec_time_sec_serial", "exec_time_sec_parallel"]
-        ].min(axis=1)
-        # print(df[["benchmark", "target", "input_id_serial", "input_id_parallel", "run", "mean_blocks_per_sm_parallel", "exec_time_sec_serial", "exec_time_sec_parallel"]])
-        return metrics.speedup(
-            baseline=exec_time_sec_serial, values=exec_time_sec_parallel
-        ).mean()
-
+    
     if True:
         # exec time speedup
         aggregated["exec_time_sec_speedup"] = grouped[joined.columns].apply(
@@ -1372,30 +1431,8 @@ def parallel_table(
     # build the table data
     assert 4 * benchmarks.BASELINE["num_clusters"] == 112
 
-    functional_configs: typing.Sequence[typing.Dict[str, typing.Any]] = [
-        dict(
-            input_memory_only=False,
-            input_num_clusters=benchmarks.BASELINE["num_clusters"],
-            input_cores_per_cluster=1,
-        ),
-    ]
-    if scale_clusters:
-        functional_configs += [
-            dict(
-                input_memory_only=False,
-                input_num_clusters=4 * benchmarks.BASELINE["num_clusters"],
-                input_cores_per_cluster=1,
-            )
-        ]
-    else:
-        functional_configs += [
-            dict(
-                input_memory_only=False,
-                input_num_clusters=benchmarks.BASELINE["num_clusters"],
-                input_cores_per_cluster=4,
-            )
-        ]
-
+    functional_configs = get_functional_configs(scale=True, scale_clusters=scale_clusters)
+    
     selected_benchmarks: typing.Sequence[typing.Dict[str, typing.Any]] = []
     for functional_config in functional_configs:
         selected_benchmarks += [
@@ -1444,7 +1481,17 @@ def parallel_table(
 
     table = ""
 
-    # absolute_exec_time = not all_benchmarks
+    has_serial_col = (bench_name is not None) and not combined_only
+    tabular_columns =  [" " + tex.r(width="15mm")] # metric
+    tabular_columns += [" " + tex.r(width="8mm")] # num threads
+    if has_serial_col:
+        tabular_columns += ["|" + tex.r(width="15mm")] # serial
+
+    tabular_columns += ["|" + tex.r()] # deterministic
+    tabular_columns += ["|" + tex.r()] # nondeterministic 1
+    tabular_columns += [" " + tex.r()] # nondeterministic 2
+
+    num_cols = len(tabular_columns)
 
     if all_benchmarks:
         for functional_config in functional_configs:
@@ -1465,17 +1512,22 @@ def parallel_table(
             num_unique_bench_configs = len(
                 aggregated.loc[mask, ["benchmark", "input_id_serial"]].drop_duplicates()
             )
-            label = "Average ({} benchmark configurations) @ {} SM's".format(
+            primary_label = "Average"
+            secondary_label = "({} benchmark configurations) @ {} SM's".format(
                 num_unique_bench_configs, total_cores
             )
             if large:
-                label += " [blocks/SM > 1]"
+                secondary_label += r" [blocks/SM $\mathbf{> 1}$]"
                 # label += " [blocks/SM > 1, {} benchmarks]".format(num_unique_bench_configs)
 
             table += "%\n%\n"
             table += (
-                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
-                + label
+                ""
+                # r"\rowcolor{gray!10} "
+                + r"\hline \hline"
+                + "\n"
+                + r"\multicolumn{" + str(num_cols) + r"}{c}{\textbf{" + primary_label # + r"}"
+                + " " + secondary_label
                 + r"}} \\ \hline"
                 + "\n"
             )
@@ -1496,7 +1548,7 @@ def parallel_table(
                 table_rows, key=lambda row: (row.order, row.metric, row.threads)
             )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
-            for row in table_rows:
+            for rowidx, row in enumerate(table_rows):
                 bold_values = []
                 if row.metric_key() == r"exectime":
                     bold_values = [np.amax(row.values())]
@@ -1511,7 +1563,7 @@ def parallel_table(
                     print(row.metric, bold_values, row.values())
 
                 print(row.metric, bold_values, row.values())
-                table += write_table_row(row, bold_values)
+                table += write_table_row(row, rowidx, has_serial_col=has_serial_col, bold_values=bold_values)
 
     else:
         assert not (combined_only and no_combined)
@@ -1546,12 +1598,17 @@ def parallel_table(
             # print(test_df)
             # assert len(test_df) == 1
 
-            table += "%\n%\n"
             label = str(
                 compute_table_row_label(bench_config, aggregated.loc[mask].iloc[0])
             )
+
+            table += "%\n%\n"
             table += (
-                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
+                ""
+                # + r"\rowcolor{gray!10} "
+                + r"\hline \hline"
+                + "\n"
+                + r"\multicolumn{" + str(num_cols) + r"}{c}{\textbf{"
                 + label
                 + r"}} \\ \hline"
                 + "\n"
@@ -1580,7 +1637,7 @@ def parallel_table(
                 table_rows, key=lambda row: (row.order, row.metric, row.threads)
             )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
-            for row in table_rows:
+            for rowidx, row in enumerate(table_rows):
                 bold_values = []
                 if row.metric_key() == r"exectime":
                     bold_values = [np.amin(row.values())]
@@ -1594,7 +1651,7 @@ def parallel_table(
                             row.metric, row.values(), bold_values
                         )
                     )
-                table += write_table_row(row, bold_values)
+                table += write_table_row(row, rowidx, has_serial_col=has_serial_col, bold_values=bold_values)
 
         # add averaged row
         for functional_config in functional_configs:
@@ -1631,21 +1688,28 @@ def parallel_table(
                     for name in aggregated.loc[mask, "benchmark"].unique()
                 ]
             )
-            label = "Average {} ({} configurations) @ {} SM's".format(
-                ", ".join(unique_bench_names),
+            primary_label = "Average"
+            if len(unique_bench_names) > 0:
+                primary_label += " " + ", ".join(unique_bench_names)
+            secondary_label = "({} configurations) @ {} SM's".format(
                 num_unique_bench_configs,
                 total_cores,
             )
             if large:
-                label += " [blocks/SM > 1]"
+                secondary_label += " [blocks/SM > 1]"
                 # label += " [blocks/SM > 1, {} benchmarks]".format(num_unique_bench_configs)
 
-            assert "_" not in label
+            assert "_" not in (primary_label + secondary_label)
 
             table += "%\n%\n"
             table += (
-                r"\rowcolor{gray!10} \multicolumn{6}{c}{\textbf{"
-                + label
+                ""
+                # + r"\rowcolor{gray!10} "
+                + r"\hline \hline"
+                + "\n"
+                + r"\multicolumn{" + str(num_cols) + r"}{c}{\textbf{"
+                + primary_label
+                + " " + secondary_label
                 + r"}} \\ \hline"
                 + "\n"
             )
@@ -1663,78 +1727,37 @@ def parallel_table(
                 table_rows, key=lambda row: (row.order, row.metric, row.threads)
             )
             # table_rows = sorted(table_rows, key=lambda row: (row.threads))
-            for row in table_rows:
+            for rowidx, row in enumerate(table_rows):
                 bold_values = []
-                if row.metric == r"exec\\time":
-                    # if absolute_exec_time:
-                    #     # when exec time is absolute, take minimum
-                    #     bold_values = [np.amin(row.values())]
-                    # else:
-                    #     # when exec time is speedup, take maximum
+                if row.metric_key() == r"exectime":
+                    # averaged does not use absolute exec time (lower is better) but speedup (larger is better)
                     bold_values = [np.amax(row.values())]
-
-                # print(row.metric, bold_values, row.values())
                 if verbose:
                     print(
                         "writing table row {:<30} values={} bold={}".format(
                             row.metric, row.values(), bold_values
                         )
                     )
-                table += write_table_row(row, bold_values)
 
-    clipboard_table = r"""
-{\renewcommand{\arraystretch}{1.5}%
-\begin{tabularx}{\textwidth}{zs|s|z|zz}
-& & \multicolumn{1}{c|}{Serial} & \multicolumn{1}{c|}{Deterministic} & \multicolumn{2}{c}{Nondeterministic} \\
-& & & & \multicolumn{1}{c}{$n=5$} & \multicolumn{1}{c}{$n=10$} \\ \hline
-"""
-
-    clipboard_table += table
-    clipboard_table += r"""
-\end{tabularx}}
-\end{table}
-    """
-
-    if not batch:
-        print(clipboard_table)
-        utils.copy_to_clipboard(clipboard_table)
-        print("copied table to clipboard")
-
-    caption = r"Average relative speedup and percentage error for serial and parallel simulation using \textsc{gpucachesim} on selected simulation output metrics using $t$ threads."
-
-    tex_code = r"""
-\documentclass[preview]{standalone}
-"""
-    tex_code += utils.TEX_PACKAGES
-    tex_code += r"""
-\begin{document}
-"""
-
-    tex_code += r"""
-\begin{table}[tbh]
-\fontsize{8}{10}\selectfont
-\footnotesize"""
-    tex_code += r"\caption{\small " + caption + r"}"
-    tex_code += r"""
-\centering
-% \setlength\extrarowheight{2pt}
-% \rowcolors{2}{white}{gray!20}
-{\renewcommand{\arraystretch}{1.5}%
-\begin{tabularx}{\textwidth}{zs|s|z|zz}
-& 
-& \multicolumn{1}{c|}{Serial}
-& \multicolumn{1}{c|}{Deterministic} 
-& \multicolumn{2}{c}{Nondeterministic} \\
-& & & & \multicolumn{1}{c}{$n=5$} & \multicolumn{1}{c}{$n=10$} \\ \hline
-"""
-    tex_code += table
-    tex_code += r"""
-\end{tabularx}}
-\end{table}
-"""
-    tex_code += r"""
-\end{document}
-"""
+                # bold_values = []
+                # if row.metric == r"exec\\time":
+                #     # if absolute_exec_time:
+                #     #     # when exec time is absolute, take minimum
+                #     #     bold_values = [np.amin(row.values())]
+                #     # else:
+                #     #     # when exec time is speedup, take maximum
+                #     bold_values = [np.amax(row.values())]
+                # print(bold_values)
+                #
+                # # print(row.metric, bold_values, row.values())
+                # if verbose:
+                #     print(
+                #         "writing table row {:<30} values={} bold={}".format(
+                #             row.metric, row.values(), bold_values
+                #         )
+                #     )
+                table += write_table_row(row, rowidx, has_serial_col=has_serial_col, bold_values=bold_values)
+    table += r"\hline"
 
     filename = "parallel_table"
     if all_benchmarks:
@@ -1752,13 +1775,81 @@ def parallel_table(
     if large:
         filename += "_large"
 
+#     caption = r"""
+# Average relative speedup and percentage error for serial and parallel (deterministic and nondeterministic) simulation using \simName{} on selected simulation output metrics using $t$ threads.
+# """
+#     if False:
+#         caption = r"""
+# The first configuration corresponds to the NVIDIA TitanX configuration with 28 SM's, while the latter refers to a scaled-up configuration with $4x$ the number of SM's.
+#         """
+#         if large:
+#             caption += r"""
+# Only large benchmark configurations with sufficient blocks per SM are considered.
+#     """
+#
+#     caption = utils.sanitize_caption(caption)
+
+    tex_document_code = r"""
+\documentclass[preview]{standalone}
+"""
+    tex_document_code += tex.TEX_PACKAGES
+    tex_document_code += r"""
+\begin{document}
+"""
+
+    tex_code = r"\begin{tabularx}{\textwidth}{" + "\n"
+    tex_code += "\n".join(tabular_columns) + "\n"
+    tex_code += "}\n"
+
+    tex_code += "&"
+    if has_serial_col:
+        tex_code += "\n"
+        tex_code += r"& \multicolumn{1}{c|}{Serial}"
+    tex_code += r"""
+& \multicolumn{1}{c|}{Deterministic} 
+& \multicolumn{2}{c}{Nondeterministic} \\
+"""
+    # tex_code += "& & & & "
+    tex_code += "& " * (num_cols-2)
+    tex_code += r"\multicolumn{1}{c}{$n=5$} & \multicolumn{1}{c}{$n=10$} \\" + "\n"
+    tex_code += table
+    tex_code += r"""
+\end{tabularx}
+"""
+
+    tex_document_code += r"""
+\begin{table}[tbh!]
+\fontsize{8}{10}\selectfont
+\footnotesize
+\centering
+{\renewcommand{\arraystretch}{1.25}%
+"""
+    tex_document_code += tex_code
+    tex_document_code += r"""
+}
+\end{table}
+\end{document}
+"""
+
+    if not batch:
+        print(tex_code)
+        utils.copy_to_clipboard(tex_code)
+        print("copied table to clipboard")
+
+    # write latex
+    tex_output_path = (plot.TABLE_DIR / filename).with_suffix(".tex")
+    with open(tex_output_path, "w") as f:
+        f.write(tex_code)
+    print(color("wrote {}".format(tex_output_path), fg="cyan"))
+
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:
-        utils.render_latex(tex_code, output_path=pdf_output_path)
+        tex.render_latex(tex_document_code, output_path=pdf_output_path)
     except Exception as e:
-        print(tex_code)
+        print(tex_document_code)
         raise e
     print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
 
     if png:
         png_output_path = (plot.TABLE_DIR / "png" / filename).with_suffix(".png")

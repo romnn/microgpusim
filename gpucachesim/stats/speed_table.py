@@ -9,6 +9,7 @@ from gpucachesim.stats.agg import TargetDataframes, split_into_target_dfs
 import gpucachesim.plot as plot
 import gpucachesim.stats.metrics as metrics
 import gpucachesim.benchmarks as benchmarks
+import gpucachesim.tex as tex
 import gpucachesim.utils as utils
 import gpucachesim.stats.result_table
 from gpucachesim.benchmarks import Target
@@ -19,15 +20,11 @@ def choose_fastest_parallel_implementation(df) -> pd.DataFrame:
     # note, we do NOT group by SIMULATE_EXECUTION_CONFIG_COLS or SIMULATE_INPUT_COLS.
     # this means we do NOT group on input_mode, input_run_ahead, or input_threads
     functinoal_input_cols = copy.deepcopy(benchmarks.SIMULATE_FUNCTIONAL_CONFIG_COLS)
-    input_config_group_cols = (
-        ["target", "benchmark"] + functinoal_input_cols + bench_input_cols
-    )
+    input_config_group_cols = ["target", "benchmark"] + functinoal_input_cols + bench_input_cols
     input_config_group_cols = [col for col in input_config_group_cols if col in df]
 
     group_cols = input_config_group_cols + ["run"]
-    min_exec_times = df.groupby(group_cols, dropna=False)["exec_time_sec"].transform(
-        "min"
-    )
+    min_exec_times = df.groupby(group_cols, dropna=False)["exec_time_sec"].transform("min")
     df = df[df["exec_time_sec"] == min_exec_times]
     return df
 
@@ -63,9 +60,7 @@ def speed_table(
         if len(df) < 1:
             print(
                 color(
-                    "{} has no large configurations with blocks/SM > 1".format(
-                        bench_name
-                    ),
+                    "{} has no large configurations with blocks/SM > 1".format(bench_name),
                     fg="red",
                 )
             )
@@ -96,14 +91,8 @@ def speed_table(
     # serial_gpucachesim_df = target_dfs.serial_gpucachesim_df
     # serial_gpucachesim_mem_only_df = target_dfs.serial_gpucachesim_mem_only_df
     # serial_gpucachesim_exec_driven_df = target_dfs.serial_gpucachesim_exec_driven_df
-    parallel_gpucachesim_df = choose_fastest_parallel_implementation(
-        target_dfs.parallel_gpucachesim_df
-    )
-    print(
-        "{:>50}\t{}".format(
-            "fastest parallel gpucachesim", parallel_gpucachesim_df.shape
-        )
-    )
+    parallel_gpucachesim_df = choose_fastest_parallel_implementation(target_dfs.parallel_gpucachesim_df)
+    print("{:>50}\t{}".format("fastest parallel gpucachesim", parallel_gpucachesim_df.shape))
 
     # dtypes = {
     #     **{col: "float64" for col in native_df.columns},
@@ -116,12 +105,8 @@ def speed_table(
     sim_targets = {
         "accelsim": target_dfs.accelsim_df.astype(dtypes),
         "gpucachesim": target_dfs.serial_gpucachesim_df.astype(dtypes),
-        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(
-            dtypes
-        ),
-        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(
-            dtypes
-        ),
+        "gpucachesim_mem_only": target_dfs.serial_gpucachesim_mem_only_df.astype(dtypes),
+        "gpucachesim_exec_driven": target_dfs.serial_gpucachesim_exec_driven_df.astype(dtypes),
         "gpucachesim_parallel": parallel_gpucachesim_df.astype(dtypes),
     }
 
@@ -186,9 +171,7 @@ def speed_table(
     #
     #     native_df = joined_df
 
-    joined_df = gpucachesim.stats.result_table.join_targets(
-        target_dfs, sim_targets, large=large, verbose=verbose
-    )
+    joined_df = gpucachesim.stats.result_table.join_targets(target_dfs, sim_targets, large=large, verbose=verbose)
 
     # remove nan rows
     joined_df = joined_df[~joined_df["input_id_gpucachesim"].isna()]
@@ -197,10 +180,7 @@ def speed_table(
     # preview_metrics = ["cycles", "instructions", "exec_time_sec", "input_id"]
     preview_metrics = ["input_id", "kernel_name", "exec_time_sec"]
     preview_cols = ["benchmark", "exec_time_nsec"] + [
-        col + "_" + target
-        for col, target in itertools.product(
-            preview_metrics, [""] + list(sim_targets.keys())
-        )
+        col + "_" + target for col, target in itertools.product(preview_metrics, [""] + list(sim_targets.keys()))
     ]
 
     benches = sorted(df["benchmark"].unique().tolist())
@@ -228,9 +208,9 @@ def speed_table(
         bench_df = bench_df.copy()
 
         if bench is None:
-            label = "Average"
+            primary_label = "Average"
         else:
-            label = benchmarks.benchmark_name_human_readable(bench)
+            primary_label = benchmarks.benchmark_name_human_readable(bench)
 
         assert len(bench_df) > 0
 
@@ -238,22 +218,18 @@ def speed_table(
         assert len(total_cores) == 1
         total_cores = int(total_cores[0])
 
-        num_unique_bench_configs = len(
-            bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates()
-        )
+        num_unique_bench_configs = len(bench_df[["benchmark", "input_id_gpucachesim"]].dropna().drop_duplicates())
 
-        label += " ({} benchmark configurations) @ {} SM's".format(
-            num_unique_bench_configs, total_cores
-        )
+        secondary_label = " ({} benchmark configurations) @ {} SM's".format(num_unique_bench_configs, total_cores)
         if large:
-            label += " [blocks/SM > 1]"
+            secondary_label += r" [blocks/SM $> 1$]"
 
         table += r"\rowcolor{gray!10}"
-        table += r"\multicolumn{6}{c}{\textbf{" + label + r"}} \\"
+        table += r"\multicolumn{6}{c}{\textbf{" + primary_label + r"}" + secondary_label + r"} \\"
         if bench is None:
-            table += r"\hline \hline"
+            table += r" \hline \hline"
         else:
-            table += r"\hline"
+            table += r" \hline"
         table += "\n"
 
         if verbose:
@@ -261,78 +237,198 @@ def speed_table(
             print(bench_df.shape)
 
         table += r"Slowdown"
-        slowdowns_over_native = [
-            metrics.slowdown(
-                baseline=bench_df["exec_time_sec"],
-                values=bench_df["exec_time_sec_accelsim"],
-            ),
-            metrics.slowdown(
-                baseline=bench_df["exec_time_sec"],
-                values=bench_df["exec_time_sec_gpucachesim"],
-            ),
-            metrics.slowdown(
-                baseline=bench_df["exec_time_sec"],
-                values=bench_df["exec_time_sec_gpucachesim_mem_only"],
-            ),
-            metrics.slowdown(
-                baseline=bench_df["exec_time_sec"],
-                values=bench_df["exec_time_sec_gpucachesim_exec_driven"],
-            ),
-            metrics.slowdown(
-                baseline=bench_df["exec_time_sec"],
-                values=bench_df["exec_time_sec_gpucachesim_parallel"],
-            ),
-        ]
-        assert all(
-            [len(s) == len(slowdowns_over_native[0]) for s in slowdowns_over_native]
+
+        bench_df["slowdown_accelsim"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_accelsim"],
+        )
+        bench_df["slowdown_gpucachesim"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_gpucachesim"],
+        )
+        bench_df["slowdown_gpucachesim_mem_only"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_gpucachesim_mem_only"],
+        )
+        bench_df["slowdown_gpucachesim_exec_driven"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_gpucachesim_exec_driven"],
+        )
+        bench_df["slowdown_gpucachesim_exec_driven_excl_trace"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_gpucachesim_exec_driven"]
+            - bench_df["trace_time_sec_gpucachesim_exec_driven"],
+        )
+        bench_df["slowdown_gpucachesim_parallel"] = metrics.slowdown(
+            baseline=bench_df["exec_time_sec"],
+            values=bench_df["exec_time_sec_gpucachesim_parallel"],
         )
 
-        if bench is None:
-            slowdowns_over_native = np.nanmean(slowdowns_over_native, axis=1)
-        else:
-            slowdowns_over_native = np.mean(slowdowns_over_native, axis=1)
+        slowdowns_over_native = bench_df[
+            [
+                "slowdown_accelsim",
+                "slowdown_gpucachesim",
+                "slowdown_gpucachesim_mem_only",
+                "slowdown_gpucachesim_exec_driven",
+                "slowdown_gpucachesim_parallel",
+            ]
+        ]
+        # slowdowns_over_native = [
+        #     metrics.slowdown(
+        #         baseline=bench_df["exec_time_sec"],
+        #         values=bench_df["exec_time_sec_accelsim"],
+        #     ),
+        #     metrics.slowdown(
+        #         baseline=bench_df["exec_time_sec"],
+        #         values=bench_df["exec_time_sec_gpucachesim"],
+        #     ),
+        #     metrics.slowdown(
+        #         baseline=bench_df["exec_time_sec"],
+        #         values=bench_df["exec_time_sec_gpucachesim_mem_only"],
+        #     ),
+        #     metrics.slowdown(
+        #         baseline=bench_df["exec_time_sec"],
+        #         values=bench_df["exec_time_sec_gpucachesim_exec_driven"],
+        #     ),
+        #     metrics.slowdown(
+        #         baseline=bench_df["exec_time_sec"],
+        #         values=bench_df["exec_time_sec_gpucachesim_parallel"],
+        #     ),
+        # ]
+        # assert all([len(s) == len(slowdowns_over_native[0]) for s in slowdowns_over_native])
 
-        all_slowdowns_over_native.append(slowdowns_over_native)
+        if False and bench == "babelstream":
+            print(
+                bench_df[
+                    [
+                        "exec_time_sec",
+                        "exec_time_sec_accelsim",
+                        "exec_time_sec_gpucachesim",
+                    ]
+                ]
+            )
 
-        for slowdown_value in slowdowns_over_native:
+        USE_MEDIAN = True
+
+        def mean_or_median(series):
+            if USE_MEDIAN:
+                return series.median()
+            else:
+                return series.mean()
+
+        # if USE_MEDIAN:
+        #     slowdowns_over_native = slowdowns_over_native.median()
+        # else:
+        #     slowdowns_over_native = slowdowns_over_native.mean(axis=0)
+        slowdowns_over_native = mean_or_median(slowdowns_over_native)
+
+        # if bench is None:
+        #     slowdowns_over_native = np.nanmean(slowdowns_over_native, axis=1)
+        # else:
+        #     slowdowns_over_native = np.mean(slowdowns_over_native, axis=1)
+
+        # print(slowdowns_over_native.index)
+        # print(slowdowns_over_native)
+        # print(slowdowns_over_native.values)
+        # print(slowdowns_over_native.reset_index())
+        # print(slowdowns_over_native.to_frame())
+        # print(slowdowns_over_native.T)
+        all_slowdowns_over_native.append(slowdowns_over_native.to_frame().T)
+
+        for target, slowdown_value in slowdowns_over_native.items():
             table += " & "
             if np.isnan(slowdown_value):
                 continue
-            bold = np.isfinite(slowdown_value) and slowdown_value == np.nanmin(
-                slowdowns_over_native
-            )
+            bold = np.isfinite(slowdown_value) and slowdown_value == np.nanmin(slowdowns_over_native)
             if bold:
                 table += r"\boldmath"
-            table += "${}$".format(plot.human_format_thousands(slowdown_value))
+
+            if target.endswith("gpucachesim_exec_driven"):
+                # also show the value without trace recon
+                slowdown_excl_trace = mean_or_median(bench_df["slowdown_gpucachesim_exec_driven_excl_trace"])
+
+                table += "${}$".format(plot.human_format_thousands(slowdown_excl_trace))
+                # table += "${}$".format(plot.human_format_thousands(slowdown_excl_trace))
+                # table += "$({} [{}])$".format(
+                #     plot.human_format_thousands(slowdown_value),
+                #     plot.human_format_thousands(slowdown_excl_trace),
+                # )
+            else:
+                table += "${}$".format(plot.human_format_thousands(slowdown_value))
+
         table += r"\\" + "\n"
 
         table += r"KIPS"
         native_kilo_instructions = bench_df["instructions"] / 1000.0
-        bench_df["kips_accelsim"] = (
-            native_kilo_instructions / bench_df["exec_time_sec_accelsim"]
-        )
-        bench_df["kips_gpucachesim"] = (
-            native_kilo_instructions / bench_df["exec_time_sec_gpucachesim"]
-        )
-        bench_df["kips_gpucachesim_mem_only"] = (
-            bench_df["instructions_gpucachesim_mem_only"] / 1000.0
-        ) / bench_df["exec_time_sec_gpucachesim_mem_only"]
+
+        # compute accelsim KIPS
+        bench_df["kips_accelsim"] = native_kilo_instructions / bench_df["exec_time_sec_accelsim"]
+
+        # compute serial gpucachesim KIPS
+        bench_df["kips_gpucachesim"] = native_kilo_instructions / bench_df["exec_time_sec_gpucachesim"]
+
+        # compute memory only gpucachesim KIPS
+        bench_df["kips_gpucachesim_mem_only"] = (bench_df["instructions_gpucachesim_mem_only"] / 1000.0) / bench_df[
+            "exec_time_sec_gpucachesim_mem_only"
+        ]
+
+        # compute exec driven gpucachesim KIPS
         bench_df["kips_gpucachesim_exec_driven"] = (
             bench_df["instructions_gpucachesim_exec_driven"] / 1000.0
         ) / bench_df["exec_time_sec_gpucachesim_exec_driven"]
+
+        # compute exec driven gpucachesim KIPS excluding trace reconstruction time
+        bench_df["kips_gpucachesim_exec_driven_excl_trace"] = (
+            bench_df["instructions_gpucachesim_exec_driven"] / 1000.0
+        ) / (bench_df["exec_time_sec_gpucachesim_exec_driven"] - bench_df["trace_time_sec_gpucachesim_exec_driven"])
+
+        # compute parallel gpucachesim KIPS
         bench_df["kips_gpucachesim_parallel"] = (
             native_kilo_instructions / bench_df["exec_time_sec_gpucachesim_parallel"]
         )
 
-        kips = np.array(
+        # find weird results
+        accelsim_faster_kips_mask = bench_df["kips_accelsim"] > bench_df["kips_gpucachesim"]
+        accelsim_faster_slowdown_mask = bench_df["slowdown_accelsim"] < bench_df["slowdown_gpucachesim"]
+
+        accelsim_should_be_faster_kips_mask = bench_df["kips_accelsim"] > bench_df["kips_gpucachesim"]
+        accelsim_should_be_faster_slowdown_mask = bench_df["slowdown_accelsim"] < bench_df["slowdown_gpucachesim"]
+
+        gpucachesim_faster_kips_mask = bench_df["kips_gpucachesim"] > bench_df["kips_accelsim"]
+        gpucachesim_faster_slowdown_mask = bench_df["slowdown_gpucachesim"] < bench_df["slowdown_accelsim"]
+
+        gpucachesim_should_be_faster_kips_mask = bench_df["kips_gpucachesim"] > bench_df["kips_accelsim"]
+        gpucachesim_should_be_faster_slowdown_mask = bench_df["slowdown_gpucachesim"] < bench_df["slowdown_accelsim"]
+
+        if (accelsim_should_be_faster_kips_mask & ~accelsim_should_be_faster_slowdown_mask).sum() > 0:
+            print(bench_df[accelsim_should_be_faster_kips_mask & ~accelsim_should_be_faster_slowdown_mask])
+
+            raise ValueError("debug this")
+
+        if (gpucachesim_should_be_faster_kips_mask & ~gpucachesim_should_be_faster_slowdown_mask).sum() > 0:
+            print(bench_df[gpucachesim_should_be_faster_kips_mask & ~gpucachesim_should_be_faster_slowdown_mask])
+
+            raise ValueError("debug this")
+
+        kips = bench_df[
             [
-                bench_df["kips_accelsim"],
-                bench_df["kips_gpucachesim"],
-                bench_df["kips_gpucachesim_mem_only"],
-                bench_df["kips_gpucachesim_exec_driven"],
-                bench_df["kips_gpucachesim_parallel"],
+                "kips_accelsim",
+                "kips_gpucachesim",
+                "kips_gpucachesim_mem_only",
+                "kips_gpucachesim_exec_driven",
+                "kips_gpucachesim_parallel",
             ]
-        )
+        ]
+
+        # kips = np.array(
+        #     [
+        #         bench_df["kips_accelsim"],
+        #         bench_df["kips_gpucachesim"],
+        #         bench_df["kips_gpucachesim_mem_only"],
+        #         bench_df["kips_gpucachesim_exec_driven"],
+        #         bench_df["kips_gpucachesim_parallel"],
+        #     ]
+        # )
 
         if verbose:
             print(
@@ -349,18 +445,43 @@ def speed_table(
                 ]
             )
 
-        if bench is None:
-            kips = np.nanmean(kips, axis=1)
-        else:
-            kips = np.mean(kips, axis=1)
-        for kips_value in kips:
+        # kips uses mean
+        # if USE_MEDIAN:
+        #     kips = kips.median()
+        # else:
+        #     kips = kips.mean()
+
+        kips = mean_or_median(kips)
+
+        # if bench is None:
+        #     kips = np.nanmean(kips, axis=1)
+        # else:
+        #     kips = np.mean(kips, axis=1)
+
+        for target, kips_value in kips.items():
             table += " & "
             if np.isnan(kips_value):
                 continue
             bold = np.isfinite(kips_value) and kips_value == np.nanmax(kips)
             if bold:
                 table += r"\boldmath"
-            table += "${}$".format(plot.human_format_thousands(kips_value))
+
+            # use parenthesis for KIPS that cannot be compared
+            if target.endswith("gpucachesim_mem_only"):
+                table += "$({})$".format(plot.human_format_thousands(kips_value))
+                # table += "${}$".format(plot.human_format_thousands(kips_value))
+
+            elif target.endswith("gpucachesim_exec_driven"):
+                # also show the kips value without trace recon
+                kips_excl_trace = mean_or_median(bench_df["kips_gpucachesim_exec_driven_excl_trace"])
+
+                table += "$({})$".format(plot.human_format_thousands(kips_excl_trace))
+                # table += "$({} [{}])$".format(
+                #     plot.human_format_thousands(kips_value),
+                #     plot.human_format_thousands(kips_excl_trace),
+                # )
+            else:
+                table += "${}$".format(plot.human_format_thousands(kips_value))
 
         if include_mean_time:
             table += r"\\" + "\n"
@@ -382,9 +503,7 @@ def speed_table(
                 table += " & "
                 if np.isnan(mean_time_value):
                     continue
-                bold = np.isfinite(mean_time_value) and mean_time_value == np.nanmin(
-                    mean_time
-                )
+                bold = np.isfinite(mean_time_value) and mean_time_value == np.nanmin(mean_time)
                 if bold:
                     table += r"\boldmath"
                 table += "${:5.1f}s$".format(mean_time_value)
@@ -398,14 +517,20 @@ def speed_table(
 
     table += "%\n%\n"
 
-    all_slowdowns_over_native = pd.DataFrame(
-        np.stack(all_slowdowns_over_native, axis=0),
-        columns=list(sim_targets.keys()),
-    )
+    # pprint(list(all_slowdowns_over_native))
+    # all_slowdowns_over_native = pd.DataFrame(
+    #     all_slowdowns_over_native,
+    #     # np.stack(all_slowdowns_over_native, axis=0),
+    #     columns=list(sim_targets.keys()),
+    # )
+
+    # print(all_slowdowns_over_native[0])
+    all_slowdowns_over_native = pd.concat(all_slowdowns_over_native)
+    # print(all_slowdowns_over_native)
 
     speedup_over_accel = (
-        all_slowdowns_over_native["accelsim"].iloc[-1]
-        / all_slowdowns_over_native["gpucachesim_parallel"].iloc[-1]
+        all_slowdowns_over_native["slowdown_accelsim"].iloc[-1]
+        / all_slowdowns_over_native["slowdown_gpucachesim_parallel"].iloc[-1]
     )
     print(
         color(
@@ -413,58 +538,6 @@ def speed_table(
             fg="green",
         )
     )
-
-    if not batch:
-        print("")
-        print(table)
-        utils.copy_to_clipboard(table)
-        print("copied table to clipboard")
-
-    tex_code = r"""
-\documentclass[preview]{standalone}
-"""
-    tex_code += utils.TEX_PACKAGES
-    tex_code += r"""
-\begin{document}
-"""
-
-    # caption = r"Average relative speedup and percentage error for serial and parallel simulation using \textsc{gpucachesim} on selected simulation output metrics using $t$ threads."
-    caption = r"""
-Simulation speed for different \textsc{gpucachesim} modes and the 
-popular \textsc{AccelSim} simulator per benchmark.
-Measured are relative slowdown over native execution on the 
-NVIDIA TitanX (Pascal) and absolute simulation rate in kilo 
-instructions per second (KIPS)."""
-
-    tex_code += r"""
-\begin{table}[htbp]
-\fontsize{8}{10}\selectfont
-\footnotesize
-"""
-    tex_code += r"\caption{\small" + caption + "}"
-    tex_code += r"""
-\centering
-% \setlength\extrarowheight{2pt}
-% \rowcolors{2}{white}{gray!20}
-{\renewcommand{\arraystretch}{1.5}%
-\begin{tabularx}{\textwidth}{zz|z|z|z|z}
-% Native
-& \textsc{AccelSim}
-& \shortstack[c]{\textsc{gpucachesim}\\(serial)}
-& \shortstack[c]{\textsc{gpucachesim}\\(mem-only)}
-& \shortstack[c]{\textsc{gpucachesim}\\(trace recon.)}
-& \shortstack[c]{\textsc{gpucachesim}\\(parallel)} \\ \hline
-%
-"""
-    tex_code += table
-    tex_code += r"""
-%
-\end{tabularx}}
-\end{table}
-"""
-    tex_code += r"""
-\end{document}
-"""
 
     filename = "speed_table"
     if bench_name is None:
@@ -477,9 +550,73 @@ instructions per second (KIPS)."""
         filename += "_no_combined"
     if large:
         filename += "_large"
+
+    tex_document_code = r"""
+\documentclass[preview]{standalone}
+"""
+    tex_document_code += tex.TEX_PACKAGES
+    tex_document_code += r"""
+\begin{document}
+"""
+
+    # caption = r"Average relative speedup and percentage error for serial and parallel simulation using \simName{} on selected simulation output metrics using $t$ threads."
+    #     caption = r"""
+    # Simulation speed for different \simName{} modes and the
+    # popular \textsc{AccelSim} simulator per benchmark.
+    # Measured are relative slowdown over native execution on the
+    # NVIDIA TitanX (Pascal) and absolute simulation rate in kilo
+    # instructions per second (KIPS)."""
+
+    # \begin{tabularx}{\textwidth}{zz|z|z|z|z}
+    tabular_columns = [" " + tex.r(width="15mm")]  # measurement
+    tabular_columns += [" " + tex.r()]  # accelsim
+    tabular_columns += ["|" + tex.r() for _ in range(len(sim_targets) - 1)]
+
+    tex_code = r"\begin{tabularx}{\textwidth}{" + "\n"
+    tex_code += "\n".join(tabular_columns) + "\n"
+    tex_code += "}"
+    tex_code += r"""
+% Native
+& \textsc{AccelSim}
+& \shortstack[c]{\simName{}\\(serial)}
+& \shortstack[c]{\simName{}\\(mem-only)}
+& \shortstack[c]{\simName{}\\(trace recon.)}
+& \shortstack[c]{\simName{}\\(parallel)} \\ \hline
+%
+"""
+    tex_code += table
+    tex_code += r"""
+\end{tabularx}
+"""
+
+    tex_document_code += r"""
+\begin{table}[htbp]
+\fontsize{8}{10}\selectfont
+\footnotesize
+\centering
+{\renewcommand{\arraystretch}{1.5}%
+    """
+    tex_document_code += tex_code
+    tex_document_code += r"""
+}
+\end{table}
+\end{document}
+"""
+
+    if not batch:
+        print(tex_code)
+        utils.copy_to_clipboard(tex_code)
+        print("copied table to clipboard")
+
+    # write latex
+    tex_output_path = (plot.TABLE_DIR / filename).with_suffix(".tex")
+    with open(tex_output_path, "w") as f:
+        f.write(tex_code)
+    print(color("wrote {}".format(tex_output_path), fg="cyan"))
+
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:
-        utils.render_latex(tex_code, output_path=pdf_output_path)
+        tex.render_latex(tex_document_code, output_path=pdf_output_path)
     except Exception as e:
         print(tex_code)
         raise e

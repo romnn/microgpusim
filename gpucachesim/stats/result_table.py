@@ -14,6 +14,7 @@ from gpucachesim.stats.agg import (
 )
 import gpucachesim.stats.metrics as metric_funcs
 import gpucachesim.benchmarks as benchmarks
+import gpucachesim.tex as tex
 import gpucachesim.utils as utils
 import gpucachesim.plot as plot
 from gpucachesim.benchmarks import BENCHMARK_INPUT_COLS, Target
@@ -23,6 +24,7 @@ class ErrorMetricID(enum.Enum):
     MAPE = "MAPE"
     SMAPE = "SMAPE"
     RMSPE = "RMSPE"
+    sRMSPE = "sRMSPE"
     RMSE = "RMSE"
     MAE = "MAE"
     Correlation = "Corr."
@@ -33,7 +35,6 @@ class ErrorMetricID(enum.Enum):
     # MAPE = ("mape", "MAPE")
     # Correlation = ("corr", "Corr.")
     # RelErr = ("rel_err", "Rel err.")
-
 
 class ErrorMetric(typing.NamedTuple):
     column: str
@@ -51,7 +52,7 @@ class Metric(typing.NamedTuple):
 ALL_METRICS = [
     Metric(
         key=r"dramreads",
-        label=r"DRAM\\reads",
+        label=r"Norm.\\DRAM\\reads",
         error_metrics=[
             # ("dram_reads", ErrorMetric.EMALE),
             # ("dram_reads_percent", ErrorMetric.MAPE),
@@ -69,7 +70,7 @@ ALL_METRICS = [
     ),
     Metric(
         key=r"dramwrites",
-        label=r"DRAM\\writes",
+        label=r"Norm.\\DRAM\\writes",
         # is_percent=False,
         error_metrics=[
             # ErrorMetric(column="dram_writes", is_percent=False, metric=ErrorMetricID.EMALE),
@@ -173,7 +174,7 @@ ALL_METRICS = [
     ),
     Metric(
         key=r"l2dhitrate",
-        label=r"L2D\\hitrate",
+        label=r"L2D\\hit rate",
         # is_percent=True,
         error_metrics=[
             # ErrorMetric(column="l2_hit_rate", is_percent=False, metric=ErrorMetricID.EMALE),
@@ -231,12 +232,10 @@ ALL_METRICS = [
         label=r"Cycles",
         # is_percent=False,
         error_metrics=[
-            # ErrorMetric(column="cycles", metric=ErrorMetric.RelErr),
-            # ErrorMetric(column="cycles", metric=ErrorMetric.EMALE),
-            # ErrorMetric(column="cycles", metric=ErrorMetric.ERMSLE),
-            # ErrorMetric(column="cycles", metric=ErrorMetric.SMAPE),
             ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.RMSPE),
             ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.MAPE),
+            # ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.sRMSPE),
+            # ErrorMetric(column="cycles", is_percent=False, metric=ErrorMetricID.SMAPE),
             ErrorMetric(
                 column="cycles", is_percent=False, metric=ErrorMetricID.Correlation
             ),
@@ -400,11 +399,12 @@ def result_table(
             m for m in ALL_METRICS if m.key.replace(" ", "").lower() in metrics_keys
         ]
         if len(selected_metrics) == 0:
+            print("VALID METRICS:")
+            pprint([m.key.replace(" ", "").lower() for m in ALL_METRICS])
             raise ValueError(
-                "invalid metrics {} (keys={}), have {}".format(
+                "invalid metrics {} (keys={})".format(
                     metrics,
                     metrics_keys,
-                    [m.key.replace(" ", "").lower() for m in ALL_METRICS],
                 ),
             )
 
@@ -438,9 +438,15 @@ def result_table(
         )
 
     pprint(functional_config)
+
+    # USE_MEDIAN = True
+    # if USE_MEDIAN else "mean"
+
     target_dfs = split_into_target_dfs(
-        df, per_kernel=False, mean=True, functional_config=functional_config
+        df, per_kernel=False, mean="median", functional_config=functional_config
     )
+
+    USE_MEDIAN = False
 
     # native_df = target_dfs.native_df
     # accelsim_df = target_dfs.accelsim_df
@@ -576,6 +582,14 @@ def result_table(
     else:
         selected_benches = [bench_name]
 
+
+    def mean_or_median(series, axis=0):
+        if USE_MEDIAN:
+            return series.median(axis=axis)
+        else:
+            return series.mean(axis=axis)
+
+
     table = ""
     for bench in selected_benches:
         if bench is None:
@@ -621,7 +635,8 @@ def result_table(
             table += r"\multirow{"
             table += str(len(metric.error_metrics))
             table += r"}{*}{\shortstack[r]{"
-            table += " ".join(str(metric.label).split("_"))
+            # table += " ".join(str(metric.label).split("_"))
+            table += metric.label.replace("_", " ")
             table += "}} \n"
 
             for err in metric.error_metrics:
@@ -641,8 +656,8 @@ def result_table(
                     )
                     print(bench_df.shape)
 
-                bench_df = bench_df.sort_values("input_id")
-                if bench is not None:
+                bench_df = bench_df.sort_values("input_id", kind="stable")
+                if bench is not None and verbose:
                     print(bench_df[["target", "benchmark", "input_id"]])
                     assert bench_df["input_id"].nunique() == len(bench_df["input_id"])
 
@@ -669,6 +684,7 @@ def result_table(
                             true_values = bench_df[err.column] * value_scale
                             values = bench_df[err.column + "_" + target] * value_scale
                             atol = 1.0 if metric_is_percent else 0.1
+                            print("correlating {} ({})".format(err.column, target))
                             error = metric_funcs.correlation(
                                 true_values=true_values, values=values, atol=atol
                             )
@@ -679,19 +695,7 @@ def result_table(
                             #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
-                        error_values_df = error_values_df.mean(axis=1)
-
-                    # case ErrorMetric.RelErr:
-                    #     error_values = []
-                    #     for suffix in sim_targets.keys():
-                    #         true_values=bench_df[metric_col]
-                    #         values=bench_df[metric_col + suffix]
-                    #         error = rel_err(true_values=true_values, values=values)
-                    #         bench_df[metric_col + "_" + error_metric.name.lower() + suffix] = error
-                    #         error_values.append(error)
-                    #     error_values = pd.DataFrame(error_values)
-                    #     error_values = error_values.mean(axis=1)
-                    #     # error_values *= 100.0
+                        error_values_df = mean_or_median(error_values_df, axis=1)
 
                     case ErrorMetricID.EMALE:
                         error_values = []
@@ -712,7 +716,7 @@ def result_table(
                             #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
-                        error_values_df = error_values_df.mean(axis=1)
+                        error_values_df = mean_or_median(error_values_df, axis=1)
 
                     case ErrorMetricID.ERMSLE:
                         error_values = []
@@ -733,7 +737,7 @@ def result_table(
                             #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
-                        error_values_df = error_values_df.mean(axis=1)
+                        error_values_df = mean_or_median(error_values_df, axis=1)
 
                     case ErrorMetricID.MAE:
                         error_values = []
@@ -758,7 +762,7 @@ def result_table(
                         error_values_df = pd.DataFrame(error_values)
                         # print("MAE: ")
                         # print(error_values_df)
-                        error_values_df = error_values_df.mean(axis=1)
+                        error_values_df = mean_or_median(error_values_df, axis=1)
                         # print(error_values_df)
 
                     case ErrorMetricID.SMAPE:
@@ -780,8 +784,9 @@ def result_table(
                             #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
-                        error_values_df *= 100.0
-                        error_values_df = error_values_df.mean(axis=1)
+                        # keep smape in -1 to 1 range
+                        # error_values_df *= 100.0
+                        error_values_df = mean_or_median(error_values_df, axis=1)
 
                     case ErrorMetricID.MAPE:
                         error_values = []
@@ -802,8 +807,9 @@ def result_table(
                             #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
+                        # transform the resulting percentage ino readable form
                         error_values_df *= 100.0
-                        error_values_df = error_values_df.mean(axis=1)
+                        error_values_df = mean_or_median(error_values_df, axis=1)
                         # error_values = error_values.aggregate(scipy.stats.gmean, axis=1)
                         # .apply(np.exp)
                         # error_values = pd.DataFrame([
@@ -819,16 +825,24 @@ def result_table(
                         # # print(keys)
                         # print(error_values.shape)
                         # bench_df[keys] = error_values.to_numpy().ravel()
-                        # error_values = error_values.mean(axis=1)
+                        # error_values = mean_or_median(error_values, axis=1)
 
-                    case ErrorMetricID.RMSPE:
+                    case ErrorMetricID.RMSPE | ErrorMetricID.sRMSPE:
                         error_values = []
                         for target in sim_targets.keys():
                             true_values = bench_df[err.column] * value_scale
                             values = bench_df[err.column + "_" + target] * value_scale
-                            error = metric_funcs.rmspe(
-                                true_values=true_values, values=values
-                            )
+                            if err.metric == ErrorMetricID.RMSPE:
+                                error = metric_funcs.rmspe(
+                                    true_values=true_values, values=values
+                                )
+                            elif err.metric == ErrorMetricID.sRMSPE:
+                                error = metric_funcs.symmetric_rmspe(
+                                    true_values=true_values, values=values
+                                )
+                            else:
+                                raise ValueError
+
                             bench_df[
                                 err.column
                                 + "_"
@@ -836,12 +850,10 @@ def result_table(
                                 + "_"
                                 + target
                             ] = error
-                            # if bench_df["cycles" + "_" + target].isna().all():
-                            #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
                         error_values_df *= 100.0
-                        error_values_df = error_values_df.mean(axis=1)
+                        error_values_df = mean_or_median(error_values_df, axis=1)
                     case ErrorMetricID.RMSE:
                         error_values = []
                         for target in sim_targets.keys():
@@ -857,12 +869,13 @@ def result_table(
                                 + "_"
                                 + target
                             ] = error
-                            # if bench_df["cycles" + "_" + target].isna().all():
-                            #     error = np.nan
                             error_values.append(error)
                         error_values_df = pd.DataFrame(error_values)
-                        error_values_df *= 100.0
-                        error_values_df = error_values_df.mean(axis=1)
+                        # rmse keeps its unit
+                        # error_values_df *= 100.0
+                        error_values_df = mean_or_median(error_values_df, axis=1)
+
+                        print(error_values_df)
 
                     case _:
                         raise ValueError(
@@ -886,49 +899,26 @@ def result_table(
                         continue
                     match err.metric:
                         case ErrorMetricID.Correlation:
-                            # if value == np.nanmax(error_values_df):
                             precision = 3
-                            # print("value", plot.round_to_precision(value, precision))
-                            # print("best", plot.round_to_precision(np.nanmax(error_values_df), precision))
                             if plot.round_to_precision(
                                 value, precision
                             ) == plot.round_to_precision(
                                 np.nanmax(error_values_df), precision
                             ):
-                                # if np.allclose([value], [np.nanmax(error_values_df)], atol=1e-4):
                                 table += r"\boldmath"
                             table += "${:5.3f}$".format(value)
-                        # case ErrorMetric.RelErr:
-                        #     if value == np.nanmin(error_values):
-                        #         table += r"\boldmath"
-                        #     table += "${:5.2f}\\%$".format(value)
-                        # case ErrorMetric.MALE:
-                        #     if value == np.nanmin(error_values):
-                        #         table += r"\boldmath"
-                        #     table += "${}\\%$".format(
-                        #         plot.human_format_thousands(value)
-                        #     )
-                        # case ErrorMetric.SMAPE:
-                        #     if value == np.nanmin(error_values):
-                        #         table += r"\boldmath"
-                        #     table += "${}\\%$".format(
-                        #         plot.human_format_thousands(value)
-                        #     )
                         case (
                             ErrorMetricID.SMAPE
                             | ErrorMetricID.MAPE
                             | ErrorMetricID.RMSPE
+                            | ErrorMetricID.sRMSPE
                         ):
                             precision = 2
-                            # atol = 10**-(precision+1)
-                            # print("atol", atol)
                             if plot.round_to_precision(
                                 value, precision
                             ) == plot.round_to_precision(
                                 np.nanmin(error_values_df), precision
                             ):
-                                # np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
-                                # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             table += "${}\\%$".format(
                                 plot.human_format_thousands(value, round_to=precision)
@@ -940,15 +930,11 @@ def result_table(
                             | ErrorMetricID.MAE
                         ):
                             precision = 2
-                            # atol = 10**-(precision+1)
-                            # print("atol", atol)
-                            # if np.allclose([value], [np.nanmin(error_values_df)], atol=atol):
                             if plot.round_to_precision(
                                 value, precision
                             ) == plot.round_to_precision(
                                 np.nanmin(error_values_df), precision
                             ):
-                                # if value == np.nanmin(error_values_df):
                                 table += r"\boldmath"
                             if metric_is_percent:
                                 table += "${:5.2f}\\%$".format(value)
@@ -996,49 +982,7 @@ def result_table(
 
         table += "%\n%\n"
 
-    if not batch:
-        print("")
-        print(table)
-        utils.copy_to_clipboard(table)
-        print("copied table to clipboard")
-
-    tex_code = r"""
-\documentclass[preview]{standalone}
-"""
-    tex_code += utils.TEX_PACKAGES
-    tex_code += r"""
-\begin{document}
-"""
-
-    tex_code += r"""
-\begin{table}[htbp]
-\fontsize{8}{10}\selectfont
-\footnotesize
-"""
-    caption = "Results"
-    tex_code += r"\caption{\small " + caption + "}"
-    tex_code += r"""
-\centering
-% \setlength\extrarowheight{2pt}
-% \rowcolors{2}{white}{gray!20}
-{\renewcommand{\arraystretch}{1.5}%
-\begin{tabularx}{\textwidth}{ss|z|z|z|z}
-& & \shortstack[t]{\textsc{AccelSim}} 
-  & \shortstack[t]{\textsc{gpucachesim}} 
-  & \shortstack[c]{\textsc{gpucachesim}\\\textit{(memory only)}} 
-  & \shortstack[c]{\textsc{gpucachesim}\\\textit{(trace reconstr.)}} \\ 
-\hline
-"""
-    tex_code += table
-    tex_code += r"""
-%
-\end{tabularx}}
-\end{table}
-"""
-    tex_code += r"""
-\end{document}
-"""
-
+    
     filename = "result_table"
     if bench_name is None:
         filename += "_all"
@@ -1061,12 +1005,69 @@ def result_table(
         )
     )
     filename = sanitize_filename(filename)
+
+    tex_document_code = r"""
+\documentclass[preview]{standalone}
+"""
+    tex_document_code += tex.TEX_PACKAGES
+    tex_document_code += r"""
+\begin{document}
+"""
+
+    # \begin{tabularx}{\textwidth}{ss|z|z|z|z}
+    tex_code = r"\begin{tabularx}{\textwidth}{" + "\n"
+    tex_code += tex.r(width="10mm") + "\n" # metric
+    tex_code += tex.r(width="10mm") + "\n" # error measure
+    for _ in range(len(sim_targets)):
+        tex_code += "|" + tex.r() + "\n"
+    tex_code += "}"
+
+    # \shortstack[t]{
+    # \shortstack[c]{
+    tex_code += r"""
+& & \makecell[c]{\textsc{AccelSim}} 
+  & \makecell[c]{\simName{}} 
+  & \makecell[c]{\simName{}\\\textit{(memory only)}} 
+  & \makecell[c]{\simName{}\\\textit{(trace reconstr.)}} \\ 
+\hline
+"""
+    tex_code += table
+    tex_code += r"""
+%
+\end{tabularx}
+"""
+
+    tex_document_code += r"""
+\begin{table}[tbh!]
+\fontsize{8}{10}\selectfont
+\footnotesize
+\centering
+{\renewcommand{\arraystretch}{1.5}%
+"""
+    tex_document_code += tex_code
+    tex_document_code += r"""
+}
+\end{table}
+\end{document}
+"""
+
+    if not batch:
+        print("")
+        print(table)
+        utils.copy_to_clipboard(table)
+        print("copied table to clipboard")
+
+    # write latex
+    tex_output_path = (plot.TABLE_DIR / filename).with_suffix(".tex")
+    with open(tex_output_path, "w") as f:
+        f.write(tex_code)
+    print(color("wrote {}".format(tex_output_path), fg="cyan"))
+    
     pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
     try:
-        utils.render_latex(tex_code, output_path=pdf_output_path)
-        pass
+        tex.render_latex(tex_document_code, output_path=pdf_output_path)
     except Exception as e:
-        print(tex_code)
+        print(tex_document_code)
         raise e
     print(color("wrote {}".format(pdf_output_path), fg="cyan"))
 

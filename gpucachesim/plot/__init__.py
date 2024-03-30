@@ -1,6 +1,8 @@
 import matplotlib.colors as mc
 import colorsys
 import math
+import numpy as np
+from pprint import pprint
 
 from gpucachesim import REPO_ROOT_DIR
 
@@ -29,6 +31,10 @@ DINA4_HEIGHT_INCHES = mm_to_inch(DINA4_HEIGHT_MM)
 
 def pt_to_px(pt):
     return int(pt * 4.0 / 3.0)
+
+
+def pt_to_mm(pt):
+    return pt * 0.352778
 
 
 DINA4_WIDTH = PPI * mm_to_inch(DINA4_WIDTH_MM)
@@ -238,8 +244,50 @@ def human_format_thousands(num, round_to=2, variable_precision=False):
             ["", "K", "M", "G", "T", "P"][magnitude],
         )
     return "{}{}".format(
-        round_to_precision_str(
-            num, round_to=round_to, variable_precision=variable_precision
-        ),
+        round_to_precision_str(num, round_to=round_to, variable_precision=variable_precision),
         ["", "K", "M", "G", "T", "P", "E", "Z"][magnitude],
     )
+
+
+def linear_range_with_power_step_size(min, max, num_ticks, base=2):
+    # step_size_power = np.log2(max / num_ticks)
+    step_size_power = np.emath.logn(base, max / num_ticks)
+    # print(step_size_power)
+
+    # step_size_power = utils.round_down_to_next_power_of_two(step_size_power)
+    step_size_power = np.floor(step_size_power)
+    step_size = base**step_size_power
+    # print("step_size", step_size)
+
+    multiple = (max / num_ticks) / step_size
+    # print("multiple", multiple)
+    multiple = np.ceil(multiple)
+
+    step_size *= multiple
+
+    ticks = np.arange(min, step_size * np.ceil(max / step_size), step=step_size)
+
+    def smallest_diff_between_any_two_numbers(arr):
+        diff = np.diff(np.sort(arr))
+        return diff[diff > 0].min()
+
+    # find the smallest diff between two ticks and compute min precision
+    min_diff = smallest_diff_between_any_two_numbers(ticks)
+    # print("min diff", min_diff)
+    min_precision = np.amin([np.log10(min_diff), 0.0])
+    min_precision = np.abs(min_precision)
+    # print("min precision", min_precision)
+    min_precision = int(np.ceil(min_precision))
+    # increase min precision to make all ticks different
+    # ytick_labels * 10**min_precision
+    min_precision += 1
+
+    # print("min precision", min_precision)
+    # pprint(ticks)
+    # tick_labels = [
+    #     # plot.human_format_thousands(v, round_to=min_precision, variable_precision=False)
+    #     "{value:.{precision}f}".format(value=v, precision=min_precision)
+    #     for v in ticks
+    # ]
+
+    return ticks, min_precision

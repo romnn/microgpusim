@@ -2,21 +2,31 @@ import copy
 import re
 import typing
 import numpy as np
-import itertools
+import shutil
+from itertools import product
+import zipfile
 import pandas as pd
+from pathlib import Path
 from pprint import pprint
 from os import PathLike
 from wasabi import color
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.transforms import Bbox
 from functools import partial
 
+import gpucachesim.stats.metrics as metric_funcs
 import gpucachesim.stats.load
 import gpucachesim.stats.native
 import gpucachesim.stats.agg
 import gpucachesim.benchmarks as benchmarks
 import gpucachesim.plot as plot
 import gpucachesim.utils as utils
+import gpucachesim.tex as tex
+
+
+USE_MEDIAN = True
+
 
 from gpucachesim.benchmarks import (
     Target,
@@ -26,37 +36,97 @@ from gpucachesim.benchmarks import (
 )
 
 
+def normalize_to_num_lines(label: str, lines: int) -> str:
+    label_lines = list(label.splitlines())
+    num_pad_lines = lines - len(label_lines)
+    if num_pad_lines >= 0:
+        label_lines = (["$~$"] * num_pad_lines) + label_lines
+    else:
+        # REDUCE
+        # exmaple for lines=1:
+        # input ["hellow", "world"]
+        # num_pad_lines = 1-2 = -1
+        # label_lines[:2]
+        reduced = " ".join(label_lines[: abs(num_pad_lines) + 1])
+        label_lines = [reduced] + label_lines[abs(num_pad_lines) + 1 :]
+    return "\n".join(label_lines)
+
+
+# https://stackoverflow.com/questions/31928209/matplotlib-fixed-spacing-between-left-edge-of-figure-and-y-axis
+def test(fig, figsize):
+    # define margins -> size in inches / figure dimension
+    width, height = figsize
+    left_margin = 0.95 / width
+    right_margin = 0.2 / width
+    bottom_margin = 0.5 / height
+    top_margin = 0.25 / height
+
+    # create axes
+    # dimensions are calculated relative to the figure size
+
+    x = left_margin  # horiz. position of bottom-left corner
+    y = bottom_margin  # vert. position of bottom-left corner
+    w = 1 - (left_margin + right_margin)  # width of axes
+    h = 1 - (bottom_margin + top_margin)  # height of axes
+
+    ax = fig.add_axes([x, y, w, h])
+
+    # define the ylabel position
+    # location are defined in dimension relative to the figure size
+    xloc = 0.25 / width
+    yloc = y + h / 2.0
+    ax.set_ylabel(
+        "yLabel", fontsize=16, verticalalignment="top", horizontalalignment="center"
+    )
+    ax.yaxis.set_label_coords(xloc, yloc, transform=fig.transFigure)
+
+
 class StatConfig(typing.NamedTuple):
     label: str
+    small_label: str
     log_y_axis: bool
     grid: bool
     percent: bool
+    height: float
 
+
+NORMAL_FIGURE_HEIGHT = 0.095 * plot.DINA4_HEIGHT_INCHES
+SMALL_FIGURE_HEIGHT = 0.065 * plot.DINA4_HEIGHT_INCHES
 
 DEFAULT_STAT_CONFIG = StatConfig(
     label="",
+    small_label="",
     log_y_axis=False,
     grid=True,
     percent=False,
+    height=NORMAL_FIGURE_HEIGHT,
 )
 
 STAT_CONFIGS = {
     "instructions": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="Instructions", log_y_axis=True),
+            **dict(
+                label="Instruction count",
+                small_label="Instruction count",
+                log_y_axis=True,
+            ),
         }
     ),
     "num_blocks": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="Block count", log_y_axis=False),
+            **dict(label="Block count", small_label="Block\ncount", log_y_axis=False),
         }
     ),
     "mean_blocks_per_sm": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="Average blocks per SM", log_y_axis=False),
+            **dict(
+                label="Average blocks per SM",
+                small_label="Avg.\nblocks/SM",
+                log_y_axis=False,
+            ),
         }
     ),
     # "input_id": StatConfig(
@@ -68,112 +138,274 @@ STAT_CONFIGS = {
     "cycles": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="Cycles", log_y_axis=True),
+            **dict(label="Cycles", small_label="Cycles", log_y_axis=True),
         }
     ),
     "dram_reads": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="DRAM reads", log_y_axis=True),
+            **dict(
+                label="DRAM reads",
+                small_label="DRAM\nreads",
+                log_y_axis=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "dram_writes": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="DRAM writes", log_y_axis=True),
+            **dict(
+                label="DRAM writes",
+                small_label="DRAM\nwrites",
+                log_y_axis=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "exec_time_sec": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="Execution time (s)", log_y_axis=True),
+            **dict(
+                label="Execution time $(s)$",
+                small_label="Exec.\ntime $(s)$",
+                log_y_axis=True,
+            ),
         }
     ),
     "l1_global_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L1 global hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L1 global hit rate $(\%)$",
+                small_label="L1\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l1_local_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L1 local hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L1 local hit rate $(\%)$",
+                small_label="L1 local\nhit rate " + r"(\%)",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l1_accesses": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="L1 accesses", log_y_axis=True),
+            **dict(
+                label="L1 accesses",
+                small_label="L1\naccesses",
+                log_y_axis=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_accesses": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label="L2 accesses", log_y_axis=True),
+            **dict(
+                label="L2 accesses",
+                small_label="L2\naccesses",
+                log_y_axis=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l1_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"Unified L1 hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"Unified L1 hit rate $(\%)$",
+                small_label="Unified L1\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_read_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 read hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L2 read hit rate $(\%)$",
+                small_label="L2 read\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l1_read_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L1 read hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L1 read hit rate $(\%)$",
+                small_label="L1 read\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_write_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 write hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L2 write hit rate $(\%)$",
+                small_label="L2 write\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l1_write_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L1 write hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L1 write hit rate $(\%)$",
+                small_label="L1 write\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_writes": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 writes", log_y_axis=True, percent=False),
+            **dict(
+                label=r"L2 writes",
+                small_label="L2 writes",
+                log_y_axis=True,
+                percent=False,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_write_hits": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 write hits", log_y_axis=True, percent=False),
+            **dict(
+                label=r"L2 write hits",
+                small_label="L2\nwrite hits",
+                log_y_axis=True,
+                percent=False,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_reads": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 reads", log_y_axis=True, percent=False),
+            **dict(
+                label=r"L2 reads",
+                small_label="L2 reads",
+                log_y_axis=True,
+                percent=False,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_read_hits": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 read hits", log_y_axis=True, percent=False),
+            **dict(
+                label=r"L2 read hits",
+                small_label="L2\nread hits",
+                log_y_axis=True,
+                percent=False,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
     "l2_hit_rate": StatConfig(
         **{
             **DEFAULT_STAT_CONFIG._asdict(),
-            **dict(label=r"L2 hit rate (%)", log_y_axis=False, percent=True),
+            **dict(
+                label=r"L2 hit rate $(\%)$",
+                small_label="L2\nhit rate " + r"$(\%)$",
+                log_y_axis=False,
+                percent=True,
+                height=SMALL_FIGURE_HEIGHT,
+            ),
         }
     ),
 }
+
+
+def prepare_files_for_overleaf(bench_name):
+    assert isinstance(bench_name, str)
+
+    plot_dir = plot.PLOT_DIR / "validation"
+    plotted_files = sorted(list(plot_dir.glob("nvprof.{}.*".format(bench_name))))
+    # pprint(plotted_files)
+    zip_path = (plot_dir / str(bench_name)).with_suffix(".zip")
+
+    print("zipping up {} files into {}".format(len(plotted_files), zip_path))
+    with zipfile.ZipFile(zip_path, "w") as zip:
+        for i, file in enumerate(plotted_files):
+            batch = i // 40
+            assert int(batch) == batch
+            relative_path = Path("batch_{:03d}".format(batch))
+            relative_path = relative_path / file.name
+            zip.write(file, relative_path, compress_type=zipfile.ZIP_DEFLATED)
+
+    # copy relevant files into folder
+    default_files = [
+        # to show recompilation
+        "norm.instructions",
+        # to show absoulute and normalized cycles
+        "cycles",
+        "norm.cycles",
+        # show l1 hit rate
+        "l1_global_hit_rate",
+        "l2_read_hits",
+        "l2_read_hit_rate",
+        "l2_write_hits",
+        "l2_write_hit_rate",
+        # show effect of l2 prefilling on the dram
+        # show some weird results from hardware
+        "dram_reads",
+        "dram_writes",
+    ]
+    suffixes = [
+        "",
+        "_with_xticks_no_legend",
+        "_no_xticks_no_legend",
+        "_no_xticks_with_legend",
+    ]
+
+    relevant_files = [
+        plot_dir / "nvprof.{}.{}{}.pdf".format(bench_name, f, suffix)
+        for f, suffix in product(default_files, suffixes)
+    ]
+    # pprint(relevant_files)
+    # print(len(relevant_files))
+
+    bench_targt_dir = plot_dir / str(bench_name)
+    bench_targt_dir.mkdir(parents=True, exist_ok=True)
+    for file in relevant_files:
+        if file.is_file():
+            # print("copy {} to {}", file, bench_targt_dir / file.name)
+            shutil.copyfile(file, bench_targt_dir / file.name)
+
+    # match bench_name.lower():
+    #     case "vectoradd":
+    #         relevant_files = [
+    #             "nvprof.vectoradd.{}{}.pdf".format(f, suffix)
+    #             for f, suffix in product(default_files, suffixes)
+    #         ]
+    #     case other:
+    #         raise ValueError("unknown benchmark {}".format(other))
 
 
 def prepare_figure(size, fontsize, font_family, grid=True):
@@ -185,7 +417,32 @@ def prepare_figure(size, fontsize, font_family, grid=True):
         figsize=size,
         layout="constrained",
     )
+
+    # width_inch, height_inch = size
+
+    # left_margin_mm  = 20
+    # right_margin_mm = 0
+    # bottom_margin_mm = 0
+    # top_margin_mm = 0
+    #
+    # left_margin_percent  = plot.mm_to_inch(left_margin_mm) / width_inch
+    # right_margin_percent = plot.mm_to_inch(right_margin_mm) / width_inch
+    # bottom_margin_percent = plot.mm_to_inch(bottom_margin_mm) / height_inch
+    # top_margin_percent = plot.mm_to_inch(top_margin_mm) / height_inch
+    #
+    # x = left_margin_percent    # bottom-left corner
+    # y = bottom_margin_percent  # bottom-left corner
+    # w = 1 - (left_margin_percent + right_margin_percent) # width of axes
+    # h = 1 - (bottom_margin_percent + top_margin_percent) # height of axes
+
     ax = plt.axes()
+    # ax = fig.add_axes([x, y, w, h])
+
+    # xloc =  0.25 / width_inch
+    # yloc =  y + h / 2.
+    # ax.set_ylabel('yLabel', fontsize=16, verticalalignment='top',
+    #           horizontalalignment='center')
+    # ax.yaxis.set_label_coords(xloc, yloc, transform = fig.transFigure)
 
     ax.grid(
         grid,
@@ -200,10 +457,31 @@ def prepare_figure(size, fontsize, font_family, grid=True):
     return fig, ax
 
 
+def compute_bbox(
+    left_margin_inch,
+    right_margin_inch,
+    bottom_margin_inch,
+    top_margin_inch,
+    width_inch,
+    height_inch,
+):
+    left_margin_percent = left_margin_inch / width_inch
+    right_margin_percent = right_margin_inch / width_inch
+    bottom_margin_percent = bottom_margin_inch / height_inch
+    top_margin_percent = top_margin_inch / height_inch
+
+    xmin = left_margin_percent  # bottom-left corner
+    ymin = bottom_margin_percent  # bottom-left corner
+    w = 1 - (left_margin_percent + right_margin_percent)  # width of axes
+    h = 1 - (bottom_margin_percent + top_margin_percent)  # height of axes
+    return (xmin, ymin, w, h)
+
+
 def finish_figure(
     fig,
     ax,
     size,
+    fontsize,
     profiler,
     benchmark,
     stat_col,
@@ -212,59 +490,80 @@ def finish_figure(
     ylabel,
     group_width,
     group_spacing,
-    # yticks,
-    # yticklabels,
-    # xticks,
-    # xticklabels,
     num_blocks,
     labels,
     normalized=False,
+    plot_trace_reconstruction=False,
     large=False,
     png=False,
     png_density=600,
 ):
-    ax.set_ylabel(ylabel)
+    ax.set_ylabel(ylabel, verticalalignment='top', horizontalalignment='center')
     ax.axes.set_zorder(10)
 
-    # ax.set_yticks(yticks, yticklabels)
-    # ax.set_xticks(xticks, xticklabels)
-
-    new_width, height = size[0], size[1]
+    xtick_fontsize = fontsize
+    new_width, new_height = size[0], size[1]
+    tight = False
 
     # if per_kernel:
     if len(labels) >= 12:
-        new_width = 1.5 * plot.DINA4_WIDTH_INCHES
+        print("warning: have {} labels".format(len(labels)))
+        tight = True
+        xtick_fontsize = np.floor(0.75 * fontsize)
+        # plt.rc('xtick', labelsize=SMALL_SIZE)
+        # new_width = 1.5 * plot.DINA4_WIDTH_INCHES
     if len(labels) >= 18:
         new_width = 2.0 * plot.DINA4_WIDTH_INCHES
 
     # plot without xticks
-    fig.set_size_inches(new_width, height)
+    fig.set_size_inches(new_width, new_height)
 
-    # invisible text at the top left to make the plots align under
-    # each other
-    ax.text(
-        -0.12,
-        1.0,
-        "H",
-        fontsize=7,
-        color="red",
-        alpha=0.0,
-        # xy=(1.0, 1.0),
-        transform=ax.transAxes,
-        ha="left",
-        va="top",
-    )
+    space_for_text_line_mm = plot.pt_to_mm(fontsize)
+    print("space_for_text_line_mm", space_for_text_line_mm)
+    space_for_text_line_inch = plot.mm_to_inch(space_for_text_line_mm)
+
+    if False:
+        # invisible text at the top left to make the plots align under
+        # each other
+        ax.text(
+            -0.12,
+            1.0,
+            "H",
+            fontsize=7,
+            color="red",
+            alpha=0.0,
+            # xy=(1.0, 1.0),
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+        )
 
     ymax = all_values.max()
-    yticks = np.linspace(0, ymax, 6)
+    print("ymax is", ymax)
+    num_yticks = 6
 
     if normalized:
-        ax.set_ylim(0.0, max(1.1 * ymax, 1.5))
+        ymax = max(1.1 * ymax, 1.5)
+        ax.set_ylim(0.0, ymax)
+        # step_size_power = np.log2(ymax / num_yticks)
+        # # step_size_power = utils.round_down_to_next_power_of_two(step_size_power)
+        # step_size_power = np.ceil(step_size_power)
+        # step_size = 2**step_size_power
+        # yticks = np.arange(0, step_size * np.ceil(ymax / step_size), step=step_size)
+
+        # step_size = ymax / num_yticks
+        # todo: compute good step size and then add this step size +1 and -1
+        # to ensure that y=1 is always ticked
+        # yticks = np.linspace(0, ymax, num_yticks)
     else:
         if stat_config.log_y_axis:
             assert not stat_config.percent
             ymax_log = np.ceil(np.log10(ymax))
-            yticks = np.arange(0, ymax_log + 1, step=int(np.ceil(ymax_log / 6)))
+            if stat_config.height == SMALL_FIGURE_HEIGHT:
+                num_yticks = 5
+            yticks = np.arange(
+                0, ymax_log + 1, step=int(np.ceil(ymax_log / num_yticks))
+            )
             yticks = np.power(10, yticks)
             print(stat_col, ymax_log, yticks)
             ax.set_yscale("log", base=10)
@@ -280,16 +579,58 @@ def finish_figure(
             else:
                 ymax = max(2 * ymax, 1)
                 ax.set_ylim(0, ymax)
-            yticks = np.linspace(0, ymax, 6)
+            yticks = np.linspace(0, ymax, num_yticks)
 
     if not normalized:
+        ytick_labels = [plot.human_format_thousands(v, round_to=0) for v in yticks]
+    else:
+        # ytick_labels = yticks[:]
+        #
+        # def smallest_diff_between_any_two_numbers(arr):
+        #     diff = np.diff(np.sort(arr))
+        #     return diff[diff > 0].min()
+        #
+        # # find the smallest diff between two ticks and compute min precision
+        # min_diff = smallest_diff_between_any_two_numbers(yticks)
+        # print("min diff", min_diff)
+        # min_precision = np.abs(np.amin([np.log10(min_diff), 0.0]))
+        # print("min precision", min_precision)
+        # min_precision = int(np.ceil(min_precision))
+        # # increase min precision to make all ticks different
+        # # ytick_labels * 10**min_precision
+        # min_precision += 1
+        #
+        # print("min precision", min_precision)
+        # pprint(yticks)
+
+        yticks, min_precision = plot.linear_range_with_power_step_size(
+            min=0, max=ymax, num_ticks=num_yticks
+        )
         ytick_labels = [
-            plot.human_format_thousands(v, round_to=0).rjust(6, " ") for v in yticks
+            # plot.human_format_thousands(v, round_to=min_precision, variable_precision=False)
+            "{value:.{precision}f}".format(value=v, precision=min_precision)
+            for v in yticks
         ]
-        ax.set_yticks(yticks, ytick_labels)
+
+    def fill_right(value, l, fill):
+        value = str(value)
+        num_fill = l - len(value)
+        return (str(fill) * num_fill) + value
+
+    # ytick_labels = [fill_right(str(v), 6, "$~$") for v in ytick_labels]
+    pprint(ytick_labels)
+    # .rjust(6, "$~$")
+    ax.set_yticks(yticks, ytick_labels)
+
+    def blocks_unit(blocks):
+        if tight:
+            return "blks" if blocks > 1 else "blk"
+        return "blocks" if blocks > 1 else "block"
 
     xticklabels = [
-        "{}\n{} {}".format(label, int(blocks), "blocks" if blocks > 1 else "block")
+        # "{}\n{} {}".format(
+        # label + "\n" + r"${{\tiny {} \text{{{}}}}}$".format(
+        label + "\n" + "{} {}".format(int(blocks), blocks_unit(blocks))
         for label, blocks in zip(labels, num_blocks)
     ]
     assert len(xticklabels) == len(labels)
@@ -303,15 +644,60 @@ def finish_figure(
     xmargin = 0.5 * group_spacing
     ax.set_xlim(-xmargin, len(xticklabels) * group_width - xmargin)
 
+    # manually place axis
+    # axpos = ax.get_position(fig)
+    # print(axpos)
+    # x0, x1, y0, y1 = (axpos.x0, axpos.x1, axpos.y0, axpos.y1)
+    # left_margin_mm  = 20
+    # left_margin_percent  = plot.mm_to_inch(left_margin_mm) / new_width
+    # axpos.x0 = left_margin_percent
+    # axpos.x1 = 1.0 - axpos.x0 - left_margin_percent
+    # print(axpos)
+
+    left_margin_mm = 16
+    right_margin_mm = 1
+    bottom_margin_mm = 1
+    top_margin_mm = 1
+
+    ylabel_margin_left_mm = 1
+
+    left_margin_inch = plot.mm_to_inch(left_margin_mm)
+    right_margin_inch = plot.mm_to_inch(right_margin_mm)
+    bottom_margin_inch = plot.mm_to_inch(bottom_margin_mm)
+    top_margin_inch = plot.mm_to_inch(top_margin_mm)
+
+    ylabel_margin_left_inch = plot.mm_to_inch(ylabel_margin_left_mm)
+
+    # ax.set_position(gs[0:2].get_position(fig))
+
     # plot without legend or xticks (middle)
-    ax.set_xticks(xticks, ["" for _ in range(len(xticks))], rotation=0)
-    fig.set_size_inches(new_width, height)
+    ax.set_xticks(
+        xticks, ["" for _ in range(len(xticks))], rotation=0, fontsize=xtick_fontsize
+    )
+    fig.set_size_inches(new_width, new_height)
+
+    xmin, ymin, w, h = compute_bbox(
+        left_margin_inch=left_margin_inch,
+        right_margin_inch=right_margin_inch,
+        bottom_margin_inch=bottom_margin_inch,
+        top_margin_inch=top_margin_inch,
+        width_inch=new_width,
+        height_inch=new_height,
+    )
+    ax.set_position(Bbox.from_bounds(xmin, ymin, w, h))
+    ax.yaxis.set_label_coords(ylabel_margin_left_inch / new_width, ymin + h / 2, transform = fig.transFigure)
 
     plot_dir = plot.PLOT_DIR / "validation"
 
-    filename = "{}.{}.{}{}_no_xticks_no_legend.pdf".format(
-        profiler, benchmark, "norm." if normalized else "", stat_col
+    base_filename = "{}.{}.{}{}{}".format(
+        profiler,
+        benchmark,
+        "norm." if normalized else "",
+        "with_tr." if plot_trace_reconstruction else "",
+        stat_col,
     )
+
+    filename = base_filename + "_no_xticks_no_legend.pdf"
     pdf_output_path = plot_dir / filename
     pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(pdf_output_path)
@@ -323,13 +709,32 @@ def finish_figure(
             density=png_density,
         )
 
+    max_xtick_lines = max([len(l.splitlines()) for l in xticklabels])
+
+    ##############################################################
     # plot with xticks but without legend (bottom)
-    ax.set_xticks(xticks, xticklabels, rotation=0)
-    fig.set_size_inches(new_width, height)
+    ax.set_xticks(xticks, xticklabels, rotation=0, fontsize=xtick_fontsize)
+    # add space for xticks
 
-    filename = "{}.{}.{}{}_with_xticks_no_legend.pdf".format(
-        profiler, benchmark, "norm." if normalized else "", stat_col
+    xtick_height_inch = (max_xtick_lines + 1) * space_for_text_line_inch
+    computed_height_inch = new_height + xtick_height_inch
+    # xtick_height_percent = xtick_height_inch / (new_height + xtick_height_inch)
+    fig.set_size_inches(new_width, new_height + xtick_height_inch)
+    xmin, ymin, w, h = compute_bbox(
+        left_margin_inch=left_margin_inch,
+        right_margin_inch=right_margin_inch,
+        bottom_margin_inch=bottom_margin_inch + xtick_height_inch,
+        top_margin_inch=top_margin_inch,
+        width_inch=new_width,
+        height_inch=computed_height_inch,
     )
+    ax.set_position(Bbox.from_bounds(xmin, ymin, w, h))
+    ax.yaxis.set_label_coords(ylabel_margin_left_inch / new_width, ymin + h / 2, transform = fig.transFigure)
+
+    filename = base_filename + "_with_xticks_no_legend.pdf"
+    # filename = "{}.{}.{}{}_with_xticks_no_legend.pdf".format(
+    #     profiler, benchmark, "norm." if normalized else "", stat_col
+    # )
     pdf_output_path = plot_dir / filename
     pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(pdf_output_path)
@@ -342,8 +747,23 @@ def finish_figure(
             density=png_density,
         )
 
+    ##################################################################
     # plot with legend and xticks (default)
     handles, labels = ax.get_legend_handles_labels()
+
+    # sort handles and lables, this is a HOTFIX!
+    zipped = zip(handles, labels)
+    label_order = [
+        "TITAN X (Pascal)",
+        "microgpusim",
+        "microgpusim (TR)",
+        "AccelSim",
+    ]
+    zipped = sorted(zipped, key=lambda z: label_order.index(z[1]))
+    handles = [h for (h, _) in zipped]
+    labels = [l for (_, l) in zipped]
+    assert labels == [l for l in label_order if l in labels]
+
     ax.legend(
         handles,
         labels,
@@ -359,11 +779,27 @@ def finish_figure(
         ncols=4,
     )
 
-    fig.set_size_inches(new_width, 1.6 * height)
+    # add space for xticks lines and 1 line legend
 
-    filename = "{}.{}.{}{}.pdf".format(
-        profiler, benchmark, "norm." if normalized else "", stat_col
+    # computed_height_inch = new_height + (max_xtick_lines + 1 + 2) * space_for_text_line_inch
+    legend_height_inch = 2 * space_for_text_line_inch
+    computed_height_inch = new_height + xtick_height_inch + legend_height_inch
+    fig.set_size_inches(new_width, computed_height_inch)
+    xmin, ymin, w, h = compute_bbox(
+        left_margin_inch=left_margin_inch,
+        right_margin_inch=right_margin_inch,
+        bottom_margin_inch=bottom_margin_inch + xtick_height_inch,
+        top_margin_inch=top_margin_inch + legend_height_inch,
+        width_inch=new_width,
+        height_inch=computed_height_inch,
     )
+    ax.set_position(Bbox.from_bounds(xmin, ymin, w, h))
+    ax.yaxis.set_label_coords(ylabel_margin_left_inch / new_width, ymin + h / 2, transform = fig.transFigure)
+
+    filename = base_filename + ".pdf"
+    # filename = "{}.{}.{}{}.pdf".format(
+    #     profiler, benchmark, "norm." if normalized else "", stat_col
+    # )
     pdf_output_path = plot_dir / filename
     pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(pdf_output_path)
@@ -380,11 +816,12 @@ def finish_figure(
 
     if large:
         # plot with legend and xticks (default) but LARGE
-        fig.set_size_inches(new_width, 3 * height)
+        fig.set_size_inches(new_width, 3 * new_height)
 
-        filename = "{}.{}.{}{}_large.pdf".format(
-            profiler, benchmark, "norm." if normalized else "", stat_col
-        )
+        filename = base_filename + "_large.pdf"
+        # filename = "{}.{}.{}{}_large.pdf".format(
+        #     profiler, benchmark, "norm." if normalized else "", stat_col
+        # )
         pdf_output_path = plot_dir / filename
         pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(pdf_output_path)
@@ -398,13 +835,30 @@ def finish_figure(
                 density=png_density,
             )
 
+    ######################################################################
     # plot with legend but without xticks (top)
-    ax.set_xticks(xticks, ["" for _ in range(len(xticks))], rotation=0)
-    fig.set_size_inches(new_width, height)
-
-    filename = "{}.{}.{}{}_no_xticks_with_legend.pdf".format(
-        profiler, benchmark, "norm." if normalized else "", stat_col
+    ax.set_xticks(
+        xticks, ["" for _ in range(len(xticks))], rotation=0, fontsize=xtick_fontsize
     )
+    # add spcae for single line of legend
+    # fig.set_size_inches(new_width, new_height + (1 + 1) * space_for_text_line_inch)
+    computed_height_inch = new_height + legend_height_inch
+    fig.set_size_inches(new_width, computed_height_inch)
+    xmin, ymin, w, h = compute_bbox(
+        left_margin_inch=left_margin_inch,
+        right_margin_inch=right_margin_inch,
+        bottom_margin_inch=bottom_margin_inch,
+        top_margin_inch=top_margin_inch + legend_height_inch,
+        width_inch=new_width,
+        height_inch=computed_height_inch,
+    )
+    ax.set_position(Bbox.from_bounds(xmin, ymin, w, h))
+    ax.yaxis.set_label_coords(ylabel_margin_left_inch / new_width, ymin + h / 2, transform = fig.transFigure)
+
+    filename = base_filename + "_no_xticks_with_legend.pdf"
+    # filename = "{}.{}.{}{}_no_xticks_with_legend.pdf".format(
+    #     profiler, benchmark, "norm." if normalized else "", stat_col
+    # )
     pdf_output_path = plot_dir / filename
     pdf_output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(pdf_output_path)
@@ -418,7 +872,7 @@ def finish_figure(
         )
 
 
-def filter_stat_cols(stat_cols: typing.Sequence[str], names):
+def filter_stat_cols(stat_cols: list[str], names) -> list:
     if not (isinstance(names, list) and len(names) > 0):
         return stat_cols
 
@@ -435,6 +889,22 @@ def filter_stat_cols(stat_cols: typing.Sequence[str], names):
     return filtered_stat_cols
 
 
+def get_benchmark_label(benchmark: str) -> str:
+    match benchmark.lower():
+        case "vectoradd":
+            return r"\textsc{vectoradd}"
+        case "matrixmul":
+            return r"\textsc{matrixmul}"
+        case "simple_matrixmul":
+            return r"\textsc{matrixmul} (naive)"
+        case "transpose":
+            return r"\textsc{transpose}"
+        case "babelstream":
+            return r"\textsc{babelstream}"
+        case other:
+            return str(other).replace("_", " ")
+
+
 def compute_label_for_benchmark_df(df, per_kernel=False):
     assert isinstance(df, pd.Series)
 
@@ -446,7 +916,7 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
 
     match benchmark.lower():
         case "vectoradd":
-            label = "VectorAdd\n"
+            label = "VecAdd\n"
             if per_kernel:
                 label += "{}\n".format(kernel_name)
             label += "f{:<2} {}".format(
@@ -456,21 +926,23 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
                 ),
             )
         case "matrixmul":
-            label = "MatrixMul\n"
+            label = "MatMul\n"
             if per_kernel:
                 label += "{}\n".format(kernel_name)
-            label += "f{:<2} {}x{}x{}".format(
-                int(df["input_dtype"]),
+            label += "f{:<2}\n".format(int(df["input_dtype"]))
+            # label += "{}x{}x{}".format(
+            label += r"{}$\times${}$\times${}".format(
                 int(df["input_rows"]),
                 int(df["input_rows"]),
                 int(df["input_rows"]),
             )
         case "simple_matrixmul":
-            label = "Naive MatrixMul\n"
+            label = "Naive MatMul\n"
             if per_kernel:
                 label += "{}\n".format(kernel_name)
-            label += "f{:<2} {}x{}x{}".format(
-                int(df["input_dtype"]),
+            label += "f{:<2}\n".format(int(df["input_dtype"]))
+            # label += r"{}x{}x{}".format(
+            label += r"{}$\times${}$\times${}".format(
                 int(df["input_m"]),
                 int(df["input_n"]),
                 int(df["input_p"]),
@@ -480,7 +952,8 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
             label += "{}\n".format(df["input_variant"])
             if per_kernel:
                 label += "{}\n".format(kernel_name)
-            label += "{}x{}".format(
+            # label += "{}x{}".format(
+            label += r"{}$\times${}".format(
                 int(df["input_dim"]),
                 int(df["input_dim"]),
             )
@@ -488,6 +961,7 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
             label = ""
             if per_kernel:
                 label += "BStream\n"
+                # label += r"${\tiny \text{BStream}}$" + "\n"
                 label += "{}\n".format(kernel_name)
             else:
                 label += "BabelStream\n"
@@ -504,9 +978,9 @@ def build_per_config_table(df):
     num_bench_configs = len(df.index)
 
     # benchmark, inputs_cols
-    table = r"{\renewcommand{\arraystretch}{1.5}%" + "\n"
-    table += r"\begin{tabularx}{\textwidth}"
+    table = r"\begin{tabularx}{\textwidth}" + "\n"
     table += "{ZZ|" + ("z" * num_bench_configs) + "}\n"
+    # table += "{XZ|" + ("z" * num_bench_configs) + "}\n"
 
     def dedup_and_count(l):
         assert None not in l
@@ -535,15 +1009,20 @@ def build_per_config_table(df):
 
         index_col_label = benchmarks.BENCHMARK_INPUT_COL_LABELS[index_col]
         table += r"\multicolumn{2}{r}{" + str(index_col_label) + "}"
-        for value, count in index_values_reduced:
+        for value, col_count in index_values_reduced:
+            table += r" & \multicolumn{" + str(col_count) + r"}{|l}{"
             if isinstance(value, str):
-                value = str(value).replace("_", " ")
+                if index_col == "benchmark":
+                    value = get_benchmark_label(value)
+                else:
+                    value = str(value).replace("_", " ")
+                table += value
             else:
                 value = plot.human_format_thousands(
                     value, round_to=2, variable_precision=True
                 )
-            table += r" & \multicolumn{" + str(count) + "}{|l}{"
-            table += value + r"}"
+                table += "$" + value + "$"
+            table += r"}"
         table += r"\\" + "\n"
 
     # table += r" & benchmark & \multicolumn{6}{l}{vectoradd} \\"
@@ -559,7 +1038,8 @@ def build_per_config_table(df):
 
     for stat_col_idx, (stat_col, _) in enumerate(stat_cols):
         stat_config = STAT_CONFIGS[stat_col]
-        stat_col_label = str(stat_config.label)
+        # stat_col_label = str(stat_config.label)
+        stat_col_label = str(stat_config.small_label)
         stat_col_label = stat_col_label.replace("_", " ")
         stat_col_label = re.sub(r"(?<!\\)%", r"\%", stat_col_label)
 
@@ -593,7 +1073,6 @@ def build_per_config_table(df):
         # gpucachesim
         sim_values = df[stat_col, Target.Simulate.value]
         assert len(sim_values) == num_bench_configs
-        # table += r" & \textsc{Gpucachesim}"
         if stat_col_idx % 2 == 0:
             table += r"\rowcolor{gray!10} "
         table += r" & Ours"
@@ -626,7 +1105,7 @@ def build_per_config_table(df):
         table += stat_col_label
         # table += r"}"
         table += r"}"
-        table += r" & \textsc{Accelsim}"
+        table += r" & \textsc{AccelSim}"
         for value in accelsim_values:
             if stat_config.percent:
                 assert 0.0 <= value <= 1.0
@@ -650,9 +1129,53 @@ def build_per_config_table(df):
         table += "%\n"
         table += "%\n"
 
-    table += r"\end{tabularx}}" + "\n"
-    table += r"\end{table}" + "\n"
-    return table
+    tex_document_code = r"""
+\documentclass[preview]{standalone}
+"""
+    tex_document_code += tex.TEX_PACKAGES
+    tex_document_code += r"""
+\usepackage{geometry}
+\geometry{
+    """
+    # DIN A4 is 210
+    width_mm = 210
+    width_mm += max(num_bench_configs - 6, 0) * 30
+    tex_document_code += "paperwidth={:d}mm,\n".format(int(width_mm))
+    #  paperheight=8in,
+    #  paperwidth=5.25in,
+    #  top=1in,
+    #  bottom=1in,
+    #  right=1in,
+    #  left=1in,
+    # a4paper,
+    # total={170mm,257mm},
+    # left=0mm,
+    # top=0mm,
+    tex_document_code += r"""}
+\begin{document}
+"""
+
+    tex_code = table
+    tex_code += r"""
+%
+\end{tabularx}
+"""
+
+    tex_document_code += r"""
+\begin{table}[tbh!]
+\fontsize{8}{10}\selectfont
+\footnotesize
+\centering
+{\renewcommand{\arraystretch}{1.5}%
+"""
+    tex_document_code += tex_code
+    tex_document_code += r"""
+}
+\end{table}
+\end{document}
+"""
+
+    return tex_document_code, tex_code
 
 
 def plot_stats(
@@ -660,8 +1183,8 @@ def plot_stats(
     stat_cols,
     all_input_cols,
     profiler,
-    # per_kernel=False,
     plot_trace_reconstruction=False,
+    per_kernel=False,
     normalized=False,
     large=False,
     png=False,
@@ -681,7 +1204,12 @@ def plot_stats(
         plot_targets += [Target.ExecDrivenSimulate.value]
     plot_targets += [Target.AccelsimSimulate.value]
 
-    fontsize = plot.FONT_SIZE_PT - 4
+    # if per_kernel:
+    #     sort_columns = ["target", "benchmark", "run", "kernel_launch_id"]
+    # else:
+    #     sort_columns = ["target", "benchmark", "run", "num_blocks"]
+
+    fontsize = plot.FONT_SIZE_PT - 3
     font_family = "Helvetica"
 
     bar_width = 10
@@ -690,10 +1218,7 @@ def plot_stats(
 
     group_width = len(plot_targets) * (bar_width + spacing) + group_spacing
 
-    figsize = (
-        1.0 * plot.DINA4_WIDTH_INCHES,
-        0.10 * plot.DINA4_HEIGHT_INCHES,
-    )
+    figure_width = 1.0 * plot.DINA4_WIDTH_INCHES
 
     bar_group_cols = [
         # "benchmark",
@@ -706,15 +1231,24 @@ def plot_stats(
 
     if normalized:
         # normalized plots
-        for stat_col, benchmark in itertools.product(stat_cols, benches):
+        for stat_col, benchmark in product(stat_cols, benches):
             print(stat_col, benchmark)
+            # stat_config = STAT_CONFIGS[stat_col]
             stat_config = STAT_CONFIGS.get(stat_col) or StatConfig(
                 **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
             )
-            ylabel = "Normalized\n{}".format(stat_config.label)
+
+            if stat_config.percent:
+                # skip normalizaton for percent metrics for now 
+                continue
+
+            # ylabel = "Normalized\n{}".format(stat_config.label)
             # remove any unit
+            ylabel = stat_config.small_label
             ylabel = ylabel.replace(" (s)", "")
             ylabel = ylabel.replace(" (%)", "")
+            ylabel = normalize_to_num_lines(ylabel, lines=1)
+            ylabel = "Norm.\n{}".format(ylabel)
             # fontsize = plot.FONT_SIZE_PT - 4
             # font_family = "Helvetica"
             #
@@ -726,6 +1260,7 @@ def plot_stats(
             #
             # plt.rcParams.update({"font.size": fontsize, "font.family": font_family})
             #
+            figsize = (figure_width, stat_config.height)
             # figsize = (
             #     1.0 * plot.DINA4_WIDTH_INCHES,
             #     0.10 * plot.DINA4_HEIGHT_INCHES,
@@ -761,6 +1296,15 @@ def plot_stats(
             per_targets_stat_df = benchmark_df.groupby(
                 bench_group_cols, dropna=False, sort=False
             )[stat_col].agg(["mean", "median", "std"])
+
+            # declare new columns
+            per_targets_stat_df["norm_std_mean"] = per_targets_stat_df["std"]
+            per_targets_stat_df["norm_std_median"] = per_targets_stat_df["std"]
+
+            # print(per_targets_stat_df.columns)
+            # print(per_targets_stat_df.index)
+            # raise ValueError
+            # per_targets_stat_df
             # per_targets_stat_df= benchmark_df.groupby(group_cols, dropna=False, sort=False)[benchmark_df.columns].agg({stat_col: ["mean", "median", "std"], "target_name": "first"})
             # pprint(list(per_targets_stat_df.columns))
             # test_df = benchmark_df.groupby(group_cols, dropna=False, sort=False)[stat_col].agg(["mean" if stat_config.percent else "median", "std"])
@@ -802,8 +1346,8 @@ def plot_stats(
                 # pprint(norm_index.tolist())
                 # print(df_index)
                 # print(norm_index)
-                # print(df_index.to_frame().to_numpy())
-                # print(norm_index.to_frame().to_numpy())
+                print(df_index.to_frame().to_numpy())
+                print(norm_index.to_frame().to_numpy())
                 # assert np.array_equal(
                 #     df_index.to_frame().to_numpy(),
                 #     norm_index.to_frame().to_numpy(),
@@ -829,11 +1373,23 @@ def plot_stats(
 
                 # this is unsafe, but we have asserted the order of
                 # the index matches before
-                df["mean"] /= norm_df["mean"].values
-                df["median"] /= norm_df["median"].values
+                if stat_config.percent:
+                    # to do a +100 and -100 thing here we need to update
+                    # the linspaces for the plots etc.
+                    # lets just not do norm for percent metrics
+                    # doesnt get us much anyways
+                    raise NotImplemented
+                    df["mean"] = df["mean"] - norm_df["mean"].values
+                    df["median"] /= norm_df["median"].values
 
-                # normalized standard deviation
-                df["std"] /= norm_df["mean"].values
+                else:
+                    df["mean"] /= norm_df["mean"].values
+                    df["median"] /= norm_df["median"].values
+
+                    # normalized standard deviation (coefficient of variation (CV))
+                    df["norm_std_mean"] = df["std"].values / norm_df["mean"].values
+                    # coefficient of variation of the median (CV-Median)
+                    df["norm_std_median"] = df["std"].values / norm_df["median"].values
                 return df
                 # df[df.columns] / norm_df[df.columns]
                 # return df
@@ -853,8 +1409,8 @@ def plot_stats(
                 "l1_global_hit_rate",
                 "l2_hit_rate",
             ]:
-                print(per_targets_stat_df)
-                print(norm_df)
+                # print(per_targets_stat_df)
+                # print(norm_df)
                 assert (norm_df.loc[Target.Profile.value, "mean"] == 1.0).all()
                 assert (norm_df.loc[Target.Profile.value, "median"] == 1.0).all()
 
@@ -862,7 +1418,13 @@ def plot_stats(
             # norm_df["input_id"] = norm_df.groupby(["Product','SubProd']).cumcount()
             # print(norm_df)
 
-            value_col = "median" if stat_config.percent else "mean"
+            # value_col = "median" if stat_config.percent else "mean"
+            if USE_MEDIAN:
+                value_col = "median"
+            else:
+                value_col = "mean"
+
+            all_values = []
 
             for row_idx, row in list(norm_df.iterrows()):
                 # for target, target_df in list(norm_df.groupby("target")):
@@ -880,14 +1442,18 @@ def plot_stats(
                     bar_width + spacing
                 )
 
-                print(target, input_idx)
+                print("{:>20} {:<2}".format(target, input_idx))
+                # print(target, input_idx)
                 # print(target, target_idx, input_idx, idx)
                 # print(target, target_name, target_idx, input_idx, idx)
                 # print(row_idx, row)
 
                 x = [idx]
                 y = row[value_col]
-                ystd = row["std"]
+                if USE_MEDIAN:
+                    ystd = row["norm_std_median"]
+                else:
+                    ystd = row["norm_std_mean"]
 
                 # print("mean ", row[value_col])
                 # print("std  ", row["std"])
@@ -919,6 +1485,8 @@ def plot_stats(
                     linestyle="-",
                 )
 
+                all_values.append(y + ystd)
+
             # print(benchmark_df.index)
             simulate_df = benchmark_df.loc[
                 benchmark_df["target"] == Target.Simulate.value
@@ -938,15 +1506,21 @@ def plot_stats(
             assert len(labels) == len(num_blocks)
             assert len(labels) > 0
 
-            all_values = norm_df[value_col] + norm_df["std"]
+            # print(norm_df)
+            # all_values = norm_df[value_col] + norm_df["std"]
             # all_values = norm_df.loc[pd.IndexSlice[:, benchmark], stat_col]
-            assert len(all_values) > 0
-            print(all_values.values)
+            # assert len(all_values) > 0
+            # print(all_values.values)
+            all_values = np.array(all_values)
+            print(all_values)
+
+            # raise ValueError("loool")
 
             finish_figure(
                 fig,
                 ax,
                 size=figsize,
+                fontsize=fontsize,
                 profiler=profiler,
                 benchmark=benchmark,
                 stat_col=stat_col,
@@ -955,25 +1529,27 @@ def plot_stats(
                 ylabel=ylabel,
                 group_width=group_width,
                 group_spacing=group_spacing,
-                # yticks=ytick_values,
-                # yticklabels=ytick_labels,
-                # xticks=xtick_values,
-                # xticklabels=xtick_labels,
                 num_blocks=num_blocks,
                 labels=labels,
                 normalized=True,
+                plot_trace_reconstruction=plot_trace_reconstruction,
                 large=large,
                 png=png,
                 png_density=png_density,
             )
 
     # absolute
-    for stat_col, benchmark in itertools.product(stat_cols, benches):
+    for stat_col, benchmark in product(stat_cols, benches):
         print(stat_col, benchmark)
         stat_config = STAT_CONFIGS.get(stat_col) or StatConfig(
             **{**DEFAULT_STAT_CONFIG._asdict(), **dict(label=stat_col)}
         )
-        ylabel = stat_config.label
+
+        # ylabel = stat_config.label
+        ylabel = stat_config.small_label
+        ylabel = normalize_to_num_lines(ylabel, lines=2)
+
+        figsize = (figure_width, stat_config.height)
 
         fig, ax = prepare_figure(
             size=figsize,
@@ -1033,14 +1609,14 @@ def plot_stats(
         #     bench_input_values = bench_input_values.drop_duplicates().reset_index()
 
         # target_configs = list(
-        #     itertools.product(targets, list(bench_input_values.iterrows()))
+        #     product(targets, list(bench_input_values.iterrows()))
         # )
 
         # bench_configs = selected_table_benchmarks.loc[benchmark,:].reset_index(drop=True)
         # print(bench_configs)
         #
         # target_bench_configs = list(
-        #     itertools.product(list(enumerate(plot_targets)), list(bench_configs.iterrows()))
+        #     product(list(enumerate(plot_targets)), list(bench_configs.iterrows()))
         # )
 
         # for (target_idx, target), (input_idx, input_values) in target_bench_configs:
@@ -1077,6 +1653,9 @@ def plot_stats(
             # target_df = target_df.sort_values(["num_blocks", "input_id"])
             # target_df = target_df.reset_index(drop=True)
             assert "input_size" in target_df
+
+            # target_df = target_df.sort_values(sort_columns)
+
             # print(target_df)
             # print(target_df[[c for c in preview_cols if c in target_df]])
 
@@ -1105,6 +1684,9 @@ def plot_stats(
             input_dfs = list(
                 target_df.groupby(target_group_cols, dropna=False, sort=False)
             )
+
+            print(target_df[target_group_cols])
+
             assert len(input_dfs) > 0
             for input_idx, (_, input_values_df) in enumerate(input_dfs):
                 # for input_idx, (_input_id, input_values_df) in enumerate(target_df.groupby("input_id")):
@@ -1123,7 +1705,7 @@ def plot_stats(
                 )
                 assert len(input_values) == 1
                 input_values = dict(input_values.iloc[0])
-                print(target, input_idx, input_values)
+                print("{:>20} {:<2} {}".format(target, input_idx, input_values))
                 # print(input_values_df[[c for c in preview_cols if c in input_values_df]])
 
                 # print(key)
@@ -1177,6 +1759,15 @@ def plot_stats(
 
                 # print((target_name, stat_col), x, raw_y.mean())
 
+                if USE_MEDIAN:
+                    y = raw_y.median()
+                else:
+                    y = raw_y.mean()
+
+                if stat_config.percent:
+                    y *= 100.0
+
+                ystd = raw_y.std()  # .fillna(0.0)
                 # raise ValueError("test")
                 if verbose:
                     print(
@@ -1189,17 +1780,10 @@ def plot_stats(
                             # str(input_values[bench_input_cols].tolist()),
                             input_idx,
                             idx,
-                            raw_y.mean(),
-                            raw_y.std(),
+                            y,
+                            ystd,
                         )
                     )
-
-                if stat_config.percent:
-                    y = raw_y.median() * 100.0
-                else:
-                    y = raw_y.mean()  # .fillna(0.0)
-
-                ystd = raw_y.std()  # .fillna(0.0)
 
                 y = np.nan_to_num(y, nan=0.0)
                 ystd = np.nan_to_num(ystd, nan=0.0)
@@ -1330,6 +1914,7 @@ def plot_stats(
             fig,
             ax,
             size=figsize,
+            fontsize=fontsize,
             profiler=profiler,
             benchmark=benchmark,
             stat_col=stat_col,
@@ -1338,11 +1923,8 @@ def plot_stats(
             ylabel=ylabel,
             group_width=group_width,
             group_spacing=group_spacing,
-            # yticks=ytick_values,
-            # yticklabels=ytick_labels,
-            # xticks=xtick_values,
-            # xticklabels=xtick_labels,
             normalized=False,
+            plot_trace_reconstruction=plot_trace_reconstruction,
             num_blocks=num_blocks,
             labels=labels,
             large=large,
@@ -1351,14 +1933,54 @@ def plot_stats(
         )
 
 
+def show_preview_table(df, stat_cols, trace_reconstruction=False, playground=False):
+    assert len(df) > 0
+    preview_per_config_pivoted = df.T.copy()
+
+    selected_targets = [
+        Target.Profile.value,
+        Target.Simulate.value,
+    ]
+    if trace_reconstruction:
+        selected_targets += [Target.ExecDrivenSimulate.value]
+
+    if playground:
+        selected_targets += [Target.PlaygroundSimulate.value]
+
+    selected_targets += [Target.AccelsimSimulate.value]
+
+    preview_per_config_pivoted = preview_per_config_pivoted.loc[
+        pd.IndexSlice[:, selected_targets], :
+    ]
+    preview_target_name = {
+        Target.Simulate.value.lower(): "Ours",
+        Target.ExecDrivenSimulate.value.lower(): "TR",
+        Target.AccelsimSimulate.value.lower(): "Accel",
+        Target.PlaygroundSimulate.value.lower(): "Play",
+        Target.Profile.value.lower(): "Native",
+    }
+    # print(preview_per_config_pivoted.index)
+    preview_per_config_pivoted.index = preview_per_config_pivoted.index.set_levels(
+        [
+            preview_target_name[target.lower()]
+            for target in preview_per_config_pivoted.index.levels[1].values
+        ],
+        level=1,
+    )
+
+    # PRINT HERE FOR FULL TABLE
+    # print(preview_per_config_pivoted.index)
+    print(preview_per_config_pivoted.loc[pd.IndexSlice[stat_cols, :], :])
+
+
 def view(
     path: PathLike,
     bench_name: typing.Optional[str] = None,
     should_plot=True,
     nsight=False,
     mem_only=False,
-    verbose=False,
     strict=True,
+    verbose=False,
     per_kernel: typing.Optional[bool] = None,
     normalized=False,
     trace_reconstruction=True,
@@ -1442,12 +2064,13 @@ def view(
         mean=False,
     )
 
-    print(
-        per_config[
-            ["target", "benchmark"]
-            + (["input_id", "kernel_name"] if per_kernel else [])
-        ].drop_duplicates()
-    )
+    if verbose:
+        print(
+            per_config[
+                ["target", "benchmark"]
+                + (["input_id", "kernel_name"] if per_kernel else [])
+            ].drop_duplicates()
+        )
 
     all_input_cols = list(copy.deepcopy(benchmarks.ALL_BENCHMARK_INPUT_COLS))
     if per_kernel:
@@ -1471,7 +2094,7 @@ def view(
         + all_input_cols
     )
 
-    def _inspect(df):
+    def check_one_row_per_config_and_run(df):
         if len(df) > 1:
             print(df[per_config_group_cols].T)
             print(df.T)
@@ -1483,7 +2106,7 @@ def view(
         dropna=False,
         sort=False,
     )
-    rows_per_config_grouper[per_config.columns].apply(_inspect)
+    rows_per_config_grouper[per_config.columns].apply(check_one_row_per_config_and_run)
     rows_per_config = rows_per_config_grouper.size()
 
     if False:
@@ -1505,32 +2128,32 @@ def view(
 
     # make sure kernels per input have been summed but we keep repetitions (runs) for
     # computing statistical properties (e.g. stddev)
-    test = per_config[
-        [
-            "target",
-            "benchmark",
-            "input_id",
-            "kernel_launch_id",
-            "kernel_name",
-            "run",
-        ]
-    ]
-    print(test)
-    print(per_config.drop_duplicates())
-    print(
-        test.loc[
-            test.duplicated(),
-            [
-                "target",
-                "benchmark",
-                "input_id",
-                "kernel_launch_id",
-                "kernel_name",
-                "run",
-            ],
-        ]
-    )
-    print(len(test.drop_duplicates()), len(per_config))
+    # test = per_config[
+    #     [
+    #         "target",
+    #         "benchmark",
+    #         "input_id",
+    #         "kernel_launch_id",
+    #         "kernel_name",
+    #         "run",
+    #     ]
+    # ]
+    # print(test)
+    # print(per_config.drop_duplicates())
+    # print(
+    #     test.loc[
+    #         test.duplicated(),
+    #         [
+    #             "target",
+    #             "benchmark",
+    #             "input_id",
+    #             "kernel_launch_id",
+    #             "kernel_name",
+    #             "run",
+    #         ],
+    #     ]
+    # )
+    # print(len(test.drop_duplicates()), len(per_config))
 
     assert len(
         per_config[
@@ -1562,13 +2185,15 @@ def view(
         "target",
         "benchmark",
         "input_id",
-        "run",
         "kernel_launch_id",
         "kernel_name",
-        "kernel_name_mangled",
+        # "kernel_name_mangled",
+        "run",
     ]
+    preview_cols += all_input_cols
     preview_cols += ["exec_time_sec"]
     preview_cols += ["cycles"]
+    preview_cols += ["l2_read_hit_rate"]
 
     def _inspect(df):
         print("\nINSPECT")
@@ -1578,9 +2203,17 @@ def view(
     if inspect:
         per_config_grouped[per_config.columns].apply(_inspect)
 
+    # mask = per_config[["target", "benchmark", "kernel_name"]] == (
+    #     Target.Profile.value,
+    #     "babelstream",
+    #     "mul_kernel",
+    # )
+    # print(per_config.loc[mask.all(axis=1),preview_cols])
+
     # average over runs
     aggregations = {
-        **{c: "mean" for c in set(per_config.columns)},
+        # **{c: "mean" for c in set(per_config.columns)},
+        **{c: ("median" if USE_MEDIAN else "mean") for c in set(per_config.columns)},
         **benchmarks.NON_NUMERIC_COLS,
     }
     aggregations = {
@@ -1588,6 +2221,8 @@ def view(
         for col, agg in aggregations.items()
         if col in per_config and not col in group_cols
     }
+
+    # print(per_config_pivoted.loc[:, ("l2_read_hit_rate", Target.Profile.value)])
     per_config_pivoted = per_config_grouped.agg(aggregations).reset_index()
     per_config_pivoted = per_config_pivoted.pivot(
         index=[col for col in group_cols if col not in ["target"]],
@@ -1595,51 +2230,89 @@ def view(
         columns="target",
     )
 
-    print(" === {} === ".format(profiler))
-    assert len(per_config_pivoted) > 0
-    preview_per_config_pivoted = per_config_pivoted.T.copy()
-
-    selected_targets = [
-        Target.Profile.value,
-        Target.Simulate.value,
+    native_cycles = per_config_pivoted.loc[:, ("cycles", Target.Profile.value)]
+    native_instructions = per_config_pivoted.loc[
+        :, ("instructions", Target.Profile.value)
     ]
-    if trace_reconstruction:
-        selected_targets += [Target.ExecDrivenSimulate.value]
 
-    if playground:
-        selected_targets += [Target.PlaygroundSimulate.value]
+    # print(per_config_pivoted.index)
+    # print(per_config_pivoted.columns)
+    # print(per_config_pivoted.loc[:,("cycles", )])
+    # print(native_cycles)
+    for target in [
+        Target.Profile,
+        Target.AccelsimSimulate,
+        Target.PlaygroundSimulate,
+        Target.Simulate,
+        Target.ExecDrivenSimulate,
+    ]:
+        cycles = per_config_pivoted.loc[:, ("cycles", target.value)]
+        per_config_pivoted.loc[:, ("norm_cycles", target.value)] = (
+            cycles / native_cycles
+        )
 
-    selected_targets += [Target.AccelsimSimulate.value]
+        instructions = per_config_pivoted.loc[:, ("instructions", target.value)]
+        per_config_pivoted.loc[:, ("norm_instructions", target.value)] = (
+            instructions / native_instructions
+        )
 
-    preview_per_config_pivoted = preview_per_config_pivoted.loc[
-        pd.IndexSlice[:, selected_targets], :
-    ]
-    preview_target_name = {
-        Target.Simulate.value.lower(): "Ours",
-        Target.ExecDrivenSimulate.value.lower(): "TR",
-        Target.AccelsimSimulate.value.lower(): "Accel",
-        Target.PlaygroundSimulate.value.lower(): "Play",
-        Target.Profile.value.lower(): "Native",
-    }
-    print(preview_per_config_pivoted.index)
-    preview_per_config_pivoted.index = preview_per_config_pivoted.index.set_levels(
-        [
-            preview_target_name[target.lower()]
-            for target in preview_per_config_pivoted.index.levels[1].values
-        ],
-        level=1,
-    )
-    print(preview_per_config_pivoted.index)
-    print(preview_per_config_pivoted.loc[pd.IndexSlice[stat_cols, :], :])
+        native_l1_hit_rate = per_config_pivoted.loc[:, ("l1_global_hit_rate", Target.Profile.value)]
+        l1_hit_rate = per_config_pivoted.loc[:, ("l1_global_hit_rate", target.value)]
+        per_config_pivoted.loc[:, ("norm_l1_global_hit_rate", target.value)] = (
+            l1_hit_rate / native_l1_hit_rate
+        )
 
-    table_stat_cols = gpucachesim.stats.native.table_stat_cols_for_profiler(profiler)
-    table_stat_cols = filter_stat_cols(table_stat_cols, stat_names)
 
-    # table_stat_cols = [
-    #     col
-    #     for col in table_stat_cols_for_profiler(profiler)
-    #     if col not in ["input_id", "mean_blocks_per_sm", "l1_local_hit_rate", "l1_hit_rate"]
-    # ]
+    # this just shows that for percent metrics norm does not make sense and should just be mae!
+    # print(per_config_pivoted["l1_global_hit_rate"].T)
+    # print(per_config_pivoted["l1_global_hit_rate"].T.values)
+    # print(per_config_pivoted["norm_l1_global_hit_rate"].T)
+
+    if False:
+        debug_metrics = [("l1_global_hit_rate", True), ("cycles", False)]
+        debug_targets = [Target.AccelsimSimulate.value, Target.Simulate.value]
+        for (col, col_is_percent), target in product(debug_metrics, debug_targets):
+            sufficient_blocks = per_config_pivoted[("mean_blocks_per_sm", target)] > 1.0
+            values = per_config_pivoted[[(col, Target.Profile.value), (col, target)]]
+            nonzero = (values > 0).any(axis=1)
+            different = values[(col, Target.Profile.value)] != values[(col, target)]
+
+            for name, mask in [
+                ("all", np.repeat(True, len(values.index))),
+                ("large", sufficient_blocks),
+            ]:
+                print("\n\n{}".format(name.upper()))
+                # print(values[mask])
+                # print(values[different & nonzero & mask])
+                native_values = values.loc[mask, (col, Target.Profile.value)]
+                target_values = values.loc[mask, (col, target)]
+
+                if col_is_percent:
+                    native_values *= 100.0
+                    target_values *= 100.0
+
+                    mae = metric_funcs.abs_err(
+                        true_values=native_values, values=target_values
+                    ).mean()
+                    print("{:>30} {:<30} MAE  = {:8.3f} %".format(target, col, mae))
+                    rmse = metric_funcs.rmse(
+                        true_values=native_values, values=target_values
+                    )
+                    print("{:>30} {:<30} RMSE = {:8.3f} %".format(target, col, rmse))
+
+                else:
+                    mape = metric_funcs.mape(
+                        true_values=native_values, values=target_values
+                    ).mean()
+                    mape *= 100.0
+                    print("{:>30} {:<30} MAPE  = {:8.3f} %".format(target, col, mape))
+                    rmspe = metric_funcs.rmspe(
+                        true_values=native_values, values=target_values
+                    )
+                    rmspe *= 100.0
+                    print("{:>30} {:<30} RMSPE = {:8.3f} %".format(target, col, rmspe))
+
+        return
 
     # filter benchmarks that should be in the table
     selected_table_benchmarks = [
@@ -1681,6 +2354,8 @@ def view(
                 # extra configs
                 ("simple_matrixmul", 32, 128, 512, 128),
                 ("simple_matrixmul", 32, 512, 32, 512),
+                # im stupid we dont have that big size unfortunately :(
+                # ("simple_matrixmul", 32, 512, 512, 512),
             ],
             columns=["benchmark", "input_dtype", "input_m", "input_n", "input_p"],
         ),
@@ -1727,8 +2402,32 @@ def view(
     # print(sorted(selected_table_benchmarks.columns))
     # assert sorted(per_config_pivoted.index.names) == sorted(selected_table_benchmarks.columns)
 
+    print(" === {} === ".format(profiler))
+
+    # show_preview_table(per_config_pivoted, stat_cols=stat_cols, trace_reconstruction=trace_reconstruction, playground=playground)
+
+    # table_stat_cols = [
+    #     col
+    #     for col in table_stat_cols_for_profiler(profiler)
+    #     if col not in ["input_id", "mean_blocks_per_sm", "l1_local_hit_rate", "l1_hit_rate"]
+    # ]
     if bench_name is not None:
-        # do not show statistics table for all benchmarks combined
+        # only show statistics table for all benchmarks combined
+
+        # print(preview_per_config_pivoted.index)
+        # print(selected_table_benchmarks)
+        # table_index = (
+        #     preview_per_config_pivoted.index.to_frame()
+        #     .reset_index(drop=True)
+        #     .merge(selected_table_benchmarks, how="inner")
+        # )
+        # table_index = pd.MultiIndex.from_frame(table_index)
+        # assert len(table_index) == len(table_index.drop_duplicates())
+        #
+        # # build table
+        # preview_per_config_pivoted = preview_per_config_pivoted.loc[table_index, :]
+        # print(preview_per_config_pivoted.loc[pd.IndexSlice[stat_cols, :], :])
+
         table_index = (
             per_config_pivoted.index.to_frame()
             .reset_index(drop=True)
@@ -1737,18 +2436,174 @@ def view(
         table_index = pd.MultiIndex.from_frame(table_index)
         assert len(table_index) == len(table_index.drop_duplicates())
 
+        # build table
+        table_per_config_pivoted = per_config_pivoted.loc[table_index, :]
+
+        # add norm cycles after cycles for preview
+        preview_stat_cols = copy.deepcopy(stat_cols)
+        for stat, after_stat in [
+            ("norm_cycles", "cycles"),
+            ("norm_instructions", "instructions"),
+        ]:
+            try:
+                stat_idx = preview_stat_cols.index(after_stat)
+                preview_stat_cols.insert(stat_idx + 1, stat)
+            except ValueError:
+                pass
+
+        # print(table_per_config_pivoted)
+        show_preview_table(
+            table_per_config_pivoted,
+            stat_cols=preview_stat_cols,
+            trace_reconstruction=trace_reconstruction,
+            playground=playground,
+        )
+
+        if bench_name == "simple_matrixmul":
+            # show l1 hit rate discrepancy
+            col = "l1_global_hit_rate"
+            native_l1_hit_rate = table_per_config_pivoted[(col, Target.Profile.value)]
+            accel_l1_hit_rate = table_per_config_pivoted[
+                (col, Target.AccelsimSimulate.value)
+            ]
+            diff = np.abs(native_l1_hit_rate - accel_l1_hit_rate)
+            print("accel {} mean: {:2.2f}".format(col, diff.mean()))
+            print("accel {} min:  {:2.2f}".format(col, diff.min()))
+            print("accel {} max:  {:2.2f}".format(col, diff.max()))
+
+        elif bench_name == "matrixmul":
+            col = "norm_cycles"
+            native_cycles = table_per_config_pivoted[(col, Target.Profile.value)]
+            accel_cycles = table_per_config_pivoted[
+                (col, Target.AccelsimSimulate.value)
+            ]
+            our_cycles = table_per_config_pivoted[(col, Target.Simulate.value)]
+            for name, cycles in [("our", our_cycles), ("accel", accel_cycles)]:
+                diff = np.abs(native_cycles - cycles)
+                print("{} {} mean: {:2.2f}".format(name, col, diff.mean()))
+                print("{} {} min:  {:2.2f}".format(name, col, diff.min()))
+                print("{} {} max:  {:2.2f}".format(name, col, diff.max()))
+        elif bench_name == "babelstream":
+            col = "norm_cycles"
+            # native_cycles = table_per_config_pivoted[(col, Target.Profile.value)]
+            # accel_cycles = table_per_config_pivoted[(col, Target.AccelsimSimulate.value)]
+            # our_cycles = table_per_config_pivoted[(col, Target.Simulate.value)]
+
+            # for name, cycles in [("our", our_cycles), ("accel", accel_cycles)]:
+            #     diff = np.abs(native_cycles - cycles)
+            #     print("=== {} {} DIFF".format(name, col))
+            #     print(diff.T)
+            #     print("===")
+            #     print("{} {} mean: {:2.2f}".format(name, col, diff.mean()))
+            #     print("{} {} min:  {:2.2f}".format(name, col, diff.min()))
+            #     print("{} {} max:  {:2.2f}".format(name, col, diff.max()))
+
+            sim_cycles = table_per_config_pivoted[
+                [(col, Target.AccelsimSimulate.value), (col, Target.Simulate.value)]
+            ]
+            print(sim_cycles)
+            diff = (sim_cycles - 1.0).abs()
+
+            print("AVERAGE {} DIFF".format(col))
+            print(diff.median())
+            print(diff.mean())
+
+            print("\n\n=== {} ACCELSIM MORE ACCURATE".format(col))
+            accelsim_better = (
+                diff[(col, Target.AccelsimSimulate.value)]
+                < diff[(col, Target.Simulate.value)]
+            )
+            print(diff[accelsim_better])
+
+            print("\n\n=== {} OURS MORE ACCURATE".format(col))
+            ours_better = (
+                diff[(col, Target.Simulate.value)]
+                < diff[(col, Target.AccelsimSimulate.value)]
+            )
+            print(diff[ours_better])
+
+            col = "l2_write_hit_rate"
+            native_l2_write_hit_rate = table_per_config_pivoted.loc[
+                :, (col, Target.Profile.value)
+            ]
+            sim_l2_write_hit_rate = table_per_config_pivoted[
+                [(col, Target.AccelsimSimulate.value), (col, Target.Simulate.value)]
+            ]
+            sim_l2_write_hit_rate.loc[
+                :, (col, Target.AccelsimSimulate.value)
+            ] /= native_l2_write_hit_rate
+            sim_l2_write_hit_rate.loc[
+                :, (col, Target.Simulate.value)
+            ] /= native_l2_write_hit_rate
+            diff = (sim_l2_write_hit_rate - 1.0).abs()
+
+            print("AVERAGE {} DIFF".format(col))
+            print(diff)
+
+            valid_dram_reads = (
+                table_per_config_pivoted[("l2_read_hit_rate", Target.Profile.value)]
+                < 1.0
+            )
+            valid_dram_writes = (
+                table_per_config_pivoted[("l2_read_hit_rate", Target.Profile.value)]
+                < 1.0
+            )
+            # native_dram_stats = table_per_config_pivoted[[
+            #     ("dram_reads", Target.Profile.value),
+            #     ("dram_writes", Target.Profile.value)]]
+            # print(native_dram_stats.loc[valid_dram_reads | valid_dram_writes,:])
+            print("\n\nweird dram reads")
+            print(
+                table_per_config_pivoted.loc[
+                    ~valid_dram_reads, ("dram_reads", Target.Profile.value)
+                ]
+            )
+
+            print("\n\nweird dram writes")
+            print(
+                table_per_config_pivoted.loc[
+                    ~valid_dram_writes, ("dram_writes", Target.Profile.value)
+                ]
+            )
+
+        # print(preview_per_config_pivoted.loc[pd.IndexSlice[stat_cols, :], :])
+        # print(preview_per_config_pivoted.loc[pd.IndexSlice[stat_cols, :], :])
         # print(table_index)
         # print(per_config_pivoted.index)
 
-        # build table
-        table_per_config_pivoted = per_config_pivoted.loc[table_index, :]
-        table = build_per_config_table(table_per_config_pivoted[table_stat_cols])
+        table_stat_cols = gpucachesim.stats.native.table_stat_cols_for_profiler(
+            profiler
+        )
+        table_stat_cols = filter_stat_cols(table_stat_cols, stat_names)
+
+        document_tex, table_tex = build_per_config_table(
+            table_per_config_pivoted[table_stat_cols]
+        )
+
         print("\n\n\n")
-        print(table)
-        utils.copy_to_clipboard(table)
+        print(table_tex)
+        utils.copy_to_clipboard(table_tex)
         print("copied table to clipboard")
 
+        assert isinstance(bench_name, str)
+        filename = "view_" + str(bench_name)
+
+        # write latex
+        tex_output_path = (plot.TABLE_DIR / filename).with_suffix(".tex")
+        with open(tex_output_path, "w") as f:
+            f.write(table_tex)
+        print(color("wrote {}".format(tex_output_path), fg="cyan"))
+
+        pdf_output_path = (plot.TABLE_DIR / filename).with_suffix(".pdf")
+        try:
+            tex.render_latex(document_tex, output_path=pdf_output_path)
+        except Exception as e:
+            print(document_tex)
+            raise e
+        print(color("wrote {}".format(pdf_output_path), fg="cyan"))
+
     if not should_plot:
+        prepare_files_for_overleaf(bench_name)
         return
 
     # add plot labels
@@ -1757,9 +2612,9 @@ def view(
     )
     per_config.loc[
         per_config["target"] == Target.ExecDrivenSimulate.value, "target_name"
-    ] = "gpucachesim (TR)"
+    ] = r"microgpusim (TR)"
     per_config.loc[per_config["target"] == Target.Simulate.value, "target_name"] = (
-        "gpucachesim"
+        r"microgpusim"
     )
     per_config.loc[
         per_config["target"] == Target.AccelsimSimulate.value, "target_name"
@@ -1768,6 +2623,11 @@ def view(
         per_config.loc[~per_config["device"].isna(), "device"].apply(
             gpucachesim.stats.native.normalize_nvprof_device_name
         )
+    )
+    per_config.loc[per_config["target"] == Target.Profile.value, "target_name"] = (
+        per_config.loc[
+            per_config["target"] == Target.Profile.value, "target_name"
+        ].apply(lambda device: device.removeprefix("NVIDIA "))
     )
 
     # compute plot index
@@ -1806,15 +2666,26 @@ def view(
 
     # print(plot_per_config[[col for col in preview_cols if col in plot_per_config]])
 
+    if per_kernel:
+        sort_columns = ["target", "benchmark", "run", "input_id", "kernel_launch_id"]
+    else:
+        # do not sort by num blocks, let the user decide the ordering
+        # sort_columns = ["target", "benchmark", "run", "num_blocks", "input_id"]
+        sort_columns = ["target", "benchmark", "run", "input_id"]
+
+    plot_per_config = plot_per_config.sort_values(sort_columns, kind="stable")
+
     plot_stats(
         per_config=plot_per_config,
         stat_cols=stat_cols,
         all_input_cols=all_input_cols,
         profiler=profiler,
         plot_trace_reconstruction=plot_trace_reconstruction,
-        # per_kernel=per_kernel,
+        per_kernel=per_kernel,
         normalized=normalized,
         png=png,
         verbose=verbose,
         large=False,
     )
+
+    prepare_files_for_overleaf(bench_name)

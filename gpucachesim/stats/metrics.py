@@ -1,8 +1,11 @@
 import typing
 import numpy as np
+import pandas as pd
 import sktime
 import sktime.performance_metrics.forecasting
 import sklearn.metrics
+
+EPS = np.finfo(np.float64).eps
 
 
 def slowdown(baseline, values):
@@ -22,9 +25,7 @@ def geo_mean(values: np.ndarray) -> np.ndarray:
 #     return np.exp(np.log(values).mean())
 
 
-def bounded_relative_absolute_error(
-    true_values: np.ndarray, values: np.ndarray, **kwargs
-) -> np.ndarray:
+def bounded_relative_absolute_error(true_values: np.ndarray, values: np.ndarray, **kwargs) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values
@@ -40,9 +41,7 @@ def bounded_relative_absolute_error(
     return brae
 
 
-def rel_err(
-    true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None
-) -> np.ndarray:
+def rel_err(true_values: np.ndarray, values: np.ndarray, eps: typing.Optional[float] = None) -> np.ndarray:
     values = values.fillna(0.0)
     true_values = true_values.fillna(0.0)
     correct = values == true_values
@@ -100,20 +99,44 @@ def rmse_scaled(true_values, values) -> float:
 
 
 def abs_err(true_values: np.ndarray, values: np.ndarray) -> np.array:
-    values = values.fillna(0.0)
-    true_values = true_values.fillna(0.0)
-    return (true_values - values).abs()
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
+
+    values = np.array(values)
+    true_values = np.array(true_values)
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    return np.abs(true_values - values)
+    # return (true_values - values).abs()
     # return sklearn.metrics.mean_absolute_error(true_values, values)
 
 
-def smape(true_values: np.ndarray, values: np.ndarray) -> float:
+def smape(true_values: np.ndarray, values: np.ndarray, raw=False) -> float:
     """SMAPE (symmetric)"""
-    values = values.fillna(0.0)
-    true_values = true_values.fillna(0.0)
+    values = np.array(values)
+    true_values = np.array(true_values)
 
-    smape = (values - true_values).abs() / (values.abs() + true_values.abs())
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
+
+    # strictly positive
+    assert (values >= 0).all()
+    assert (true_values >= 0).all()
+
+    # denom = np.maximum(values.abs() + true_values.abs(), EPS)
+    # smape = (values - true_values).abs() / denom
+
+    denom = np.maximum(np.abs(values) + np.abs(true_values), EPS)
+    smape = np.abs(values - true_values) / denom
     smape[values == true_values] = 0.0
-    return smape.mean()
+    if raw:
+        return smape
+    else:
+        return np.average(smape)
 
 
 def ermsle(true_values: np.ndarray, values: np.ndarray) -> float:
@@ -166,23 +189,91 @@ def emale(true_values: np.ndarray, values: np.ndarray) -> float:
     return emale
 
 
-def mape(true_values: np.ndarray, values: np.ndarray) -> np.array:
-    values = values.fillna(0.0)
-    true_values = true_values.fillna(0.0)
-    return sklearn.metrics.mean_absolute_percentage_error(true_values, values)
+def mape(true_values: np.ndarray, values: np.ndarray, raw=False):
+    # if not isinstance(true_values, pd.Series):
+    values = np.array(values)
+    true_values = np.array(true_values)
+
+    if np.isnan(values).all() or np.isnan(true_values).all():
+        return np.nan
+
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    # values = np.array(values).fillna(0.0)
+    # true_values = np.array(true_values).fillna(0.0)
+
+    denom = np.maximum(np.abs(true_values), EPS)
+    mape = np.abs(values - true_values) / denom
+    if raw:
+        return mape
+    else:
+        return np.average(mape, axis=0)
+
+    # return sklearn.metrics.mean_absolute_percentage_error(
+    #     true_values, values, multioutput="raw_values" if raw else "uniform_average"
+    # )
 
 
-def rmspe(true_values: np.ndarray, values: np.ndarray) -> float:
-    values = values.fillna(0.0)
-    true_values = true_values.fillna(0.0)
+def rmspe(true_values: np.ndarray, values: np.ndarray, raw=False) -> float:
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
+
+    values = np.array(values)
+    true_values = np.array(true_values)
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
     return sktime.performance_metrics.forecasting.mean_squared_percentage_error(
-        y_true=true_values, y_pred=values, square_root=True, symmetric=False
+        y_true=true_values,
+        y_pred=values,
+        square_root=True,
+        symmetric=False,
+        multioutput="raw_values" if raw else "uniform_average",
     )
 
 
+def symmetric_rmspe(true_values: np.ndarray, values: np.ndarray) -> float:
+    values = np.array(values)
+    true_values = np.array(true_values)
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
+    return sktime.performance_metrics.forecasting.mean_squared_percentage_error(
+        y_true=true_values, y_pred=values, square_root=True, symmetric=True
+    )
+
+
+def mase(true_values: np.ndarray, values: np.ndarray) -> float:
+    values = np.array(values)
+    true_values = np.array(true_values)
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    mae = abs_err(true_values=true_values, values=values)
+    mean_absolute_deviation = np.mean(np.abs(true_values - values))
+    return mae / mean_absolute_deviation
+    # mase = np.abs(forecast - outsample)) / np.mean(np.abs(insample[:-frequency] - insample[frequency:])
+
+    # return mase.mean()
+
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
+    # return sktime.performance_metrics.forecasting.mean_absolute_scaled_error(
+    #     y_true=true_values, y_pred=values, y_train=None
+    # )
+
+
 def correlation(true_values: np.ndarray, values: np.ndarray, atol=None) -> float:
-    values = values.fillna(0.0)
-    true_values = true_values.fillna(0.0)
+    values = np.array(values)
+    true_values = np.array(true_values)
+    values = np.nan_to_num(values, copy=True, nan=0.0)
+    true_values = np.nan_to_num(true_values, copy=True, nan=0.0)
+
+    # values = values.fillna(0.0)
+    # true_values = true_values.fillna(0.0)
 
     assert len(values) == len(true_values)
     if len(values) <= 1:

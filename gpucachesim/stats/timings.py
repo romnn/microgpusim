@@ -93,17 +93,11 @@ def _build_timings_pie(ax, timings_df, sections, colors, title=None, validate=Fa
     threads = 8
     parallel_frac = float(averaged.loc["cycle::core", ("share", "median")])
     amdahl_speedup = compute_amdahl_speedup(p=parallel_frac, n=threads)
-    print(
-        "AMDAHL SPEEDUP = {:>6.3f}x for {:>2} threads (p={:>5.2f})".format(
-            amdahl_speedup, threads, parallel_frac
-        )
-    )
+    print("AMDAHL SPEEDUP = {:>6.3f}x for {:>2} threads (p={:>5.2f})".format(amdahl_speedup, threads, parallel_frac))
 
     gustafson_speedup = compute_gustafson_speedup(p=parallel_frac, n=threads)
     print(
-        "GUSTAFSON SPEEDUP = {:>6.3f}x for {:>2} threads (p={:>5.2f})".format(
-            gustafson_speedup, threads, parallel_frac
-        )
+        "GUSTAFSON SPEEDUP = {:>6.3f}x for {:>2} threads (p={:>5.2f})".format(gustafson_speedup, threads, parallel_frac)
     )
 
     print("\n\n=== MEAN MICROSECONS")
@@ -116,9 +110,7 @@ def _build_timings_pie(ax, timings_df, sections, colors, title=None, validate=Fa
     # validate averaged values
     total_cycle_share = averaged["share", "mean"].T["cycle::total"]
 
-    computed_total_cycle_share = averaged["share", "mean"].T[
-        TIMING_COLS_SUMMING_TO_FULL_CYCLE
-    ]
+    computed_total_cycle_share = averaged["share", "mean"].T[TIMING_COLS_SUMMING_TO_FULL_CYCLE]
     if computed_total_cycle_share.sum() > total_cycle_share:
         print(total_cycle_share, computed_total_cycle_share.sum())
     assert computed_total_cycle_share.sum() <= total_cycle_share
@@ -130,7 +122,7 @@ def _build_timings_pie(ax, timings_df, sections, colors, title=None, validate=Fa
 
     # sort based on share
     shares = averaged.loc[sections, idx]
-    shares = shares.sort_values([("share", agg)], ascending=False)
+    shares = shares.sort_values([("share", agg)], ascending=False, kind="stable")
 
     # compute other
     other = 1.0 - shares["share", agg].sum()
@@ -222,11 +214,7 @@ def timings(
     benches = b.benchmarks[Target.Simulate.value]
 
     if bench_name is not None:
-        selected_benchmarks = [
-            bench_name
-            for bench_name in benches.keys()
-            if bench_name.lower() == bench_name.lower()
-        ]
+        selected_benchmarks = [bench_name for bench_name in benches.keys() if bench_name.lower() == bench_name.lower()]
     else:
         selected_benchmarks = list(benches.keys())
 
@@ -238,17 +226,13 @@ def timings(
             return not baseline or all(
                 [
                     config["values"].get("memory_only") in [False, None],
-                    config["values"].get("num_clusters")
-                    in [int(benchmarks.BASELINE["num_clusters"]), None],
-                    config["values"].get("cores_per_cluster")
-                    in [int(benchmarks.BASELINE["cores_per_cluster"]), None],
+                    config["values"].get("num_clusters") in [int(benchmarks.BASELINE["num_clusters"]), None],
+                    config["values"].get("cores_per_cluster") in [int(benchmarks.BASELINE["cores_per_cluster"]), None],
                     config["values"].get("mode") in ["serial", None],
                 ]
             )
 
-        baseline_bench_configs = [
-            config for config in bench_configs if is_baseline(config)
-        ]
+        baseline_bench_configs = [config for config in bench_configs if is_baseline(config)]
 
         for bench_config in baseline_bench_configs:
             repetitions = int(bench_config["common"]["repetitions"])
@@ -256,9 +240,7 @@ def timings(
             stats_dir = Path(target_config["stats_dir"])
             assert bench_config["values"]["mode"] == "serial"
 
-            num_clusters = bench_config["values"].get(
-                "num_clusters", benchmarks.BASELINE["num_clusters"]
-            )
+            num_clusters = bench_config["values"].get("num_clusters", benchmarks.BASELINE["num_clusters"])
             cores_per_cluster = bench_config["values"].get(
                 "cores_per_cluster", benchmarks.BASELINE["cores_per_cluster"]
             )
@@ -271,12 +253,8 @@ def timings(
                     header=0,
                 )
                 sim_df["run"] = r
-                grouped_sim_including_no_kernel = sim_df.groupby(
-                    gpucachesim.stats.stats.INDEX_COLS, dropna=False
-                )
-                grouped_sim_excluding_no_kernel = sim_df.groupby(
-                    gpucachesim.stats.stats.INDEX_COLS, dropna=True
-                )
+                grouped_sim_including_no_kernel = sim_df.groupby(gpucachesim.stats.stats.INDEX_COLS, dropna=False)
+                grouped_sim_excluding_no_kernel = sim_df.groupby(gpucachesim.stats.stats.INDEX_COLS, dropna=True)
 
                 timings_path = stats_dir / f"timings.{r}.csv"
                 # timings_path = stats_dir / f"timings.csv"
@@ -295,12 +273,9 @@ def timings(
 
                 timing_df["total_cores"] = total_cores
                 timing_df["mean_blocks_per_sm"] = (
-                    grouped_sim_excluding_no_kernel["num_blocks"].mean().mean()
-                    / total_cores
+                    grouped_sim_excluding_no_kernel["num_blocks"].mean().mean() / total_cores
                 )
-                timing_df["exec_time_sec"] = (
-                    grouped_sim_including_no_kernel["elapsed_millis"].sum().sum()
-                )
+                timing_df["exec_time_sec"] = grouped_sim_including_no_kernel["elapsed_millis"].sum().sum()
                 timing_df["exec_time_sec"] /= 1000.0
 
                 timings_dfs.append(timing_df)
@@ -309,30 +284,22 @@ def timings(
     timings_df = timings_df.set_index(["name"])
     # timings_df = timings_df.set_index(["target", "benchmark", "input_id", "run", "name"])
     index_cols = ["target", "benchmark", "input_id", "run"]
-    timings_df["max_total_sec"] = timings_df.groupby(index_cols)["total_sec"].transform(
-        "max"
-    )
+    timings_df["max_total_sec"] = timings_df.groupby(index_cols)["total_sec"].transform("max")
 
     def compute_exec_time_sec(df) -> float:
         time = df.loc[TIMING_COLS_SUMMING_TO_FULL_CYCLE, "total_sec"].sum()
         return time
 
     computed_exec_time_sec = (
-        timings_df.groupby(index_cols)[timings_df.columns]
-        .apply(compute_exec_time_sec)
-        .rename("computed_exec_time_sec")
+        timings_df.groupby(index_cols)[timings_df.columns].apply(compute_exec_time_sec).rename("computed_exec_time_sec")
     )
 
     before = len(timings_df)
-    timings_df = timings_df.reset_index().merge(
-        computed_exec_time_sec, on=index_cols, how="left"
-    )
+    timings_df = timings_df.reset_index().merge(computed_exec_time_sec, on=index_cols, how="left")
     assert len(timings_df) == before
 
     if "computed_exec_time_sec" in timings_df:
-        timings_df["abs_diff_to_real"] = (
-            timings_df["computed_exec_time_sec"] - timings_df["exec_time_sec"]
-        ).abs()
+        timings_df["abs_diff_to_real"] = (timings_df["computed_exec_time_sec"] - timings_df["exec_time_sec"]).abs()
         timings_df["rel_diff_to_real"] = (
             1 - (timings_df["computed_exec_time_sec"] / timings_df["exec_time_sec"])
         ).abs()
@@ -400,40 +367,24 @@ def timings(
     samples = len(timings_df[index_cols].drop_duplicates())
     title += "\n({} benchmark configurations)".format(samples)
 
-    total_micros = (
-        timings_df.loc["cycle::total", :]
-        .groupby(index_cols)["mean_micros"]
-        .first()
-        .median()
-    )
+    total_micros = timings_df.loc["cycle::total", :].groupby(index_cols)["mean_micros"].first().median()
     title += "\n" + r"${:4.1f}\mu s$ total".format(total_micros)
 
-    wedges1, labels1, texts1, autotexts1 = _build_timings_pie(
-        ax1, timings_df, title=title, **args
-    )
+    wedges1, labels1, texts1, autotexts1 = _build_timings_pie(ax1, timings_df, title=title, **args)
 
     print("=============== blocks/core > 1 =============")
     title = r"$N_{\text{blocks}}$/SM $>1$"
     samples = len(sufficient_size_timings_df[index_cols].drop_duplicates())
     title += "\n({} benchmark configurations)".format(samples)
 
-    total_micros = (
-        sufficient_size_timings_df.loc["cycle::total", :]
-        .groupby(index_cols)["mean_micros"]
-        .first()
-        .median()
-    )
+    total_micros = sufficient_size_timings_df.loc["cycle::total", :].groupby(index_cols)["mean_micros"].first().median()
     title += "\n" + r"${:4.1f}\mu s$ total".format(total_micros)
 
-    wedges2, labels2, texts2, autotexts2 = _build_timings_pie(
-        ax2, sufficient_size_timings_df, title=title, **args
-    )
+    wedges2, labels2, texts2, autotexts2 = _build_timings_pie(ax2, sufficient_size_timings_df, title=title, **args)
 
     handles = wedges1 + wedges2
     labels = labels1 + labels2
-    unique = [
-        (h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]
-    ]
+    unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
     legend = fig.legend(
         *zip(*unique),
         loc="center left",

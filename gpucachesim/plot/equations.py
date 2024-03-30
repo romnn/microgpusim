@@ -12,6 +12,24 @@ def main():
 
 
 @main.command()
+def check():
+    import numpy as np
+
+    scale = 1e6
+    for _ in range(1000):
+        have = (np.random.rand() * 2) - 1
+        want = (np.random.rand() * 2) - 1
+        have *= scale
+        want *= scale
+
+        err1 = have / want - 1.0
+        err2 = (have - want) / want
+        print(have, want)
+        print(err1, err2)
+        assert np.allclose(err1, err2)
+
+
+@main.command()
 @click.option("--png", "png", type=bool, default=True, help="convert to png")
 def equations(png):
     equations = [
@@ -338,9 +356,7 @@ b_{n,1} & b_{n,2} & \cdots & b_{n,p}
 
         if png:
             png_output_path = (plot.EQUATIONS_DIR / "png" / name).with_suffix(".png")
-            utils.convert_to_png(
-                input_path=pdf_output_path, output_path=png_output_path, density=600
-            )
+            utils.convert_to_png(input_path=pdf_output_path, output_path=png_output_path, density=600)
             print(color("wrote {}".format(png_output_path), fg="cyan"))
 
     pass

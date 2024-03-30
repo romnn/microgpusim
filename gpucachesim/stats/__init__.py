@@ -28,6 +28,7 @@ import gpucachesim.benchmarks as benchmarks
 import gpucachesim.stats.parallel_table
 import gpucachesim.stats.speed_table
 import gpucachesim.stats.result_table
+import gpucachesim.stats.compat
 import gpucachesim.stats.generate
 import gpucachesim.stats.timings
 import gpucachesim.stats.view
@@ -583,6 +584,81 @@ def all_parallel_table(path, nsight, png):
             )
         done += 1
 
+@main.command() # name="all-parallel-table")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("-b", "--bench", "bench_name", help="Benchmark name")
+@click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
+@click.option(
+    "--scale-clusters",
+    "scale_clusters",
+    type=bool,
+    default=True,
+    help="scale clusters instead of cores per cluster",
+)
+@click.option(
+    "--verbose",
+    "verbose",
+    type=bool,
+    default=False,
+    help="verbose output",
+)
+def speedup_largest_bench_configs(
+    path,
+    bench_name,
+    nsight,
+    scale_clusters,
+    verbose,
+):
+    profiler = "nsight" if nsight else "nvprof"
+    selected_df = load_stats(bench_name=bench_name, profiler=profiler, path=path)
+    bench_input_cols, joined = gpucachesim.stats.parallel_table.build_joined_df(
+        selected_df,
+        bench_name=bench_name,
+        verbose=verbose,
+    )
+
+    functional_configs = gpucachesim.stats.parallel_table.get_functional_configs(
+        scale=True, scale_clusters=scale_clusters)
+    functional_configs_df = pd.DataFrame.from_dict(functional_configs)
+    assert all([col in joined for col in functional_configs_df])
+
+    joined = joined.merge(functional_configs_df, how="inner")
+
+    group_cols = gpucachesim.stats.parallel_table.get_group_cols(bench_input_cols)
+    grouped = joined.groupby(group_cols, dropna=False)
+    aggregations = gpucachesim.stats.parallel_table.get_aggregations(joined, group_cols)
+    aggregated = grouped.agg(aggregations, squeeze=False)
+
+    aggregated["exec_time_sec_speedup"] = grouped[joined.columns].apply(
+        gpucachesim.stats.parallel_table.compute_speedup
+    )
+    aggregated = aggregated.reset_index()
+    # print(aggregated.index)
+
+    for benchmark, bench_df in aggregated.groupby("benchmark"):
+        # print(benchmark)
+        # bench_df = bench_df.reset_index()
+        # print(bench_df.shape)
+        preview_cols = ["target", "benchmark"]
+        preview_cols += bench_input_cols
+        preview_cols += ["exec_time_sec_serial", "exec_time_sec_speedup"]
+        if verbose:
+            print(bench_df[preview_cols])
+        # print(bench_df.index)
+        # print(bench_df[["target"] + bench_input_cols])
+        size_cols = ["exec_time_sec_serial"]
+        largest_inputs = bench_df.nlargest(1, size_cols, keep="all")
+        if verbose:
+            print(largest_inputs[preview_cols])
+        max_speedup = largest_inputs["exec_time_sec_speedup"].max()
+
+        print("{:>30} max speedup => {:.3f}".format(benchmark, max_speedup))
+
+        # grouped = joined.groupby(group_cols, dropna=False)
+        
+
+    
+
 
 @main.command()
 @click.option("-p", "--path", help="Path to materialized benchmark config")
@@ -710,7 +786,7 @@ def correlation_plots(path, bench_name_arg, nsight):
             }
 
             for (target_name, target, marker), target_df in targets:
-                target_df.sort_values(bench_input_cols)
+                target_df.sort_values(bench_input_cols, kind="stable")
                 ax.scatter(
                     native_df[stat_col],
                     target_df[stat_col],
@@ -1002,6 +1078,18 @@ def compute_label_for_benchmark_df(df, per_kernel=False):
     return label
 
 
+def get_view_stat_names(stat_names_arg):
+    if stat_names_arg is None:
+        stat_names = []
+    elif isinstance(stat_names_arg, str):
+        stat_names = [s.strip().lower() for s in stat_names_arg.split(",")]
+    elif isinstance(stat_names_arg, list):
+        stat_names = [str(s).strip().lower() for s in stat_names_arg]
+    else:
+        raise ValueError("bad stat names")
+    return stat_names
+
+
 @main.command(name="view")
 @click.option("-p", "--path", help="Path to materialized benchmark config")
 @click.option("-b", "--bench", "bench_name", help="Benchmark name")
@@ -1055,15 +1143,7 @@ def run_view(
     inspect,
     png,
 ):
-    if stat_names_arg is None:
-        stat_names = []
-    elif isinstance(stat_names_arg, str):
-        stat_names = [s.strip().lower() for s in stat_names_arg.split(",")]
-    elif isinstance(stat_names_arg, list):
-        stat_names = [str(s).strip().lower() for s in stat_names_arg]
-    else:
-        raise ValueError("bad stat names")
-
+    stat_names = get_view_stat_names(stat_names_arg)
     gpucachesim.stats.view.view(
         path=path,
         bench_name=bench_name,
@@ -1081,6 +1161,84 @@ def run_view(
         inspect=inspect,
         png=png,
     )
+
+@main.command(name="all-view")
+@click.option("-p", "--path", help="Path to materialized benchmark config")
+@click.option("--plot", "should_plot", type=bool, default=False, help="generate plots")
+@click.option("--nsight", "nsight", type=bool, is_flag=True, help="use nsight")
+@click.option("--memory-only", "mem_only", type=bool, is_flag=True, help="memory only")
+@click.option(
+    "-v", "--verbose", "verbose", type=bool, is_flag=True, help="verbose output"
+)
+@click.option(
+    "--strict", "strict", type=bool, default=True, help="fail on missing results"
+)
+# @click.option(
+#     "--tr",
+#     "trace_reconstruction",
+#     type=bool,
+#     default=True,
+#     help="show trace reconstruction in table",
+# )
+# @click.option(
+#     "--plot-tr",
+#     "plot_trace_reconstruction",
+#     type=bool,
+#     default=True,
+#     help="plot trace reconstruction",
+# )
+@click.option(
+    "--play", "playground", type=bool, default=False, help="show playground in table"
+)
+@click.option("--per-kernel", "per_kernel", type=bool, is_flag=True, help="per kernel")
+@click.option("--normalized", "normalized", type=bool, default=True, help="normalized")
+@click.option("--stats", "stat_names_arg", type=str, help="stat names")
+@click.option(
+    "--inspect", "inspect", type=bool, default=False, help="inspet aggregations"
+)
+@click.option("--png", "png", type=bool, is_flag=True, help="convert to png")
+def all_view(
+    path,
+    should_plot,
+    nsight,
+    mem_only,
+    # trace_reconstruction,
+    # plot_trace_reconstruction,
+    playground,
+    stat_names_arg,
+    verbose,
+    strict,
+    per_kernel,
+    normalized,
+    inspect,
+    png,
+):
+    stat_names = get_view_stat_names(stat_names_arg)
+    bench_names = list(benchmarks.BENCHMARK_INPUT_COLS.keys())
+    trace_reconstruction = [True, False]
+    for bench_name, tr in itertools.product(bench_names, trace_reconstruction):
+        per_kernel_override = per_kernel
+        if bench_name == "babelstream":
+            per_kernel_override = True
+        gpucachesim.stats.view.view(
+            path=path,
+            bench_name=bench_name,
+            should_plot=should_plot,
+            nsight=nsight,
+            mem_only=mem_only,
+            trace_reconstruction=tr,
+            plot_trace_reconstruction=tr,
+            playground=playground,
+            stat_names=stat_names,
+            verbose=verbose,
+            strict=strict,
+            per_kernel=per_kernel_override,
+            normalized=normalized,
+            inspect=inspect,
+            png=png,
+        )
+
+
 
 
 @main.command(name="generate")
@@ -1163,6 +1321,30 @@ def run_timings(path, bench_name, baseline, strict, validate, png):
         validate=validate,
         png=png,
     )
+
+
+@main.command(name="compat-result-table")
+@click.option("--force", type=bool, is_flag=True, help="force reassembly of the raw input data")
+@click.option("--verbose", type=bool, is_flag=True, help="verbose")
+def run_compat_result_table(
+        force, verbose,
+):
+    gpucachesim.stats.compat.result_table(
+        force=force,
+        verbose=verbose,
+    )
+
+@main.command(name="compat-slowdowns")
+@click.option("--force", type=bool, is_flag=True, help="force reassembly of the raw input data")
+@click.option("--verbose", type=bool, is_flag=True, help="verbose")
+def run_compat_slowdowns(
+        force, verbose,
+):
+    gpucachesim.stats.compat.slowdowns(
+        force=force,
+        verbose=verbose,
+    )
+
 
 
 if __name__ == "__main__":
