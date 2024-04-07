@@ -4,7 +4,6 @@ statement = _{
   directive
     | function_defn
 }
-// | function_decl
 
 directive = _{
   variable_declaration ~ ";"
@@ -14,33 +13,58 @@ directive = _{
     | target_directive
     | file_directive
     | loc_directive
+	| section_directive
 }
 
 variable_declaration = {
 	".constptr" ~ identifier ~ "," ~ identifier ~ "," ~ integer
-    | variable_spec ~ identifier_spec ~ "=" ~ literal_operand
-    | variable_spec ~ identifier_spec ~ "=" ~ initializer_list
-  	| variable_spec ~ identifier_list
+    | variable_spec_list ~ identifier_spec ~ "=" ~ literal_operand
+    | variable_spec_list ~ identifier_spec ~ "=" ~ initializer_list
+  	| variable_spec_list ~ identifier_list
 }
 initializer_list = { "{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" }
 literal_list = { literal_operand ~ "," ~ literal_list | literal_operand }
 identifier_list = { identifier_spec ~ "," ~ identifier_list | identifier_spec }
 
+block_spec = {
+  ".maxntid" ~ integer ~ "," ~ integer ~ "," ~ integer
+    | ".minnctapersm" ~ integer
+    | ".maxnctapersm" ~ integer
+}
+block_spec_list = { block_spec ~ block_spec_list | block_spec }
+
 function_defn = {
-  function_decl ~ block_spec_list ~ statement_block
-  | function_decl ~ statement_block
+  function_decl ~ block_spec_list ~ function_statement_block
+  | function_decl ~ function_statement_block
 }
 
-statement_block = { "{" ~ statement_list? ~ "}" }
-statement_list = _{
-    statement_block ~ statement_list
-    | instruction_statement ~ statement_list
-    | directive ~ statement_list
-    | prototype_block ~ statement_list
-    | statement_block
-    | instruction_statement
-    | directive
+
+function_statement_block = { "{" ~ function_statement_list? ~ "}" }
+function_statement = _{ 
+	label
+	| instruction_statement 
+	| directive
+	| prototype_block
+	// we can have blocks of code ({ ... }) in function bodies
+	| function_statement_block
 }
+function_statement_list = _{
+	function_statement ~ function_statement_list | function_statement
+}
+
+// function_statement_list = _{
+    //label ~ statement_list
+    //| instruction_statement ~ statement_list
+    //| directive ~ statement_list
+    //| prototype_block ~ statement_list
+    //| label
+    //| instruction_statement
+    //| directive
+    // | statement_block
+    // statement_block ~ statement_list
+//}
+
+// registerDeclaration | location | label | pragma | callprototype | calltargets;
 
 // Instruction statement
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#instruction-statements
@@ -91,11 +115,11 @@ builtin_operand = { special_register ~ dimension_modifier | special_register }
 // Example:
 literal_operand = {
 	// float always precedes because it starts with 0[fF]
-    // float_exact
+    float_exact
     // double always precedes integers because it either
     // - contains a decimal point (.)
     // - starts with 0[dD]
-    // | double_exact
+    | double_exact
 	| integer
 }
 
@@ -160,26 +184,52 @@ address_expression = {
     | integer
 }
 
-opcode_spec = {
-  opcode ~ option*
-}
-option_list = { option ~ option_list | option }
+opcode_spec = { opcode ~ option* }
 
+// .entry kernel-name ( param-list )  kernel-body
+// .entry kernel-name  kernel-body
+// can we dedup variable_spec and var_spec
 function_decl = {
-  function_decl_header ~ "(" ~ param_entry ~ ")" ~ function_ident_param
-    | function_decl_header ~ function_ident_param
-    | function_decl_header
+  // can we remove this?
+  // function_decl_header ~ "(" ~ function_param ~ ")" ~ function_name_and_parameters
+  // function_decl_header ~ function_return_val? ~ function_name_and_parameters
+  function_decl_header ~ function_return_val? ~ function_name ~ function_parameters?
+  // | function_decl_header
 }
 
-function_ident_param = {
-  identifier ~ "(" ~ param_list? ~ ")"
-    | identifier
+// todo: refactor this
+function_decl_header = {
+  function_decl_header_entry
+    | function_decl_header_visible_entry
+    | function_decl_header_weak_entry
+    | function_decl_header_func
+    | function_decl_header_visible_func
+    | function_decl_header_weak_func
+    | function_decl_header_extern_func
 }
 
-param_list = _{
-	param_entry ~ "," ~ param_list
-  	| param_entry
+function_decl_header_entry          = { ".entry" }
+function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
+function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
+function_decl_header_func           = { ".func" }
+function_decl_header_visible_func   = { ".visible" ~ ".func" }
+function_decl_header_weak_func      = { ".weak" ~ ".func" }
+function_decl_header_extern_func    = { ".extern" ~ ".func" }
+
+function_name = @{ identifier }
+function_return_val = { "(" ~ function_param ~ ")" }
+function_param = {
+  ".param" ~ variable_spec_list ~ ptr_spec? ~ identifier_spec
+    | ".reg" ~ variable_spec_list ~ identifier_spec
 }
+function_param_list = _{
+	function_param ~ "," ~ function_param_list
+  	| function_param 
+}
+function_parameters = { "(" ~ function_param_list? ~ ")" }
+// function_name_and_parameters = {
+//  function_name ~ "(" ~ function_param_list? ~ ")" | function_name
+// }
 
 special_register = {
   "%clock"
@@ -207,27 +257,7 @@ special_register = {
 
 dimension_modifier = { ".0" | ".1" | ".2" | ".x" | ".y" | ".z" }
 
-function_decl_header = {
-  function_decl_header_entry
-    | function_decl_header_visible_entry
-    | function_decl_header_weak_entry
-    | function_decl_header_func
-    | function_decl_header_visible_func
-    | function_decl_header_weak_func
-    | function_decl_header_extern_func
-}
-function_decl_header_entry          = { ".entry" }
-function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
-function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
-function_decl_header_func           = { ".func" }
-function_decl_header_visible_func   = { ".visible" ~ ".func" }
-function_decl_header_weak_func      = { ".weak" ~ ".func" }
-function_decl_header_extern_func    = { ".extern" ~ ".func" }
 
-param_entry = {
-  ".param" ~ variable_spec ~ ptr_spec? ~ identifier_spec
-    | ".reg" ~ variable_spec ~ identifier_spec
-}
 identifier_spec = {
     identifier ~ "<" ~ integer ~ ">"
     | identifier ~ "[" ~ "]"
@@ -236,17 +266,38 @@ identifier_spec = {
 }
 
 address_size_directive = { ".address_size" ~ integer }
-version_directive = { ".version" ~ double ~ "+"? }
-target_directive = { ".target" ~ identifier ~ ("," ~ identifier){0,2} }
-file_directive = { ".file" ~ integer ~ quoted ~ (("," ~ integer){2})? }
-loc_directive = { ".loc" ~ integer ~ integer ~ integer }
 
-block_spec = {
-  ".maxntid" ~ integer ~ "," ~ integer ~ "," ~ integer
-    | ".minnctapersm" ~ integer
-    | ".maxnctapersm" ~ integer
+target_directive = { ".target" ~ identifier ~ ("," ~ identifier){0,2} }
+
+// version_directive = { ".version" ~ double ~ "+"? }
+version_directive = { ".version" ~ version_directive_major ~ "." ~ version_directive_minor ~ "+"? }
+version_directive_major = @{ integer }
+version_directive_minor = @{ integer }
+
+
+// file_directive = { ".file" ~ integer ~ quoted ~ (("," ~ integer){2})? }
+file_directive_timestamp = { integer }
+file_directive_filesize = { integer }
+file_directive = { 
+	".file" ~ integer ~ quoted 
+	~ ("," ~ file_directive_timestamp ~ "," ~ file_directive_filesize )?
 }
-block_spec_list = { block_spec ~ block_spec_list | block_spec }
+
+section_directive = { ".section" ~ (debug_str_section)}
+debug_str_section = { ".debug_str" ~ "{" ~ debug_str_list ~ "}"}
+debug_str = { label | ".b8" ~ integer ~ ("," ~ integer)* }
+debug_str_list = {
+	debug_str ~ debug_str_list
+	| debug_str
+}
+
+loc_directive = { ".loc" ~ integer ~ integer ~ integer ~ (("," ~ loc_attributes))* }
+loc_attributes = { loc_function_name_attr | loc_inlined_at_attr }
+// todo: identifier does not work as it does not recognize .debug_str..
+// either we allow everything here (except for ",") or only .debug_str
+loc_function_name_label = { identifier | ".debug_str" }
+loc_function_name_attr = { "function_name" ~ loc_function_name_label ~ ("+" ~ integer)?}
+loc_inlined_at_attr = { "inlined_at" ~ integer ~ integer ~ integer }
 
 ptr_spec = {
   ".ptr" ~ ptr_space_spec ~ ptr_align_spec
@@ -256,18 +307,27 @@ ptr_space_spec = { ".global" | ".local" | ".shared" | ".const" }
 ptr_align_spec = { ".align" ~ integer }
 align_spec = { ".align" ~ integer }
 
-var_spec = {
+variable_spec = {
   space_spec | type_spec | align_spec
     | ".visible" | ".extern" | ".weak"
 }
-variable_spec = { var_spec ~ variable_spec | var_spec }
+variable_spec_list = {
+	variable_spec ~ variable_spec_list
+	| variable_spec
+}
 
+
+// this is a bit sketchy
+// we cannot "group" well, because for example
+// compare_spec contains a ".lo" and addressable_spec contains a ".local"
+// because of that, we always need to make sure that ".local" (the more
+// specific case) precedes ".lo"
 option = {
     type_spec
-    | compare_spec
     | addressable_spec
-    | rounding_mode
+    | compare_spec
     | wmma_spec
+    | rounding_mode
     | prmt_spec
     | atomic_operation_spec
     | ".sync"
@@ -307,6 +367,7 @@ option = {
     | ".bfly"
     | ".idx"
 }
+option_list = { option ~ option_list | option }
 
 atomic_operation_spec = {
   ".and"
@@ -326,9 +387,13 @@ floating_point_rounding_mode = { ".rn" | ".rz" | ".rm" | ".rp" }
 integer_rounding_mode = { ".rni" | ".rzi" | ".rmi" | ".rpi" }
 
 compare_spec = {
-  ".eq" | ".ne" | ".lt" | ".le" | ".gt" | ".ge" | ".lo" | ".ls"
-    | ".hi" | ".hs" | ".equ" | ".neu" | ".ltu" | ".leu" | ".gtu"
-    | ".geu" | ".num" | ".nan"
+	// three chars
+	".equ" | ".neu" | ".ltu" | ".leu"
+	| ".gtu" | ".geu" | ".num" | ".nan"
+	// two chars
+	| ".eq" | ".ne" | ".lt" | ".le"
+	| ".gt" | ".ge" | ".lo" | ".ls"
+	| ".hi" | ".hs"
 }
 prmt_spec = { ".f4e" | ".b4e" | ".rc8" | ".rc16" | ".ecl" | ".ecr" }
 wmma_spec = {
@@ -394,7 +459,7 @@ opcode = {
 
 space_spec = { ".reg" | ".sreg" | addressable_spec }
 addressable_spec = {
-  ".const" | ".global" | ".local"
+  ".const" | ".global"
     | ".local" | ".param" | ".shared"
     | ".sstarr" | ".surf" | ".tex"
 }
@@ -430,7 +495,8 @@ integer = {
 }
 // ascii_digit_nonzero = @{ "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"  }
 ascii_digit_nonzero = @{ '1'..'9' }
-decimal = @{ "-"? ~ ascii_digit_nonzero ~ ASCII_DIGIT* ~ "U"? }
+// decimal = @{ "-"? ~ ascii_digit_nonzero ~ ASCII_DIGIT* ~ "U"? }
+decimal = @{ "-"? ~ ASCII_DIGIT+ ~ "U"? }
 hex = @{ "0" ~ ("x" | "X" ) ~ ASCII_HEX_DIGIT+ ~ "U"? }
 binary = @{ "0" ~ ("b" | "B") ~ ASCII_BIN_DIGIT+ ~ "U"? }
 octal = @{ "0" ~ ASCII_OCT_DIGIT+ ~ "U"? }

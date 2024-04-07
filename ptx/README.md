@@ -9,3 +9,7 @@ The provided libraries may in the future be used for
 - static analysis
 - PTX synthesis
 - functional simulation
+
+```bash
+docker run -v "$PWD/kernels/:/out" ptxsamples
+```

@@ -19,150 +19,151 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn walk(pair: Pair<Rule>) -> eyre::Result<ASTNode> {
-    match pair.as_rule() {
-        Rule::function_defn => {
-            let inner = pair.into_inner().map(|p| walk(p));
-            println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
-            // Ok(ASTNode::FunctionDefn { name: "test" })
-            Ok(ASTNode::FunctionDefn {})
-        }
-        Rule::function_decl => {
-            let inner = pair.into_inner().map(|p| walk(p));
-            println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
-            Ok(ASTNode::FunctionDecl { name: "test" })
-        }
-        Rule::function_ident_param => {
-            // extract identifier and param_list
-            let inner = pair.into_inner().map(|p| walk(p));
-            println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
-            Ok(ASTNode::EOI)
-        }
-        Rule::function_decl_header => {
-            let header = match pair.into_inner().next().map(|p| p.as_rule()) {
-                Some(Rule::function_decl_header_entry) => Ok(FunctionDeclHeader::Entry),
-                Some(Rule::function_decl_header_visible_entry) => {
-                    Ok(FunctionDeclHeader::VisibleEntry)
-                }
-                Some(Rule::function_decl_header_weak_entry) => Ok(FunctionDeclHeader::WeakEntry),
-                Some(Rule::function_decl_header_func) => Ok(FunctionDeclHeader::Func),
-                Some(Rule::function_decl_header_visible_func) => {
-                    Ok(FunctionDeclHeader::VisibleFunc)
-                }
-                Some(Rule::function_decl_header_weak_func) => Ok(FunctionDeclHeader::WeakFunc),
-                Some(Rule::function_decl_header_extern_func) => Ok(FunctionDeclHeader::ExternFunc),
-                _ => Err(ParseError::Unexpected(
-                    "expected valid function decl header",
-                )),
-            }?;
-            Ok(ASTNode::FunctionDeclHeader(header))
-        }
-        Rule::statement_block => {
-            let inner = pair.into_inner().map(|p| walk(p));
-            println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
-            Ok(ASTNode::EOI)
-        }
-        Rule::version_directive => {
-            let mut iter = pair.into_inner();
-            let double = iter.next().map(|p| walk(p)).unwrap();
-            let newer = iter.next().map(|v| v.as_str() == "+").unwrap_or(false);
-
-            match double {
-                Ok(ASTNode::Double(version)) => Ok(ASTNode::VersionDirective { version, newer }),
-                _ => unreachable!(),
-            }
-        }
-        Rule::target_directive => {
-            let identifiers: Vec<&str> = pair
-                .into_inner()
-                .flat_map(|id| match id.as_rule() {
-                    Rule::identifier => Some(id.as_str()),
-                    _ => None,
-                })
-                .collect();
-            Ok(ASTNode::TargetDirective(identifiers))
-        }
-        Rule::address_size_directive => {
-            let size: u32 = pair
-                .into_inner()
-                .next()
-                .and_then(|s| s.as_str().parse().ok())
-                .unwrap();
-            Ok(ASTNode::AddressSizeDirective(size))
-        }
-        Rule::file_directive => {
-            let mut inner = pair.into_inner().map(|p| walk(p));
-            let id: usize = match inner.next() {
-                Some(Ok(ASTNode::SignedInt(value))) => Ok(value.try_into()?),
-                Some(Ok(ASTNode::UnsignedInt(value))) => Ok(value.try_into()?),
-                _ => Err(ParseError::Unexpected("expected id")),
-            }?;
-            let path: PathBuf = match inner.next() {
-                Some(Ok(ASTNode::Str(value))) => Ok(value.into()),
-                _ => Err(ParseError::Unexpected("expected file path")),
-            }?;
-            let size: Option<usize> = match inner.next() {
-                Some(Ok(ASTNode::SignedInt(value))) => Some(value.try_into()?),
-                Some(Ok(ASTNode::UnsignedInt(value))) => Some(value.try_into()?),
-                _ => None,
-            };
-            let lines: Option<usize> = match inner.next() {
-                Some(Ok(ASTNode::SignedInt(value))) => Some(value.try_into()?),
-                Some(Ok(ASTNode::UnsignedInt(value))) => Some(value.try_into()?),
-                _ => None,
-            };
-            Ok(ASTNode::FileDirective {
-                id,
-                path,
-                size,
-                lines,
-            })
-        }
-        Rule::identifier => Ok(ASTNode::Identifier(pair.as_str())),
-        Rule::string => Ok(ASTNode::Str(pair.as_str())),
-        Rule::double => {
-            // let value = pair.as_str();
-            // todo
-            Ok(ASTNode::Double(0f64))
-        }
-        Rule::integer => {
-            let value = pair.as_str();
-            let unsigned = value.ends_with("U");
-            if value.starts_with("0b") || value.starts_with("0B") {
-                // binary
-                return if unsigned {
-                    Ok(ASTNode::UnsignedInt(u64::from_str_radix(
-                        &value[2..value.len() - 1],
-                        2,
-                    )?))
-                } else {
-                    Ok(ASTNode::SignedInt(i64::from_str_radix(&value[2..], 2)?))
-                };
-            }
-            if value.ends_with("U") {
-                Ok(ASTNode::UnsignedInt(
-                    value[..value.len() - 1].parse::<u64>()?,
-                ))
-            } else {
-                Ok(ASTNode::SignedInt(value.parse::<i64>()?))
-            }
-            // let decimal = ;
-            // hex: sscanf(yytext,"%x", &yylval->int_value
-            // decimal: atoi(yytext)
-        }
-        Rule::EOI => Ok(ASTNode::EOI),
-        other => {
-            eprintln!("unhandled rule: {:?}", other);
-            Ok(ASTNode::EOI)
-        } // Rule::number => str::parse(pair.as_str()).unwrap(),
-          // Rule::sum => {
-          //     let mut pairs = pair.into_inner();
-
-          //     let num1 = pairs.next().unwrap();
-          //     let num2 = pairs.next().unwrap();
-
-          //     process(num1) + process(num2)
-          // }
-    }
+    todo!();
+    // match pair.as_rule() {
+    //     Rule::function_defn => {
+    //         let inner = pair.into_inner().map(|p| walk(p));
+    //         println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
+    //         // Ok(ASTNode::FunctionDefn { name: "test" })
+    //         Ok(ASTNode::FunctionDefn {})
+    //     }
+    //     Rule::function_decl => {
+    //         let inner = pair.into_inner().map(|p| walk(p));
+    //         println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
+    //         Ok(ASTNode::FunctionDecl { name: "test" })
+    //     }
+    //     Rule::function_ident_param => {
+    //         // extract identifier and param_list
+    //         let inner = pair.into_inner().map(|p| walk(p));
+    //         println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
+    //         Ok(ASTNode::EOI)
+    //     }
+    //     Rule::function_decl_header => {
+    //         let header = match pair.into_inner().next().map(|p| p.as_rule()) {
+    //             Some(Rule::function_decl_header_entry) => Ok(FunctionDeclHeader::Entry),
+    //             Some(Rule::function_decl_header_visible_entry) => {
+    //                 Ok(FunctionDeclHeader::VisibleEntry)
+    //             }
+    //             Some(Rule::function_decl_header_weak_entry) => Ok(FunctionDeclHeader::WeakEntry),
+    //             Some(Rule::function_decl_header_func) => Ok(FunctionDeclHeader::Func),
+    //             Some(Rule::function_decl_header_visible_func) => {
+    //                 Ok(FunctionDeclHeader::VisibleFunc)
+    //             }
+    //             Some(Rule::function_decl_header_weak_func) => Ok(FunctionDeclHeader::WeakFunc),
+    //             Some(Rule::function_decl_header_extern_func) => Ok(FunctionDeclHeader::ExternFunc),
+    //             _ => Err(ParseError::Unexpected(
+    //                 "expected valid function decl header",
+    //             )),
+    //         }?;
+    //         Ok(ASTNode::FunctionDeclHeader(header))
+    //     }
+    //     Rule::statement_block => {
+    //         let inner = pair.into_inner().map(|p| walk(p));
+    //         println!("{:?}", inner.collect::<eyre::Result<Vec<ASTNode>>>());
+    //         Ok(ASTNode::EOI)
+    //     }
+    //     Rule::version_directive => {
+    //         let mut iter = pair.into_inner();
+    //         let double = iter.next().map(|p| walk(p)).unwrap();
+    //         let newer = iter.next().map(|v| v.as_str() == "+").unwrap_or(false);
+    //
+    //         match double {
+    //             Ok(ASTNode::Double(version)) => Ok(ASTNode::VersionDirective { version, newer }),
+    //             _ => unreachable!(),
+    //         }
+    //     }
+    //     Rule::target_directive => {
+    //         let identifiers: Vec<&str> = pair
+    //             .into_inner()
+    //             .flat_map(|id| match id.as_rule() {
+    //                 Rule::identifier => Some(id.as_str()),
+    //                 _ => None,
+    //             })
+    //             .collect();
+    //         Ok(ASTNode::TargetDirective(identifiers))
+    //     }
+    //     Rule::address_size_directive => {
+    //         let size: u32 = pair
+    //             .into_inner()
+    //             .next()
+    //             .and_then(|s| s.as_str().parse().ok())
+    //             .unwrap();
+    //         Ok(ASTNode::AddressSizeDirective(size))
+    //     }
+    //     Rule::file_directive => {
+    //         let mut inner = pair.into_inner().map(|p| walk(p));
+    //         let id: usize = match inner.next() {
+    //             Some(Ok(ASTNode::SignedInt(value))) => Ok(value.try_into()?),
+    //             Some(Ok(ASTNode::UnsignedInt(value))) => Ok(value.try_into()?),
+    //             _ => Err(ParseError::Unexpected("expected id")),
+    //         }?;
+    //         let path: PathBuf = match inner.next() {
+    //             Some(Ok(ASTNode::Str(value))) => Ok(value.into()),
+    //             _ => Err(ParseError::Unexpected("expected file path")),
+    //         }?;
+    //         let size: Option<usize> = match inner.next() {
+    //             Some(Ok(ASTNode::SignedInt(value))) => Some(value.try_into()?),
+    //             Some(Ok(ASTNode::UnsignedInt(value))) => Some(value.try_into()?),
+    //             _ => None,
+    //         };
+    //         let lines: Option<usize> = match inner.next() {
+    //             Some(Ok(ASTNode::SignedInt(value))) => Some(value.try_into()?),
+    //             Some(Ok(ASTNode::UnsignedInt(value))) => Some(value.try_into()?),
+    //             _ => None,
+    //         };
+    //         Ok(ASTNode::FileDirective {
+    //             id,
+    //             path,
+    //             size,
+    //             lines,
+    //         })
+    //     }
+    //     Rule::identifier => Ok(ASTNode::Identifier(pair.as_str())),
+    //     Rule::string => Ok(ASTNode::Str(pair.as_str())),
+    //     Rule::double => {
+    //         // let value = pair.as_str();
+    //         // todo
+    //         Ok(ASTNode::Double(0f64))
+    //     }
+    //     Rule::integer => {
+    //         let value = pair.as_str();
+    //         let unsigned = value.ends_with("U");
+    //         if value.starts_with("0b") || value.starts_with("0B") {
+    //             // binary
+    //             return if unsigned {
+    //                 Ok(ASTNode::UnsignedInt(u64::from_str_radix(
+    //                     &value[2..value.len() - 1],
+    //                     2,
+    //                 )?))
+    //             } else {
+    //                 Ok(ASTNode::SignedInt(i64::from_str_radix(&value[2..], 2)?))
+    //             };
+    //         }
+    //         if value.ends_with("U") {
+    //             Ok(ASTNode::UnsignedInt(
+    //                 value[..value.len() - 1].parse::<u64>()?,
+    //             ))
+    //         } else {
+    //             Ok(ASTNode::SignedInt(value.parse::<i64>()?))
+    //         }
+    //         // let decimal = ;
+    //         // hex: sscanf(yytext,"%x", &yylval->int_value
+    //         // decimal: atoi(yytext)
+    //     }
+    //     Rule::EOI => Ok(ASTNode::EOI),
+    //     other => {
+    //         eprintln!("unhandled rule: {:?}", other);
+    //         Ok(ASTNode::EOI)
+    //     } // Rule::number => str::parse(pair.as_str()).unwrap(),
+    //       // Rule::sum => {
+    //       //     let mut pairs = pair.into_inner();
+    //
+    //       //     let num1 = pairs.next().unwrap();
+    //       //     let num2 = pairs.next().unwrap();
+    //
+    //       //     process(num1) + process(num2)
+    //       // }
+    // }
 }
 
 pub fn gpgpu_ptx_sim_load_ptx_from_filename(path: &Path) -> eyre::Result<u32> {

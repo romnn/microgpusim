@@ -1,0 +1,8 @@
+kernels/
+!kernels/vectoradd.sm_52.ptx
+rodinia_3.1/
+rodinia_3.1.tar.bz2
+pb2.5benchmarks.tgz
+benchmarks/
+cuda-samples-12.4/
+cuda-samples-12.4.tar.gz
