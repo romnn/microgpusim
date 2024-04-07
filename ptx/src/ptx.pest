@@ -6,7 +6,7 @@ statement = _{
 }
 
 directive = _{
-  variable_declaration ~ ";"
+  variable_decl ~ ";"
   	| function_decl ~ ";"
     | version_directive
     | address_size_directive
@@ -14,24 +14,37 @@ directive = _{
     | file_directive
     | loc_directive
 	| section_directive
+	| pragma_directive
 }
 
-variable_declaration = {
+variable_decl = {
 	".constptr" ~ identifier ~ "," ~ identifier ~ "," ~ integer
-    | variable_spec_list ~ identifier_spec ~ "=" ~ literal_operand
-    | variable_spec_list ~ identifier_spec ~ "=" ~ initializer_list
+    | variable_spec_list ~ identifier_spec ~ "=" ~ variable_decl_initializer
   	| variable_spec_list ~ identifier_list
 }
-initializer_list = { "{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" }
-literal_list = { literal_operand ~ "," ~ literal_list | literal_operand }
-identifier_list = { identifier_spec ~ "," ~ identifier_list | identifier_spec }
+variable_decl_initializer = { initializer_list | literal_operand | identifier_spec }
+initializer_list = _{ 
+	"{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" 
+}
+literal_list = _{ 
+	literal_operand ~ ("," ~ literal_operand)*
+	// literal_operand ~ "," ~ literal_list | literal_operand 
+}
+identifier_list = _{ 
+	identifier_spec ~ ("," ~ identifier_spec)*
+	// identifier_spec ~ "," ~ identifier_list | identifier_spec 
+}
 
+// TODO: split into more rules
 block_spec = {
   ".maxntid" ~ integer ~ "," ~ integer ~ "," ~ integer
     | ".minnctapersm" ~ integer
     | ".maxnctapersm" ~ integer
 }
-block_spec_list = { block_spec ~ block_spec_list | block_spec }
+block_spec_list = _{ 
+	block_spec ~ block_spec*
+	// block_spec ~ block_spec_list | block_spec 
+}
 
 function_defn = {
   function_decl ~ block_spec_list ~ function_statement_block
@@ -41,15 +54,17 @@ function_defn = {
 
 function_statement_block = { "{" ~ function_statement_list? ~ "}" }
 function_statement = _{ 
-	label
-	| instruction_statement 
+	prototype_decl
+	| label
 	| directive
-	| prototype_block
+	| instruction_statement 
+	// | prototype_block
 	// we can have blocks of code ({ ... }) in function bodies
 	| function_statement_block
 }
 function_statement_list = _{
-	function_statement ~ function_statement_list | function_statement
+	function_statement ~ function_statement*
+	// function_statement ~ function_statement_list | function_statement
 }
 
 // function_statement_list = _{
@@ -72,12 +87,14 @@ function_statement_list = _{
 // | identifier ~ ":"
 label = { identifier ~ ":" }
 instruction_statement = {
-	label? ~ predicate? ~ instruction ~ ";"
+	label ~ predicate ~ instruction ~ ";"
+	| predicate ~ instruction ~ ";"
+	| label ~ instruction ~ ";"
+	| instruction ~ ";"
 }
 predicate = {
 	"@!" ~ identifier
   	| "@" ~ identifier ~ (
-  	  // note: equ must precede eq
       ".lt" | ".equ" | ".eq" | ".le" | ".ne" | ".ge"
         | ".gtu" | ".neu" | ".cf" | ".sf" | ".nsf"
     )? 
@@ -85,10 +102,50 @@ predicate = {
 lohi_option = { ".lo" | ".hi" }
 
 instruction = {
-    opcode_spec ~ operand_list
-    | opcode_spec
+	function_call
+    | opcode_spec ~ operand_list?
+    // opcode_spec ~ operand_list | opcode_spec
 }
-operand_list = _{ operand ~ "," ~ operand_list | operand }
+
+// direct call to named function, func is a symbol
+// call{.uni} (ret-param), func, (param-list);
+// call{.uni} func, (param-list);
+// call{.uni} func;
+
+// indirect call via pointer, with full list of call targets
+// call{.uni} (ret-param), fptr, (param-list), flist;
+// call{.uni} fptr, (param-list), flist;
+// call{.uni} fptr, flist;
+
+// indirect call via pointer, with no knowledge of call targets
+// call{.uni} (ret-param), fptr, (param-list), fproto;
+// call{.uni} fptr, (param-list), fproto;
+// call{.uni} fptr, fproto;
+
+function_call_return_value = { "(" ~ operand ~ ")" }
+function_call_params = { "(" ~ operand_list ~ ")" }
+function_call_targets = { operand_list }
+function_call_func = { operand }
+function_call = { 
+	// longest possible function call form
+	"call" ~ option* ~ function_call_return_value ~ "," ~ function_call_func ~ "," ~ function_call_params ~ "," ~ function_call_targets
+	// no return value
+	| "call" ~ option* ~ function_call_func ~ "," ~ function_call_params ~ "," ~ function_call_targets
+	// no return value and no parameters
+	| "call" ~ option* ~ function_call_func ~ "," ~ function_call_targets
+	// short form: complete
+	| "call" ~ option* ~ function_call_return_value ~ "," ~ function_call_func ~ "," ~ function_call_params
+	// short form: no return value
+	| "call" ~ option* ~ function_call_func ~ "," ~ function_call_params
+	// short form: no return value and no parameters
+	| "call" ~ option* ~ function_call_func
+}
+
+
+operand_list = _{ 
+	operand ~ ("," ~ operand)*
+	// operand ~ "," ~ operand_list | operand 
+}
 operand = {
   // starts with % or WARP_SZ
   builtin_operand
@@ -103,11 +160,17 @@ operand = {
     | vector_operand
     // binary expression of identifiers always precede unary
     // | "-"? ~ identifier ~ ("+" | "|" | "\\") ~ integer ~ lohi_option?
-    | ("!" | "-")? ~ identifier
+    | ("!" | "-") ~ identifier ~ lohi_option?
+    | identifier ~ "+" ~ integer
+    | identifier ~ "|" ~ identifier ~ lohi_option?
+    | identifier ~ "/" ~ identifier ~ lohi_option?
+    | identifier ~ lohi_option?
 }
 
+
 // Built-in special operand.
-builtin_operand = { special_register ~ dimension_modifier | special_register }
+builtin_operand = { 
+	special_register ~ dimension_modifier | special_register }
 
 
 // Literal operand
@@ -188,71 +251,82 @@ opcode_spec = { opcode ~ option* }
 
 // .entry kernel-name ( param-list )  kernel-body
 // .entry kernel-name  kernel-body
-// can we dedup variable_spec and var_spec
+// can we remove this?
+// function_decl_header ~ "(" ~ function_param ~ ")" ~ function_name_and_parameters
+// function_decl_header ~ function_return_val? ~ function_name_and_parameters
 function_decl = {
-  // can we remove this?
-  // function_decl_header ~ "(" ~ function_param ~ ")" ~ function_name_and_parameters
-  // function_decl_header ~ function_return_val? ~ function_name_and_parameters
-  function_decl_header ~ function_return_val? ~ function_name ~ function_parameters?
-  // | function_decl_header
+  function_decl_header ~ function_return_val ~ function_name ~ function_parameters
+  | function_decl_header ~ function_return_val ~ function_name
+  | function_decl_header ~ function_name ~ function_parameters
+  | function_decl_header ~ function_name
 }
 
 // todo: refactor this
+// function_decl_header_entry
+// | function_decl_header_visible_entry
+// | function_decl_header_weak_entry
+// | function_decl_header_func
+// | function_decl_header_visible_func
+// | function_decl_header_weak_func
+// | function_decl_header_extern_func
 function_decl_header = {
-  function_decl_header_entry
-    | function_decl_header_visible_entry
-    | function_decl_header_weak_entry
-    | function_decl_header_func
-    | function_decl_header_visible_func
-    | function_decl_header_weak_func
-    | function_decl_header_extern_func
+	// function_decl_visibility* ~ (function_decl_entry | function_decl_func)
+	function_decl_visibility* ~ function_decl_kind
 }
+function_decl_visibility = { ".visible" | ".weak" | ".extern" }
+function_decl_kind = { ".entry" | ".func" }
 
-function_decl_header_entry          = { ".entry" }
-function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
-function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
-function_decl_header_func           = { ".func" }
-function_decl_header_visible_func   = { ".visible" ~ ".func" }
-function_decl_header_weak_func      = { ".weak" ~ ".func" }
-function_decl_header_extern_func    = { ".extern" ~ ".func" }
+// function_decl_entry = { ".entry" }
+// function_decl_func = { ".func" }
+
+// function_decl_header_entry          = { ".entry" }
+// function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
+// function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
+// function_decl_header_func           = { ".func" }
+// function_decl_header_visible_func   = { ".visible" ~ ".func" }
+// function_decl_header_weak_func      = { ".weak" ~ ".func" }
+// function_decl_header_extern_func    = { ".extern" ~ ".func" }
 
 function_name = @{ identifier }
 function_return_val = { "(" ~ function_param ~ ")" }
 function_param = {
-  ".param" ~ variable_spec_list ~ ptr_spec? ~ identifier_spec
-    | ".reg" ~ variable_spec_list ~ identifier_spec
+  ".param" ~ variable_spec_list ~ ptr_spec ~ identifier_spec
+  | (".param" | ".reg") ~ variable_spec_list ~ identifier_spec
 }
 function_param_list = _{
-	function_param ~ "," ~ function_param_list
-  	| function_param 
+	function_param ~ ("," ~ function_param)*
+	// function_param ~ "," ~ function_param_list | function_param 
 }
-function_parameters = { "(" ~ function_param_list? ~ ")" }
+function_parameters = { 
+	"(" ~ ")" 
+	| "(" ~ function_param_list ~ ")" 
+}
 // function_name_and_parameters = {
 //  function_name ~ "(" ~ function_param_list? ~ ")" | function_name
 // }
 
 special_register = {
-  "%clock"
-    | "%halfclock"
-    | "%clock64"
-    | "%ctaid"
-    | "%envreg" ~ ASCII_DIGIT+
-    | "%gridid"
-    | "%laneid"
-    | "%lanemask_eq"
-    | "%lanemask_le"
-    | "%lanemask_lt"
-    | "%lanemask_ge"
-    | "%lanemask_gt"
-    | "%nctaid"
-    | "%ntid"
-    | "%nsmid"
-    | "%nwarpid"
-    | "%pm" ~ ('0'..'7')
-    | "%smid"
-    | "%tid"
-    | "%warpid"
-    | "WARP_SZ"
+  "%clock64"
+  | "%clock"
+  | "%halfclock"
+  | "%ctaid"
+  | "%envreg" ~ ASCII_DIGIT+
+  | "%gridid"
+  | "%laneid"
+  | "%lanemask_eq"
+  | "%lanemask_le"
+  | "%lanemask_lt"
+  | "%lanemask_ge"
+  | "%lanemask_gt"
+  | "%nctaid"
+  | "%ntid"
+  | "%nsmid"
+  | "%nwarpid"
+  | "%pm" ~ ('0'..'7')
+  | "%smid"
+  | "%tid"
+  | "%warpid"
+  | "WARP_SZ"
 }
 
 dimension_modifier = { ".0" | ".1" | ".2" | ".x" | ".y" | ".z" }
@@ -260,14 +334,16 @@ dimension_modifier = { ".0" | ".1" | ".2" | ".x" | ".y" | ".z" }
 
 identifier_spec = {
     identifier ~ "<" ~ integer ~ ">"
-    | identifier ~ "[" ~ "]"
     | identifier ~ "[" ~ integer ~ "]"
+    | identifier ~ "[" ~ "]"
     | identifier
 }
 
 address_size_directive = { ".address_size" ~ integer }
 
 target_directive = { ".target" ~ identifier ~ ("," ~ identifier){0,2} }
+
+pragma_directive = { ".pragma" ~ quoted ~ ";" }
 
 // version_directive = { ".version" ~ double ~ "+"? }
 version_directive = { ".version" ~ version_directive_major ~ "." ~ version_directive_minor ~ "+"? }
@@ -286,9 +362,9 @@ file_directive = {
 section_directive = { ".section" ~ (debug_str_section)}
 debug_str_section = { ".debug_str" ~ "{" ~ debug_str_list ~ "}"}
 debug_str = { label | ".b8" ~ integer ~ ("," ~ integer)* }
-debug_str_list = {
-	debug_str ~ debug_str_list
-	| debug_str
+debug_str_list = _{
+	debug_str ~ debug_str*
+	// debug_str ~ debug_str_list | debug_str
 }
 
 loc_directive = { ".loc" ~ integer ~ integer ~ integer ~ (("," ~ loc_attributes))* }
@@ -311,9 +387,9 @@ variable_spec = {
   space_spec | type_spec | align_spec
     | ".visible" | ".extern" | ".weak"
 }
-variable_spec_list = {
-	variable_spec ~ variable_spec_list
-	| variable_spec
+variable_spec_list = _{
+	variable_spec ~ variable_spec*
+	// variable_spec ~ variable_spec_list | variable_spec
 }
 
 
@@ -323,7 +399,9 @@ variable_spec_list = {
 // because of that, we always need to make sure that ".local" (the more
 // specific case) precedes ".lo"
 option = {
-    type_spec
+	// level must come before compare_spec (".le")
+    ".level"
+    | type_spec
     | addressable_spec
     | compare_spec
     | wmma_spec
@@ -331,43 +409,62 @@ option = {
     | prmt_spec
     | atomic_operation_spec
     | ".sync"
+	| ".sys"
+	| ".shiftamt"
+    | ".sat"
     | ".arrive"
-    | ".red"
-    | ".uni"
-    | ".wide"
-    | ".any"
     | ".all"
+    | ".any"
+    | ".abs"
+    | ".add"
+    | ".approx"
     | ".ballot"
+    | ".bfly"
+    | ".b"
     | ".global"
-    | ".cta"
-    | ".sys"
+    | ".gl"
+    | ".red"
+    | ".release"
     | ".1d"
     | ".2d"
     | ".3d"
-    | ".sat"
     | ".ftz"
-    | ".neg"
-    | ".approx"
     | ".full"
     | ".exit"
-    | ".abs"
-    | ".to"
-    | ".half"
     | ".extp"
+    | ".to"
+    | ".trap"
+    | ".half"
+    | ".clamp"
+    | ".cta"
     | ".ca"
     | ".cg"
     | ".cs"
-    | ".lu"
     | ".cv"
+    | ".lu"
+	| cache_level ~ "::" ~ cache_eviction_priority
+		~ cache_level ~ "::" ~ "cache_hint"
+		~ cache_level ~ "::" ~ cache_prefetch_size
+	| cache_level ~ "::" ~ "cache_hint"
+		~ cache_level ~ "::" ~ cache_prefetch_size
+	| cache_level ~ "::" ~ cache_prefetch_size
+    | ".wide"
     | ".wb"
     | ".wt"
     | ".nc"
+    | ".neg"
+    | ".noftz"
+    | ".uni"
     | ".up"
     | ".down"
-    | ".bfly"
     | ".idx"
 }
-option_list = { option ~ option_list | option }
+cache_level = { ".L1" | ".L2" }
+cache_eviction_priority = { 
+	"evict_normal" | "evict_unchanged" | "evict_normal"
+	| "evict_unchanged" | "evict_first" | "evict_last" | "no_allocate"
+}
+cache_prefetch_size = { integer ~ "B" }
 
 atomic_operation_spec = {
   ".and"
@@ -382,7 +479,8 @@ atomic_operation_spec = {
     | ".min"
     | ".max"
 }
-rounding_mode = { floating_point_rounding_mode | integer_rounding_mode }
+// precedence: integer > floating point
+rounding_mode = { integer_rounding_mode | floating_point_rounding_mode }
 floating_point_rounding_mode = { ".rn" | ".rz" | ".rm" | ".rp" }
 integer_rounding_mode = { ".rni" | ".rzi" | ".rmi" | ".rpi" }
 
@@ -404,73 +502,105 @@ wmma_directive = { ".a.sync" | ".b.sync" | ".c.sync" | ".d.sync" | ".mma.sync" }
 layout = { ".row" | ".col" }
 configuration = { ".m16n16k16" | ".m32n8k16" | ".m8n32k16" }
 
-prototype_block = { prototype_decl ~ prototype_call }
+// prototype_block = { prototype_decl ~ prototype_call }
 prototype_decl = {
-  identifier ~ ":"
-    ~ ".callprototype" ~ "(" ~ prototype_param? ~ ")"
-    ~ identifier ~ "(" ~ prototype_param? ~ ")" ~ ";"
+  identifier ~ ":" ~ ".callprototype" ~ "(" ~ prototype_param? ~ ")"
+    ~ identifier ~ "(" ~ prototype_param_list? ~ ")" ~ ";"
 }
-prototype_call = {
-  opcode ~ "(" ~ identifier ~ ")" ~ ","
-    ~ operand ~ "," ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
-    |
-    opcode ~ identifier ~ ","
-    ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
-}
-prototype_param = { ".param" ~ (".b32" | ".b64") ~ identifier }
-opcode = {
-	// note: "addp" == "addc" > "add"
-    // note: "andn" > "and"
-  "abs" |  "addp" | "addc" | "add" | "andn" | "and" | "atom" | "activemask"
-    // note: "bar.warp" > "bar"
-    // note: "bfind" > "bfi"
-    // note: "breakaddr" > "break"
-    | "bar.warp" | "bar" | "bfe" | "bfind" | "bfi" | "bra" | "brx" | "brev" | "brkpt" | "breakaddr" | "break"
-    // note: "callp" > "call"
-    // note: "cvta" > "cvt"
-    | "callp" | "call" | "clz" | "cnot" | "cos" | "cvta" | "cvt"
-    | "div" | "dp4a"
-    | "ex2" | "exit"
-    | "fma"
-    | "isspacep"
-    // note: "ld.volatile" > "ldu" > "ld"
-    | "ld.volatile" | "ldu" | "ld" | "lg2"
-    // note: "mad24" > "madc" == "madp" > "mad"
-    // note: "mul24" > "mul"
-    | "mad24" | "madc" | "madp" | "mad" | "max" | "membar" | "min" | "mov" | "mul24" | "mul"
-  	| "neg" | "nandn" | "norn" | "not" | "nop"
-    // note: "orn" > "or"
-    | "orn" | "or"
-    // note: "prefetchu" > "prefetch"
-    | "pmevent" | "popc" | "prefetchu" | "prefetch" | "prmt"
-    // note: "retp" > "ret"
-    | "rcp" | "red" | "rem" | "retp" | "ret" | "rsqrt"
-    // note: "setp" > "set"
-    // note: "st.volatile" > "st"
-    // note: "subc" > "sub"
-    | "sad" | "selp" | "setp" | "set" | "shfl" | "shl" | "shr" | "sin" | "slct" | "sqrt" | "sst" | "ssy" | "st.volatile" | "st" | "subc" | "sub" | "suld" | "sured" | "surst" | "suq"
-  	| "tex" | "txq" | "trap"
-    // note: "setp" > "set"
-    | "vabsdiff" | "vadd" | "vmad" | "vmax" | "vmin" | "vset" | "vshl" | "vshr" | "vsub" | "vote"
-    // note: "wmma.load" == "wmma.store" > "wmma"
-    | "wmma.load" | "wmma.store" | "wmma"
-    | "xor"
+prototype_call_return_value = @{ identifier }
+// prototype_call_params = @{ identifier }
+prototype_call_function = @{ operand }
+
+// TODO: remove
+// prototype_call = {
+//  opcode ~ "(" ~ prototype_call_return_value ~ ")" ~ ","
+//    ~ prototype_call_function ~ ","
+// ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
+// | opcode ~ identifier ~ "," ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
+// }
+// prototype_param = { ".param" ~ (".b32" | ".b64") ~ identifier }
+
+prototype_param = { ".param" ~ scalar_type ~ identifier }
+prototype_param_list = _{
+	prototype_param ~ ("," ~ prototype_param)*
+	// prototype_param ~ "," ~ prototype_param_list | prototype_param
 }
 
+
+// note: "addp" == "addc" > "add"
+// note: "andn" > "and"
+// note: "bar.warp" > "bar"
+// note: "bfind" > "bfi"
+// note: "breakaddr" > "break"
+// note: "callp" > "call"
+// note: "cvta" > "cvt"
+// note: "ld.volatile" > "ldu" > "ld"
+// note: "mad24" > "madc" == "madp" > "mad"
+// note: "mul24" > "mul"
+// note: "orn" > "or"
+// note: "prefetchu" > "prefetch"
+// note: "retp" > "ret"
+// note: "setp" > "set"
+// note: "st.volatile" > "st"
+// note: "subc" > "sub"
+// note: "setp" > "set"
+// note: "wmma.load" == "wmma.store" > "wmma"
+opcode = {
+  "abs" |  "addp" | "addc" | "add" | "andn" | "aloca" | "applypriority"
+  | "and" | "atom" | "activemask"
+  | "barrier" | "bar.warp" | "bar" | "bfe" | "bfind" | "bfi" | "bra"
+  | "brx" | "brev" | "brkpt" | "bmsk" | "breakaddr" | "break"
+  | "callp" | "call" | "clz" | "cnot" | "cos" | "cvta" | "cvt"
+  | "copysign" | "cp" | "createpolicy"
+  | "div" | "dp4a" | "dp2a" | "discard"
+  | "ex2" | "exit" | "elect"
+  | "fma" | "fence" | "fns"
+  | "getctarank" | "griddepcontrol"
+  | "isspacep" | "istypep"
+  | "ld.volatile" | "ldu" | "ldmatrix" | "ld" | "lg2" | "lop3"
+  | "mad24" | "madc" | "madp" | "mad" | "max" | "membar" | "min"
+  | "movmatrix" | "mov" | "multimem" | "mul24" | "mul" | "mapa"
+  | "match" | "mbarrier" | "mma"
+  | "neg" | "nandn" | "norn" | "not" | "nop" | "nanosleep"
+  | "orn" | "or"
+  | "pmevent" | "popc" | "prefetchu" | "prefetch" | "prmt"
+  | "rcp" | "redux" | "red" | "rem" | "retp" | "ret" | "rsqrt"
+  | "sad" | "selp" | "setp" | "setmaxnreg" | "set" | "shfl" | "shf"
+  | "shl" | "shr" | "sin" | "slct" | "sqrt" | "sst" | "ssy"
+  | "stacksave" | "stackrestore" | "st.volatile" | "stmatrix" | "st"
+  | "subc" | "sub" | "suld" | "sured" | "sust" | "surst" | "suq" | "szext"
+  | "tex" | "txq" | "trap" | "tanh" | "testp" | "tld4"
+  | "vabsdiff4" | "vabsdiff2" | "vabsdiff" | "vadd4" | "vadd2" | "vadd"
+  | "vavrg4" | "vavrg2" | "vmad" | "vmax4" | "vmax2" | "vmax"
+  | "vmin4" | "vmin2" | "vmin" | "vset4" | "vset2" | "vset" | "vshl"
+  | "vshr" | "vsub4" | "vsub2" | "vsub" | "vote"
+  | "wgmma" | "wmma.load" | "wmma.store" | "wmma"
+  | "xor"
+}
+
+// TODO: tex (and param) are not addressable according to spec
 space_spec = { ".reg" | ".sreg" | addressable_spec }
 addressable_spec = {
   ".const" | ".global"
-    | ".local" | ".param" | ".shared"
-    | ".sstarr" | ".surf" | ".tex"
+    | ".local" | ".param" | ".shared" | ".tex"
+	// legacy
+    | ".sstarr" | ".surf"
 }
 type_spec = { vector_spec ~ scalar_type | scalar_type }
 vector_spec = { ".v2" | ".v3" | ".v4" }
 scalar_type = {
+  // signed integer
   ".s8" | ".s16" | ".s32" | ".s64"
-    | ".u8" | ".u16" | ".u32" | ".u64"
-    | ".f16" | ".f32" | ".f64" | ".ff64"
-    | ".b8" | ".b16" | ".b32" | ".b64" | ".bb64" | ".bb128"
-    | ".pred" | ".texref" | ".sampleref" | ".surfref"
+  // unsigned integer
+  | ".u8" | ".u16" | ".u32" | ".u64"
+  // floating point
+  | ".f16x2" | ".f16" | ".f32" | ".f64" | ".ff64"
+  // alternative floating point types
+  | ".bf16x2" | ".bf16" | ".e4m3" | ".e5m2" | ".tf32"
+  // bits
+  | ".b8" | ".b16" | ".b32" | ".b64" | ".bb64" | ".b128" | ".bb128"
+  // legacy
+  | ".pred" | ".texref" | ".sampleref" | ".surfref"
 }
 
 quoted = _{ "\"" ~ string ~ "\"" }
@@ -479,9 +609,14 @@ string = ${ (!"\"" ~ ANY)* }
 // Identifiers
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#identifiers
 // followsym:	[a-zA-Z0-9_$]
-// identifier:	[a-zA-Z]{followsym}* | {[_$%]{followsym}+
+// identifier:	[a-zA-Z]{followsym}* | [_$%]{followsym}+
+// FIX: need to be able to parse "_" as an identifier
 followsym = @{ "$" | "_" | ASCII_ALPHANUMERIC }
-identifier = @{ ("_" | "$" | "%") ~ followsym+ | ASCII_ALPHA ~ followsym* }
+identifier = @{ 
+	("_" | "$" | "%") ~ followsym+
+	| ASCII_ALPHA ~ followsym*
+	| "_"
+}
 
 // hex:			0[xX][0-9a-fA-F]+U?
 // octal:		0[0-7]+U?

@@ -74,10 +74,8 @@ mod tests {
         /// dequoting.
         /// If that could be done in the parser, this could be avoided.
         #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        // pub enum Expression<'a, R> {
         pub enum Expression<R> {
             /// Terminal expression
-            // T(R, Option<&'a str>),
             T(R, Option<String>),
             /// Nonterminal expression
             NT(R, Vec<Expression<R>>),
@@ -89,9 +87,8 @@ mod tests {
             Empty,
         }
 
-        // impl<'a> Expression<'a, String> {
         impl Expression<String> {
-            /// Parse an expression from high level syntax
+            /// Parse an expression from high-level syntax
             pub fn parse_expression(pair: Pair<'_, parser::Rule>) -> Result<Self, parser::Error> {
                 // dbg!(&pair.as_rule());
                 assert_eq!(pair.as_rule(), parser::Rule::expression);
@@ -105,7 +102,6 @@ mod tests {
                             .into_inner()
                             .next()
                             .ok_or_else(|| parser::Error::MissingSkipDepth)?;
-                        // .and_then(|pair| assert_rule(pair, Rule::int))?;
                         depth_pair
                             .as_str()
                             .parse()
@@ -182,7 +178,6 @@ mod tests {
             }
         }
 
-        // impl<'a, R> Expression<'a, Rule<R>> {
         impl<R> Expression<Rule<R>> {
             pub fn new(mut pairs: Pairs<'_, R>, options: &Options<R>) -> Self
             where
@@ -260,33 +255,21 @@ mod tests {
         // pub struct ExpressionFormatter<'a> {
         pub struct ExpressionFormatter<'a, W> {
             writer: W,
-            // writer: &'a mut dyn std::fmt::Write,
             indent: &'a str,
             pub(crate) level: usize,
             // pub(crate) color: Option<Color>,
             buffering: bool,
         }
 
-        // impl<'a> ExpressionFormatter<'a> {
         impl<'a, W> ExpressionFormatter<'a, W> {
             pub fn new(writer: W) -> Self {
                 Self {
                     writer,
                     indent: "  ",
                     level: 0,
-                    // color: None,
                     buffering: true,
                 }
             }
-            // pub fn from_defaults(writer: &'a mut dyn std::fmt::Write) -> Self {
-            //     Self {
-            //         writer,
-            //         indent: "  ",
-            //         level: 0,
-            //         color: None,
-            //         buffering: true,
-            //     }
-            // }
         }
 
         impl<'a, W> ExpressionFormatter<'a, W>
@@ -528,65 +511,89 @@ mod tests {
         Ok(())
     }
 
-    #[ignore = "todo"]
     #[test]
-    fn parse_identifier() -> eyre::Result<()> {
+    fn parse_identifier_underscore() -> eyre::Result<()> {
         crate::tests::init_test();
-        // let want = Expression::NonTerminal {
-        //     name: "integer".to_string(),
-        //     children: vec![Expression::Terminal {
-        //         name: "binary".to_string(),
-        //         value: Some("0b01110011001".to_string()),
-        //     }],
-        // };
-        //
-        // assert_parses_to!(Rule::integer, "0b01110011001", want);
+        let want = r#"(identifier: "_")"#;
+        assert_parses_to(Rule::identifier, "_", want)?;
         Ok(())
     }
 
-    // #[ignore = "old api"]
-    // #[test]
-    // fn parse_instruction_shl_b32_r1_r1_2_deprecated() -> eyre::Result<()> {
-    //     crate::tests::init_test();
-    //     let want = pest_test::model::Expression::NonTerminal {
-    //         name: "instruction_statement".to_string(),
-    //         children: vec![pest_test::model::Expression::NonTerminal {
-    //             name: "instruction".to_string(),
-    //             children: vec![
-    //                 pest_test::model::Expression::NonTerminal {
-    //                     name: "opcode_spec".to_string(),
-    //                     children: vec![pest_test::model::Expression::Terminal {
-    //                         name: "opcode".to_string(),
-    //                         value: Some("shl".to_string()),
-    //                     }],
-    //                 },
-    //                 pest_test::model::Expression::NonTerminal {
-    //                     name: "operand".to_string(),
-    //                     children: vec![pest_test::model::Expression::Terminal {
-    //                         name: "identifier".to_string(),
-    //                         value: Some("r1".to_string()),
-    //                     }],
-    //                 },
-    //                 pest_test::model::Expression::NonTerminal {
-    //                     name: "operand".to_string(),
-    //                     children: vec![pest_test::model::Expression::Terminal {
-    //                         name: "identifier".to_string(),
-    //                         value: Some("r1".to_string()),
-    //                     }],
-    //                 },
-    //                 // Expression::NonTerminal {
-    //                 //     name: "operand".to_string(),
-    //                 //     children: vec![Expression::Terminal {
-    //                 //         name: "literal_operand".to_string(),
-    //                 //         value: Some("r1".to_string()),
-    //                 //     }],
-    //                 // },
-    //             ],
-    //         }],
-    //     };
-    //     assert_parses_to!(Rule::instruction_statement, "shl.b32   r1, r1, 2;", want);
-    //     Ok(())
-    // }
+    #[test]
+    fn parse_identifier_dollar_sign() -> eyre::Result<()> {
+        crate::tests::init_test();
+        assert!(assert_parses_to(Rule::identifier, "$", "").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_dollar_sign_helloworld() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "$helloworld")"#;
+        assert_parses_to(Rule::identifier, "$helloworld", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_percent() -> eyre::Result<()> {
+        crate::tests::init_test();
+        assert!(assert_parses_to(Rule::identifier, "%", "").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_percent_helloworld() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "%helloworld")"#;
+        assert_parses_to(Rule::identifier, "%helloworld", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_underscore_helloworld() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "_helloworld")"#;
+        assert_parses_to(Rule::identifier, "_helloworld", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_a() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "a")"#;
+        assert_parses_to(Rule::identifier, "a", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_1a() -> eyre::Result<()> {
+        crate::tests::init_test();
+        assert!(assert_parses_to(Rule::identifier, "1A", "").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_a1_dollarsign_hello_world9() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "a1_$_hello_world9")"#;
+        assert_parses_to(Rule::identifier, "a1_$_hello_world9", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_percent_a1() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"(identifier: "%_a1")"#;
+        assert_parses_to(Rule::identifier, "%_a1", want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_identifier_a1_percent_rest() -> eyre::Result<()> {
+        crate::tests::init_test();
+        assert!(assert_parses_to(Rule::identifier, "a1_%_rest", "").is_err());
+        Ok(())
+    }
 
     #[test]
     fn parse_instruction_shl_b32_r1_r1_2_typed() -> eyre::Result<()> {
@@ -669,7 +676,11 @@ mod tests {
   )
 )
         "#;
-        assert_parses_to(Rule::instruction_statement, r#"mul.f64 %fd1, %fd76, 0dBEF0000000000000;"#, want)?;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"mul.f64 %fd1, %fd76, 0dBEF0000000000000;"#,
+            want,
+        )?;
         Ok(())
     }
 
@@ -690,7 +701,11 @@ mod tests {
   )
 )
         "#;
-        assert_parses_to(Rule::instruction_statement, r#"setp.neu.f64 %p14, %fd32, 0d0000000000000000;"#, want)?;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"setp.neu.f64 %p14, %fd32, 0d0000000000000000;"#,
+            want,
+        )?;
         Ok(())
     }
 
@@ -713,10 +728,775 @@ mod tests {
         assert_parses_to(
             Rule::instruction_statement,
             r#"cvta.local.u64 %SP, %SPL;"#,
-            want)?;
+            want,
+        )?;
         Ok(())
     }
-    
+
+    #[test]
+    fn parse_vset4_u32_u32_ne_r91_r92_r102_r102() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "vset4")
+      (option (type_spec (scalar_type: ".u32")))
+      (option (type_spec (scalar_type: ".u32")))
+      (option (compare_spec: ".ne"))
+    )
+    (operand (identifier: "%r91"))
+    (operand (identifier: "%r92"))
+    (operand (identifier: "%r102"))
+    (operand (identifier: "%r102"))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"vset4.u32.u32.ne %r91,%r92,%r102,%r102;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_bfind_shiftamt_u32_r42_r41() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "bfind")
+      (option: ".shiftamt")
+      (option (type_spec (scalar_type: ".u32")))
+    )
+    (operand (identifier: "%r42"))
+    (operand (identifier: "%r41"))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"bfind.shiftamt.u32 %r42, %r41;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_shfl_sync_down_b32_r386p7_r2005_r384_r383_r385() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "shfl")
+      (option: ".sync")
+      (option: ".down")
+      (option (type_spec (scalar_type: ".b32")))
+    )
+    (operand
+      (identifier: "%r386")
+      (identifier: "%p7")
+    )
+    (operand (identifier: "%r2005"))
+    (operand (identifier: "%r384"))
+    (operand (identifier: "%r383"))
+    (operand (identifier: "%r385"))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"shfl.sync.down.b32 %r386|%p7, %r2005, %r384, %r383, %r385;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_tex_level_2d_v4_f32_f32_f10_f11_f12_f13_rd5_f4_f9_f1() -> eyre::Result<()> {
+        crate::tests::init_test();
+
+        assert_parses_to(
+            Rule::opcode_spec,
+            r#"tex.level.2d.v4.f32.f32"#,
+            r#"(opcode_spec 
+(opcode: "tex")
+(option: ".level")
+(option: ".2d")
+(option (type_spec 
+  (vector_spec: ".v4")
+  (scalar_type: ".f32")))
+(option (type_spec 
+  (scalar_type: ".f32")))
+)
+            "#,
+        )?;
+
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "tex")
+      (option: ".level")
+      (option: ".2d")
+      (option (type_spec 
+        (vector_spec: ".v4")
+        (scalar_type: ".f32")))
+      (option (type_spec 
+        (scalar_type: ".f32")))
+    )
+    (operand
+      (vector_operand
+        (identifier: "%f10")
+        (identifier: "%f11")
+        (identifier: "%f12")
+        (identifier: "%f13")
+      )
+    )
+    (operand
+      (tex_operand
+        (identifier: "%rd5")
+        (vector_operand
+          (identifier: "%f4")
+          (identifier: "%f9")
+        )
+      )
+    )
+    (operand (identifier: "%f1"))
+  )
+)
+        "#;
+
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"tex.level.2d.v4.f32.f32 {%f10, %f11, %f12, %f13}, [%rd5, {%f4, %f9}], %f1;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_sust_b_2d_v4_b8_trap_rd1_r17_r2_rs5_rs6_rs7_rs8() -> eyre::Result<()> {
+        crate::tests::init_test();
+
+        assert_parses_to(
+            Rule::opcode_spec,
+            r#"sust.b.2d.v4.b8.trap"#,
+            r#"(opcode_spec 
+(opcode: "sust")
+(option: ".b")
+(option: ".2d")
+(option (type_spec 
+  (vector_spec: ".v4")
+  (scalar_type: ".b8")))
+(option: ".trap")
+)
+            "#,
+        )?;
+
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "sust")
+      (option: ".b")
+      (option: ".2d")
+      (option
+        (type_spec
+          (vector_spec: ".v4")
+          (scalar_type: ".b8")
+        )
+      )
+      (option: ".trap")
+    )
+    (operand
+      (tex_operand
+        (identifier: "%rd1")
+        (vector_operand
+          (identifier: "%r17")
+          (identifier: "%r2")
+        )
+      )
+    )
+    (operand
+      (vector_operand
+        (identifier: "%rs5")
+        (identifier: "%rs6")
+        (identifier: "%rs7")
+        (identifier: "%rs8")
+      )
+    )
+  )
+)
+        "#;
+
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"sust.b.2d.v4.b8.trap [%rd1, {%r17, %r2}], {%rs5, %rs6, %rs7, %rs8};"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_mov_u64_rd5_clock64() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "mov")
+      (option (type_spec (scalar_type: ".u64")))
+    )
+    (operand (identifier: "%rd5"))
+    (operand (builtin_operand (special_register: "%clock64")))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"mov.u64 %rd5, %clock64;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_statement_block_cvt_f32_bf16_f27_rs9() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(function_statement_block
+  (instruction_statement
+    (instruction
+      (opcode_spec
+        (opcode: "cvt")
+        (option (type_spec (scalar_type: ".f32")))
+        (option (type_spec (scalar_type: ".bf16")))
+      )
+      (operand (identifier: "%f27"))
+      (operand (identifier: "%rs9"))
+    )
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::function_statement_block,
+            r#"{ cvt.f32.bf16 %f27, %rs9;}"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_statement_block_atom_add_noftz_f16_rs23_rd50_rs22() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(function_statement_block
+  (instruction_statement
+    (instruction
+      (opcode_spec
+        (opcode: "atom")
+        (option (atomic_operation_spec: ".add"))
+        (option: ".noftz")
+        (option (type_spec (scalar_type: ".f16")))
+      )
+      (operand (identifier: "%rs23"))
+      (operand
+        (memory_operand (address_expression (identifier: "%rd50")))
+      )
+      (operand (identifier: "%rs22"))
+    )
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::function_statement_block,
+            r#"{ atom.add.noftz.f16 %rs23,[%rd50],%rs22; }"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_statement_block_atom_add_noftz_bf16x2_r90_rd31_r91() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(function_statement_block
+  (instruction_statement
+    (instruction
+      (opcode_spec
+        (opcode: "atom")
+        (option (atomic_operation_spec: ".add"))
+        (option: ".noftz")
+        (option (type_spec (scalar_type: ".bf16x2")))
+      )
+      (operand (identifier: "%r90"))
+      (operand
+        (memory_operand (address_expression (identifier: "%rd31")))
+      )
+      (operand (identifier: "%r91"))
+    )
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::function_statement_block,
+            r#"{ atom.add.noftz.bf16x2 %r90,[%rd31],%r91; }"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_instruction_p_ld_global_l2_128b_v2_u32() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (predicate (identifier: "p"))
+  (instruction
+    (opcode_spec
+      (opcode: "ld")
+      (option (addressable_spec: ".global"))
+      (option
+        (cache_level: ".L2")
+        (cache_prefetch_size (integer (decimal: "128")))
+      )
+      (option (type_spec (vector_spec: ".v2") (scalar_type: ".u32")))
+    )
+    (operand
+      (vector_operand
+        (identifier: "%r1658")
+        (identifier: "%r1659")
+      )
+    )
+    (operand
+      (memory_operand (address_expression (identifier: "%rd52")))
+    )
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"@p ld.global.L2::128B.v2.u32 {%r1658, %r1659}, [%rd52];"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn opcode_precendence() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let opcodes = [
+            "abs",
+            "addp",
+            "addc",
+            "add",
+            "andn",
+            "aloca",
+            "applypriority",
+            "and",
+            "atom",
+            "activemask",
+            "barrier",
+            "bar.warp",
+            "bar",
+            "bfe",
+            "bfind",
+            "bfi",
+            "bra",
+            "brx",
+            "brev",
+            "brkpt",
+            "bmsk",
+            "breakaddr",
+            "break",
+            "callp",
+            "call",
+            "clz",
+            "cnot",
+            "cos",
+            "cvta",
+            "cvt",
+            "copysign",
+            "cp",
+            "createpolicy",
+            "div",
+            "dp4a",
+            "dp2a",
+            "discard",
+            "ex2",
+            "exit",
+            "elect",
+            "fma",
+            "fence",
+            "fns",
+            "getctarank",
+            "griddepcontrol",
+            "isspacep",
+            "istypep",
+            "ld.volatile",
+            "ldu",
+            "ldmatrix",
+            "ld",
+            "lg2",
+            "lop3",
+            "mad24",
+            "madc",
+            "madp",
+            "mad",
+            "max",
+            "membar",
+            "min",
+            "movmatrix",
+            "mov",
+            "mul24",
+            "mul",
+            "mapa",
+            "match",
+            "mbarrier",
+            "mma",
+            "multimem",
+            "neg",
+            "nandn",
+            "norn",
+            "not",
+            "nop",
+            "nanosleep",
+            "orn",
+            "or",
+            "pmevent",
+            "popc",
+            "prefetchu",
+            "prefetch",
+            "prmt",
+            "rcp",
+            "redux",
+            "red",
+            "rem",
+            "retp",
+            "ret",
+            "rsqrt",
+            "sad",
+            "selp",
+            "setp",
+            "setmaxnreg",
+            "set",
+            "shfl",
+            "shf",
+            "shl",
+            "shr",
+            "sin",
+            "slct",
+            "sqrt",
+            "sst",
+            "ssy",
+            "stacksave",
+            "stackrestore",
+            "st.volatile",
+            "stmatrix",
+            "st",
+            "subc",
+            "sub",
+            "suld",
+            "sured",
+            "sust",
+            "surst",
+            "suq",
+            "szext",
+            "tex",
+            "txq",
+            "trap",
+            "tanh",
+            "testp",
+            "tld4",
+            "vabsdiff4",
+            "vabsdiff2",
+            "vabsdiff",
+            "vadd4",
+            "vadd2",
+            "vadd",
+            "vavrg4",
+            "vavrg2",
+            "vmad",
+            "vmax4",
+            "vmax2",
+            "vmax",
+            "vmin4",
+            "vmin2",
+            "vmin",
+            "vset4",
+            "vset2",
+            "vset",
+            "vshl",
+            "vshr",
+            "vsub4",
+            "vsub2",
+            "vsub",
+            "vote",
+            "wgmma",
+            "wmma.load",
+            "wmma.store",
+            "wmma",
+            "xor",
+        ];
+
+        for opcode in opcodes {
+            dbg!(&opcode);
+            assert_parses_to_typed(
+                Rule::opcode,
+                opcode,
+                E::T(RL(Rule::opcode), Some(opcode.to_string())),
+            )?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn parse_cvt_rzi_s32_f32_r65_f1() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (opcode_spec
+      (opcode: "cvt")
+      (option (rounding_mode (integer_rounding_mode: ".rzi")))
+      (option (type_spec (scalar_type: ".s32")))
+      (option (type_spec (scalar_type: ".f32")))
+    )
+    (operand (identifier: "%r65"))
+    (operand (identifier: "%f1"))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::instruction_statement,
+            r#"cvt.rzi.s32.f32 %r65, %f1;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_call_uni_retval0_vprintf_param0_param1() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+  (instruction
+    (function_call
+      (option: ".uni")
+      (function_call_return_value
+      (operand (identifier: "retval0")))
+      (function_call_func (operand (identifier: "vprintf")))
+      (function_call_params
+        (operand (identifier: "param0"))
+        (operand (identifier: "param1")))
+  ))
+)
+        "#;
+        let code = r#"call.uni (retval0),
+vprintf,
+(
+param0,
+param1
+);
+        "#;
+
+        assert_parses_to(
+            Rule::operand,
+            "param0",
+            r#"(operand (identifier: "param0"))"#,
+        )?;
+        assert_parses_to(
+            Rule::operand,
+            "param1",
+            r#"(operand (identifier: "param1"))"#,
+        )?;
+        assert_parses_to(
+            Rule::function_call_params,
+            "(param0, param1)",
+            r#"(function_call_params
+                    (operand (identifier: "param0"))
+                    (operand (identifier: "param1")))
+            "#,
+        )?;
+        assert_parses_to(Rule::instruction_statement, code, want)?;
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn parse_variable_decl_global_align_8_u64_pcomputesobel_eq__z12computesobelhhhhhhhhhf(
+    ) -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(variable_decl
+  (variable_spec (space_spec (addressable_spec: ".global")))
+  (variable_spec (align_spec (integer (decimal: "8"))))
+  (variable_spec (type_spec (scalar_type: ".u64")))
+  (identifier_spec (identifier: "pComputeSobel"))
+  (variable_decl_initializer
+      (identifier_spec (identifier: "_Z12ComputeSobelhhhhhhhhhf")))
+)
+        "#;
+        assert_parses_to(
+            Rule::variable_decl,
+            r#".global .align 8 .u64 pComputeSobel = _Z12ComputeSobelhhhhhhhhhf;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_prototype_decl_prototype_0_callprototype() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(prototype_decl
+  (identifier: "prototype_0")
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (identifier: "_")
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+)
+        "#;
+        let code = r#"prototype_0 : .callprototype
+(.param .b32 _)
+_
+(
+.param .b32 _, .param .b32 _, .param .b32 _, .param .b32 _,
+.param .b32 _, .param .b32 _, .param .b32 _, .param .b32 _,
+.param .b32 _, .param .b32 _
+);
+        "#;
+        assert_parses_to(
+            Rule::identifier,
+            "prototype_0",
+            r#"(identifier: "prototype_0")"#,
+        )?;
+        assert_parses_to(Rule::prototype_decl, code, want)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_prototype_decl_prototype_0_callprototype_call() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(function_statement_block
+  (variable_decl
+    (variable_spec (space_spec: ".reg"))
+    (variable_spec (type_spec (scalar_type: ".b32")))
+    (identifier_spec (identifier: "temp_param_reg"))
+  )
+  (variable_decl
+    (variable_spec (space_spec (addressable_spec: ".param")))
+    (variable_spec (type_spec (scalar_type: ".b32")))
+    (identifier_spec (identifier: "param0"))
+  )
+  (variable_decl
+    (variable_spec (space_spec (addressable_spec: ".param")))
+    (variable_spec (type_spec (scalar_type: ".b32")))
+    (identifier_spec (identifier: "retval0"))
+  )
+  (prototype_decl
+    (identifier: "prototype_0")
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (identifier: "_")
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  )
+  (instruction_statement
+    (instruction
+      (function_call
+        (function_call_return_value (operand (identifier: "retval0")))
+        (function_call_func (operand (identifier: "%rd11")))
+        (function_call_params
+          (operand (identifier: "param0"))
+          (operand (identifier: "param1"))
+          (operand (identifier: "param2"))
+          (operand (identifier: "param3"))
+          (operand (identifier: "param4"))
+          (operand (identifier: "param5"))
+          (operand (identifier: "param6"))
+          (operand (identifier: "param7"))
+          (operand (identifier: "param8"))
+          (operand (identifier: "param9"))
+        )
+        (function_call_targets (operand (identifier: "prototype_0")))
+      )
+    )
+  )
+  (instruction_statement
+    (instruction
+      (opcode_spec
+        (opcode: "ld")
+        (option (addressable_spec: ".param"))
+        (option (type_spec (scalar_type: ".b32")))
+      )
+      (operand (identifier: "%r115"))
+      (operand
+        (memory_operand
+          (address_expression
+            (identifier: "retval0")
+            (sign: "+")
+            (integer (decimal: "0"))
+          )
+        )
+      )
+    )
+  )
+)
+        "#;
+        let code = r#"{
+.reg .b32 temp_param_reg;
+.param .b32 param0;
+.param .b32 retval0;
+prototype_0 : .callprototype
+(.param .b32 _)
+_
+(
+.param .b32 _, .param .b32 _, .param .b32 _, .param .b32 _,
+.param .b32 _, .param .b32 _, .param .b32 _, .param .b32 _,
+.param .b32 _, .param .b32 _
+);
+call (retval0),
+%rd11,
+(
+param0,
+param1,
+param2,
+param3,
+param4,
+param5,
+param6,
+param7,
+param8,
+param9
+)
+, prototype_0;
+ld.param.b32 %r115, [retval0+0];
+}
+        "#;
+        assert_parses_to(Rule::function_statement_block, code, want)?;
+        Ok(())
+    }
 
     #[test]
     fn parse_extern_func_param_b32_func_retval0_vprintf() -> eyre::Result<()> {
@@ -724,47 +1504,24 @@ mod tests {
         let want = r#"
 (function_decl
   (function_decl_header
-    (function_decl_header_extern_func: ".extern .func")
+    (function_decl_visibility: ".extern")
+    (function_decl_kind: ".func")
   )
   (function_return_val
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".b32")
-          )
-        )
-      )
-      (identifier_spec
-        (identifier: "func_retval0")
-      )
+      (variable_spec (type_spec (scalar_type: ".b32")))
+      (identifier_spec (identifier: "func_retval0"))
     )
   )
   (function_name: "vprintf")
   (function_parameters
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".b64")
-          )
-        )
-      )
-      (identifier_spec
-        (identifier: "vprintf_param_0")
-      )
+      (variable_spec (type_spec (scalar_type: ".b64")))
+      (identifier_spec (identifier: "vprintf_param_0"))
     )
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".b64")
-          )
-        )
-      )
-      (identifier_spec
-        (identifier: "vprintf_param_1")
-      )
+      (variable_spec (type_spec (scalar_type: ".b64")))
+      (identifier_spec (identifier: "vprintf_param_1"))
     )
   )
 )
@@ -777,11 +1534,7 @@ mod tests {
 ;
         "#;
         dbg!(&code);
-        assert_parses_to(
-            Rule::function_decl,
-            code,
-            want,
-        )?;
+        assert_parses_to(Rule::function_decl, code, want)?;
         Ok(())
     }
 
@@ -830,24 +1583,17 @@ mod tests {
     }
 
     #[test]
-    fn parse_variable_reg_b32_r1_r2() -> eyre::Result<()> {
+    fn parse_variable_decl_reg_b32_r1_r2() -> eyre::Result<()> {
         crate::tests::init_test();
         let want = r#"
-(variable_declaration
-    (variable_spec_list
-        (variable_spec (space_spec: ".reg"))
-        (variable_spec_list (variable_spec
-            (type_spec (scalar_type: ".b32"))
-        ))
-    )
-    (identifier_list
-        (identifier_spec (identifier: "r1"))
-        (identifier_list 
-            (identifier_spec (identifier: "r2")))
-    )
+(variable_decl
+    (variable_spec (space_spec: ".reg"))
+    (variable_spec (type_spec (scalar_type: ".b32")))
+    (identifier_spec (identifier: "r1"))
+    (identifier_spec (identifier: "r2"))
 )
         "#;
-        assert_parses_to(Rule::variable_declaration, ".reg     .b32 r1, r2;", want)?;
+        assert_parses_to(Rule::variable_decl, ".reg     .b32 r1, r2;", want)?;
         Ok(())
     }
 
@@ -899,7 +1645,11 @@ mod tests {
     )
 )
         "#;
-        assert_parses_to(Rule::loc_directive, ".loc    2 134 86, function_name $L__info_string0, inlined_at 1 35 17", want)?;
+        assert_parses_to(
+            Rule::loc_directive,
+            ".loc    2 134 86, function_name $L__info_string0, inlined_at 1 35 17",
+            want,
+        )?;
         Ok(())
     }
 
@@ -923,7 +1673,11 @@ mod tests {
     )
 )
         "#;
-        assert_parses_to(Rule::loc_directive, ".loc 1 15 3, function_name .debug_str+16, inlined_at 1 10 5", want)?;
+        assert_parses_to(
+            Rule::loc_directive,
+            ".loc 1 15 3, function_name .debug_str+16, inlined_at 1 10 5",
+            want,
+        )?;
         Ok(())
     }
 
@@ -953,6 +1707,18 @@ mod tests {
     }
 
     #[test]
+    fn parse_pragma_nounroll() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(pragma_directive
+    (string: "nounroll")
+)
+        "#;
+        assert_parses_to(Rule::pragma_directive, r#".pragma "nounroll";"#, want)?;
+        Ok(())
+    }
+
+    #[test]
     fn parse_address_size_64() -> eyre::Result<()> {
         crate::tests::init_test();
         let want = r#"
@@ -973,7 +1739,11 @@ mod tests {
     (string: "/home/roman/dev/box/test-apps/vectoradd/vectoradd.cu")
 )
         "#;
-        assert_parses_to(Rule::file_directive, r#".file   1 "/home/roman/dev/box/test-apps/vectoradd/vectoradd.cu""#, want)?;
+        assert_parses_to(
+            Rule::file_directive,
+            r#".file   1 "/home/roman/dev/box/test-apps/vectoradd/vectoradd.cu""#,
+            want,
+        )?;
         Ok(())
     }
 
@@ -986,7 +1756,11 @@ mod tests {
     (string: "/usr/local/cuda-11.8/bin/../targets/x86_64-linux/include/sm_32_intrinsics.hpp")
 )
         "#;
-        assert_parses_to(Rule::file_directive, r#".file   2 "/usr/local/cuda-11.8/bin/../targets/x86_64-linux/include/sm_32_intrinsics.hpp""#, want)?;
+        assert_parses_to(
+            Rule::file_directive,
+            r#".file   2 "/usr/local/cuda-11.8/bin/../targets/x86_64-linux/include/sm_32_intrinsics.hpp""#,
+            want,
+        )?;
         Ok(())
     }
 
@@ -1008,12 +1782,15 @@ mod tests {
 
     #[test]
     fn parse_all_kernels() -> eyre::Result<()> {
+        use std::fs::{read_dir, read_to_string, DirEntry};
         use std::path::PathBuf;
-        use std::fs::{read_dir, DirEntry, read_to_string};
         crate::tests::init_test();
+        // pest::set_call_limit(std::num::NonZeroUsize::new(10000));
         let kernels_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("kernels");
         dbg!(&kernels_dir);
-        let mut kernels = read_dir(&kernels_dir)?.into_iter().collect::<Result<Vec<DirEntry>, _>>()?;
+        let mut kernels = read_dir(&kernels_dir)?
+            .into_iter()
+            .collect::<Result<Vec<DirEntry>, _>>()?;
         kernels.sort_by_key(|k| k.path());
         for kernel in kernels {
             dbg!(&kernel.path());
@@ -1023,6 +1800,78 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn parse_visible_entry_z15blackscholesgpup6float2s0_s0_s0_s0_ffi() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(function_defn
+  (function_decl
+    (function_decl_header
+      (function_decl_visibility: ".visible")
+      (function_decl_kind: ".entry")
+    )
+    (function_name: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi")
+    (function_parameters
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u64")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_0"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u64")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_1"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u64")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_2"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u64")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_3"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u64")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_4"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".f32")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_5"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".f32")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_6"))
+      )
+      (function_param
+        (variable_spec (type_spec (scalar_type: ".u32")))
+        (identifier_spec (identifier: "_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_7"))
+      )
+    )
+  )
+  (block_spec
+    (integer (decimal: "128"))
+    (integer (decimal: "1"))
+    (integer (decimal: "1"))
+  )
+  (function_statement_block: "{\n}")
+)
+        "#;
+        let code = r#".visible .entry
+_Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi(
+.param .u64 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_0,
+.param .u64 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_1,
+.param .u64 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_2,
+.param .u64 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_3,
+.param .u64 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_4,
+.param .f32 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_5,
+.param .f32 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_6,
+.param .u32 _Z15BlackScholesGPUP6float2S0_S0_S0_S0_ffi_param_7
+)
+.maxntid 128, 1, 1
+{
+}
+        "#;
+        assert_parses_to(Rule::function_defn, code, want)?;
+        Ok(())
+    }
 
     #[test]
     fn parse_function_declaration_1() -> eyre::Result<()> {
@@ -1030,66 +1879,37 @@ mod tests {
         let want = r#"
 (function_decl
   (function_decl_header
-    (function_decl_header_visible_entry: ".visible .entry")
+    (function_decl_visibility: ".visible")
+    (function_decl_kind: ".entry")
   )
   (function_name: "_Z21gpucachesim_skip_copyPfS_S_jj")
   (function_parameters
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".u64")
-          )
-        )
-      )
+      (variable_spec (type_spec (scalar_type: ".u64")))
       (identifier_spec
         (identifier: "_Z21gpucachesim_skip_copyPfS_S_jj_param_0")
       )
     )
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".u64")
-          )
-        )
-      )
+      (variable_spec (type_spec (scalar_type: ".u64")))
       (identifier_spec
         (identifier: "_Z21gpucachesim_skip_copyPfS_S_jj_param_1")
       )
     )
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".u64")
-          )
-        )
-      )
+      (variable_spec (type_spec (scalar_type: ".u64")))
       (identifier_spec
         (identifier: "_Z21gpucachesim_skip_copyPfS_S_jj_param_2")
       )
     )
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".u32")
-          )
-        )
-      )
+      (variable_spec (type_spec (scalar_type: ".u32")))
       (identifier_spec
         (identifier: "_Z21gpucachesim_skip_copyPfS_S_jj_param_3")
       )
     )
     (function_param
-      (variable_spec_list
-        (variable_spec
-          (type_spec
-            (scalar_type: ".u32")
-          )
-        )
-      )
+      (variable_spec (type_spec (scalar_type: ".u32")))
       (identifier_spec
         (identifier: "_Z21gpucachesim_skip_copyPfS_S_jj_param_4")
       )
@@ -1115,73 +1935,69 @@ mod tests {
         let want = r#"
 (section_directive
   (debug_str_section
-    (debug_str_list
-      (debug_str (label (identifier: "$L__info_string0")))
-      (debug_str_list
-        (debug_str
-          (integer (decimal: "95"))
-          (integer (decimal: "90"))
-          (integer (decimal: "78"))
-          (integer (decimal: "52"))
-          (integer (decimal: "51"))
-          (integer (decimal: "95"))
-          (integer (decimal: "73"))
-          (integer (decimal: "78"))
-          (integer (decimal: "84"))
-          (integer (decimal: "69"))
-          (integer (decimal: "82"))
-          (integer (decimal: "78"))
-          (integer (decimal: "65"))
-          (integer (decimal: "76"))
-          (integer (decimal: "95"))
-          (integer (decimal: "97"))
-          (integer (decimal: "102"))
-          (integer (decimal: "50"))
-          (integer (decimal: "97"))
-          (integer (decimal: "97"))
-          (integer (decimal: "50"))
-          (integer (decimal: "50"))
-          (integer (decimal: "54"))
-          (integer (decimal: "95"))
-          (integer (decimal: "49"))
-          (integer (decimal: "50"))
-          (integer (decimal: "95"))
-          (integer (decimal: "118"))
-          (integer (decimal: "101"))
-          (integer (decimal: "99"))
-          (integer (decimal: "116"))
-          (integer (decimal: "111"))
-          (integer (decimal: "114"))
-          (integer (decimal: "97"))
-          (integer (decimal: "100"))
-          (integer (decimal: "100"))
-          (integer (decimal: "95"))
-          (integer (decimal: "99"))
-          (integer (decimal: "117"))
-          (integer (decimal: "95"))
-        )
-        (debug_str_list
-          (debug_str
-            (integer (decimal: "57"))
-            (integer (decimal: "57"))
-            (integer (decimal: "102"))
-            (integer (decimal: "57"))
-            (integer (decimal: "97"))
-            (integer (decimal: "56"))
-            (integer (decimal: "99"))
-            (integer (decimal: "98"))
-            (integer (decimal: "53"))
-            (integer (decimal: "95"))
-            (integer (decimal: "95"))
-            (integer (decimal: "108"))
-            (integer (decimal: "100"))
-            (integer (decimal: "103"))
-            (integer (decimal: "69"))
-            (integer (decimal: "80"))
-            (integer (decimal: "75"))
-            (integer (decimal: "102"))
-            (integer (decimal: "0"))))
-      )
+    (debug_str (label (identifier: "$L__info_string0")))
+    (debug_str
+      (integer (decimal: "95"))
+      (integer (decimal: "90"))
+      (integer (decimal: "78"))
+      (integer (decimal: "52"))
+      (integer (decimal: "51"))
+      (integer (decimal: "95"))
+      (integer (decimal: "73"))
+      (integer (decimal: "78"))
+      (integer (decimal: "84"))
+      (integer (decimal: "69"))
+      (integer (decimal: "82"))
+      (integer (decimal: "78"))
+      (integer (decimal: "65"))
+      (integer (decimal: "76"))
+      (integer (decimal: "95"))
+      (integer (decimal: "97"))
+      (integer (decimal: "102"))
+      (integer (decimal: "50"))
+      (integer (decimal: "97"))
+      (integer (decimal: "97"))
+      (integer (decimal: "50"))
+      (integer (decimal: "50"))
+      (integer (decimal: "54"))
+      (integer (decimal: "95"))
+      (integer (decimal: "49"))
+      (integer (decimal: "50"))
+      (integer (decimal: "95"))
+      (integer (decimal: "118"))
+      (integer (decimal: "101"))
+      (integer (decimal: "99"))
+      (integer (decimal: "116"))
+      (integer (decimal: "111"))
+      (integer (decimal: "114"))
+      (integer (decimal: "97"))
+      (integer (decimal: "100"))
+      (integer (decimal: "100"))
+      (integer (decimal: "95"))
+      (integer (decimal: "99"))
+      (integer (decimal: "117"))
+      (integer (decimal: "95"))
+    )
+    (debug_str
+      (integer (decimal: "57"))
+      (integer (decimal: "57"))
+      (integer (decimal: "102"))
+      (integer (decimal: "57"))
+      (integer (decimal: "97"))
+      (integer (decimal: "56"))
+      (integer (decimal: "99"))
+      (integer (decimal: "98"))
+      (integer (decimal: "53"))
+      (integer (decimal: "95"))
+      (integer (decimal: "95"))
+      (integer (decimal: "108"))
+      (integer (decimal: "100"))
+      (integer (decimal: "103"))
+      (integer (decimal: "69"))
+      (integer (decimal: "80"))
+      (integer (decimal: "75"))
+      (integer (decimal: "102"))
+      (integer (decimal: "0"))
     )
   )
 )"#;
@@ -1203,57 +2019,25 @@ $L__info_string0:
         crate::tests::init_test();
         let want = r#"
 (function_statement_block
-    (variable_declaration
-      (variable_spec_list
-        (variable_spec (space_spec: ".reg"))
-        (variable_spec_list
-          (variable_spec (type_spec (scalar_type: ".pred"))))
-      )
-      (identifier_list
-        (identifier_spec
-          (identifier: "%p")
-          (integer (decimal: "5"))
-        )
-      )
+    (variable_decl
+      (variable_spec (space_spec: ".reg"))
+      (variable_spec (type_spec (scalar_type: ".pred")))
+      (identifier_spec (identifier: "%p") (integer (decimal: "5")))
     )
-    (variable_declaration
-      (variable_spec_list
-        (variable_spec (space_spec: ".reg"))
-        (variable_spec_list
-          (variable_spec (type_spec (scalar_type: ".f32"))))
-      )
-      (identifier_list
-        (identifier_spec
-          (identifier: "%f")
-          (integer (decimal: "4"))
-        )
-      )
+    (variable_decl
+      (variable_spec (space_spec: ".reg"))
+      (variable_spec (type_spec (scalar_type: ".f32")))
+      (identifier_spec (identifier: "%f") (integer (decimal: "4")))
     )
-    (variable_declaration
-      (variable_spec_list
-        (variable_spec (space_spec: ".reg"))
-        (variable_spec_list
-          (variable_spec (type_spec (scalar_type: ".b32"))))
-      )
-      (identifier_list
-        (identifier_spec
-          (identifier: "%r")
-          (integer (decimal: "16"))
-        )
-      )
+    (variable_decl
+      (variable_spec (space_spec: ".reg"))
+      (variable_spec (type_spec (scalar_type: ".b32")))
+      (identifier_spec (identifier: "%r") (integer (decimal: "16")))
     )
-    (variable_declaration
-      (variable_spec_list
-        (variable_spec (space_spec: ".reg"))
-        (variable_spec_list
-          (variable_spec (type_spec (scalar_type: ".b64"))))
-      )
-      (identifier_list
-        (identifier_spec
-          (identifier: "%rd")
-          (integer (decimal: "9"))
-        )
-      )
+    (variable_decl
+      (variable_spec (space_spec: ".reg"))
+      (variable_spec (type_spec (scalar_type: ".b64")))
+      (identifier_spec (identifier: "%rd") (integer (decimal: "9")))
     )
     (loc_directive
       (integer (decimal: "1"))
@@ -1798,7 +2582,7 @@ $L__info_string0:
       (instruction (opcode_spec (opcode: "ret")))
     )
 )"#;
-    let code = r#"{
+        let code = r#"{
 .reg .pred %p<5>;
 .reg .f32 %f<4>;
 .reg .b32 %r<16>;
@@ -1879,7 +2663,6 @@ ret;
         Ok(())
     }
 
-    
     //     let input = "
     //        .reg     .b32 r1, r2;
     //        .global  .f32  array[N];
@@ -1893,14 +2676,6 @@ ret;
     #[test]
     fn parse_single_line_comments() -> eyre::Result<()> {
         crate::tests::init_test();
-        //         let want = pest_test::model::Expression::NonTerminal {
-        //             name: "integer".to_string(),
-        //             children: vec![pest_test::model::Expression::Terminal {
-        //                 name: "binary".to_string(),
-        //                 value: Some("0b01110011001".to_string()),
-        //             }],
-        //         };
-        //
         //         let input = "
         //        .reg     .b32 r1, r2;
         //        .global  .f32  array[N];
