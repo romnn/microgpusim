@@ -1582,6 +1582,40 @@ ld.param.b32 %r115, [retval0+0];
         Ok(())
     }
 
+    fn parse_vshr_u32_u32_u32_clamp_add() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(instruction_statement
+    (instruction
+        (opcode_spec
+            (opcode: "ld")
+            (option (addressable_spec: ".global"))
+            (option (type_spec (scalar_type: ".b32")))
+        )
+        (operand (identifier: "r2"))
+        (operand (memory_operand
+            (identifier: "array")
+            (address_expression (identifier: "r1"))
+        ))
+    )
+)
+        "#;
+        assert_parses_to(
+            Rule::opcode_spec,
+            "vshr.u32.u32.u32.clamp.add",
+            r#"(memory_operand
+                (identifier: "array")
+                (address_expression (identifier: "r1"))
+            )"#,
+        )?;
+        assert_parses_to(
+            Rule::instruction_statement,
+            "vshr.u32.u32.u32.clamp.add %r952, %r1865, %r1079, %r1865;",
+            want,
+        )?;
+        Ok(())
+    }
+
     #[test]
     fn parse_variable_decl_reg_b32_r1_r2() -> eyre::Result<()> {
         crate::tests::init_test();

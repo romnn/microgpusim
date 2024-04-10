@@ -407,12 +407,13 @@ option = {
     | wmma_spec
     | rounding_mode
     | prmt_spec
-    | atomic_operation_spec
+    // | atomic_operation_spec
     | ".sync"
 	| ".sys"
 	| ".shiftamt"
     | ".sat"
     | ".arrive"
+	| ".and"
     | ".all"
     | ".any"
     | ".abs"
@@ -425,17 +426,20 @@ option = {
     | ".gl"
     | ".red"
     | ".release"
+    | ".popc"
     | ".1d"
     | ".2d"
     | ".3d"
     | ".ftz"
     | ".full"
+	| ".exch"
     | ".exit"
     | ".extp"
     | ".to"
     | ".trap"
     | ".half"
     | ".clamp"
+    | ".cas"
     | ".cta"
     | ".ca"
     | ".cg"
@@ -454,10 +458,16 @@ option = {
     | ".nc"
     | ".neg"
     | ".noftz"
+	| ".max"
+	| ".min"
     | ".uni"
     | ".up"
+	| ".or"
     | ".down"
+	| ".dec"
+	| ".inc"
     | ".idx"
+	| ".xor"
 }
 cache_level = { ".L1" | ".L2" }
 cache_eviction_priority = { 
@@ -466,19 +476,20 @@ cache_eviction_priority = {
 }
 cache_prefetch_size = { integer ~ "B" }
 
-atomic_operation_spec = {
-  ".and"
-    | ".popc"
-    | ".or"
-    | ".xor"
-    | ".cas"
-    | ".exch"
-    | ".add"
-    | ".inc"
-    | ".dec"
-    | ".min"
-    | ".max"
-}
+//atomic_operation_spec = {
+//  ".and"
+//    | ".popc"
+//    | ".or"
+//    | ".xor"
+//    | ".cas"
+//    | ".exch"
+//    | ".add"
+//    | ".inc"
+//    | ".dec"
+//    | ".min"
+//    | ".max"
+//}
+
 // precedence: integer > floating point
 rounding_mode = { integer_rounding_mode | floating_point_rounding_mode }
 floating_point_rounding_mode = { ".rn" | ".rz" | ".rm" | ".rp" }

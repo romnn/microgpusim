@@ -6,3 +6,11 @@ pb2.5benchmarks.tgz
 benchmarks/
 cuda-samples-12.4/
 cuda-samples-12.4.tar.gz
+
+bison/bindings.rs
+
+bison/src/ptx.lex.h
+bison/src/ptx.parser.tab.h
+
+bison/src/ptxinfo.lex.h
+bison/src/ptxinfo.parser.tab.h

@@ -1,14 +1,10 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[allow(
+    warnings,
+    clippy::all,
+    clippy::pedantic,
+    clippy::restriction,
+    clippy::nursery
+)]
+pub mod bindings {
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }

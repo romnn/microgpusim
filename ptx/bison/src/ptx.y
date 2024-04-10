@@ -30,7 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %{
 typedef void * yyscan_t;
 class ptx_recognizer;
-#include "../../libcuda/gpgpu_context.h"
+#include "gpgpu_context.hpp"
 %}
 
 %define api.pure full
@@ -225,7 +225,7 @@ class ptx_recognizer;
 %type <ptr_value> function_decl
 
 %{
-  	#include "ptx_parser.h"
+  	#include "ptx_recognizer.hpp"
 	#include <stdlib.h>
 	#include <string.h>
 	#include <math.h>
