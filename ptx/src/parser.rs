@@ -607,12 +607,9 @@ mod tests {
                         RL(Rule::opcode_spec),
                         vec![
                             E::T(RL(Rule::opcode), Some("shl".to_string())),
-                            E::NT(
+                            E::T(
                                 RL(Rule::option),
-                                vec![E::NT(
-                                    RL(Rule::type_spec),
-                                    vec![E::T(RL(Rule::scalar_type), Some(".b32".to_string()))],
-                                )],
+                                Some(".b32".to_string()),
                             ),
                         ],
                     ),
@@ -649,7 +646,7 @@ mod tests {
     (instruction
         (opcode_spec
             (opcode: "shl")
-            (option (type_spec (scalar_type: ".b32"))))
+            (option: ".b32"))
         (operand (identifier: "r1"))
         (operand (identifier: "r1"))
         (operand (literal_operand (integer (decimal: "2"))))
@@ -668,7 +665,7 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "mul")
-      (option (type_spec (scalar_type: ".f64")))
+      (option: ".f64")
     )
     (operand (identifier: "%fd1"))
     (operand (identifier: "%fd76"))
@@ -692,8 +689,8 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "setp")
-      (option (compare_spec: ".neu"))
-      (option (type_spec (scalar_type: ".f64")))
+      (option: ".neu")
+      (option: ".f64")
     )
     (operand (identifier: "%p14"))
     (operand (identifier: "%fd32"))
@@ -717,8 +714,8 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "cvta")
-      (option (addressable_spec: ".local"))
-      (option (type_spec (scalar_type: ".u64")))
+      (option: ".local")
+      (option: ".u64")
     )
     (operand (identifier: "%SP"))
     (operand (identifier: "%SPL"))
@@ -741,9 +738,9 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "vset4")
-      (option (type_spec (scalar_type: ".u32")))
-      (option (type_spec (scalar_type: ".u32")))
-      (option (compare_spec: ".ne"))
+      (option: ".u32")
+      (option: ".u32")
+      (option: ".ne")
     )
     (operand (identifier: "%r91"))
     (operand (identifier: "%r92"))
@@ -769,7 +766,7 @@ mod tests {
     (opcode_spec
       (opcode: "bfind")
       (option: ".shiftamt")
-      (option (type_spec (scalar_type: ".u32")))
+      (option: ".u32")
     )
     (operand (identifier: "%r42"))
     (operand (identifier: "%r41"))
@@ -794,7 +791,7 @@ mod tests {
       (opcode: "shfl")
       (option: ".sync")
       (option: ".down")
-      (option (type_spec (scalar_type: ".b32")))
+      (option: ".b32")
     )
     (operand
       (identifier: "%r386")
@@ -826,11 +823,9 @@ mod tests {
 (opcode: "tex")
 (option: ".level")
 (option: ".2d")
-(option (type_spec 
-  (vector_spec: ".v4")
-  (scalar_type: ".f32")))
-(option (type_spec 
-  (scalar_type: ".f32")))
+(option: ".v4")
+(option: ".f32")
+(option: ".f32")
 )
             "#,
         )?;
@@ -842,11 +837,9 @@ mod tests {
       (opcode: "tex")
       (option: ".level")
       (option: ".2d")
-      (option (type_spec 
-        (vector_spec: ".v4")
-        (scalar_type: ".f32")))
-      (option (type_spec 
-        (scalar_type: ".f32")))
+      (option: ".v4")
+      (option: ".f32")
+      (option: ".f32")
     )
     (operand
       (vector_operand
@@ -889,9 +882,8 @@ mod tests {
 (opcode: "sust")
 (option: ".b")
 (option: ".2d")
-(option (type_spec 
-  (vector_spec: ".v4")
-  (scalar_type: ".b8")))
+(option: ".v4")
+(option: ".b8")
 (option: ".trap")
 )
             "#,
@@ -904,12 +896,8 @@ mod tests {
       (opcode: "sust")
       (option: ".b")
       (option: ".2d")
-      (option
-        (type_spec
-          (vector_spec: ".v4")
-          (scalar_type: ".b8")
-        )
-      )
+      (option: ".v4")
+      (option: ".b8")
       (option: ".trap")
     )
     (operand
@@ -949,7 +937,7 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "mov")
-      (option (type_spec (scalar_type: ".u64")))
+      (option: ".u64")
     )
     (operand (identifier: "%rd5"))
     (operand (builtin_operand (special_register: "%clock64")))
@@ -973,8 +961,8 @@ mod tests {
     (instruction
       (opcode_spec
         (opcode: "cvt")
-        (option (type_spec (scalar_type: ".f32")))
-        (option (type_spec (scalar_type: ".bf16")))
+        (option: ".f32")
+        (option: ".bf16")
       )
       (operand (identifier: "%f27"))
       (operand (identifier: "%rs9"))
@@ -999,9 +987,9 @@ mod tests {
     (instruction
       (opcode_spec
         (opcode: "atom")
-        (option (atomic_operation_spec: ".add"))
+        (option: ".add")
         (option: ".noftz")
-        (option (type_spec (scalar_type: ".f16")))
+        (option: ".f16")
       )
       (operand (identifier: "%rs23"))
       (operand
@@ -1029,9 +1017,9 @@ mod tests {
     (instruction
       (opcode_spec
         (opcode: "atom")
-        (option (atomic_operation_spec: ".add"))
+        (option: ".add")
         (option: ".noftz")
-        (option (type_spec (scalar_type: ".bf16x2")))
+        (option: ".bf16x2")
       )
       (operand (identifier: "%r90"))
       (operand
@@ -1059,12 +1047,12 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "ld")
-      (option (addressable_spec: ".global"))
+      (option: ".global")
       (option
         (cache_level: ".L2")
         (cache_prefetch_size (integer (decimal: "128")))
       )
-      (option (type_spec (vector_spec: ".v2") (scalar_type: ".u32")))
+      (option: ".v2") (option: ".u32")
     )
     (operand
       (vector_operand
@@ -1263,9 +1251,9 @@ mod tests {
   (instruction
     (opcode_spec
       (opcode: "cvt")
-      (option (rounding_mode (integer_rounding_mode: ".rzi")))
-      (option (type_spec (scalar_type: ".s32")))
-      (option (type_spec (scalar_type: ".f32")))
+      (option: ".rzi")
+      (option: ".s32")
+      (option: ".f32")
     )
     (operand (identifier: "%r65"))
     (operand (identifier: "%f1"))
@@ -1339,7 +1327,7 @@ param1
   (variable_spec (type_spec (scalar_type: ".u64")))
   (identifier_spec (identifier: "pComputeSobel"))
   (variable_decl_initializer
-      (identifier_spec (identifier: "_Z12ComputeSobelhhhhhhhhhf")))
+      (operand (identifier: "_Z12ComputeSobelhhhhhhhhhf")))
 )
         "#;
         assert_parses_to(
@@ -1388,18 +1376,29 @@ param1
         let want = r#"
 (prototype_decl
   (identifier: "prototype_0")
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
   (identifier: "_")
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
-  (prototype_param (scalar_type: ".b32") (identifier: "_"))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
+  (prototype_param (scalar_type: ".b32")
+      (identifier_spec (identifier: "_")))
 )
         "#;
         let code = r#"prototype_0 : .callprototype
@@ -1442,18 +1441,29 @@ _
   )
   (prototype_decl
     (identifier: "prototype_0")
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") 
+        (identifier_spec (identifier: "_")))
     (identifier: "_")
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
-    (prototype_param (scalar_type: ".b32") (identifier: "_"))
+    (prototype_param (scalar_type: ".b32") 
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
+    (prototype_param (scalar_type: ".b32")
+        (identifier_spec (identifier: "_")))
   )
   (instruction_statement
     (instruction
@@ -1480,8 +1490,8 @@ _
     (instruction
       (opcode_spec
         (opcode: "ld")
-        (option (addressable_spec: ".param"))
-        (option (type_spec (scalar_type: ".b32")))
+        (option: ".param")
+        (option: ".b32")
       )
       (operand (identifier: "%r115"))
       (operand
@@ -1620,8 +1630,8 @@ ld.param.b32 %r115, [retval0+0];
     (instruction
         (opcode_spec
             (opcode: "ld")
-            (option (addressable_spec: ".global"))
-            (option (type_spec (scalar_type: ".b32")))
+            (option: ".global")
+            (option: ".b32")
         )
         (operand (identifier: "r2"))
         (operand (memory_operand
@@ -1664,9 +1674,9 @@ ld.param.b32 %r115, [retval0+0];
     (instruction
         (opcode_spec
             (opcode: "vshr")
-            (option (type_spec (scalar_type: ".u32")))
-            (option (type_spec (scalar_type: ".u32")))
-            (option (type_spec (scalar_type: ".u32")))
+            (option: ".u32")
+            (option: ".u32")
+            (option: ".u32")
             (option: ".clamp")
             (option: ".add")
         )
@@ -1682,9 +1692,9 @@ ld.param.b32 %r115, [retval0+0];
             "vshr.u32.u32.u32.clamp.add",
             r#"(opcode_spec
                    (opcode: "vshr")
-                   (option (type_spec (scalar_type: ".u32")))
-                   (option (type_spec (scalar_type: ".u32")))
-                   (option (type_spec (scalar_type: ".u32")))
+                   (option: ".u32")
+                   (option: ".u32")
+                   (option: ".u32")
                    (option: ".clamp")
                    (option: ".add")
             )"#,
@@ -2213,8 +2223,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".param"))
-          (option (type_spec (scalar_type: ".u64")))
+          (option: ".param")
+          (option: ".u64")
         )
         (operand (identifier: "%rd2"))
         (operand
@@ -2230,8 +2240,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".param"))
-          (option (type_spec (scalar_type: ".u64")))
+          (option: ".param")
+          (option: ".u64")
         )
         (operand (identifier: "%rd3"))
         (operand
@@ -2247,8 +2257,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".param"))
-          (option (type_spec (scalar_type: ".u64")))
+          (option: ".param")
+          (option: ".u64")
         )
         (operand (identifier: "%rd4"))
         (operand
@@ -2264,8 +2274,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".param"))
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".param")
+          (option: ".u32")
         )
         (operand (identifier: "%r7"))
         (operand
@@ -2281,8 +2291,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".param"))
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".param")
+          (option: ".u32")
         )
         (operand (identifier: "%r8"))
         (operand
@@ -2303,8 +2313,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "setp")
-          (option (compare_spec: ".eq"))
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".eq")
+          (option: ".s32")
         )
         (operand (identifier: "%p1"))
         (operand (identifier: "%r8"))
@@ -2327,7 +2337,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r10"))
         (operand
@@ -2342,7 +2352,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r11"))
         (operand
@@ -2357,7 +2367,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r12"))
         (operand
@@ -2372,8 +2382,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mad")
-          (option (compare_spec: ".lo"))
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".lo")
+          (option: ".s32")
         )
         (operand (identifier: "%r1"))
         (operand (identifier: "%r10"))
@@ -2390,7 +2400,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r13"))
         (operand
@@ -2405,8 +2415,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mul")
-          (option (compare_spec: ".lo"))
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".lo")
+          (option: ".s32")
         )
         (operand (identifier: "%r2"))
         (operand (identifier: "%r13"))
@@ -2423,8 +2433,8 @@ $L__info_string0:
         (opcode_spec
           (opcode: "cvta")
           (option: ".to")
-          (option (addressable_spec: ".global"))
-          (option (type_spec (scalar_type: ".u64")))
+          (option: ".global")
+          (option: ".u64")
         )
         (operand (identifier: "%rd1"))
         (operand (identifier: "%rd4"))
@@ -2434,7 +2444,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r14"))
         (operand (literal_operand (integer (decimal: "0"))))
@@ -2450,8 +2460,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "setp")
-          (option (compare_spec: ".ge"))
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".ge")
+          (option: ".u32")
         )
         (operand (identifier: "%p2"))
         (operand (identifier: "%r1"))
@@ -2479,7 +2489,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "mov")
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".u32")
         )
         (operand (identifier: "%r15"))
         (operand (identifier: "%r1"))
@@ -2496,7 +2506,7 @@ $L__info_string0:
         (opcode_spec
           (opcode: "mul")
           (option: ".wide")
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".s32")
         )
         (operand (identifier: "%rd7"))
         (operand (identifier: "%r15"))
@@ -2507,7 +2517,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".s64")))
+          (option: ".s64")
         )
         (operand (identifier: "%rd5"))
         (operand (identifier: "%rd2"))
@@ -2541,9 +2551,9 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".global"))
+          (option: ".global")
           (option: ".nc")
-          (option (type_spec (scalar_type: ".f32")))
+          (option: ".f32")
         )
         (operand (identifier: "%f1"))
         (operand
@@ -2564,7 +2574,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".s64")))
+          (option: ".s64")
         )
         (operand (identifier: "%rd6"))
         (operand (identifier: "%rd3"))
@@ -2598,9 +2608,9 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "ld")
-          (option (addressable_spec: ".global"))
+          (option: ".global")
           (option: ".nc")
-          (option (type_spec (scalar_type: ".f32")))
+          (option: ".f32")
         )
         (operand (identifier: "%f2"))
         (operand
@@ -2621,7 +2631,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".f32")))
+          (option: ".f32")
         )
         (operand (identifier: "%f3"))
         (operand (identifier: "%f1"))
@@ -2632,7 +2642,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".s64")))
+          (option: ".s64")
         )
         (operand (identifier: "%rd8"))
         (operand (identifier: "%rd1"))
@@ -2643,8 +2653,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "st")
-          (option (addressable_spec: ".global"))
-          (option (type_spec (scalar_type: ".f32")))
+          (option: ".global")
+          (option: ".f32")
         )
         (operand
           (memory_operand
@@ -2665,7 +2675,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".s32")
         )
         (operand (identifier: "%r15"))
         (operand (identifier: "%r15"))
@@ -2681,8 +2691,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "setp")
-          (option (compare_spec: ".lt"))
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".lt")
+          (option: ".u32")
         )
         (operand (identifier: "%p3"))
         (operand (identifier: "%r15"))
@@ -2706,7 +2716,7 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "add")
-          (option (type_spec (scalar_type: ".s32")))
+          (option: ".s32")
         )
         (operand (identifier: "%r14"))
         (operand (identifier: "%r14"))
@@ -2722,8 +2732,8 @@ $L__info_string0:
       (instruction
         (opcode_spec
           (opcode: "setp")
-          (option (compare_spec: ".lt"))
-          (option (type_spec (scalar_type: ".u32")))
+          (option: ".lt")
+          (option: ".u32")
         )
         (operand (identifier: "%p4"))
         (operand (identifier: "%r14"))
