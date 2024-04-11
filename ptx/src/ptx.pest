@@ -22,9 +22,13 @@ variable_decl = {
     | variable_spec_list ~ identifier_spec ~ "=" ~ variable_decl_initializer
   	| variable_spec_list ~ identifier_list
 }
-variable_decl_initializer = { initializer_list | literal_operand | identifier_spec }
-initializer_list = _{ 
-	"{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" 
+variable_decl_initializer = { 
+	initializer_list | operand_list
+	// initializer_list | literal_operand | identifier_spec 
+}
+initializer_list = _{
+	"{" ~ operand_list ~ "}"
+	// "{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" 
 }
 literal_list = _{ 
 	literal_operand ~ ("," ~ literal_operand)*
@@ -376,11 +380,11 @@ loc_function_name_attr = { "function_name" ~ loc_function_name_label ~ ("+" ~ in
 loc_inlined_at_attr = { "inlined_at" ~ integer ~ integer ~ integer }
 
 ptr_spec = {
-  ".ptr" ~ ptr_space_spec ~ ptr_align_spec
-    | ".ptr" ~ ptr_align_spec
+  ".ptr" ~ ptr_space_spec ~ align_spec
+    | ".ptr" ~ align_spec
 }
 ptr_space_spec = { ".global" | ".local" | ".shared" | ".const" }
-ptr_align_spec = { ".align" ~ integer }
+// ptr_align_spec = { ".align" ~ integer }
 align_spec = { ".align" ~ integer }
 
 variable_spec = {
@@ -400,74 +404,119 @@ variable_spec_list = _{
 // specific case) precedes ".lo"
 option = {
 	// level must come before compare_spec (".le")
-    ".level"
-    | type_spec
-    | addressable_spec
-    | compare_spec
-    | wmma_spec
-    | rounding_mode
-    | prmt_spec
-    // | atomic_operation_spec
-    | ".sync"
-	| ".sys"
-	| ".shiftamt"
-    | ".sat"
-    | ".arrive"
-	| ".and"
-    | ".all"
-    | ".any"
-    | ".abs"
-    | ".add"
-    | ".approx"
-    | ".ballot"
-    | ".bfly"
-    | ".b"
-    | ".global"
-    | ".gl"
-    | ".red"
-    | ".release"
-    | ".popc"
-    | ".1d"
-    | ".2d"
-    | ".3d"
-    | ".ftz"
-    | ".full"
-	| ".exch"
-    | ".exit"
-    | ".extp"
-    | ".to"
-    | ".trap"
-    | ".half"
-    | ".clamp"
-    | ".cas"
-    | ".cta"
-    | ".ca"
-    | ".cg"
-    | ".cs"
-    | ".cv"
-    | ".lu"
+    // | type_spec
+    // | addressable_spec
+    // | compare_spec
+    wmma_spec
+    // | rounding_mode
+    // | prmt_spec
 	| cache_level ~ "::" ~ cache_eviction_priority
 		~ cache_level ~ "::" ~ "cache_hint"
 		~ cache_level ~ "::" ~ cache_prefetch_size
 	| cache_level ~ "::" ~ "cache_hint"
 		~ cache_level ~ "::" ~ cache_prefetch_size
 	| cache_level ~ "::" ~ cache_prefetch_size
-    | ".wide"
+    | ".arrive"
+	| ".approx"
+	| ".async"
+	| ".acquire"
+	| ".aligned"
+	| ".and"
+    | ".all"
+    | ".any"
+    | ".abs"
+    | ".add"
+	| ".a2d"
+    | ".ballot"
+    | ".bfly"
+	| ".bf16x2" | ".bf16"
+	| ".b8" | ".b16" | ".b32" | ".b64" | ".bb64" | ".b128" | ".bb128"
+	| ".b4e"
+    | ".b"
+	| ".commit_group"
+	| ".const"
+	| ".clamp"
+	| ".cube"
+    | ".cas"
+    | ".cta"
+    | ".col"
+    | ".ca"
+    | ".cu"
+    | ".cg"
+    | ".cs"
+    | ".cv"
+	| ".down"
+	| ".dec"
+	| ".e4m3" | ".e5m2"
+	| ".exch"
+    | ".exit"
+    | ".extp"
+	| ".ecl" | ".ecr" 
+	| ".equ" | ".eq"
+    | ".full"
+	| ".ftz"
+	// floating point
+	| ".f16x2" | ".f16" | ".f32" | ".f64" | ".ff64"
+	| ".f4e"
+	| ".gtu" | ".geu" | ".gt" | ".ge"
+    | ".gpu"
+    | ".global" | ".gl"
+    | ".half"
+	| ".hi" | ".hs"
+	| ".inc"
+    | ".idx" 
+	| ".local"
+	| ".level"
+	| ".ltu" | ".leu" | ".lt" | ".le" | ".lo" | ".ls"
+    | ".lu"
+	| ".max" | ".min"
+	| ".m16n8k16" | ".m16n8k32" | ".m16n8k8" | ".m8n8k4" | ".m8n8"
+    | ".noftz"
+    | ".neg"
+	| ".nc"
+	| ".neu" | ".num" | ".nan" | ".ne"
+	| ".or"
+	| ".param"
+    | ".popc"
+	| ".pred"
+    | ".release"
+    | ".relaxed"
+	| ".red"
+	| ".row"
+	| ".rc8" | ".rc16"
+	| ".rni" | ".rzi" | ".rmi" | ".rpi"
+	| ".rn" | ".rz" | ".rm" | ".rp"
+	| ".sampleref"
+	| ".shiftamt"
+	| ".surfref" | ".surf"
+    | ".satfinite" | ".sat"
+	| ".sstarr"
+	| ".shared"
+	| ".sync"
+	| ".sys"
+	// signed integer
+	| ".s8" | ".s16" | ".s32" | ".s64"
+	| ".texref" | ".tex"
+	| ".tf32"
+	| ".trans"
+    | ".trap"
+	| ".to"
+	| ".uni"
+    | ".up"
+	// unsigned integer
+	| ".u8" | ".u16" | ".u32" | ".u64"
+	| ".v2" | ".v3" | ".v4"
+	| ".wait_group"
+	| ".wait_all"
+	| ".wide"
     | ".wb"
     | ".wt"
-    | ".nc"
-    | ".neg"
-    | ".noftz"
-	| ".max"
-	| ".min"
-    | ".uni"
-    | ".up"
-	| ".or"
-    | ".down"
-	| ".dec"
-	| ".inc"
-    | ".idx"
 	| ".xor"
+	| ".x4"
+	| ".1d"
+    | ".2d"
+    | ".3d"
+
 }
 cache_level = { ".L1" | ".L2" }
 cache_eviction_priority = { 
@@ -506,8 +555,9 @@ compare_spec = {
 }
 prmt_spec = { ".f4e" | ".b4e" | ".rc8" | ".rc16" | ".ecl" | ".ecr" }
 wmma_spec = {
-  wmma_directive ~ layout ~ configuration
-    | wmma_directive ~ layout ~ layout ~ configuration
+  wmma_directive ~ layout{1,2} ~ configuration
+  // wmma_directive ~ layout ~ configuration
+  //  | wmma_directive ~ layout ~ layout ~ configuration
 }
 wmma_directive = { ".a.sync" | ".b.sync" | ".c.sync" | ".d.sync" | ".mma.sync" }
 layout = { ".row" | ".col" }
@@ -531,7 +581,10 @@ prototype_call_function = @{ operand }
 // }
 // prototype_param = { ".param" ~ (".b32" | ".b64") ~ identifier }
 
-prototype_param = { ".param" ~ scalar_type ~ identifier }
+prototype_param = { 
+	".param" ~ align_spec? ~ scalar_type ~ identifier_spec
+	// | ".param" ~ scalar_type ~ identifier_spec
+}
 prototype_param_list = _{
 	prototype_param ~ ("," ~ prototype_param)*
 	// prototype_param ~ "," ~ prototype_param_list | prototype_param

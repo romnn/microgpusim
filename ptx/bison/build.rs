@@ -171,7 +171,7 @@ fn build_ptx_parser() -> eyre::Result<()> {
     //     generated_ptx_lexer,
     //     generated_ptx_parser,
     // ];
-    let sources = [generated_files.clone(), vec![
+    let sources = vec![
         source_dir.join("util.cc"),
         source_dir.join("gpgpu.cc"),
         source_dir.join("gpgpu_sim.cc"),
@@ -189,7 +189,9 @@ fn build_ptx_parser() -> eyre::Result<()> {
         source_dir.join("operand_info.cc"),
         source_dir.join("symbol.cc"),
         source_dir.join("lib.cc"),
-    ]].concat();
+    ];
+    // let sources = utils::fs::multi_glob([source_dir.join("*.cc").to_string_lossy().to_string()]).collect::<Result<_, _>>()?;
+    let sources = [generated_files.clone(), sources].concat();
     // let sources = vec![
     //    source_dir.join("memory_space.cc"),
     // ];

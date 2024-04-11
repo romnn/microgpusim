@@ -13,3 +13,4 @@ color-eyre = "0"
 duct = "0"
 bindgen = "0"
 cc = { version = "1", features = [] }
+utils = { path = "../../utils" }

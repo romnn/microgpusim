@@ -1,4 +1,4 @@
-#[derive(Parser)]
+#[derive(pest_derive::Parser)]
 #[grammar = "./ptx.pest"]
 pub struct Parser;
 
@@ -1086,10 +1086,7 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn opcode_precendence() -> eyre::Result<()> {
-        crate::tests::init_test();
-        let opcodes = [
+    const ALL_OPCODES: [&str; 151] = [
             "abs",
             "addp",
             "addc",
@@ -1243,7 +1240,11 @@ mod tests {
             "xor",
         ];
 
-        for opcode in opcodes {
+
+    #[test]
+    fn opcode_precendence() -> eyre::Result<()> {
+        crate::tests::init_test();
+        for opcode in ALL_OPCODES {
             dbg!(&opcode);
             assert_parses_to_typed(
                 Rule::opcode,
@@ -1344,6 +1345,38 @@ param1
         assert_parses_to(
             Rule::variable_decl,
             r#".global .align 8 .u64 pComputeSobel = _Z12ComputeSobelhhhhhhhhhf;"#,
+            want,
+        )?;
+        Ok(())
+    }
+
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn parse_variable_decl_global_align_8_u64_underscore_ztv9containeriie6_initializer(
+    ) -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(variable_decl
+  (variable_spec (space_spec (addressable_spec: ".global")))
+  (variable_spec (align_spec (integer (decimal: "8"))))
+  (variable_spec (type_spec (scalar_type: ".u64")))
+  (identifier_spec 
+    (identifier: "_ZTV9ContainerIiE")
+    (integer (decimal: "6")))
+  (variable_decl_initializer
+    (operand (literal_operand (integer (decimal: "0"))))
+    (operand (literal_operand (integer (decimal: "0"))))
+    (operand (identifier: "_ZN9ContainerIiED1Ev"))
+    (operand (identifier: "_ZN9ContainerIiED0Ev"))
+    (operand (literal_operand (integer (decimal: "0"))))
+    (operand (literal_operand (integer (decimal: "0"))))
+  )
+)
+        "#;
+        assert_parses_to(
+            Rule::variable_decl,
+            r#".global .align 8 .u64 _ZTV9ContainerIiE[6] = {0, 0, _ZN9ContainerIiED1Ev, _ZN9ContainerIiED0Ev, 0, 0};"#,
             want,
         )?;
         Ok(())
@@ -1498,6 +1531,47 @@ ld.param.b32 %r115, [retval0+0];
         Ok(())
     }
 
+    
+    #[test]
+    fn parse_prototype_decl_prototype_15_callprototype() -> eyre::Result<()> {
+        crate::tests::init_test();
+        let want = r#"
+(prototype_decl
+  (identifier: "prototype_15")
+  (identifier: "_")
+  (prototype_param
+      (scalar_type: ".b64")
+      (identifier_spec (identifier: "_"))
+  )
+  (prototype_param
+      (align_spec (integer (decimal: "4")))
+      (scalar_type: ".b8")
+      (identifier_spec
+          (identifier: "_")
+          (integer (decimal: "16")))
+  )
+)
+        "#;
+        let code = r#"prototype_15 : .callprototype 
+()_ (.param .b64 _, .param .align 4 .b8 _[16]);
+        "#;
+        assert_parses_to(
+            Rule::prototype_param,
+            ".param .align 4 .b8 _[16]",
+            r#"(prototype_param
+                (align_spec (integer (decimal: "4")))
+                (scalar_type: ".b8")
+                (identifier_spec
+                    (identifier: "_")
+                    (integer (decimal: "16")))
+            )
+            "#,
+        )?;
+        assert_parses_to(Rule::prototype_decl, code, want)?;
+        Ok(())
+    }
+
+
     #[test]
     fn parse_extern_func_param_b32_func_retval0_vprintf() -> eyre::Result<()> {
         crate::tests::init_test();
@@ -1582,30 +1656,37 @@ ld.param.b32 %r115, [retval0+0];
         Ok(())
     }
 
+    #[test]
     fn parse_vshr_u32_u32_u32_clamp_add() -> eyre::Result<()> {
         crate::tests::init_test();
         let want = r#"
 (instruction_statement
     (instruction
         (opcode_spec
-            (opcode: "ld")
-            (option (addressable_spec: ".global"))
-            (option (type_spec (scalar_type: ".b32")))
+            (opcode: "vshr")
+            (option (type_spec (scalar_type: ".u32")))
+            (option (type_spec (scalar_type: ".u32")))
+            (option (type_spec (scalar_type: ".u32")))
+            (option: ".clamp")
+            (option: ".add")
         )
-        (operand (identifier: "r2"))
-        (operand (memory_operand
-            (identifier: "array")
-            (address_expression (identifier: "r1"))
-        ))
+        (operand (identifier: "%r952"))
+        (operand (identifier: "%r1865"))
+        (operand (identifier: "%r1079"))
+        (operand (identifier: "%r1865"))
     )
 )
         "#;
         assert_parses_to(
             Rule::opcode_spec,
             "vshr.u32.u32.u32.clamp.add",
-            r#"(memory_operand
-                (identifier: "array")
-                (address_expression (identifier: "r1"))
+            r#"(opcode_spec
+                   (opcode: "vshr")
+                   (option (type_spec (scalar_type: ".u32")))
+                   (option (type_spec (scalar_type: ".u32")))
+                   (option (type_spec (scalar_type: ".u32")))
+                   (option: ".clamp")
+                   (option: ".add")
             )"#,
         )?;
         assert_parses_to(
@@ -1630,6 +1711,7 @@ ld.param.b32 %r115, [retval0+0];
         assert_parses_to(Rule::variable_decl, ".reg     .b32 r1, r2;", want)?;
         Ok(())
     }
+
 
     #[test]
     fn parse_loc_1_120_13() -> eyre::Result<()> {
@@ -1815,21 +1897,70 @@ ld.param.b32 %r115, [retval0+0];
     }
 
     #[test]
-    fn parse_all_kernels() -> eyre::Result<()> {
+    fn extract_opcodes() -> eyre::Result<()> {
         use std::fs::{read_dir, read_to_string, DirEntry};
         use std::path::PathBuf;
+        use std::collections::HashSet;
+
         crate::tests::init_test();
-        // pest::set_call_limit(std::num::NonZeroUsize::new(10000));
         let kernels_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("kernels");
         dbg!(&kernels_dir);
         let mut kernels = read_dir(&kernels_dir)?
             .into_iter()
             .collect::<Result<Vec<DirEntry>, _>>()?;
         kernels.sort_by_key(|k| k.path());
+
+        let all_opcodes = ALL_OPCODES.join("|");
+        let opcode_regex = regex::Regex::new(&format!(r"({})(\.[\w.:]*)", all_opcodes)).unwrap();
+
+        // atom.add.release.gpu.u32 %r57,[%rd10],%r58;
+        let mut all_options = HashSet::new();
         for kernel in kernels {
             dbg!(&kernel.path());
             let ptx_code = read_to_string(kernel.path())?;
-            let parsed = PTXParser::parse(Rule::program, &ptx_code)?;
+            let captures = opcode_regex.captures_iter(&ptx_code);
+            for m in captures {
+                let options = m[2].split(".").filter(|o| !o.is_empty()).map(ToString::to_string);
+                all_options.extend(options);
+            }
+        }
+
+        let mut all_options: Vec<_> = all_options.into_iter().collect();
+        all_options.sort();
+        dbg!(&all_options);
+        Ok(())
+    }
+
+    #[test]
+    fn all_kernels() -> eyre::Result<()> {
+        use std::fs::{read_dir, read_to_string, DirEntry};
+        use std::path::PathBuf;
+        use std::time::Instant;
+        crate::tests::init_test();
+        // pest::set_call_limit(std::num::NonZeroUsize::new(10000));
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let kernels_dir = manifest_dir.join("kernels");
+        dbg!(&kernels_dir);
+        let mut kernels = read_dir(&kernels_dir)?
+            .into_iter()
+            .collect::<Result<Vec<DirEntry>, _>>()?;
+        kernels.sort_by_key(|k| k.path());
+
+        let skip = std::env::var("SKIP").ok().map(|s| s.parse::<usize>()).transpose()?.unwrap_or(0);
+
+        let kernels_iter = kernels.iter().enumerate().skip(skip);
+
+        for (i, kernel) in kernels_iter { 
+            let ptx_code = read_to_string(kernel.path())?;
+            let code_size_bytes = ptx_code.bytes().len();
+            let start = Instant::now();
+            let _parsed = PTXParser::parse(Rule::program, &ptx_code)?;
+            let dur = start.elapsed();
+            let dur_millis = dur.as_millis();
+            let dur_secs = dur.as_secs_f64();
+            let code_size_mib = code_size_bytes as f64 / (1024.0*1024.0);
+            let mib_per_sec = code_size_mib / dur_secs;
+            println!("[{:>4}] parsing {} took {} ms ({:3.3} MiB/s)", i, &kernel.path().display(), dur_millis, mib_per_sec);
         }
         Ok(())
     }

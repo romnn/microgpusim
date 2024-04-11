@@ -103,6 +103,6 @@ pub enum ParseError<'a> {
 //     pub value: f64,
 // }
 
-#[derive(Debug, FromPest)]
-#[pest_ast(rule(Rule::EOI))]
-struct EOI;
+// #[derive(Debug, FromPest)]
+// #[pest_ast(rule(Rule::EOI))]
+// struct EOI;

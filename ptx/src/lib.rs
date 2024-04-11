@@ -1,16 +1,9 @@
 #![allow(dead_code)]
 
-#[macro_use]
-extern crate pest_derive;
-#[macro_use]
-extern crate pest_ast;
-#[macro_use]
-extern crate pest;
+pub mod ast;
+pub mod parser;
 
-mod ast;
-mod parser;
-
-use crate::parser::Rule;
+use parser::Rule;
 use ast::{ASTNode, FunctionDeclHeader, ParseError};
 use color_eyre::eyre;
 use pest::iterators::Pair;
