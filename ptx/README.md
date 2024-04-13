@@ -14,5 +14,10 @@ The provided libraries may in the future be used for
 docker run -v "$PWD/kernels/:/out" ptxsamples
 ```
 
-i = 194
-[ptx/src/parser.rs:1909:13] &kernel.path() = "/Users/roman/dev/box/ptx/kernels/cuda_12_3_r123compiler33567101_0_sm50_newdelete.1.sm_50.ptx"
+```bash
+brew tap LouisBrunner/valgrind
+brew install --HEAD LouisBrunner/valgrind/valgrind
+brew install qcachegrind
+
+valgrind --tool=callgrind --callgrind-out-file="callgrind.out" target/release/ptx parse-ptx ./kernels/vectoradd.sm_52.ptx
+```

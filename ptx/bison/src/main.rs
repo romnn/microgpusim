@@ -1,7 +1,7 @@
-use color_eyre::eyre;
 use clap::Parser;
-use std::path::PathBuf;
+use color_eyre::eyre;
 use std::ffi::CString;
+use std::path::PathBuf;
 use std::time::Instant;
 
 #[derive(Parser, Debug, Clone)]
@@ -25,7 +25,7 @@ fn main() -> eyre::Result<()> {
     let options = Options::parse();
 
     match options.command {
-        Command::ParsePTX(ParsePTXOptions {ptx_path}) => {
+        Command::ParsePTX(ParsePTXOptions { ptx_path }) => {
             let code_size_bytes = std::fs::metadata(&ptx_path)?.len();
             let path = CString::new(ptx_path.to_string_lossy().as_bytes())?;
             let start = Instant::now();
@@ -33,10 +33,14 @@ fn main() -> eyre::Result<()> {
             let dur = start.elapsed();
             let dur_millis = dur.as_millis();
             let dur_secs = dur.as_secs_f64();
-            let code_size_mib = code_size_bytes as f64 / (1024.0*1024.0);
+            let code_size_mib = code_size_bytes as f64 / (1024.0 * 1024.0);
             let mib_per_sec = code_size_mib / dur_secs;
-            println!("parsing {} took {} ms ({:3.3} MiB/s)", ptx_path.display(), dur_millis, mib_per_sec);
-
+            println!(
+                "parsing {} took {} ms ({:3.3} MiB/s)",
+                ptx_path.display(),
+                dur_millis,
+                mib_per_sec
+            );
         }
     }
 

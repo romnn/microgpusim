@@ -1,11 +1,13 @@
+// PTX PEG grammar
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#syntax
+
 program = _{ SOI ~ statement* ~ EOI }
 statement = _{ 
   directive
     | function_defn
 }
 
-directive = _{
+directive = {
   variable_decl ~ ";"
   	| function_decl ~ ";"
     | version_directive
@@ -24,19 +26,15 @@ variable_decl = {
 }
 variable_decl_initializer = { 
 	initializer_list | operand_list
-	// initializer_list | literal_operand | identifier_spec 
 }
 initializer_list = _{
 	"{" ~ operand_list ~ "}"
-	// "{" ~ initializer_list ~ "}" | "{" ~ literal_list ~ "}" 
 }
 literal_list = _{ 
 	literal_operand ~ ("," ~ literal_operand)*
-	// literal_operand ~ "," ~ literal_list | literal_operand 
 }
 identifier_list = _{ 
 	identifier_spec ~ ("," ~ identifier_spec)*
-	// identifier_spec ~ "," ~ identifier_list | identifier_spec 
 }
 
 // TODO: split into more rules
@@ -47,55 +45,38 @@ block_spec = {
 }
 block_spec_list = _{ 
 	block_spec ~ block_spec*
-	// block_spec ~ block_spec_list | block_spec 
 }
 
 function_defn = {
-  function_decl ~ block_spec_list ~ function_statement_block
-  | function_decl ~ function_statement_block
+  function_decl ~ block_spec_list? ~ function_statement_block
 }
 
 
-function_statement_block = { "{" ~ function_statement_list? ~ "}" }
+function_statement_block = { 
+	"{" ~ function_statement_list? ~ "}"
+}
 function_statement = _{ 
 	prototype_decl
 	| label
 	| directive
 	| instruction_statement 
-	// | prototype_block
 	// we can have blocks of code ({ ... }) in function bodies
 	| function_statement_block
 }
 function_statement_list = _{
 	function_statement ~ function_statement*
-	// function_statement ~ function_statement_list | function_statement
 }
-
-// function_statement_list = _{
-    //label ~ statement_list
-    //| instruction_statement ~ statement_list
-    //| directive ~ statement_list
-    //| prototype_block ~ statement_list
-    //| label
-    //| instruction_statement
-    //| directive
-    // | statement_block
-    // statement_block ~ statement_list
-//}
-
-// registerDeclaration | location | label | pragma | callprototype | calltargets;
 
 // Instruction statement
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#instruction-statements
-// | instruction ~ ";"
-// | identifier ~ ":"
-label = { identifier ~ ":" }
 instruction_statement = {
-	label ~ predicate ~ instruction ~ ";"
-	| predicate ~ instruction ~ ";"
-	| label ~ instruction ~ ";"
-	| instruction ~ ";"
+	label? ~ predicate? ~ instruction ~ ";"
+	// label ~ predicate ~ instruction ~ ";"
+	// | predicate ~ instruction ~ ";"
+	// | label ~ instruction ~ ";"
+	// | instruction ~ ";"
 }
+label = { identifier ~ ":" }
 predicate = {
 	"@!" ~ identifier
   	| "@" ~ identifier ~ (
@@ -106,9 +87,7 @@ predicate = {
 lohi_option = { ".lo" | ".hi" }
 
 instruction = {
-	function_call
-    | opcode_spec ~ operand_list?
-    // opcode_spec ~ operand_list | opcode_spec
+	function_call | opcode_spec ~ operand_list?
 }
 
 // direct call to named function, func is a symbol
@@ -148,7 +127,6 @@ function_call = {
 
 operand_list = _{ 
 	operand ~ ("," ~ operand)*
-	// operand ~ "," ~ operand_list | operand 
 }
 operand = {
   // starts with % or WARP_SZ
@@ -174,7 +152,8 @@ operand = {
 
 // Built-in special operand.
 builtin_operand = { 
-	special_register ~ dimension_modifier | special_register }
+	special_register ~ dimension_modifier?
+}
 
 
 // Literal operand
@@ -195,7 +174,9 @@ literal_operand = {
 //
 // Example:
 // todo
-tex_operand = { "[" ~ identifier ~ "," ~ vector_operand ~ "]" }
+tex_operand = {
+	"[" ~ identifier ~ "," ~ vector_operand ~ "]"
+}
 
 
 // Vector operand
@@ -233,7 +214,9 @@ memory_operand = {
 // ld.global.u32  s, a[0];
 // ld.global.u32  s, a[N-1];
 // mov.u32        s, a[1];
-array_operand = { identifier ~ "[" ~ address_expression ~ "]" }
+array_operand = {
+	identifier ~ "[" ~ address_expression ~ "]"
+}
 
 twin_operand = {
 	// todo: are we missing something here?
@@ -265,31 +248,11 @@ function_decl = {
   | function_decl_header ~ function_name
 }
 
-// todo: refactor this
-// function_decl_header_entry
-// | function_decl_header_visible_entry
-// | function_decl_header_weak_entry
-// | function_decl_header_func
-// | function_decl_header_visible_func
-// | function_decl_header_weak_func
-// | function_decl_header_extern_func
 function_decl_header = {
-	// function_decl_visibility* ~ (function_decl_entry | function_decl_func)
 	function_decl_visibility* ~ function_decl_kind
 }
 function_decl_visibility = { ".visible" | ".weak" | ".extern" }
 function_decl_kind = { ".entry" | ".func" }
-
-// function_decl_entry = { ".entry" }
-// function_decl_func = { ".func" }
-
-// function_decl_header_entry          = { ".entry" }
-// function_decl_header_visible_entry  = { ".visible" ~ ".entry" }
-// function_decl_header_weak_entry     = { ".weak" ~ ".entry" }
-// function_decl_header_func           = { ".func" }
-// function_decl_header_visible_func   = { ".visible" ~ ".func" }
-// function_decl_header_weak_func      = { ".weak" ~ ".func" }
-// function_decl_header_extern_func    = { ".extern" ~ ".func" }
 
 function_name = @{ identifier }
 function_return_val = { "(" ~ function_param ~ ")" }
@@ -299,15 +262,10 @@ function_param = {
 }
 function_param_list = _{
 	function_param ~ ("," ~ function_param)*
-	// function_param ~ "," ~ function_param_list | function_param 
 }
 function_parameters = { 
-	"(" ~ ")" 
-	| "(" ~ function_param_list ~ ")" 
+	"(" ~ function_param_list? ~ ")" 
 }
-// function_name_and_parameters = {
-//  function_name ~ "(" ~ function_param_list? ~ ")" | function_name
-// }
 
 special_register = {
   "%clock64"
@@ -349,13 +307,11 @@ target_directive = { ".target" ~ identifier ~ ("," ~ identifier){0,2} }
 
 pragma_directive = { ".pragma" ~ quoted ~ ";" }
 
-// version_directive = { ".version" ~ double ~ "+"? }
 version_directive = { ".version" ~ version_directive_major ~ "." ~ version_directive_minor ~ "+"? }
 version_directive_major = @{ integer }
 version_directive_minor = @{ integer }
 
 
-// file_directive = { ".file" ~ integer ~ quoted ~ (("," ~ integer){2})? }
 file_directive_timestamp = { integer }
 file_directive_filesize = { integer }
 file_directive = { 
@@ -367,25 +323,36 @@ section_directive = { ".section" ~ (debug_str_section)}
 debug_str_section = { ".debug_str" ~ "{" ~ debug_str_list ~ "}"}
 debug_str = { label | ".b8" ~ integer ~ ("," ~ integer)* }
 debug_str_list = _{
-	debug_str ~ debug_str*
-	// debug_str ~ debug_str_list | debug_str
+	debug_str+
+	// debug_str ~ debug_str*
 }
 
-loc_directive = { ".loc" ~ integer ~ integer ~ integer ~ (("," ~ loc_attributes))* }
+loc_directive = { 
+	".loc" ~ integer ~ integer ~ integer ~ (("," ~ loc_attributes))* 
+}
 loc_attributes = { loc_function_name_attr | loc_inlined_at_attr }
 // todo: identifier does not work as it does not recognize .debug_str..
 // either we allow everything here (except for ",") or only .debug_str
-loc_function_name_label = { identifier | ".debug_str" }
-loc_function_name_attr = { "function_name" ~ loc_function_name_label ~ ("+" ~ integer)?}
-loc_inlined_at_attr = { "inlined_at" ~ integer ~ integer ~ integer }
+loc_function_name_label = { 
+	identifier | ".debug_str" 
+}
+loc_function_name_attr = {
+	"function_name" ~ loc_function_name_label ~ ("+" ~ integer)?
+}
+loc_inlined_at_attr = { 
+	"inlined_at" ~ integer ~ integer ~ integer
+}
 
 ptr_spec = {
-  ".ptr" ~ ptr_space_spec ~ align_spec
-    | ".ptr" ~ align_spec
+  ".ptr" ~ ptr_space_spec? ~ align_spec
+  // ".ptr" ~ ptr_space_spec ~ align_spec | ".ptr" ~ align_spec
 }
-ptr_space_spec = { ".global" | ".local" | ".shared" | ".const" }
-// ptr_align_spec = { ".align" ~ integer }
-align_spec = { ".align" ~ integer }
+ptr_space_spec = { 
+	".global" | ".local" | ".shared" | ".const" 
+}
+align_spec = { 
+	".align" ~ integer 
+}
 
 variable_spec = {
   space_spec | type_spec | align_spec
@@ -393,23 +360,10 @@ variable_spec = {
 }
 variable_spec_list = _{
 	variable_spec ~ variable_spec*
-	// variable_spec ~ variable_spec_list | variable_spec
 }
 
-
-// this is a bit sketchy
-// we cannot "group" well, because for example
-// compare_spec contains a ".lo" and addressable_spec contains a ".local"
-// because of that, we always need to make sure that ".local" (the more
-// specific case) precedes ".lo"
 option = {
-	// level must come before compare_spec (".le")
-    // | type_spec
-    // | addressable_spec
-    // | compare_spec
     wmma_spec
-    // | rounding_mode
-    // | prmt_spec
 	| cache_level ~ "::" ~ cache_eviction_priority
 		~ cache_level ~ "::" ~ "cache_hint"
 		~ cache_level ~ "::" ~ cache_prefetch_size
@@ -525,20 +479,6 @@ cache_eviction_priority = {
 }
 cache_prefetch_size = { integer ~ "B" }
 
-//atomic_operation_spec = {
-//  ".and"
-//    | ".popc"
-//    | ".or"
-//    | ".xor"
-//    | ".cas"
-//    | ".exch"
-//    | ".add"
-//    | ".inc"
-//    | ".dec"
-//    | ".min"
-//    | ".max"
-//}
-
 // precedence: integer > floating point
 rounding_mode = { integer_rounding_mode | floating_point_rounding_mode }
 floating_point_rounding_mode = { ".rn" | ".rz" | ".rm" | ".rp" }
@@ -559,7 +499,9 @@ wmma_spec = {
   // wmma_directive ~ layout ~ configuration
   //  | wmma_directive ~ layout ~ layout ~ configuration
 }
-wmma_directive = { ".a.sync" | ".b.sync" | ".c.sync" | ".d.sync" | ".mma.sync" }
+wmma_directive = { 
+	".a.sync" | ".b.sync" | ".c.sync" | ".d.sync" | ".mma.sync"
+}
 layout = { ".row" | ".col" }
 configuration = { ".m16n16k16" | ".m32n8k16" | ".m8n32k16" }
 
@@ -569,17 +511,7 @@ prototype_decl = {
     ~ identifier ~ "(" ~ prototype_param_list? ~ ")" ~ ";"
 }
 prototype_call_return_value = @{ identifier }
-// prototype_call_params = @{ identifier }
 prototype_call_function = @{ operand }
-
-// TODO: remove
-// prototype_call = {
-//  opcode ~ "(" ~ prototype_call_return_value ~ ")" ~ ","
-//    ~ prototype_call_function ~ ","
-// ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
-// | opcode ~ identifier ~ "," ~ "(" ~ identifier ~ ")" ~ "," ~ identifier ~ ";"
-// }
-// prototype_param = { ".param" ~ (".b32" | ".b64") ~ identifier }
 
 prototype_param = { 
 	".param" ~ align_spec? ~ scalar_type ~ identifier_spec
@@ -590,25 +522,6 @@ prototype_param_list = _{
 	// prototype_param ~ "," ~ prototype_param_list | prototype_param
 }
 
-
-// note: "addp" == "addc" > "add"
-// note: "andn" > "and"
-// note: "bar.warp" > "bar"
-// note: "bfind" > "bfi"
-// note: "breakaddr" > "break"
-// note: "callp" > "call"
-// note: "cvta" > "cvt"
-// note: "ld.volatile" > "ldu" > "ld"
-// note: "mad24" > "madc" == "madp" > "mad"
-// note: "mul24" > "mul"
-// note: "orn" > "or"
-// note: "prefetchu" > "prefetch"
-// note: "retp" > "ret"
-// note: "setp" > "set"
-// note: "st.volatile" > "st"
-// note: "subc" > "sub"
-// note: "setp" > "set"
-// note: "wmma.load" == "wmma.store" > "wmma"
 opcode = {
   "abs" |  "addp" | "addc" | "add" | "andn" | "aloca" | "applypriority"
   | "and" | "atom" | "activemask"
@@ -714,4 +627,4 @@ COMMENT = _{
   "/*" ~ (!"*/" ~ ANY)* ~ "*/" // multiline
     | "//" ~ (!"\n" ~ ANY)* // single line
 }
-WHITESPACE = _{ " " | "\t" | NEWLINE } // skip whitespace
+WHITESPACE = _{ " " | "\t" | "\r" | NEWLINE } // skip whitespace

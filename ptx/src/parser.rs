@@ -607,10 +607,7 @@ mod tests {
                         RL(Rule::opcode_spec),
                         vec![
                             E::T(RL(Rule::opcode), Some("shl".to_string())),
-                            E::T(
-                                RL(Rule::option),
-                                Some(".b32".to_string()),
-                            ),
+                            E::T(RL(Rule::option), Some(".b32".to_string())),
                         ],
                     ),
                     E::NT(
@@ -1075,159 +1072,158 @@ mod tests {
     }
 
     const ALL_OPCODES: [&str; 151] = [
-            "abs",
-            "addp",
-            "addc",
-            "add",
-            "andn",
-            "aloca",
-            "applypriority",
-            "and",
-            "atom",
-            "activemask",
-            "barrier",
-            "bar.warp",
-            "bar",
-            "bfe",
-            "bfind",
-            "bfi",
-            "bra",
-            "brx",
-            "brev",
-            "brkpt",
-            "bmsk",
-            "breakaddr",
-            "break",
-            "callp",
-            "call",
-            "clz",
-            "cnot",
-            "cos",
-            "cvta",
-            "cvt",
-            "copysign",
-            "cp",
-            "createpolicy",
-            "div",
-            "dp4a",
-            "dp2a",
-            "discard",
-            "ex2",
-            "exit",
-            "elect",
-            "fma",
-            "fence",
-            "fns",
-            "getctarank",
-            "griddepcontrol",
-            "isspacep",
-            "istypep",
-            "ld.volatile",
-            "ldu",
-            "ldmatrix",
-            "ld",
-            "lg2",
-            "lop3",
-            "mad24",
-            "madc",
-            "madp",
-            "mad",
-            "max",
-            "membar",
-            "min",
-            "movmatrix",
-            "mov",
-            "mul24",
-            "mul",
-            "mapa",
-            "match",
-            "mbarrier",
-            "mma",
-            "multimem",
-            "neg",
-            "nandn",
-            "norn",
-            "not",
-            "nop",
-            "nanosleep",
-            "orn",
-            "or",
-            "pmevent",
-            "popc",
-            "prefetchu",
-            "prefetch",
-            "prmt",
-            "rcp",
-            "redux",
-            "red",
-            "rem",
-            "retp",
-            "ret",
-            "rsqrt",
-            "sad",
-            "selp",
-            "setp",
-            "setmaxnreg",
-            "set",
-            "shfl",
-            "shf",
-            "shl",
-            "shr",
-            "sin",
-            "slct",
-            "sqrt",
-            "sst",
-            "ssy",
-            "stacksave",
-            "stackrestore",
-            "st.volatile",
-            "stmatrix",
-            "st",
-            "subc",
-            "sub",
-            "suld",
-            "sured",
-            "sust",
-            "surst",
-            "suq",
-            "szext",
-            "tex",
-            "txq",
-            "trap",
-            "tanh",
-            "testp",
-            "tld4",
-            "vabsdiff4",
-            "vabsdiff2",
-            "vabsdiff",
-            "vadd4",
-            "vadd2",
-            "vadd",
-            "vavrg4",
-            "vavrg2",
-            "vmad",
-            "vmax4",
-            "vmax2",
-            "vmax",
-            "vmin4",
-            "vmin2",
-            "vmin",
-            "vset4",
-            "vset2",
-            "vset",
-            "vshl",
-            "vshr",
-            "vsub4",
-            "vsub2",
-            "vsub",
-            "vote",
-            "wgmma",
-            "wmma.load",
-            "wmma.store",
-            "wmma",
-            "xor",
-        ];
-
+        "abs",
+        "addp",
+        "addc",
+        "add",
+        "andn",
+        "aloca",
+        "applypriority",
+        "and",
+        "atom",
+        "activemask",
+        "barrier",
+        "bar.warp",
+        "bar",
+        "bfe",
+        "bfind",
+        "bfi",
+        "bra",
+        "brx",
+        "brev",
+        "brkpt",
+        "bmsk",
+        "breakaddr",
+        "break",
+        "callp",
+        "call",
+        "clz",
+        "cnot",
+        "cos",
+        "cvta",
+        "cvt",
+        "copysign",
+        "cp",
+        "createpolicy",
+        "div",
+        "dp4a",
+        "dp2a",
+        "discard",
+        "ex2",
+        "exit",
+        "elect",
+        "fma",
+        "fence",
+        "fns",
+        "getctarank",
+        "griddepcontrol",
+        "isspacep",
+        "istypep",
+        "ld.volatile",
+        "ldu",
+        "ldmatrix",
+        "ld",
+        "lg2",
+        "lop3",
+        "mad24",
+        "madc",
+        "madp",
+        "mad",
+        "max",
+        "membar",
+        "min",
+        "movmatrix",
+        "mov",
+        "mul24",
+        "mul",
+        "mapa",
+        "match",
+        "mbarrier",
+        "mma",
+        "multimem",
+        "neg",
+        "nandn",
+        "norn",
+        "not",
+        "nop",
+        "nanosleep",
+        "orn",
+        "or",
+        "pmevent",
+        "popc",
+        "prefetchu",
+        "prefetch",
+        "prmt",
+        "rcp",
+        "redux",
+        "red",
+        "rem",
+        "retp",
+        "ret",
+        "rsqrt",
+        "sad",
+        "selp",
+        "setp",
+        "setmaxnreg",
+        "set",
+        "shfl",
+        "shf",
+        "shl",
+        "shr",
+        "sin",
+        "slct",
+        "sqrt",
+        "sst",
+        "ssy",
+        "stacksave",
+        "stackrestore",
+        "st.volatile",
+        "stmatrix",
+        "st",
+        "subc",
+        "sub",
+        "suld",
+        "sured",
+        "sust",
+        "surst",
+        "suq",
+        "szext",
+        "tex",
+        "txq",
+        "trap",
+        "tanh",
+        "testp",
+        "tld4",
+        "vabsdiff4",
+        "vabsdiff2",
+        "vabsdiff",
+        "vadd4",
+        "vadd2",
+        "vadd",
+        "vavrg4",
+        "vavrg2",
+        "vmad",
+        "vmax4",
+        "vmax2",
+        "vmax",
+        "vmin4",
+        "vmin2",
+        "vmin",
+        "vset4",
+        "vset2",
+        "vset",
+        "vshl",
+        "vshr",
+        "vsub4",
+        "vsub2",
+        "vsub",
+        "vote",
+        "wgmma",
+        "wmma.load",
+        "wmma.store",
+        "wmma",
+        "xor",
+    ];
 
     #[test]
     fn opcode_precendence() -> eyre::Result<()> {
@@ -1337,7 +1333,6 @@ param1
         )?;
         Ok(())
     }
-
 
     #[allow(non_snake_case)]
     #[test]
@@ -1541,7 +1536,6 @@ ld.param.b32 %r115, [retval0+0];
         Ok(())
     }
 
-    
     #[test]
     fn parse_prototype_decl_prototype_15_callprototype() -> eyre::Result<()> {
         crate::tests::init_test();
@@ -1580,7 +1574,6 @@ ld.param.b32 %r115, [retval0+0];
         assert_parses_to(Rule::prototype_decl, code, want)?;
         Ok(())
     }
-
 
     #[test]
     fn parse_extern_func_param_b32_func_retval0_vprintf() -> eyre::Result<()> {
@@ -1721,7 +1714,6 @@ ld.param.b32 %r115, [retval0+0];
         assert_parses_to(Rule::variable_decl, ".reg     .b32 r1, r2;", want)?;
         Ok(())
     }
-
 
     #[test]
     fn parse_loc_1_120_13() -> eyre::Result<()> {
@@ -1908,9 +1900,9 @@ ld.param.b32 %r115, [retval0+0];
 
     #[test]
     fn extract_opcodes() -> eyre::Result<()> {
+        use std::collections::HashSet;
         use std::fs::{read_dir, read_to_string, DirEntry};
         use std::path::PathBuf;
-        use std::collections::HashSet;
 
         crate::tests::init_test();
         let kernels_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("kernels");
@@ -1930,7 +1922,10 @@ ld.param.b32 %r115, [retval0+0];
             let ptx_code = read_to_string(kernel.path())?;
             let captures = opcode_regex.captures_iter(&ptx_code);
             for m in captures {
-                let options = m[2].split(".").filter(|o| !o.is_empty()).map(ToString::to_string);
+                let options = m[2]
+                    .split(".")
+                    .filter(|o| !o.is_empty())
+                    .map(ToString::to_string);
                 all_options.extend(options);
             }
         }
@@ -1956,11 +1951,15 @@ ld.param.b32 %r115, [retval0+0];
             .collect::<Result<Vec<DirEntry>, _>>()?;
         kernels.sort_by_key(|k| k.path());
 
-        let skip = std::env::var("SKIP").ok().map(|s| s.parse::<usize>()).transpose()?.unwrap_or(0);
+        let skip = std::env::var("SKIP")
+            .ok()
+            .map(|s| s.parse::<usize>())
+            .transpose()?
+            .unwrap_or(0);
 
         let kernels_iter = kernels.iter().enumerate().skip(skip);
 
-        for (i, kernel) in kernels_iter { 
+        for (i, kernel) in kernels_iter {
             let ptx_code = read_to_string(kernel.path())?;
             let code_size_bytes = ptx_code.bytes().len();
             let start = Instant::now();
@@ -1968,9 +1967,15 @@ ld.param.b32 %r115, [retval0+0];
             let dur = start.elapsed();
             let dur_millis = dur.as_millis();
             let dur_secs = dur.as_secs_f64();
-            let code_size_mib = code_size_bytes as f64 / (1024.0*1024.0);
+            let code_size_mib = code_size_bytes as f64 / (1024.0 * 1024.0);
             let mib_per_sec = code_size_mib / dur_secs;
-            println!("[{:>4}] parsing {} took {} ms ({:3.3} MiB/s)", i, &kernel.path().display(), dur_millis, mib_per_sec);
+            println!(
+                "[{:>4}] parsing {} took {} ms ({:3.3} MiB/s)",
+                i,
+                &kernel.path().display(),
+                dur_millis,
+                mib_per_sec
+            );
         }
         Ok(())
     }

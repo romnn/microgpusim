@@ -7,6 +7,7 @@ benchmarks/
 cuda-samples-12.4/
 cuda-samples-12.4.tar.gz
 
+callgrind.out
 bison/bindings.rs
 
 bison/src/ptx.lex.h

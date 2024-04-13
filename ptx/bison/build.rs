@@ -31,7 +31,6 @@ fn enable_diagnostics_color(build: &mut cc::Build) {
     }
 }
 
-
 fn configure_debug_mode(build: &mut cc::Build) {
     if is_debug() {
         build.opt_level(0).debug(true).flag("-ggdb3");
@@ -98,12 +97,22 @@ fn generate_bindings() -> eyre::Result<()> {
     Ok(())
 }
 
-
 fn build_ptx_parser() -> eyre::Result<()> {
     let out_dir = output_path().join("generated");
     std::fs::create_dir(&out_dir).ok();
 
-    let lex_input_files = [(PathBuf::from("./src/ptx.l"), out_dir.join("ptx.lex.h"), out_dir.join("ptx.lex.c")), (PathBuf::from("./src/ptxinfo.l"), out_dir.join("ptxinfo.lex.h"), out_dir.join("ptxinfo.lex.c"))];
+    let lex_input_files = [
+        (
+            PathBuf::from("./src/ptx.l"),
+            out_dir.join("ptx.lex.h"),
+            out_dir.join("ptx.lex.c"),
+        ),
+        (
+            PathBuf::from("./src/ptxinfo.l"),
+            out_dir.join("ptxinfo.lex.h"),
+            out_dir.join("ptxinfo.lex.c"),
+        ),
+    ];
 
     for (lex_input_file, lex_output_header, lex_output_file) in &lex_input_files {
         assert!(lex_input_file.is_file());
@@ -128,7 +137,18 @@ fn build_ptx_parser() -> eyre::Result<()> {
         }
     }
 
-    let bison_input_files = [(PathBuf::from("./src/ptx.y"), out_dir.join("ptx.parser"), "ptx_"), (PathBuf::from("./src/ptxinfo.y"), out_dir.join("ptxinfo.parser"), "ptxinfo_")];
+    let bison_input_files = [
+        (
+            PathBuf::from("./src/ptx.y"),
+            out_dir.join("ptx.parser"),
+            "ptx_",
+        ),
+        (
+            PathBuf::from("./src/ptxinfo.y"),
+            out_dir.join("ptxinfo.parser"),
+            "ptxinfo_",
+        ),
+    ];
 
     for (bison_input_file, bison_output_file, prefix) in &bison_input_files {
         let args = [
@@ -158,13 +178,22 @@ fn build_ptx_parser() -> eyre::Result<()> {
     let source_dir = PathBuf::from("./src/");
     // let generated_ptx_lexer = out_dir.join("ptx.lex.c");
     // let generated_ptx_parser = out_dir.join("ptx.parser.tab.c");
-    let generated_files: Vec<_> = lex_input_files.iter()
-        .map(|(_, _, generated)| generated).cloned()
-        .chain(bison_input_files.iter()
-        .map(|(_, generated, _)| generated)
-        .map(|p| p.with_file_name(
-            format!("{}.tab.c", p.file_name().unwrap_or_default().to_string_lossy())
-        ))).collect();
+    let generated_files: Vec<_> = lex_input_files
+        .iter()
+        .map(|(_, _, generated)| generated)
+        .cloned()
+        .chain(
+            bison_input_files
+                .iter()
+                .map(|(_, generated, _)| generated)
+                .map(|p| {
+                    p.with_file_name(format!(
+                        "{}.tab.c",
+                        p.file_name().unwrap_or_default().to_string_lossy()
+                    ))
+                }),
+        )
+        .collect();
 
     dbg!(&generated_files);
     // vec![
@@ -199,10 +228,12 @@ fn build_ptx_parser() -> eyre::Result<()> {
 
     if std::env::var("DUMP").unwrap_or_default().as_str() == "yes" {
         // move to source dir
-        for (generated_path, file_name) in generated_files.iter().filter_map(|p| match p.file_name() {
-            Some(file_name) => Some((p, file_name)),
-            None => None
-        }) {
+        for (generated_path, file_name) in
+            generated_files.iter().filter_map(|p| match p.file_name() {
+                Some(file_name) => Some((p, file_name)),
+                None => None,
+            })
+        {
             let src = generated_path.with_extension("h");
             let dest = source_dir.join(file_name).with_extension("h");
             println!("cargo:warning=copy {} to {}", src.display(), dest.display());
