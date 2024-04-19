@@ -272,7 +272,6 @@ mod tests {
                 gpgpu_operand_collector_num_out_ports_sfu: 1,
                 gpgpu_operand_collector_num_in_ports_mem: 1,
                 gpgpu_operand_collector_num_out_ports_mem: 1,
-                
                 gpgpu_coalesce_arch: 61,
                 gpgpu_num_reg_banks: 16,
                 gpgpu_reg_file_port_throughput: 2,

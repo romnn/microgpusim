@@ -1,17 +1,12 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 use crate::{
     address,
     cache::{self, controller::pascal, Bandwidth, Cache, ComputeStats},
     config,
     core::PipelineStage,
-    // fifo::Fifo,
     func_unit as fu,
     instruction::{CacheOperator, MemorySpace, WarpInstruction},
-    interconn as ic,
-    mcu,
-    mem_fetch,
-    mem_sub_partition,
-    mshr,
+    interconn as ic, mcu, mem_fetch, mem_sub_partition, mshr,
     register_set::{self},
     scoreboard::{self, Access},
     warp,
@@ -554,7 +549,7 @@ where
 
     pub fn writeback(
         &mut self,
-        operand_collector: &mut dyn crate::operand_collector::Writeback,
+        operand_collector: &mut dyn crate::operand_collector::RegisterFileUnitTrait,
         scoreboard: &mut dyn scoreboard::Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,
@@ -1171,7 +1166,7 @@ where
 
     fn cycle(
         &mut self,
-        operand_collector: &mut dyn crate::operand_collector::Writeback,
+        operand_collector: &mut dyn crate::operand_collector::RegisterFileUnitTrait,
         scoreboard: &mut dyn Access,
         warps: &mut [warp::Warp],
         stats: &mut stats::PerKernel,

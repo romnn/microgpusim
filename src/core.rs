@@ -538,8 +538,8 @@ pub struct Core<I, MC> {
     pub scoreboard: scoreboard::Scoreboard,
     pub mem_controller: Arc<MC>,
     pub barriers: barrier::BarrierSet,
-    pub register_file: RegisterFileUnit,
-
+    pub register_file: Box<dyn operand_collector::RegisterFileUnitTrait>,
+    // pub register_file: RegisterFileUnit,
     /// The register set for each
     pub pipeline_reg: Box<[register_set::RegisterSet]>,
     pub result_busses: Box<[ResultBus]>,
@@ -719,6 +719,8 @@ where
         let mut register_file = RegisterFileUnit::new(config.clone());
         // configure generic collectors
         Self::init_operand_collector(&mut register_file, &config);
+
+        let register_file = Box::new(register_file);
 
         let load_store_unit = fu::LoadStoreUnit::new(
             global_core_id, // is the core id for now
@@ -1257,7 +1259,7 @@ where
 
             // let todo = self.mem_port.try_lock();
             fu.cycle(
-                &mut self.register_file,
+                &mut *self.register_file,
                 &mut self.scoreboard,
                 &mut self.warps,
                 &mut self.stats,
@@ -1858,13 +1860,13 @@ impl<I, MC> Core<I, MC> {
 
         // let (block_id, mut block_reader) = {
         // why do threads spend literally 25s waiting for this lock?
-        let mut block_reader = kernel.next_block_reader().lock();
+        let mut kernel_reader = kernel.reader().lock();
 
         #[cfg(feature = "timings")]
         let start = std::time::Instant::now();
 
         // let block_reader_lock = block.reader_
-        let Some(block) = block_reader.current_block() else {
+        let Some(block) = kernel_reader.current_block() else {
             return false;
         };
         // .expect("kernel has current block");
@@ -1937,7 +1939,7 @@ impl<I, MC> Core<I, MC> {
         self.barriers.allocate(free_block_hw_id as u64, warps);
         self.init_warps(
             // &*self.current_kernel.unwrap().as_ref(),
-            &mut *block_reader,
+            &mut *kernel_reader,
             free_block_hw_id,
             block_id,
             start_thread,
@@ -2572,7 +2574,7 @@ where
         for _ in 0..self.config.reg_file_port_throughput {
             crate::timeit!(
                 "core::operand collector",
-                self.register_file.step(&mut self.pipeline_reg)
+                self.register_file.cycle(&mut self.pipeline_reg)
             );
         }
 

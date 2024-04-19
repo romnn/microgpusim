@@ -303,9 +303,10 @@ pub struct Simulator<I, MC> {
 
     interconn: Arc<I>,
 
+    block_issuer: BlockIssuer<I, MC>,
     // todo refactor into a block issuer trait
-    last_cluster_issue: Arc<Mutex<usize>>,
-
+    // last_cluster_issue: Arc<Mutex<usize>>,
+    // pub cluster_issuers: Box<[cluster::ClusterIssuer<cluster::CoreIssuer<Core<I, MC>>>]>,
     allocations: Arc<allocation::Allocations>,
 
     pub trace: trace::Trace,
@@ -385,7 +386,7 @@ where
         let allocations = Arc::new(Allocations::default());
 
         let warp_instruction_unique_uid = Arc::new(atomic::AtomicU64::new(0));
-        let clusters = (0..config.num_simt_clusters)
+        let clusters: Box<[_]> = (0..config.num_simt_clusters)
             .map(|i| {
                 let cluster = Cluster::new(
                     i,
@@ -399,6 +400,28 @@ where
             })
             .collect();
 
+        // : Vec<cluster::ClusterIssuer<_>>
+        let cluster_issuers: Box<[_]> = (0..config.num_simt_clusters)
+            .map(|i| {
+                let cores: Box<[_]> = clusters[i]
+                    .cores
+                    .iter()
+                    .map(|core| cluster::CoreIssuer { core: core.clone() })
+                    .collect();
+                let cluster = cluster::ClusterIssuer::new(cores);
+                cluster
+            })
+            .collect();
+
+        // this causes first launch to use simt cluster
+        // let last_cluster_issue = Arc::new(Mutex::new(config.num_simt_clusters - 1));
+        assert_eq!(config.num_simt_clusters, cluster_issuers.len());
+        let block_issuer = BlockIssuer {
+            last_cluster_issue: cluster_issuers.len() - 1,
+            num_simt_clusters: cluster_issuers.len(),
+            cluster_issuers,
+        };
+
         assert!(config.max_threads_per_core.rem_euclid(config.warp_size) == 0);
         let trace = trace::Trace::new(config.clone());
 
@@ -407,9 +430,6 @@ where
             .as_deref()
             .map(str::parse)
             .and_then(Result::ok);
-
-        // this causes first launch to use simt cluster
-        let last_cluster_issue = Arc::new(Mutex::new(config.num_simt_clusters - 1));
 
         let kernel_launch_window_queue: VecDeque<Arc<dyn Kernel>> =
             VecDeque::with_capacity(config.kernel_window_size());
@@ -425,7 +445,9 @@ where
             kernel_launch_window_queue,
             clusters,
             warp_instruction_unique_uid,
-            last_cluster_issue,
+            // cluster_issuers,
+            // last_cluster_issue,
+            block_issuer,
             allocations,
             trace,
             cycle_limit,
@@ -463,34 +485,6 @@ where
         self.kernel_manager
             .try_launch_kernel(kernel, launch_latency, cycle)?;
         Ok(())
-    }
-
-    #[tracing::instrument]
-    fn issue_block_to_core_deterministic(&mut self, cycle: u64) {
-        log::debug!("===> issue block to core");
-        let mut last_cluster_issue = self.last_cluster_issue.try_lock();
-        let last_issued = *last_cluster_issue;
-        let num_clusters = self.config.num_simt_clusters;
-        for cluster_id in 0..num_clusters {
-            let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
-            let cluster = &mut self.clusters[cluster_id];
-            debug_assert_eq!(cluster_id, cluster.cluster_id);
-
-            let num_blocks_issued =
-                cluster.issue_block_to_core_deterministic(&mut self.kernel_manager, cycle);
-            log::trace!(
-                "cluster[{}] issued {} blocks",
-                cluster_id,
-                num_blocks_issued
-            );
-
-            if num_blocks_issued > 0 {
-                *last_cluster_issue = cluster_id;
-            }
-        }
-
-        // decrement kernel latency
-        self.kernel_manager.decrement_launch_latency(1);
     }
 
     fn next_clock_domain(&mut self) -> ClockMask {
@@ -796,8 +790,11 @@ where
 
             crate::timeit!(
                 "cycle::issue_block_to_core",
-                self.issue_block_to_core_deterministic(cycle)
+                self.block_issuer
+                    .issue_blocks_to_core_deterministic(&mut self.kernel_manager, cycle) // self.issue_blocks_to_core_deterministic(&mut self.kernel_manager, cycle)
             );
+
+            self.kernel_manager.decrement_launch_latency(1);
 
             // Depending on configuration, invalidate the caches
             // once all threads are completed.
@@ -1666,6 +1663,102 @@ where
             "finished kernel {}: {kernel} in {elapsed_cycles} cycles ({elapsed:?})",
             kernel.id(),
         );
+    }
+
+    // #[tracing::instrument]
+    // fn issue_blocks_to_core_deterministic(&mut self, cycle: u64) {
+    //     log::debug!("===> issue block to core");
+    //     let mut last_cluster_issue = self.last_cluster_issue.try_lock();
+    //     let last_issued = *last_cluster_issue;
+    //     let num_clusters = self.config.num_simt_clusters;
+    //     for cluster_id in 0..num_clusters {
+    //         let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
+    //         let cluster = &mut self.clusters[cluster_id];
+    //         let cluster_issuer = &mut self.cluster_issuers[cluster_id];
+    //         debug_assert_eq!(cluster_id, cluster.cluster_id);
+    //
+    //         use cluster::ClusterIssue;
+    //         let num_blocks_issued =
+    //             cluster_issuer.issue_blocks_to_core_deterministic(&mut self.kernel_manager, cycle);
+    //             // cluster.issue_block_to_core_deterministic(&mut self.kernel_manager, cycle);
+    //         log::trace!(
+    //             "cluster[{}] issued {} blocks",
+    //             cluster_id,
+    //             num_blocks_issued
+    //         );
+    //
+    //         if num_blocks_issued > 0 {
+    //             *last_cluster_issue = cluster_id;
+    //         }
+    //     }
+    //
+    //     // decrement kernel latency
+    //     self.kernel_manager.decrement_launch_latency(1);
+    // }
+}
+
+pub trait BlockIssue {
+    fn issue_blocks_to_core_deterministic<K>(
+        &mut self,
+        kernel_manager: &mut K,
+        cycle: u64,
+    ) -> usize
+    where
+        K: crate::kernel_manager::SelectKernel;
+}
+
+#[derive(Debug)]
+pub struct BlockIssuer<I, MC> {
+    pub last_cluster_issue: usize,
+    pub num_simt_clusters: usize,
+    pub cluster_issuers: Box<[cluster::ClusterIssuer<cluster::CoreIssuer<Core<I, MC>>>]>,
+}
+
+impl<I, MC> BlockIssue for BlockIssuer<I, MC>
+// impl BlockIssue for BlockIssuer
+// impl<I, MC> BlockIssue for Simulator<I, MC>
+// where
+//     I: ic::Interconnect<ic::Packet<mem_fetch::MemFetch>>,
+//     MC: mcu::MemoryController,
+{
+    // #[tracing::instrument]
+    fn issue_blocks_to_core_deterministic<K>(&mut self, kernel_manager: &mut K, cycle: u64) -> usize
+    where
+        K: crate::kernel_manager::SelectKernel,
+    {
+        log::debug!("===> issue block to core");
+        // let mut last_cluster_issue = self.last_cluster_issue.try_lock();
+        let last_cluster_issue = &mut self.last_cluster_issue;
+        let mut num_blocks_issued = 0;
+        let last_issued = *last_cluster_issue;
+        let num_clusters = self.num_simt_clusters;
+        for cluster_id in 0..num_clusters {
+            let cluster_id = (cluster_id + last_issued + 1) % num_clusters;
+            //     let cluster = &mut self.clusters[cluster_id];
+            // debug_assert_eq!(cluster_id, cluster.cluster_id);
+            let cluster_issuer = &mut self.cluster_issuers[cluster_id];
+
+            use cluster::ClusterIssue;
+            let num_blocks_issued_to_cluster =
+                cluster_issuer.issue_blocks_to_core_deterministic(kernel_manager, cycle);
+            // cluster_issuer.issue_blocks_to_core_deterministic(&mut self.kernel_manager, cycle);
+            // cluster.issue_block_to_core_deterministic(&mut self.kernel_manager, cycle);
+
+            log::trace!(
+                "cluster[{}] issued {} blocks",
+                cluster_id,
+                num_blocks_issued
+            );
+
+            if num_blocks_issued_to_cluster > 0 {
+                *last_cluster_issue = cluster_id;
+            }
+            num_blocks_issued += num_blocks_issued_to_cluster;
+        }
+
+        // decrement kernel latency
+        // kernel_manager.decrement_launch_latency(1);
+        num_blocks_issued
     }
 }
 

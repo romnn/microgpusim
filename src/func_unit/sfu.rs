@@ -102,7 +102,7 @@ impl fu::SimdFunctionUnit for SFU {
 
     fn cycle(
         &mut self,
-        _operand_collector: &mut dyn crate::operand_collector::Writeback,
+        _operand_collector: &mut dyn crate::operand_collector::RegisterFileUnitTrait,
         _scoreboard: &mut dyn scoreboard::Access,
         _warps: &mut [warp::Warp],
         _stats: &mut stats::PerKernel,

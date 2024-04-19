@@ -21,7 +21,7 @@ pub trait Kernel: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static {
     // todo: aggregate with set_completed?
     fn set_done(&self);
 
-    fn next_block_reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>>;
+    fn reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>>;
 
     fn num_running_blocks(&self) -> usize;
 
@@ -190,7 +190,7 @@ pub mod trace {
             *self.done.read()
         }
 
-        fn next_block_reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>> {
+        fn reader(&self) -> &Box<FairMutex<dyn crate::trace::ReadWarpsForBlock>> {
             &self.reader
         }
     }

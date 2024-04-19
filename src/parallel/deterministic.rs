@@ -103,7 +103,11 @@ where
                         }
                     }
 
-                    self.issue_block_to_core_deterministic(cycle);
+                    use crate::BlockIssue;
+                    self.block_issuer
+                        .issue_blocks_to_core_deterministic(&mut self.kernel_manager, cycle);
+                    self.kernel_manager.decrement_launch_latency(1);
+
                     self.flush_caches(cycle);
 
                     cycle += 1;

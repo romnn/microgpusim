@@ -865,6 +865,10 @@ pub enum Kind {
 
 pub type CuSets = HashMap<Kind, Vec<usize>>;
 
+pub trait RegisterFileUnitTrait: Writeback + Send + Sync + 'static {
+    fn cycle(&mut self, pipeline_reg: &mut [register_set::RegisterSet]);
+}
+
 /// Register file
 #[derive(Debug, Clone)]
 pub struct RegisterFileUnit {
@@ -892,6 +896,20 @@ pub trait Writeback {
     ///
     /// to its output writes back the result of an instruction to the
     fn writeback(&mut self, instr: &mut WarpInstruction) -> bool;
+}
+
+impl RegisterFileUnitTrait for RegisterFileUnit {
+    fn cycle(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
+        log::debug!("{}", style("operand collector::step()").green());
+        self.dispatch_ready_cu(pipeline_reg);
+        self.allocate_reads();
+
+        debug_assert!(!self.in_ports.is_empty());
+        for input_port_num in 0..self.in_ports.len() {
+            self.allocate_collector_unit(pipeline_reg, input_port_num);
+        }
+        self.arbiter.reset_alloction();
+    }
 }
 
 impl RegisterFileUnit {
@@ -976,18 +994,6 @@ impl RegisterFileUnit {
             dispatch_unit.init(self.sub_core_model, self.num_warp_schedulers);
         }
         self.initialized = true;
-    }
-
-    pub fn step(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
-        log::debug!("{}", style("operand collector::step()").green());
-        self.dispatch_ready_cu(pipeline_reg);
-        self.allocate_reads();
-
-        debug_assert!(!self.in_ports.is_empty());
-        for input_port_num in 0..self.in_ports.len() {
-            self.allocate_collector_unit(pipeline_reg, input_port_num);
-        }
-        self.arbiter.reset_alloction();
     }
 
     /// Process read requests that do not have conflicts

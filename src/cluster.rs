@@ -4,20 +4,105 @@ use console::style;
 use ic::SharedConnection;
 use std::collections::VecDeque;
 
-// pub trait IssueBlock {}
+// pub struct CoreIssuer<I, MC> {
+#[derive(Debug)]
+pub struct CoreIssuer<C> {
+    // pub core: Arc<Mutex<Core<I, MC>>>,
+    pub core: Arc<Mutex<C>>,
+}
 
-// pub struct BlockIssuer {
-//     pub block_issue_next_core: usize,
-//     // pub block_issue_next_core: Mutex<usize>,
-// }
-//
-// impl BlockIssuer {
-//     pub fn new(num_cores: usize) -> Self {
-//         Self {
-//             block_issue_next_core: num_cores - 1,
-//         }
-//     }
-// }
+pub trait CoreIssue {
+    fn maybe_issue_block<K>(&self, kernel_manager: &mut K, cycle: u64) -> bool
+    where
+        K: crate::kernel_manager::SelectKernel;
+}
+
+// impl<I, MC> CoreIssue for CoreIssuer<I, MC> {
+impl<I, MC> CoreIssue for CoreIssuer<Core<I, MC>> {
+    fn maybe_issue_block<K>(&self, kernel_manager: &mut K, cycle: u64) -> bool
+    where
+        K: crate::kernel_manager::SelectKernel,
+    {
+        let mut core = self.core.try_lock();
+        core.maybe_issue_block(kernel_manager, cycle)
+    }
+}
+
+pub trait ClusterIssue {
+    // fn issue_block_to_core_deterministic<K, C>(
+    fn issue_blocks_to_core_deterministic<K>(
+        &mut self,
+        kernel_manager: &mut K,
+        // cores: &[Arc<Mutex<CoreIssuer>>],
+        // cores: &[C],
+        cycle: u64,
+    ) -> usize
+    where
+        // MC: std::fmt::Debug + crate::mcu::MemoryController,
+        // C: CoreIssue,
+        K: crate::kernel_manager::SelectKernel;
+}
+
+#[derive(Debug)]
+pub struct ClusterIssuer<C> {
+    pub cores: Box<[C]>,
+    pub cluster_id: usize,
+    pub block_issue_next_core: usize,
+    // pub block_issue_next_core: Mutex<usize>,
+}
+
+impl<C> ClusterIssuer<C> {
+    pub fn new(cores: Box<[C]>) -> Self {
+        let num_cores = cores.len();
+        Self {
+            block_issue_next_core: num_cores - 1,
+            cores: Default::default(),
+            cluster_id: todo!(),
+        }
+    }
+}
+
+impl<C> ClusterIssue for ClusterIssuer<C>
+where
+    C: CoreIssue,
+{
+    // #[tracing::instrument(name = "cluster_issue_block_to_core")]
+    // fn issue_block_to_core_deterministic<K, C>(
+    fn issue_blocks_to_core_deterministic<K>(
+        &mut self,
+        kernel_manager: &mut K,
+        // cores: &[C],
+        // cores: &[Arc<Mutex<CoreIssuer>>],
+        cycle: u64,
+    ) -> usize
+    where
+        // MC: std::fmt::Debug + crate::mcu::MemoryController,
+        // C: CoreIssue,
+        K: crate::kernel_manager::SelectKernel,
+    {
+        let num_cores = self.cores.len();
+
+        log::debug!(
+            "cluster {}: issue block to core for {} cores",
+            self.cluster_id,
+            num_cores
+        );
+        let mut num_blocks_issued = 0;
+
+        for core_id in 0..num_cores {
+            let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
+            let core = &self.cores[core_id];
+            // let mut core = core.try_lock();
+            let issued = core.maybe_issue_block(kernel_manager, cycle);
+            if issued {
+                num_blocks_issued += 1;
+                self.block_issue_next_core = core_id;
+                break;
+            }
+        }
+        num_blocks_issued
+    }
+}
 
 pub type ResponseQueue = ic::shared::UnboundedChannel<ic::Packet<mem_fetch::MemFetch>>;
 
@@ -246,38 +331,38 @@ where
         }
     }
 
-    #[tracing::instrument(name = "cluster_issue_block_to_core")]
-    pub fn issue_block_to_core_deterministic<K>(
-        &mut self,
-        kernel_manager: &mut K,
-        cycle: u64,
-    ) -> usize
-    where
-        MC: std::fmt::Debug + crate::mcu::MemoryController,
-        K: crate::kernel_manager::SelectKernel,
-    {
-        let num_cores = self.cores.len();
-
-        log::debug!(
-            "cluster {}: issue block to core for {} cores",
-            self.cluster_id,
-            num_cores
-        );
-        let mut num_blocks_issued = 0;
-
-        for core_id in 0..num_cores {
-            let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
-            let core = &self.cores[core_id];
-            let mut core = core.try_lock();
-            let issued = core.maybe_issue_block(kernel_manager, cycle);
-            if issued {
-                num_blocks_issued += 1;
-                self.block_issue_next_core = core_id;
-                break;
-            }
-        }
-        num_blocks_issued
-    }
+    // #[tracing::instrument(name = "cluster_issue_block_to_core")]
+    // pub fn issue_block_to_core_deterministic<K>(
+    //     &mut self,
+    //     kernel_manager: &mut K,
+    //     cycle: u64,
+    // ) -> usize
+    // where
+    //     MC: std::fmt::Debug + crate::mcu::MemoryController,
+    //     K: crate::kernel_manager::SelectKernel,
+    // {
+    //     let num_cores = self.cores.len();
+    //
+    //     log::debug!(
+    //         "cluster {}: issue block to core for {} cores",
+    //         self.cluster_id,
+    //         num_cores
+    //     );
+    //     let mut num_blocks_issued = 0;
+    //
+    //     for core_id in 0..num_cores {
+    //         let core_id = (core_id + self.block_issue_next_core + 1) % num_cores;
+    //         let core = &self.cores[core_id];
+    //         let mut core = core.try_lock();
+    //         let issued = core.maybe_issue_block(kernel_manager, cycle);
+    //         if issued {
+    //             num_blocks_issued += 1;
+    //             self.block_issue_next_core = core_id;
+    //             break;
+    //         }
+    //     }
+    //     num_blocks_issued
+    // }
 }
 
 #[cfg(test)]

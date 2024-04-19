@@ -4,6 +4,7 @@ members = [
   "validate/remote",
   "sass",
   "ptx",
+  "ptx/bison",
   "cuda/cudart",
   "profile",
   "playground",
@@ -44,6 +45,12 @@ debug-assertions = false
 # codegen-units = 10
 opt-level = 3
 debug = true
+
+[profile.fast]
+inherits = "release"
+debug = true
+lto = true
+codegen-units = 1
 
 [package]
 name = "gpucachesim"
