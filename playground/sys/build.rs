@@ -1,5 +1,3 @@
-// #![allow(warnings)]
-
 use color_eyre::eyre::{self, WrapErr};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -56,6 +54,7 @@ impl bindgen::callbacks::ParseCallbacks for ParseCallbacks {
         }
     }
 }
+
 fn generate_bindings(include_dir: &Path, flags: &HashMap<&str, &str>) -> eyre::Result<()> {
     let builder = bindgen::Builder::default()
         .clang_arg("-std=c++14")
@@ -144,7 +143,8 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
         "--file-prefix=./src/ref/intersim2/config.parser",
         "-Wno-yacc",
     ];
-    let bison_cmd = duct::cmd("bison", &args).unchecked();
+    let bison_binary = std::env::var("BISON_PATH").unwrap_or("bison".to_string());
+    let bison_cmd = duct::cmd(&bison_binary, &args).unchecked();
     let result = bison_cmd.run()?;
     println!("{}", String::from_utf8_lossy(&result.stdout));
     eprintln!("{}", String::from_utf8_lossy(&result.stderr));
@@ -152,7 +152,7 @@ fn build_config_parser_in_source() -> eyre::Result<()> {
     if !result.status.success() {
         eyre::bail!(
             "command {:?} exited with code {:?}",
-            [&["bison"], args.as_slice()].concat(),
+            [&[bison_binary.as_str()], args.as_slice()].concat(),
             result.status.code()
         );
     }
@@ -222,7 +222,9 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
         ),
         "-Wno-yacc",
     ];
-    let bison_cmd = duct::cmd("bison", &args).unchecked();
+
+    let bison_binary = std::env::var("BISON_PATH").unwrap_or("bison".to_string());
+    let bison_cmd = duct::cmd(&bison_binary, &args).unchecked();
     let result = bison_cmd.run()?;
     println!("{}", String::from_utf8_lossy(&result.stdout));
     eprintln!("{}", String::from_utf8_lossy(&result.stderr));
@@ -230,7 +232,7 @@ fn build_config_parser() -> eyre::Result<PathBuf> {
     if !result.status.success() {
         eyre::bail!(
             "command {:?} exited with code {:?}",
-            [&["bison"], args.as_slice()].concat(),
+            [&[bison_binary.as_str()], args.as_slice()].concat(),
             result.status.code()
         );
     }
@@ -308,6 +310,7 @@ fn generate_bridge(
         .include(parser_include_dir)
         .include("./src/ref/intersim2/")
         .flag("-std=c++14")
+        .flag("-Wno-everything")
         .files(sources);
 
     for (&k, &v) in flags {
@@ -390,6 +393,7 @@ fn main() -> eyre::Result<()> {
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=SKIP_BUILD");
     println!("cargo:rerun-if-env-changed=FORCE");
+    println!("cargo:rerun-if-env-changed=BISON_PATH");
 
     let build_profile = if is_debug() {
         "debug_build"

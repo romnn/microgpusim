@@ -72,16 +72,14 @@ struct line_cache_block : public cache_block_t {
     if (m_status == MODIFIED) sector_mask.set();
     return sector_mask;
   }
-  virtual unsigned long get_last_access_time() const override {
+  virtual uint64_t get_last_access_time() const override {
     return m_last_access_time;
   }
   virtual void set_last_access_time(
       unsigned long long time, mem_access_sector_mask_t sector_mask) override {
     m_last_access_time = time;
   }
-  virtual unsigned long long get_alloc_time() const override {
-    return m_alloc_time;
-  }
+  virtual uint64_t get_alloc_time() const override { return m_alloc_time; }
   virtual void set_ignore_on_fill(
       bool m_ignore, mem_access_sector_mask_t sector_mask) override {
     m_ignore_on_fill_status = m_ignore;
