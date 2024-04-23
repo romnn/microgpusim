@@ -402,13 +402,13 @@ where
 
         // : Vec<cluster::ClusterIssuer<_>>
         let cluster_issuers: Box<[_]> = (0..config.num_simt_clusters)
-            .map(|i| {
-                let cores: Box<[_]> = clusters[i]
+            .map(|cluster_id| {
+                let cores: Box<[_]> = clusters[cluster_id]
                     .cores
                     .iter()
                     .map(|core| cluster::CoreIssuer { core: core.clone() })
                     .collect();
-                let cluster = cluster::ClusterIssuer::new(cores);
+                let cluster = cluster::ClusterIssuer::new(cluster_id, cores);
                 cluster
             })
             .collect();

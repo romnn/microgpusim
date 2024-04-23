@@ -52,12 +52,12 @@ pub struct ClusterIssuer<C> {
 }
 
 impl<C> ClusterIssuer<C> {
-    pub fn new(cores: Box<[C]>) -> Self {
+    pub fn new(cluster_id: usize, cores: Box<[C]>) -> Self {
         let num_cores = cores.len();
         Self {
             block_issue_next_core: num_cores - 1,
-            cores: Default::default(),
-            cluster_id: todo!(),
+            cores,
+            cluster_id,
         }
     }
 }

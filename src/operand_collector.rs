@@ -866,6 +866,7 @@ pub enum Kind {
 pub type CuSets = HashMap<Kind, Vec<usize>>;
 
 pub trait RegisterFileUnitTrait: Writeback + Send + Sync + 'static {
+    fn as_any(&self) -> &dyn std::any::Any;
     fn cycle(&mut self, pipeline_reg: &mut [register_set::RegisterSet]);
 }
 
@@ -899,6 +900,10 @@ pub trait Writeback {
 }
 
 impl RegisterFileUnitTrait for RegisterFileUnit {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn cycle(&mut self, pipeline_reg: &mut [register_set::RegisterSet]) {
         log::debug!("{}", style("operand collector::step()").green());
         self.dispatch_ready_cu(pipeline_reg);
@@ -1363,6 +1368,7 @@ mod test {
     impl testing::state::OperandCollector {
         pub fn new(
             opcoll: &super::RegisterFileUnit,
+            // opcoll: &Box<dyn super::RegisterFileUnitTrait>,
             pipeline_reg: &[register_set::RegisterSet],
         ) -> Self {
             let dispatch_units = opcoll.dispatch_units.iter().map(Into::into).collect();

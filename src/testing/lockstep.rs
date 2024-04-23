@@ -54,7 +54,8 @@ fn gather_simulation_state(
         num_schedulers,
     );
 
-    box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue.lock();
+    // box_sim_state.last_cluster_issue = *box_sim.last_cluster_issue .lock();
+    box_sim_state.last_cluster_issue = box_sim.block_issuer.last_cluster_issue;
 
     for (cluster_id, cluster) in box_sim.clusters.iter().enumerate() {
         // for (core_id, core) in cluster.cores.iter().enumerate() {
@@ -107,9 +108,14 @@ fn gather_simulation_state(
                     fu.occupied().to_bit_string();
             }
             // core: operand collector
-            let register_file =
-                testing::state::OperandCollector::new(&core.register_file, &core.pipeline_reg);
-            box_sim_state.operand_collector_per_core[global_core_id] = Some(register_file);
+            let register_file = core
+                .register_file
+                .as_any()
+                .downcast_ref::<crate::operand_collector::RegisterFileUnit>()
+                .unwrap();
+            let register_file_state =
+                testing::state::OperandCollector::new(&register_file, &core.pipeline_reg);
+            box_sim_state.operand_collector_per_core[global_core_id] = Some(register_file_state);
             // core: schedulers
             box_sim_state.scheduler_per_core[global_core_id] = core
                 .schedulers
