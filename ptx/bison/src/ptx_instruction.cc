@@ -1,5 +1,7 @@
 #include "ptx_instruction.hpp"
 
+#include <algorithm>
+
 #include "function_info.hpp"
 #include "hal.hpp"
 #include "ptx.parser.tab.h"

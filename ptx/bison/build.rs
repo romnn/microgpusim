@@ -7,6 +7,10 @@ fn output_path() -> PathBuf {
         .unwrap()
 }
 
+fn target_os() -> Option<String> {
+    std::env::var("CARGO_CFG_TARGET_OS").ok()
+}
+
 #[must_use]
 fn is_debug() -> bool {
     match std::env::var("PROFILE").unwrap().as_str() {
@@ -248,10 +252,13 @@ fn build_ptx_parser() -> eyre::Result<()> {
         .static_flag(true)
         .warnings(false)
         .flag("-Wno-everything")
-        .flag("-std=c++14")
-        .flag("-mmacosx-version-min=10.15")
-        .include(source_dir)
-        .files(sources);
+        .flag("-std=c++14");
+
+    if target_os().as_deref() == Some("macos") {
+        // TODO: query sw_vers to get macos version
+        build.flag("-mmacosx-version-min=10.15");
+    }
+    build.include(out_dir).include(source_dir).files(sources);
 
     enable_diagnostics_color(&mut build);
     configure_debug_mode(&mut build);

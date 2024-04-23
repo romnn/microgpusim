@@ -1,5 +1,8 @@
 #include "gpgpu_context.hpp"
 
+#ifndef __APPLE__
+#include <sstream>
+#endif
 #include <unistd.h>
 
 #include "ptx.parser.tab.h"

@@ -1,5 +1,7 @@
 #include "ptx_recognizer.hpp"
 
+#include <cstdarg>
+
 #include "function_info.hpp"
 #include "gpgpu_context.hpp"
 #include "opcodes.h"
