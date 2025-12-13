@@ -1,8 +1,7 @@
 use super::parser::Rule;
-use thiserror::Error;
 use color_eyre::eyre;
 use pest::iterators::{Pair, Pairs};
-
+use thiserror::Error;
 
 // fn span_into_str(span: pest::Span) -> &str {
 //     span.as_str()
@@ -56,15 +55,15 @@ fn get_integer(pair: Pair<Rule>) -> eyre::Result<i64> {
 
 fn walk_function_decl(pair: Pair<Rule>) -> eyre::Result<()> {
     debug_assert_eq!(pair.as_rule(), Rule::function_decl);
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
     for p in inner {
         // dbg!(&p);
         match p.as_rule() {
-            Rule::function_decl_header => {},
-            Rule::function_return_val => {},
-            Rule::function_name => {},
-            Rule::function_parameters=> {},
-            rule => unreachable!("{:?}", rule)
+            Rule::function_decl_header => {}
+            Rule::function_return_val => {}
+            Rule::function_name => {}
+            Rule::function_parameters => {}
+            rule => unreachable!("{:?}", rule),
         }
     }
     Ok(())
@@ -72,56 +71,98 @@ fn walk_function_decl(pair: Pair<Rule>) -> eyre::Result<()> {
 
 fn walk_function_statement_block(pair: Pair<Rule>) -> eyre::Result<()> {
     debug_assert_eq!(pair.as_rule(), Rule::function_statement_block);
-    let mut inner = pair.into_inner();
+    let inner = pair.into_inner();
     for p in inner {
         match p.as_rule() {
-            Rule::prototype_decl=> {},
-            Rule::directive => {},
-            Rule::label=> {},
-            Rule::instruction_statement => {},
-            Rule::function_statement_block => {},
-            rule => unreachable!("{:?}", rule)
+            Rule::prototype_decl => {}
+            Rule::directive => {}
+            Rule::label => {}
+            Rule::instruction_statement => {}
+            Rule::function_statement_block => {}
+            rule => unreachable!("{:?}", rule),
         }
     }
     Ok(())
 }
 
-fn get_directive(pair: Pair<Rule>) -> eyre::Result<Directive<'_>> {
+fn get_directive(pair: Pair<Rule>) -> eyre::Result<Option<Directive<'_>>> {
     debug_assert_eq!(pair.as_rule(), Rule::directive);
     let directive = pair.into_inner().next().unwrap();
     match directive.as_rule() {
-        Rule::version_directive => {
-            Ok(Directive::Version(get_version(directive)?))
+        Rule::variable_decl => {
+            // TODO: ignore for now
+            Ok(None)
+        }
+        Rule::function_decl => {
+            // TODO: ignore for now
+            Ok(None)
+        }
+        Rule::section_directive => {
+            // TODO: ignore for now
+            Ok(None)
+        }
+        Rule::version_directive => Ok(Some(Directive::Version(get_version(directive)?))),
+        Rule::loc_directive => {
+            let mut loc_directive = directive.into_inner();
+            let mut loc = LocDirective::default();
+            loc.file_index = loc_directive.next().unwrap().as_str().parse()?;
+            loc.line_number = loc_directive.next().unwrap().as_str().parse()?;
+            loc.column_position = loc_directive.next().unwrap().as_str().parse()?;
+            for attr in loc_directive {
+                match attr.as_rule() {
+                    Rule::loc_function_name_attr => {
+                        // TODO: ignore for now
+                    }
+                    Rule::loc_inlined_at_attr => {
+                        let mut inlined_directive = attr.into_inner();
+                        let file_index = inlined_directive.next().unwrap().as_str().parse()?;
+                        let line_number = inlined_directive.next().unwrap().as_str().parse()?;
+                        let column_position = inlined_directive.next().unwrap().as_str().parse()?;
+                        loc.inlined_at = Some((file_index, line_number, column_position));
+                    }
+                    rule => unreachable!("{:?}", rule),
+                }
+            }
+            Ok(Some(Directive::Loc(loc)))
         }
         Rule::address_size_directive => {
             let address_size = directive.into_inner().next().unwrap();
             debug_assert_eq!(address_size.as_rule(), Rule::integer);
             let address_size = get_integer(address_size)?;
-            Ok(Directive::AddressSize(address_size.try_into()?))
-        },
+            Ok(Some(Directive::AddressSize(address_size.try_into()?)))
+        }
         Rule::pragma_directive => {
             let pragma = directive.into_inner().next().unwrap();
             debug_assert_eq!(pragma.as_rule(), Rule::string);
-            Ok(Directive::Pragma(pragma.as_str()))
+            Ok(Some(Directive::Pragma(pragma.as_str())))
         }
         Rule::target_directive => {
             let target_directive = directive.into_inner();
             let targets = target_directive.into_iter().map(|p| p.as_str()).collect();
-            Ok(Directive::Target(targets))
+            Ok(Some(Directive::Target(targets)))
         }
         Rule::file_directive => {
             let mut file_directive = directive.into_inner();
             let idx = file_directive.next().unwrap().as_str().parse()?;
             let path = file_directive.next().unwrap().as_str();
-            let timestamp = file_directive.next().map(|s| s.as_str().parse()).transpose()?;
-            let file_size = file_directive.next().map(|s| s.as_str().parse()).transpose()?;
-            Ok(Directive::File(FileDirective{idx, path, timestamp, file_size}))
+            let timestamp = file_directive
+                .next()
+                .map(|s| s.as_str().parse())
+                .transpose()?;
+            let file_size = file_directive
+                .next()
+                .map(|s| s.as_str().parse())
+                .transpose()?;
+            Ok(Some(Directive::File(FileDirective {
+                idx,
+                path,
+                timestamp,
+                file_size,
+            })))
         }
         rule => unreachable!("{:?}", rule),
     }
 }
-
-
 
 fn get_function(pair: Pair<Rule>) -> eyre::Result<()> {
     debug_assert_eq!(pair.as_rule(), Rule::function_defn);
@@ -131,9 +172,9 @@ fn get_function(pair: Pair<Rule>) -> eyre::Result<()> {
             Rule::function_decl => walk_function_decl(p)?,
             Rule::block_spec_list => {
                 // ignore
-            },
-            Rule::function_statement_block => walk_function_statement_block (p)?,
-            _ => unreachable!()
+            }
+            Rule::function_statement_block => walk_function_statement_block(p)?,
+            _ => unreachable!(),
         }
     }
     // let function_decl = inner.next();
@@ -171,18 +212,27 @@ pub struct FileDirective<'a> {
     file_size: Option<u64>,
 }
 
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
+pub struct LocDirective<'a> {
+    file_index: usize,
+    line_number: usize,
+    column_position: usize,
+    inlined_at: Option<(usize, usize, usize)>,
+    function_name: Option<&'a str>,
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Directive<'a> {
     Version(Version),
     AddressSize(u32),
     Pragma(&'a str),
+    Loc(LocDirective<'a>),
     File(FileDirective<'a>),
     Target(Vec<&'a str>),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct Function {
-}
+pub struct Function {}
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
 pub struct Program<'a> {
@@ -192,8 +242,8 @@ pub struct Program<'a> {
 
 // fn walk_program(pair: Pair<Rule>) -> eyre::Result<()> {
 fn walk_program(pairs: Pairs<Rule>) -> eyre::Result<Program<'_>> {
-// fn walk_program(pairs: Pairs<Rule>) -> eyre::Result<()> {
-    // let program = 
+    // fn walk_program(pairs: Pairs<Rule>) -> eyre::Result<()> {
+    // let program =
     // debug_assert_eq!(pair.as_rule(), Rule::program);
     // let statements = pairs.next()?.into_inner();
     // let statements = pair.into_inner();
@@ -204,23 +254,23 @@ fn walk_program(pairs: Pairs<Rule>) -> eyre::Result<Program<'_>> {
         // walk_statement(statement)?;
         match statement.as_rule() {
             Rule::directive => {
-                program.directives.push(get_directive(statement)?);
-                // ignore
-            },
+                if let Some(directive) = get_directive(statement)? {
+                    program.directives.push(directive);
+                }
+            }
             Rule::function_defn => get_function(statement)?,
-            _ => unreachable!(),
+            Rule::EOI => {}
+            rule => unreachable!("{:?}", rule),
         }
     }
     Ok(program)
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::{Parser as PTXParser, Rule};
     use color_eyre::eyre;
-    use crate::parser::{Rule, Parser as PTXParser};
     use pest::Parser;
     use std::path::PathBuf;
 
@@ -232,7 +282,7 @@ mod tests {
         let ptx_file = manifest_dir.join("kernels/vectoradd.sm_52.ptx");
         let ptx_code = std::fs::read_to_string(ptx_file)?;
 
-        let mut parsed = PTXParser::parse(Rule::program, &ptx_code)?;
+        let parsed = PTXParser::parse(Rule::program, &ptx_code)?;
         let program = walk_program(parsed)?;
         // let program = walk_program(parsed.next().unwrap())?;
         dbg!(&program);
@@ -251,29 +301,26 @@ mod tests {
     #[test]
     fn version() -> eyre::Result<()> {
         crate::tests::init_test();
-        let mut parsed = PTXParser::parse(
-            Rule::version_directive, ".version 7.8")?;
+        let mut parsed = PTXParser::parse(Rule::version_directive, ".version 7.8")?;
         let version = get_version(parsed.next().unwrap())?;
         assert_eq!(version, Version { major: 7, minor: 8 });
         Ok(())
     }
-
-
 }
 
 // let skip_depth = match inner.peek() {
-    //     Some(pair) if pair.as_rule() == parser::Rule::skip => {
-    //         let depth_pair = inner
-    //             .next()
-    //             .unwrap()
-    //             .into_inner()
-    //             .next()
-    //             .ok_or_else(|| parser::Error::MissingSkipDepth)?;
-    //         depth_pair
-    //             .as_str()
-    //             .parse()
-    //             .map_err(|source| parser::Error::BadSkipDepth { source })?
-    //     }
+//     Some(pair) if pair.as_rule() == parser::Rule::skip => {
+//         let depth_pair = inner
+//             .next()
+//             .unwrap()
+//             .into_inner()
+//             .next()
+//             .ok_or_else(|| parser::Error::MissingSkipDepth)?;
+//         depth_pair
+//             .as_str()
+//             .parse()
+//             .map_err(|source| parser::Error::BadSkipDepth { source })?
+//     }
 
 // #[derive(Debug)]
 // pub enum Directive {

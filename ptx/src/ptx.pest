@@ -7,6 +7,16 @@ statement = _{
     | function_defn
 }
 
+// TODO: missing @@DWARF as per the spec
+// @@DWARF .section .debug_pubnames, "", @progbits
+// @@DWARF .byte   0x2b, 0x00, 0x00, 0x00, 0x02, 0x00
+// @@DWARF .4byte  .debug_info
+// @@DWARF .4byte  0x000006b5, 0x00000364, 0x61395a5f, 0x5f736f63
+// @@DWARF .4byte  0x6e69616d, 0x63613031, 0x6150736f, 0x736d6172
+// @@DWARF .byte   0x00, 0x00, 0x00, 0x00, 0x00
+// The .section directive was introduced in PTX ISA version 2.0 and replaces the @@DWARF syntax. The @@DWARF syntax was deprecated in PTX ISA version 2.0 but is supported for legacy PTX ISA version 1.x code.
+
+// Beginning with PTX ISA version 3.0, PTX files containing DWARF debug information should include the .target debug platform option. This forward declaration directs PTX compilation to retain mappings for source-level debugging.
 directive = {
   variable_decl ~ ";"
   	| function_decl ~ ";"
